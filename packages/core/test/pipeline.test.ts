@@ -146,6 +146,32 @@ describe('pipeline', () => {
         expect(records[0]?.activeMinutes?.activeHr).toEqual([]);
       });
 
+      it('stores stress windows for awake time only, calibrating for the first three days', () => {
+        expect(records.map((r) => (r.stress === undefined || r.stress === null ? 'missing' : r.stress.reason))).toEqual([
+          'needs-history',
+          'needs-history',
+          'needs-history',
+          null,
+          null,
+          null,
+          null,
+        ]);
+        for (const r of records) {
+          const windows = r.stress?.windows ?? [];
+          expect(windows.length).toBeGreaterThan(100);
+          const main = r.sleep.periods.find((p) => !p.nap);
+          expect(windows.every((w) => main === undefined || w.t + 300 <= main.onset || w.t > main.offset)).toBe(true);
+          expect(windows.every((w) => (w.score === null) === (r.stress?.reason !== null))).toBe(true);
+        }
+        const workout = records[5]?.workouts[0];
+        expect(workout).toBeDefined();
+        const near = (records[5]?.stress?.windows ?? []).filter(
+          (w) => workout !== undefined && w.t + 300 > workout.start && w.t <= workout.end + 1_800,
+        );
+        expect(near).toEqual([]);
+        expect(records[4]?.stress?.baselineDays).toBe(4);
+      });
+
       it('recomputing the same range twice yields identical records', async () => {
         const stored = await weekStore.listDays(weekDevice, '0000-01-01', '9999-12-31');
         const again = await recomputeDays(weekStore, weekOpts());

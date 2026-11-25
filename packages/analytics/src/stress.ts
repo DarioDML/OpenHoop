@@ -43,6 +43,7 @@ export const STRESS_MAX_SCORE = 3;
 export const STRESS_MEDIUM_FROM = 1;
 export const STRESS_HIGH_FROM = 2;
 const MAD_TO_SD = 1.4826;
+const MILLI = 1000;
 const HR_SPREAD_MIN = 2;
 const LN_RMSSD_SPREAD_MIN = 0.1;
 
@@ -149,7 +150,8 @@ function eligibleFeature(rows: readonly Sample[], t: number, input: StressInput)
   }
   if (hrCount < STRESS_MIN_HR_S) return null;
   if (awake < STRESS_MIN_AWAKE_FRACTION * STRESS_WINDOW_S) return null;
-  if (motionCount < STRESS_MIN_AWAKE_FRACTION * STRESS_WINDOW_S || motionSum / motionCount > STRESS_MAX_MOTION_G) return null;
+  if (motionCount < STRESS_MIN_AWAKE_FRACTION * STRESS_WINDOW_S) return null;
+  if (Math.round((motionSum / motionCount) * MILLI) / MILLI > STRESS_MAX_MOTION_G) return null;
   const hr = hrSum / hrCount;
   if (input.activeThresholdBpm !== null && hr >= input.activeThresholdBpm) return null;
   const rmssd = windowRmssd(rows);

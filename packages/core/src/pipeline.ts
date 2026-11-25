@@ -2,7 +2,9 @@ import {
   ALGO,
   DEFAULT_CALIBRATION,
   activeMinutes,
+  activeThresholdBpm,
   dayLoad,
+  dayStress,
   debtMs,
   detectWorkouts,
   effectiveMaxHr,
@@ -10,6 +12,7 @@ import {
   nightlyHrv,
   nightlySkinTemp,
   nightlySpo2,
+  parseStressDay,
   readiness,
   respiratoryRate,
   restingHr as nightlyRestingHr,
@@ -19,7 +22,7 @@ import {
   sleepScore,
   zoneSeconds,
 } from '@openhoop/analytics';
-import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample } from '@openhoop/analytics';
+import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample, StressWindow } from '@openhoop/analytics';
 import { FrameError, decodeFrame } from '@openhoop/protocol';
 import type { Packet } from '@openhoop/protocol';
 import { sampleFromPacket } from './mapping';
@@ -36,6 +39,7 @@ const SCAN_AFTER_S = 18 * HOUR_S;
 const CLOCK_OFFSET_LIMIT_S = 120;
 const PARTIAL_DAY_SAMPLES = 20 * HOUR_S;
 const BASELINE_DAYS = 14;
+const STRESS_HISTORY_DAYS = 28;
 const SKIN_BASELINE_MIN_DAYS = 3;
 const RESTING_HR_FALLBACK = 60;
 const CALIBRATING_NIGHTS = 3;
@@ -474,6 +478,8 @@ async function computeDay(
   const existing = await store.getDay(deviceId, key);
   const manual = (existing?.workouts ?? []).filter((w) => w.source === 'manual' && w.start >= start && w.start < end);
   const workouts = [...auto, ...manual].sort((a, b) => a.start - b.start);
+  const stressHistory: StressWindow[][] = history.slice(-STRESS_HISTORY_DAYS).map((d) => parseStressDay(d.stress)?.windows ?? []);
+  const stress = dayStress(samples, { start, end, workouts, activeThresholdBpm: activeThresholdBpm(rest, maxHr) }, stressHistory);
 
   let hrMin: number | null = null;
   let hrMax: number | null = null;
@@ -527,6 +533,7 @@ async function computeDay(
     heartRate: { min: hrMin, avg: hrCount > 0 ? hrSum / hrCount : null, max: hrMax },
     workouts,
     activeMinutes: activeMinutes(minuteHr, rest, maxHr),
+    stress,
   };
 }
 
