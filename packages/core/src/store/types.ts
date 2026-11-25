@@ -171,7 +171,11 @@ export type ExportTable =
   | 'console_log'
   | 'raw_chunks'
   | 'body_measurements'
-  | 'lab_results';
+  | 'lab_results'
+  | 'vendor_cycles'
+  | 'vendor_sleeps'
+  | 'vendor_workouts'
+  | 'vendor_journal';
 
 export interface Store {
   driver: SqlDriver;

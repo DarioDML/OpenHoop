@@ -253,7 +253,77 @@ CREATE INDEX activities_device_start ON activities (device_id, start);
 CREATE UNIQUE INDEX activities_detected ON activities (device_id, detected_start) WHERE detected_start IS NOT NULL;
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6];
+const V7 = `
+CREATE TABLE vendor_cycles (
+  start_t INTEGER PRIMARY KEY,
+  end_t INTEGER,
+  tz_offset_s INTEGER NOT NULL,
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  recovery_pct REAL,
+  resting_hr REAL,
+  hrv_ms REAL,
+  skin_temp_c REAL,
+  spo2_pct REAL,
+  respiratory_rate REAL,
+  day_strain REAL,
+  source TEXT NOT NULL DEFAULT 'vendor-export' CHECK (source = 'vendor-export'),
+  imported_at INTEGER NOT NULL,
+  CHECK (end_t IS NULL OR end_t > start_t)
+);
+CREATE INDEX vendor_cycles_day ON vendor_cycles (day);
+
+CREATE TABLE vendor_sleeps (
+  onset INTEGER PRIMARY KEY,
+  wake INTEGER NOT NULL,
+  tz_offset_s INTEGER NOT NULL,
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  nap INTEGER NOT NULL CHECK (nap IN (0, 1)),
+  performance_pct REAL,
+  asleep_min REAL,
+  in_bed_min REAL,
+  light_min REAL,
+  deep_min REAL,
+  rem_min REAL,
+  awake_min REAL,
+  efficiency_pct REAL,
+  consistency_pct REAL,
+  respiratory_rate REAL,
+  source TEXT NOT NULL DEFAULT 'vendor-export' CHECK (source = 'vendor-export'),
+  imported_at INTEGER NOT NULL,
+  CHECK (wake > onset)
+);
+CREATE INDEX vendor_sleeps_day ON vendor_sleeps (day);
+
+CREATE TABLE vendor_workouts (
+  start_t INTEGER PRIMARY KEY,
+  end_t INTEGER NOT NULL,
+  tz_offset_s INTEGER NOT NULL,
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  activity TEXT,
+  strain REAL,
+  avg_hr REAL,
+  max_hr REAL,
+  source TEXT NOT NULL DEFAULT 'vendor-export' CHECK (source = 'vendor-export'),
+  imported_at INTEGER NOT NULL,
+  CHECK (end_t > start_t)
+);
+CREATE INDEX vendor_workouts_day ON vendor_workouts (day);
+
+CREATE TABLE vendor_journal (
+  cycle_start INTEGER NOT NULL,
+  question TEXT NOT NULL,
+  tz_offset_s INTEGER NOT NULL,
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  answered_yes INTEGER NOT NULL CHECK (answered_yes IN (0, 1)),
+  notes TEXT,
+  source TEXT NOT NULL DEFAULT 'vendor-export' CHECK (source = 'vendor-export'),
+  imported_at INTEGER NOT NULL,
+  PRIMARY KEY (cycle_start, question)
+);
+CREATE INDEX vendor_journal_day ON vendor_journal (day);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

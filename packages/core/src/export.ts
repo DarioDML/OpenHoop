@@ -4,6 +4,7 @@ interface ExportSpec {
   columns: readonly string[];
   select: string;
   order: string;
+  freeText?: readonly string[];
 }
 
 const EXPORTS: Record<ExportTable, ExportSpec> = {
@@ -72,11 +73,55 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, biomarker, unit, value, day, ref_low, ref_high, note, created_at',
     order: 'day, id',
   },
+  vendor_cycles: {
+    columns: ['start_t', 'end_t', 'tz_offset_s', 'day', 'recovery_pct', 'resting_hr', 'hrv_ms', 'skin_temp_c', 'spo2_pct', 'respiratory_rate', 'day_strain', 'source', 'imported_at'],
+    select: 'start_t, end_t, tz_offset_s, day, recovery_pct, resting_hr, hrv_ms, skin_temp_c, spo2_pct, respiratory_rate, day_strain, source, imported_at',
+    order: 'start_t',
+  },
+  vendor_sleeps: {
+    columns: [
+      'onset',
+      'wake',
+      'tz_offset_s',
+      'day',
+      'nap',
+      'performance_pct',
+      'asleep_min',
+      'in_bed_min',
+      'light_min',
+      'deep_min',
+      'rem_min',
+      'awake_min',
+      'efficiency_pct',
+      'consistency_pct',
+      'respiratory_rate',
+      'source',
+      'imported_at',
+    ],
+    select:
+      'onset, wake, tz_offset_s, day, nap, performance_pct, asleep_min, in_bed_min, light_min, deep_min, rem_min, awake_min, efficiency_pct, consistency_pct, respiratory_rate, source, imported_at',
+    order: 'onset',
+  },
+  vendor_workouts: {
+    columns: ['start_t', 'end_t', 'tz_offset_s', 'day', 'activity', 'strain', 'avg_hr', 'max_hr', 'source', 'imported_at'],
+    select: 'start_t, end_t, tz_offset_s, day, activity, strain, avg_hr, max_hr, source, imported_at',
+    order: 'start_t',
+    freeText: ['activity'],
+  },
+  vendor_journal: {
+    columns: ['cycle_start', 'question', 'tz_offset_s', 'day', 'answered_yes', 'notes', 'source', 'imported_at'],
+    select: 'cycle_start, question, tz_offset_s, day, answered_yes, notes, source, imported_at',
+    order: 'cycle_start, question',
+    freeText: ['question', 'notes'],
+  },
 };
 
-function cell(value: SqlValue | undefined): string {
+const FORMULA_START = /^[=+\-@\t\r]/;
+
+function cell(value: SqlValue | undefined, freeText = false): string {
   if (value === null || value === undefined) return '';
-  const text = value instanceof Uint8Array ? '' : String(value);
+  const raw = value instanceof Uint8Array ? '' : String(value);
+  const text = freeText && FORMULA_START.test(raw) ? `'${raw}` : raw;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -85,6 +130,6 @@ export async function exportCsv(store: Store, table: ExportTable): Promise<strin
   const spec = EXPORTS[table];
   const rows = await store.driver.all<Record<string, SqlValue>>(`SELECT ${spec.select} FROM ${table} ORDER BY ${spec.order}`);
   const lines = [spec.columns.join(',')];
-  for (const row of rows) lines.push(spec.columns.map((c) => cell(row[c])).join(','));
+  for (const row of rows) lines.push(spec.columns.map((c) => cell(row[c], spec.freeText?.includes(c) === true)).join(','));
   return `${lines.join('\r\n')}\r\n`;
 }

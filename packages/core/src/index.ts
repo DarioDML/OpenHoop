@@ -11,6 +11,7 @@ export * from './deviceInfo';
 export * from './config';
 export * from './pipeline';
 export * from './bodyMeasurements';
+export * from './vendorImport';
 export * from './sleepEdits';
 export * from './labResults';
 export * from './activities';
