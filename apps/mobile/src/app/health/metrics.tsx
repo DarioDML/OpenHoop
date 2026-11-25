@@ -36,7 +36,7 @@ function matches(item: CatalogueItem, query: string, t: TFunction): boolean {
 export default function MetricsScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const { days, userData } = useAppData();
+  const { days, userData, profile } = useAppData();
   const [query, setQuery] = useState('');
   const normalized = query.trim().toLowerCase();
   const visible = CATALOGUE.filter((item) => matches(item, normalized, t));
@@ -80,7 +80,7 @@ export default function MetricsScreen() {
         return (
           <ListGroup key={category} title={t(CATEGORY_LABEL[category])}>
             {items.map((item) => {
-              const reading = item.read(days, userData.weightKg);
+              const reading = item.read(days, userData.weightKg, profile);
               return (
                 <ListRow
                   key={item.id}

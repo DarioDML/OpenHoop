@@ -24,7 +24,7 @@ jest.mock('react-native-safe-area-context', () => ({
 import EcgScreen from '@/app/health/ecg';
 import HeartRateScreen from '@/app/health/heart-rate';
 import MetricsScreen from '@/app/health/metrics';
-import Vo2maxScreen from '@/app/health/vo2max';
+import BodyAgeScreen from '@/app/health/body-age';
 import VitalsScreen from '@/app/health/vitals';
 import BreathingScreen from '@/app/health/breathing';
 import HealthTab from '@/app/(tabs)/health';
@@ -115,7 +115,7 @@ describe('health screens', () => {
   });
 
   it('shows the NotBuilt notice on unbuilt screens', async () => {
-    await render(withAppData(<Vo2maxScreen />));
+    await render(withAppData(<BodyAgeScreen />));
     expect(screen.getByTestId('not-built-healthspan')).toBeTruthy();
   });
 

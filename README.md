@@ -76,7 +76,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A | SpO2, skin temperature |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
-| C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training), jet lag plan (rule-based guidance) |
+| C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training), jet lag plan (rule-based guidance), VO2 max (estimate), healthspan pillars |
 | D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat, lab results with the reference range you copied from your own report, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered, average cycle and period length, next-period estimate, pregnancy week). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
@@ -107,6 +107,20 @@ Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart 
 Stress is an estimate, OpenHoop's own method (level C), and not a diagnosis. The day is split into 5-minute windows, the short-term HRV length of the Task Force of the ESC and NASPE (Circulation 1996;93(5):1043-1065). A window counts only when the band reports the wearer awake (WAKE or STILL), mean motion stays at or below 0.1 g, mean heart rate stays below 40 % of heart rate reserve, and the window does not touch a sleep period (including hand-added ones), a workout or the 30 minutes after it (vagal reactivation after exercise, Stanley et al., Sports Med 2013;43(12):1259-1277), so exercise and sleep do not read as stress. Each window gets its mean heart rate and, when at least 30 successive beat-to-beat differences are present, its RMSSD (ultra-short RMSSD: Munoz et al., PLoS One 2015;10(9):e0138921). Acute stress raises heart rate and lowers RMSSD (Kim et al., Psychiatry Investig 2018;15(3):235-245).
 
 The baseline is the windows of up to 14 earlier days, at least 3 days with an hour of windows each; until then the day is labelled "calibrating". Centre and spread are the median and 1.4826 × MAD (Leys et al., J Exp Soc Psychol 2013;49(4):764-766), with RMSSD on a log scale (Plews et al., Sports Med 2013;43(9):773-781). A window's score is the mean of the heart rate z-score and the inverted ln RMSSD z-score (heart rate alone when there is no RMSSD), clamped to 0–3: the number of standard deviations above the wearer's own calm, awake normal. Low is below 1, medium from 1, high from 2. Because the baseline is personal, a long stressful period slowly becomes the new normal, and caffeine, illness, heat or alcohol raise the score as well.
+## Healthspan
+
+VO2 max and the healthspan pillars are estimates, OpenHoop's own methods (level C). They are not medical values.
+
+VO2 max uses the heart rate ratio method from Uth et al., "Estimation of VO2max from the ratio between HRmax and HRrest - the Heart Rate Ratio Method", Eur J Appl Physiol 2004;91(1):111-115: VO2 max ≈ 15.3 × maximum heart rate ÷ resting heart rate. The resting heart rate is the median of at least 5 nightly values in the last 14 days. The maximum heart rate comes from your profile, or else from 208 − 0.7 × age (Tanaka et al., J Am Coll Cardiol 2001;37(1):153-156). The formula was fitted on 46 well-trained men aged 21 to 51, with a standard error of 2.7 mL/kg/min for a measured maximum and 4.7 for an age-predicted one; the authors say other groups still need validation. OpenHoop's resting heart rate is the lowest 5-minute average during sleep, which is usually lower than a resting value taken awake, so the estimate may read high. Without enough nights, or without a birth year and a maximum heart rate, the app shows the reason instead of a number.
+
+There are four pillars and no combined score:
+
+- Sleep: the mean of the last 7 nights against the recommendation of at least 7 hours for adults (Watson et al., Sleep 2015;38(6):843-844), against OpenHoop's sleep need, and the sleep consistency.
+- Recovery: the mean HRV and resting heart rate of the last 7 nights against your own range (mean ± 1 SD) over the 30 nights before.
+- Activity: minutes at or above 40 % of heart rate reserve in the last 7 days against the WHO range of 150 to 300 minutes of moderate activity a week (Bull et al., Br J Sports Med 2020;54(24):1451-1462). A vigorous minute counts once, not twice as in the WHO guideline, so the count is conservative. Below 150 minutes is only judged when all 7 days were measured for at least 10 hours.
+- Fitness: the VO2 max estimate against the treadmill reference values per sex and age group in Loe et al., "Aerobic capacity reference data in 3816 healthy men and women 20-90 years", PLoS One 2013;8(5):e64319, Table 2.
+
+There is no body age. A fitness age from the HUNT study exists, but its exact method could not be checked, and the error of the VO2 max estimate would turn into many years of "age".
 
 ## Privacy
 
