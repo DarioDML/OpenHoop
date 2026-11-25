@@ -32,13 +32,19 @@ The `sim` command fills a database from the simulated band. The `days` command p
 
 Run `npm run openhoop -- help` for the other commands: `triage`, `live`, `sync`, `recompute`, `export`, `decode`, `profile`. Commands that use Bluetooth print "Bluetooth path: UNTESTED until day 1" unless `--sim` is given.
 
-To run the Android app (it needs the Android SDK and an emulator or a device, and it is a development build, not Expo Go):
+The phone app is an Expo app for Android and iOS. To run it from source on Android (it needs the Android SDK and an emulator or a device, and it is a development build, not Expo Go):
 
 ```
 cd apps/mobile && npm install && npx expo run:android
 ```
 
-The app can use the real band or a built-in demo band.
+On a Mac with Xcode, `npx expo run:ios` does the same for iOS. The app can use the real band or a built-in demo band.
+
+### Ready-made builds
+
+The `App builds` workflow (`.github/workflows/apps.yml`) builds an Android APK and an unsigned iOS IPA, and starts the iOS build on a simulator to check that it launches. It runs on pull requests that change the native setup, on demand from the Actions tab, and on every `v*` tag. A tag also publishes both files as a GitHub release. To install them on a phone, see [docs/installeren.md](docs/installeren.md) (Dutch).
+
+Pull request and on-demand builds sign the APK with the public debug key: fine for testing, but anyone could sign an update for it. A tagged release signs with your own key and fails without it. Set the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`; only tag builds can read them. The IPA needs no secrets: every iPhone user signs it with their own Apple ID.
 
 A Dutch runbook for the first day with a real band is in [docs/dag-1.md](docs/dag-1.md).
 
@@ -52,7 +58,7 @@ A Dutch runbook for the first day with a real band is in [docs/dag-1.md](docs/da
 | `packages/sim` | A simulated band that speaks the real protocol, with fault injection. |
 | `packages/ble-node` | Bluetooth transport for Node on a laptop. Untested until a band is available. |
 | `apps/cli` | The laptop workbench: `npm run openhoop`. |
-| `apps/mobile` | The Expo Android app. |
+| `apps/mobile` | The Expo app for Android and iOS. |
 
 Dependencies point one way: `protocol`, then `analytics`, then `core`, then `sim`, `ble-node`, `cli` and `mobile`.
 

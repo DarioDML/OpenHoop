@@ -7,6 +7,14 @@
     "icon": "./assets/images/icon.png",
     "scheme": "openhoop",
     "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "app.openhoop.mobile",
+      "supportsTablet": false
+    },
+    "locales": {
+      "en": "./locales/en.json",
+      "nl": "./locales/nl.json"
+    },
     "android": {
       "package": "app.openhoop.mobile",
       "adaptiveIcon": {
@@ -40,16 +48,23 @@
           "useSQLCipher": true
         }
       ],
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "expo-localization",
       [
         "react-native-ble-manager",
         {
           "isBleRequired": false,
-          "neverForLocation": true
+          "neverForLocation": true,
+          "bluetoothAlwaysPermission": "OpenHoop uses Bluetooth to find your band and read its data. The data stays on your phone."
         }
       ],
-      "./plugins/withAndroidBuildFixes"
+      "./plugins/withAndroidBuildFixes",
+      "./plugins/withReleaseSigning"
     ],
     "experiments": {
       "typedRoutes": true
