@@ -19,6 +19,17 @@ export const PREGNANCY_LIMITS = {
   lateTermDays: 294,
 } as const;
 
+export const SYMPTOM_OPTIONS = ['cramps', 'headache', 'bloating', 'mood', 'fatigue', 'breastTenderness', 'nausea', 'backPain'] as const satisfies readonly Symptom[];
+export const FLOW_OPTIONS = [1, 2, 3] as const satisfies readonly FlowLevel[];
+export const INTENSITY_OPTIONS = [1, 2, 3] as const satisfies readonly Intensity[];
+
+type AssertNever<T extends never> = T;
+export type CompleteOptions = [
+  AssertNever<Exclude<Symptom, (typeof SYMPTOM_OPTIONS)[number]>>,
+  AssertNever<Exclude<FlowLevel, (typeof FLOW_OPTIONS)[number]>>,
+  AssertNever<Exclude<Intensity, (typeof INTENSITY_OPTIONS)[number]>>,
+];
+
 export const TIMELINE_RANGES = [30, 90] as const;
 export type TimelineRange = (typeof TIMELINE_RANGES)[number];
 

@@ -33,3 +33,8 @@ export function unixToIsoDate(unixS: number, tzOffsetS: number): string {
 export function isoDaysAgo(nowS: number, days: number, tzOffsetS: number): string {
   return unixToIsoDate(nowS - days * DAY_S, tzOffsetS);
 }
+
+export function todayIsoDate(): string {
+  const now = new Date(Date.now());
+  return unixToIsoDate(Math.floor(now.getTime() / 1000), deviceTzOffsetS(now));
+}

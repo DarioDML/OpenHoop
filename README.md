@@ -77,7 +77,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones |
 | C | Sleep consistency, automatic workouts, calories (estimate) |
-| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
+| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, average cycle and period length, next-period estimate, pregnancy week) |
 
 When the data does not support a number, the app shows the reason instead of a number.
 
@@ -97,6 +97,7 @@ Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart 
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
 - Export gives you the whole database and one CSV file per table.
+- Cycle, symptom and pregnancy entries are sensitive. They stay in the encrypted database on the phone, are part of the export, and can be deleted one by one or all at once on the cycle screen. The next-period date is a plain average of your own logged cycles. It is not a fertility or ovulation prediction.
 
 ## Not a medical device
 
