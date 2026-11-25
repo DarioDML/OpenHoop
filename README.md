@@ -131,6 +131,7 @@ There is no body age. A fitness age from the HUNT study exists, but its exact me
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
 - Export gives you the whole database and one CSV file per table, including coach conversations and memory notes, plus `notifications.json` with your notification settings and inbox.
+- Journal notes you type are kept in the same encrypted database. They are not sent anywhere and they are part of the export.
 - Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
 - Cycle, symptom and pregnancy entries are sensitive. They stay in the encrypted database on the phone, are part of the export, and can be deleted one by one or all at once on the cycle screen. The next-period date is a plain average of your own logged cycles. It is not a fertility or ovulation prediction.
 

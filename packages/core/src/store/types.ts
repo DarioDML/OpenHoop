@@ -184,7 +184,8 @@ export type ExportTable =
   | 'strength_template_items'
   | 'strength_sessions'
   | 'strength_session_exercises'
-  | 'strength_sets';
+  | 'strength_sets'
+  | 'journal_notes';
 
 export interface Store {
   driver: SqlDriver;

@@ -19,12 +19,15 @@ import {
   saveStrengthTemplate,
   startStrengthSession,
   deleteBodyMeasurement,
+  deleteJournalNote,
   deleteDataBefore,
   deleteLabResult,
   exportCsv,
   insertBodyMeasurement,
+  insertJournalNote,
   insertLabResult,
   listBodyMeasurements,
+  listJournalNotes,
   listLabResults,
   loadReference,
   clearPregnancy,
@@ -51,9 +54,12 @@ import {
   type ActivityStore,
   updatePeriod,
   upsertSymptom,
+  updateJournalNote,
   type BandModel,
   type BodyMeasurement,
   type BodyMeasurementInput,
+  type JournalNote,
+  type JournalNoteInput,
   type CycleData,
   type CustomExerciseInput,
   type PlannedExercise,
@@ -148,6 +154,7 @@ export interface Snapshot {
   settings: Settings;
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
+  journalNotes: JournalNote[];
   labResults: LabResult[];
   cycle: CycleData;
   strength: StrengthData;
@@ -238,6 +245,7 @@ export class AppController {
       settings: { language, dataSource: 'demo', ownerSince: null },
       userData: defaultUserData(),
       bodyMeasurements: [],
+      journalNotes: [],
       labResults: [],
       cycle: emptyCycleData(),
       strength: emptyStrengthData(),
@@ -341,11 +349,13 @@ export class AppController {
     const labResults = await listLabResults(this.app.driver);
     const cycle = await loadCycleData(this.app.driver);
     const strength = await listStrengthData(this.app.driver);
+    const journalNotes = await listJournalNotes(this.app.driver);
     this.patch({
       settings: { ...this.snapshot.settings, language, dataSource },
       profile,
       userData,
       bodyMeasurements,
+      journalNotes,
       labResults,
       cycle,
       inbox: this.notificationState.inbox,
@@ -1010,6 +1020,33 @@ export class AppController {
     };
   }
 
+  private runNoteChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const done = await task(driver);
+        this.patch({ journalNotes: await listJournalNotes(driver) });
+        return done;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
+  saveJournalNote = (id: number | null, input: JournalNoteInput): Promise<boolean> =>
+    this.runNoteChange(async (driver) => {
+      if (id === null) {
+        await insertJournalNote(driver, input, nowSeconds());
+        return true;
+      }
+      return updateJournalNote(driver, id, input);
+    });
+
+  removeJournalNote = (id: number): Promise<boolean> => this.runNoteChange((driver) => deleteJournalNote(driver, id));
+
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
@@ -1294,6 +1331,8 @@ export class AppController {
       updateUserData: this.updateUserData,
       saveBodyMeasurement: this.saveBodyMeasurement,
       removeBodyMeasurement: this.removeBodyMeasurement,
+      saveJournalNote: this.saveJournalNote,
+      removeJournalNote: this.removeJournalNote,
       saveLabResult: this.saveLabResult,
       removeLabResult: this.removeLabResult,
       savePeriod: this.savePeriod,

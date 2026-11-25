@@ -1,5 +1,5 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, LabResult, LabResultInput, PeriodInput, PlannedExercise, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { InboxEntry } from '@/lib/notificationPlan';
@@ -122,6 +122,7 @@ export interface AppData {
   cycle: CycleData;
   strength: StrengthData;
   strengthActions: StrengthActions;
+  journalNotes: JournalNote[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
@@ -148,6 +149,8 @@ export interface AppData {
   savePregnancy(dueDay: string): Promise<boolean>;
   removePregnancy(): Promise<boolean>;
   removeAllCycleData(): Promise<boolean>;
+  saveJournalNote(id: number | null, input: JournalNoteInput): Promise<boolean>;
+  removeJournalNote(id: number): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;
