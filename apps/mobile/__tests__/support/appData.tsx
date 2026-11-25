@@ -24,6 +24,7 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     settings: createFixtureSettings(language, FIXTURE_NOW),
     userData: { ...defaultUserData(), onboardingDone: true },
     bodyMeasurements: [],
+    labResults: [],
     scan: async () => [],
     pair: noop,
     sync: noop,
@@ -35,6 +36,8 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     updateUserData: async () => true,
     saveBodyMeasurement: async () => true,
     removeBodyMeasurement: async () => true,
+    saveLabResult: async () => true,
+    removeLabResult: async () => true,
     heartRateBetween: async () => [],
     inbox: [],
     notificationPermission: 'undetermined',
@@ -52,6 +55,11 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     syncHealthConnect: noop,
     openHealthConnectSettings: () => undefined,
     installHealthConnect: noop,
+    activities: [],
+    pendingDelete: null,
+    saveActivity: async () => 1,
+    deleteActivity: async () => true,
+    undoDelete: noop,
     ...overrides,
   };
 }

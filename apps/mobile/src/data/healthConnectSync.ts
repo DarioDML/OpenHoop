@@ -10,6 +10,7 @@ import {
   permissionKey,
   planBodyImport,
   type HcDataType,
+  type HcExercise,
   type HcExportType,
   type HeartRateMinute,
 } from '@/lib/healthConnectMapping';
@@ -27,6 +28,7 @@ export interface HcSyncContext {
   api: HealthConnectApi;
   state: HealthConnectState;
   days: readonly DayRecord[];
+  exercises: readonly HcExercise[];
   exportAllowed: boolean;
   heartRate(fromS: number, toS: number): Promise<HeartRateMinute[]>;
   importBody(entries: ImportedBodyMeasurement[], withBodyFat: boolean): Promise<BodyImportResult>;
@@ -67,7 +69,7 @@ async function exportHeartRate(ctx: HcSyncContext, fromS: number): Promise<{ res
 }
 
 async function exportType(ctx: HcSyncContext, type: Exclude<HcExportType, 'heartRate'>, fromS: number): Promise<HcTypeResult> {
-  const records = exportRecords(type, ctx.days, [], { fromS, nowS: ctx.nowS, version: ctx.version });
+  const records = exportRecords(type, { days: ctx.days, exercises: ctx.exercises, minutes: [] }, { fromS, nowS: ctx.nowS, version: ctx.version });
   try {
     await ctx.api.deleteOwn(HC_RECORD_TYPES[type], fromS, ctx.nowS);
     const written = records.length === 0 ? 0 : await ctx.api.insert(records);

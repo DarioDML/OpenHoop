@@ -2,6 +2,7 @@ import type { DayRecord } from '@openhoop/core';
 import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
+import { dayEntries } from '@/data/activities';
 import { useAppData } from '@/data/context';
 import { baselineAt } from '@/data/derived';
 import { caloriesForDay } from '@/data/energyDerived';
@@ -16,6 +17,8 @@ import { MetricTile } from '@/ui/MetricTile';
 import { ISSUES, type IssueKey } from '@/ui/NotBuilt';
 import { PARITY } from '@/ui/parity';
 import { radius, spacing, useTheme } from '@/ui/theme';
+
+import { entryHref, entryTitle } from '@/ui/activity/entries';
 
 import { Divider, WeekDots, useRangeChip } from './bits';
 import { briefLines, tonightBedtime } from './briefText';
@@ -172,9 +175,11 @@ interface MyDayProps extends DayProps {
 export function MyDayCard({ days, index, actions = true }: MyDayProps) {
   const { t } = useT();
   const { colors } = useTheme();
+  const { activities } = useAppData();
   const day = days[index];
   if (!day) return null;
   const main = mainPeriod(day);
+  const entries = dayEntries(days, day, activities);
   return (
     <View style={{ gap: spacing.md }}>
       <AppText variant="capLarge" muted>
@@ -209,21 +214,21 @@ export function MyDayCard({ days, index, actions = true }: MyDayProps) {
             </AppText>
           </View>
         )}
-        {day.workouts.map((workout, i) => (
-          <View key={workout.start}>
+        {entries.map((entry) => (
+          <View key={entry.key}>
             <Divider />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={workout.label ?? t('workout.default')}
-              onPress={() => router.push(`/activity/details?day=${day.day}&index=${i}`)}
+              accessibilityLabel={entryTitle(t, entry)}
+              onPress={() => router.push(entryHref(entry, day.day, entry.id === null ? day.workouts.findIndex((w) => w.start === entry.detectedStart) : null))}
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56 }}>
               <Icon name="flame" color={colors.metric.loadBright} size={20} />
               <View style={{ flex: 1, gap: 2 }}>
                 <AppText variant="body" style={{ fontWeight: '500' }}>
-                  {workout.label ?? t('workout.default')}
+                  {entryTitle(t, entry)}
                 </AppText>
                 <AppText variant="caption" muted numeric>
-                  {formatClock(workout.start, day.tzOffsetS)} – {formatClock(workout.end, day.tzOffsetS)}
+                  {formatClock(entry.start, day.tzOffsetS)} – {formatClock(entry.end, day.tzOffsetS)}
                 </AppText>
               </View>
               <Icon name="chevronRight" color={colors.textMuted} size={18} />

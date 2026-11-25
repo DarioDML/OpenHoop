@@ -1,4 +1,4 @@
-import type { DayRecord, ImportedBodyMeasurement, SleepPeriodRecord, WorkoutRecord } from '@openhoop/core';
+import type { DayRecord, ImportedBodyMeasurement, SleepPeriodRecord } from '@openhoop/core';
 import type {
   DeviceType,
   ExerciseSessionRecord,
@@ -71,6 +71,7 @@ export function wantedPermissions(prefs: HcPreferences): Permission[] {
 }
 
 const DEVICE_FITNESS_BAND: DeviceType = 6;
+const RECORDED_ACTIVELY: RecordingMethod = 1;
 const RECORDED_AUTOMATICALLY: RecordingMethod = 2;
 const RECORDED_MANUALLY: RecordingMethod = 3;
 const HOUR_S = 3_600;
@@ -96,11 +97,11 @@ export function clientRecordId(kind: string, unixS: number): string {
   return `openhoop.${kind}.${Math.round(unixS)}`;
 }
 
-function metadata(kind: string, unixS: number, version: number, manual = false): Metadata {
+function metadata(kind: string, unixS: number, version: number, recordingMethod: RecordingMethod = RECORDED_AUTOMATICALLY): Metadata {
   return {
     clientRecordId: clientRecordId(kind, unixS),
     clientRecordVersion: version,
-    recordingMethod: manual ? RECORDED_MANUALLY : RECORDED_AUTOMATICALLY,
+    recordingMethod,
     device: { type: DEVICE_FITNESS_BAND },
   };
 }
@@ -211,33 +212,60 @@ export function sleepSessionRecords(days: readonly DayRecord[], window: ExportWi
         recordType: 'SleepSession',
         startTime: isoTime(period.onset),
         endTime: isoTime(period.offset),
-        metadata: metadata('sleep', period.onset, window.version, period.source !== 'detected'),
+        metadata: metadata('sleep', period.onset, window.version, period.source === 'detected' ? RECORDED_AUTOMATICALLY : RECORDED_MANUALLY),
       });
     }
   }
   return out;
 }
 
-export function exerciseType(workout: Pick<WorkoutRecord, 'label'>): number {
-  if (workout.label === null) return EXERCISE_TYPE_OTHER;
-  return EXERCISE_TYPES[workout.label] ?? EXERCISE_TYPE_OTHER;
+export type HcExerciseKind = 'detected' | 'edited' | 'manual' | 'live';
+
+export interface HcExercise {
+  kind: HcExerciseKind;
+  id: number | null;
+  detectedStart: number | null;
+  type: string | null;
+  label: string | null;
+  start: number;
+  end: number;
 }
 
-export function exerciseSessionRecords(days: readonly DayRecord[], window: ExportWindow): ExerciseSessionRecord[] {
+export function exerciseType(exercise: Pick<HcExercise, 'type' | 'label'>): number {
+  const name = exercise.type ?? exercise.label;
+  if (name === null) return EXERCISE_TYPE_OTHER;
+  return EXERCISE_TYPES[name] ?? EXERCISE_TYPE_OTHER;
+}
+
+const EXERCISE_METHOD: Readonly<Record<HcExerciseKind, RecordingMethod>> = {
+  detected: RECORDED_AUTOMATICALLY,
+  edited: RECORDED_AUTOMATICALLY,
+  manual: RECORDED_MANUALLY,
+  live: RECORDED_ACTIVELY,
+};
+
+function exerciseKey(exercise: HcExercise): { kind: string; at: number } | null {
+  if (exercise.detectedStart !== null && (exercise.kind === 'detected' || exercise.kind === 'edited')) return { kind: 'exercise', at: exercise.detectedStart };
+  if (exercise.id !== null) return { kind: 'activity', at: exercise.id };
+  return null;
+}
+
+export function exerciseSessionRecords(exercises: readonly HcExercise[], window: ExportWindow): ExerciseSessionRecord[] {
   const out: ExerciseSessionRecord[] = [];
-  const seen = new Set<number>();
-  for (const day of days) {
-    for (const workout of day.workouts) {
-      if (workout.end <= window.fromS || workout.end > window.nowS || workout.end <= workout.start || seen.has(workout.start)) continue;
-      seen.add(workout.start);
-      out.push({
-        recordType: 'ExerciseSession',
-        startTime: isoTime(workout.start),
-        endTime: isoTime(workout.end),
-        exerciseType: exerciseType(workout),
-        metadata: metadata('exercise', workout.start, window.version, workout.source === 'manual'),
-      });
-    }
+  const seen = new Set<string>();
+  for (const exercise of exercises) {
+    const key = exerciseKey(exercise);
+    if (key === null || exercise.end <= window.fromS || exercise.end > window.nowS || exercise.end <= exercise.start) continue;
+    const id = clientRecordId(key.kind, key.at);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      recordType: 'ExerciseSession',
+      startTime: isoTime(exercise.start),
+      endTime: isoTime(exercise.end),
+      exerciseType: exerciseType(exercise),
+      metadata: metadata(key.kind, key.at, window.version, EXERCISE_METHOD[exercise.kind]),
+    });
   }
   return out;
 }
@@ -268,10 +296,17 @@ export function heartRateRecords(minutes: readonly HeartRateMinute[], window: Ex
     });
 }
 
-export function exportRecords(type: HcExportType, days: readonly DayRecord[], minutes: readonly HeartRateMinute[], window: ExportWindow): HealthConnectRecord[] {
+export interface ExportSource {
+  days: readonly DayRecord[];
+  exercises: readonly HcExercise[];
+  minutes: readonly HeartRateMinute[];
+}
+
+export function exportRecords(type: HcExportType, source: ExportSource, window: ExportWindow): HealthConnectRecord[] {
+  const { days } = source;
   switch (type) {
     case 'heartRate':
-      return heartRateRecords(minutes, window);
+      return heartRateRecords(source.minutes, window);
     case 'restingHeartRate':
       return restingHeartRateRecords(days, window);
     case 'hrv':
@@ -279,7 +314,7 @@ export function exportRecords(type: HcExportType, days: readonly DayRecord[], mi
     case 'sleep':
       return sleepSessionRecords(days, window);
     case 'exercise':
-      return exerciseSessionRecords(days, window);
+      return exerciseSessionRecords(source.exercises, window);
     case 'spo2':
       return spo2Records(days, window);
     case 'respiratoryRate':

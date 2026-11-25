@@ -8,6 +8,7 @@ import {
   clientRecordId,
   exerciseSessionRecords,
   exportRecords,
+  type HcExercise,
   heartRateRecords,
   hrvRecords,
   planBodyImport,
@@ -30,6 +31,11 @@ function derived(value: number | null): Derived {
 
 function period(onset: number, offset: number, extra: Partial<SleepPeriodRecord> = {}): SleepPeriodRecord {
   return { onset, offset, asleepS: offset - onset, inBedS: offset - onset, nap: false, source: 'detected', editId: null, ...extra };
+}
+
+function exercise(overrides: Partial<HcExercise> = {}): HcExercise {
+  const start = overrides.start ?? NOW_S - 3_600;
+  return { kind: 'detected', id: null, detectedStart: start, type: null, label: null, start, end: start + 1_800, ...overrides };
 }
 
 function makeDay(overrides: Partial<DayRecord> = {}, periods: SleepPeriodRecord[] = [period(NIGHT_ONSET, NIGHT_OFFSET)], workouts: WorkoutRecord[] = []): DayRecord {
@@ -115,22 +121,27 @@ describe('Health Connect mapping', () => {
     const straddling = period(WINDOW.fromS - 3_600, WINDOW.fromS + 3_600);
     expect(sleepSessionRecords([makeDay({}, [straddling])], WINDOW)).toHaveLength(1);
     expect(sleepSessionRecords([makeDay({}, [period(WINDOW.fromS - 7_200, WINDOW.fromS)])], WINDOW)).toEqual([]);
-    const workout: WorkoutRecord = { start: WINDOW.fromS - 600, end: WINDOW.fromS + 600, zoneSeconds: [], avgHr: 120, maxHr: 150, source: 'auto', label: null };
-    expect(exerciseSessionRecords([makeDay({}, [], [workout])], WINDOW)).toHaveLength(1);
+    expect(exerciseSessionRecords([exercise({ start: WINDOW.fromS - 600, end: WINDOW.fromS + 600 })], WINDOW)).toHaveLength(1);
   });
 
-  it('maps detected and logged workouts to exercise sessions with a known type or "other"', () => {
-    const workouts: WorkoutRecord[] = [
-      { start: NOW_S - 7_200, end: NOW_S - 3_600, zoneSeconds: [], avgHr: 120, maxHr: 150, source: 'auto', label: null },
-      { start: NOW_S - 3_000, end: NOW_S - 1_000, zoneSeconds: [], avgHr: 130, maxHr: 160, source: 'manual', label: 'running' },
-      { start: NOW_S - 900, end: NOW_S - 100, zoneSeconds: [], avgHr: 130, maxHr: 160, source: 'manual', label: 'padel' },
-    ];
-    const records = exerciseSessionRecords([makeDay({}, [], workouts)], WINDOW);
-    expect(records.map((r) => [r.exerciseType, r.metadata?.recordingMethod])).toEqual([
-      [0, 2],
-      [56, 3],
-      [0, 3],
+  it('maps detected, edited, logged and live activities to exercise sessions with a known type or "other"', () => {
+    const records = exerciseSessionRecords(
+      [
+        exercise({ start: NOW_S - 9_000, end: NOW_S - 8_000 }),
+        exercise({ kind: 'edited', id: 4, detectedStart: NOW_S - 7_300, type: 'cycling', start: NOW_S - 7_200, end: NOW_S - 3_600 }),
+        exercise({ kind: 'manual', id: 5, detectedStart: null, type: 'running', start: NOW_S - 3_000, end: NOW_S - 1_000 }),
+        exercise({ kind: 'live', id: 6, detectedStart: null, type: 'padel', start: NOW_S - 900, end: NOW_S - 100 }),
+        exercise({ kind: 'manual', id: null, detectedStart: null, start: NOW_S - 90, end: NOW_S - 10 }),
+      ],
+      WINDOW,
+    );
+    expect(records.map((r) => [r.metadata?.clientRecordId, r.exerciseType, r.metadata?.recordingMethod])).toEqual([
+      [clientRecordId('exercise', NOW_S - 9_000), 0, 2],
+      [clientRecordId('exercise', NOW_S - 7_300), 8, 2],
+      [clientRecordId('activity', 5), 56, 3],
+      [clientRecordId('activity', 6), 0, 1],
     ]);
+    expect(records[1]?.startTime).toBe(new Date((NOW_S - 7_200) * 1000).toISOString());
   });
 
   it('groups minute heart rate into hourly records with whole beats and stable ids', () => {
@@ -283,6 +294,7 @@ function context(api: HealthConnectApi, state: HealthConnectState, overrides: Pa
     api,
     state,
     days: [makeDay()],
+    exercises: [],
     exportAllowed: true,
     heartRate: async (fromS) => [{ t: fromS + 60, hr: 60 }],
     importBody: async (entries) => ({ saved: entries.length, skipped: 0 }),
@@ -452,9 +464,9 @@ describe('Health Connect sync', () => {
 
   it('exports every type through one entry point', () => {
     for (const type of ['restingHeartRate', 'hrv', 'sleep', 'spo2', 'respiratoryRate', 'skinTemperature'] as const) {
-      expect(exportRecords(type, [makeDay()], [], WINDOW)).toHaveLength(1);
+      expect(exportRecords(type, { days: [makeDay()], exercises: [], minutes: [] }, WINDOW)).toHaveLength(1);
     }
-    expect(exportRecords('exercise', [makeDay()], [], WINDOW)).toEqual([]);
-    expect(exportRecords('heartRate', [], [{ t: NOW_S - 60, hr: 60 }], WINDOW)).toHaveLength(1);
+    expect(exportRecords('exercise', { days: [], exercises: [exercise()], minutes: [] }, WINDOW)).toHaveLength(1);
+    expect(exportRecords('heartRate', { days: [], exercises: [], minutes: [{ t: NOW_S - 60, hr: 60 }] }, WINDOW)).toHaveLength(1);
   });
 });

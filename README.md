@@ -75,13 +75,15 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | --- | --- |
 | A | SpO2, skin temperature |
 | A/B | HRV, resting heart rate |
-| B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones |
+| B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
 | C | Sleep consistency, automatic workouts, calories (estimate) |
-| D | Raw records, for example optical and motion data. Also the values you enter by hand or read from Health Connect (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
+| D | Raw records, for example optical and motion data. Also the values you enter by hand or read from Health Connect (weight, body fat), lab results with the reference range you copied from your own report, and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
 
 You can correct the start and end of a detected sleep and add a nap by hand. A correction is stored next to the detected sleep, which is kept, so it can be restored. Sleep need, debt, Sleep score and Readiness are recomputed from your times, keep their level, and the sleep is labelled "edited" or "added by hand". HRV, resting heart rate and the other night values still come only from what the band measured while you slept.
+
+An activity's Load uses the same minute formula as the day's Load, over the heart rate the band recorded during the activity (pauses left out). The day's Load already counts every minute of heart rate once, so adding an activity never counts the same minutes twice, also when it overlaps a detected workout. Editing or deleting a detected workout is stored next to it; the detected record is kept.
 
 ## Scores
 

@@ -15,10 +15,12 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'sleeps',
   'sleep_edits',
   'workouts',
+  'activities',
   'events',
   'console_log',
   'raw_chunks',
   'body_measurements',
+  'lab_results',
 ];
 
 const PLAINTEXT_NAME = 'openhoop.db';
