@@ -4,7 +4,6 @@ interface ExportSpec {
   columns: readonly string[];
   select: string;
   order: string;
-  freeText?: readonly string[];
 }
 
 const EXPORTS: Record<ExportTable, ExportSpec> = {
@@ -171,22 +170,22 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     columns: ['start_t', 'end_t', 'tz_offset_s', 'day', 'activity', 'strain', 'avg_hr', 'max_hr', 'source', 'imported_at'],
     select: 'start_t, end_t, tz_offset_s, day, activity, strain, avg_hr, max_hr, source, imported_at',
     order: 'start_t',
-    freeText: ['activity'],
   },
   vendor_journal: {
     columns: ['cycle_start', 'question', 'tz_offset_s', 'day', 'answered_yes', 'notes', 'source', 'imported_at'],
     select: 'cycle_start, question, tz_offset_s, day, answered_yes, notes, source, imported_at',
     order: 'cycle_start, question',
-    freeText: ['question', 'notes'],
   },
 };
 
 const FORMULA_START = /^[=+\-@\t\r]/;
+const PLAIN_NUMBER = /^[+-]?\d+(\.\d+)?$/;
 
-function cell(value: SqlValue | undefined, freeText = false): string {
+function cell(value: SqlValue | undefined): string {
   if (value === null || value === undefined) return '';
-  const raw = value instanceof Uint8Array ? '' : String(value);
-  const text = freeText && FORMULA_START.test(raw) ? `'${raw}` : raw;
+  if (value instanceof Uint8Array) return '';
+  const raw = String(value);
+  const text = typeof value === 'string' && FORMULA_START.test(raw) && !PLAIN_NUMBER.test(raw) ? `'${raw}` : raw;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -195,6 +194,6 @@ export async function exportCsv(store: Store, table: ExportTable): Promise<strin
   const spec = EXPORTS[table];
   const rows = await store.driver.all<Record<string, SqlValue>>(`SELECT ${spec.select} FROM ${table} ORDER BY ${spec.order}`);
   const lines = [spec.columns.join(',')];
-  for (const row of rows) lines.push(spec.columns.map((c) => cell(row[c], spec.freeText?.includes(c) === true)).join(','));
+  for (const row of rows) lines.push(spec.columns.map((c) => cell(row[c])).join(','));
   return `${lines.join('\r\n')}\r\n`;
 }
