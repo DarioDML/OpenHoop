@@ -77,7 +77,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
 | C | Sleep consistency, automatic workouts, calories (estimate) |
-| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
+| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat, lab results with the reference range you copied from your own report) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
 
@@ -98,7 +98,8 @@ Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart 
 - No account, no server, no network access and no telemetry.
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
-- Export gives you the whole database and one CSV file per table.
+- Export gives you the whole database and one CSV file per table, plus `notifications.json` with your notification settings and inbox.
+- Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
 
 ## Not a medical device
 

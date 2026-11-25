@@ -67,6 +67,11 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, day, weight_kg, body_fat_pct, created_at',
     order: 'day, id',
   },
+  lab_results: {
+    columns: ['id', 'biomarker', 'unit', 'value', 'day', 'ref_low', 'ref_high', 'note', 'created_at'],
+    select: 'id, biomarker, unit, value, day, ref_low, ref_high, note, created_at',
+    order: 'day, id',
+  },
 };
 
 function cell(value: SqlValue | undefined): string {

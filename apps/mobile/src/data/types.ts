@@ -1,7 +1,10 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, SleepEditProblem, SleepEditRow, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, LabResult, LabResultInput, SleepEditProblem, SleepEditRow, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
+import type { InboxEntry } from '@/lib/notificationPlan';
+
+import type { PermissionState } from './notifier';
 
 import type { SleepEditRequest } from './sleepEditForm';
 import type { UserData } from './userData';
@@ -101,8 +104,11 @@ export interface AppData {
   settings: Settings;
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
+  labResults: LabResult[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
+  inbox: InboxEntry[];
+  notificationPermission: PermissionState;
   activities: ActivityRow[];
   pendingDelete: PendingDelete | null;
   scan(): Promise<DiscoveredBand[]>;
@@ -116,6 +122,8 @@ export interface AppData {
   updateUserData(patch: Partial<UserData>): Promise<boolean>;
   saveBodyMeasurement(id: number | null, input: BodyMeasurementInput): Promise<boolean>;
   removeBodyMeasurement(id: number): Promise<boolean>;
+  saveLabResult(id: number | null, input: LabResultInput): Promise<boolean>;
+  removeLabResult(id: number): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;
@@ -123,6 +131,10 @@ export interface AppData {
   deleteActivity(target: DeleteTarget): Promise<boolean>;
   undoDelete(): Promise<void>;
   clearNotice(): void;
+  refreshNotifications(): Promise<void>;
+  setNotificationsEnabled(enabled: boolean): Promise<PermissionState>;
+  markInboxRead(): Promise<void>;
+  clearInbox(): Promise<void>;
 }
 
 export type ParityLevel = 'A' | 'B' | 'C' | 'D';
