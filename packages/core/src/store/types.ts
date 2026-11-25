@@ -1,4 +1,4 @@
-import type { ActiveMinutes } from '@openhoop/analytics';
+import type { ActiveMinutes, StressDay } from '@openhoop/analytics';
 
 export type SqlValue = string | number | null | Uint8Array;
 
@@ -157,6 +157,7 @@ export interface DayRecord {
   heartRate: { min: number | null; avg: number | null; max: number | null };
   workouts: WorkoutRecord[];
   activeMinutes?: ActiveMinutes | null;
+  stress?: StressDay | null;
 }
 
 export type ExportTable =
@@ -175,6 +176,9 @@ export type ExportTable =
   | 'coach_conversations'
   | 'coach_messages'
   | 'coach_memory'
+  | 'cycle_periods'
+  | 'symptom_logs'
+  | 'pregnancy'
   | 'route_points';
 
 export interface Store {

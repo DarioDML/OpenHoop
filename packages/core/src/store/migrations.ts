@@ -281,6 +281,33 @@ CREATE TABLE coach_memory (
 `;
 
 const V8 = `
+CREATE TABLE cycle_periods (
+  id INTEGER PRIMARY KEY,
+  start_day TEXT NOT NULL CHECK (start_day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  end_day TEXT CHECK (end_day IS NULL OR (end_day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND end_day >= start_day)),
+  flow INTEGER NOT NULL CHECK (flow >= 1 AND flow <= 3),
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX cycle_periods_start ON cycle_periods (start_day, id);
+
+CREATE TABLE symptom_logs (
+  id INTEGER PRIMARY KEY,
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  symptom TEXT NOT NULL CHECK (symptom IN ('cramps', 'headache', 'bloating', 'mood', 'fatigue', 'breastTenderness', 'nausea', 'backPain')),
+  intensity INTEGER NOT NULL CHECK (intensity >= 1 AND intensity <= 3),
+  created_at INTEGER NOT NULL,
+  UNIQUE (day, symptom)
+);
+CREATE INDEX symptom_logs_day ON symptom_logs (day, id);
+
+CREATE TABLE pregnancy (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  due_day TEXT NOT NULL CHECK (due_day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  created_at INTEGER NOT NULL
+);
+`;
+
+const V9 = `
 CREATE TABLE route_points (
   activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
   seq INTEGER NOT NULL CHECK (seq >= 0),
@@ -294,7 +321,7 @@ CREATE TABLE route_points (
 ) WITHOUT ROWID;
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8];
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

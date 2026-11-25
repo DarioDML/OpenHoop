@@ -24,6 +24,9 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'coach_conversations',
   'coach_messages',
   'coach_memory',
+  'cycle_periods',
+  'symptom_logs',
+  'pregnancy',
   'route_points',
 ];
 

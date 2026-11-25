@@ -87,6 +87,21 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, text, source, created_at, updated_at',
     order: 'id',
   },
+  cycle_periods: {
+    columns: ['id', 'start_day', 'end_day', 'flow', 'created_at'],
+    select: 'id, start_day, end_day, flow, created_at',
+    order: 'start_day, id',
+  },
+  symptom_logs: {
+    columns: ['id', 'day', 'symptom', 'intensity', 'created_at'],
+    select: 'id, day, symptom, intensity, created_at',
+    order: 'day, id',
+  },
+  pregnancy: {
+    columns: ['id', 'due_day', 'created_at'],
+    select: 'id, due_day, created_at',
+    order: 'id',
+  },
   route_points: {
     columns: ['activity_id', 'seq', 'segment', 't_ms', 'lat', 'lon', 'alt_m', 'accuracy_m'],
     select: 'activity_id, seq, segment, t_ms, lat, lon, alt_m, accuracy_m',
