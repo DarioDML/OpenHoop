@@ -60,16 +60,16 @@ export function sleepPeriods(samples: Sample[]): SleepPeriod[] {
   return out;
 }
 
-export function groupNights(periods: SleepPeriod[]): Night[] {
+export function groupNights<P extends SleepPeriod>(periods: P[]): Night<P>[] {
   const sorted = periods.slice().sort((a, b) => a.onset - b.onset);
-  const groups: SleepPeriod[][] = [];
+  const groups: P[][] = [];
   for (const p of sorted) {
     const group = groups[groups.length - 1];
     const prev = group?.[group.length - 1];
     if (group !== undefined && prev !== undefined && p.onset - prev.offset < NIGHT_MERGE_GAP_S) group.push(p);
     else groups.push([p]);
   }
-  const nights: Night[] = [];
+  const nights: Night<P>[] = [];
   for (const g of groups) {
     const first = g[0];
     const last = g[g.length - 1];

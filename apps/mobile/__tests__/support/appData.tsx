@@ -15,6 +15,8 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     notice: null,
     clearNotice: () => undefined,
     days: createFixtureDays(FIXTURE_NOW),
+    sleepEdits: [],
+    sleepEditLimits: { napMaxS: 4 * 3_600, sleepMaxS: 16 * 3_600 },
     device: createFixtureDevice(FIXTURE_NOW),
     live: { active: false, heartRate: null, lastRrMs: null, updatedAt: null },
     profile: { birthYear: null, maxHeartRate: null },
@@ -39,6 +41,8 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     setNotificationsEnabled: async () => 'granted',
     markInboxRead: noop,
     clearInbox: noop,
+    saveSleepEdit: async () => 'saved',
+    deleteSleepEdit: async () => true,
     ...overrides,
   };
 }

@@ -191,7 +191,24 @@ CREATE TABLE body_measurements (
 CREATE INDEX body_measurements_day ON body_measurements (day, id);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3];
+const V4 = `
+ALTER TABLE sleeps ADD COLUMN source TEXT NOT NULL DEFAULT 'detected' CHECK (source IN ('detected', 'edited', 'manual'));
+
+CREATE TABLE sleep_edits (
+  id INTEGER PRIMARY KEY,
+  device_id INTEGER NOT NULL REFERENCES devices(id),
+  target_onset INTEGER,
+  target_offset INTEGER,
+  onset INTEGER NOT NULL,
+  offset INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  CHECK (offset > onset),
+  CHECK ((target_onset IS NULL) = (target_offset IS NULL))
+);
+CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

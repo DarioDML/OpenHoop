@@ -23,9 +23,14 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     order: 'device_id, day',
   },
   sleeps: {
-    columns: ['id', 'device_id', 'day', 'onset', 'offset', 'asleep_s', 'in_bed_s', 'nap'],
-    select: 'id, device_id, day, onset, offset, asleep_s, in_bed_s, nap',
+    columns: ['id', 'device_id', 'day', 'onset', 'offset', 'asleep_s', 'in_bed_s', 'nap', 'source'],
+    select: 'id, device_id, day, onset, offset, asleep_s, in_bed_s, nap, source',
     order: 'device_id, day, onset',
+  },
+  sleep_edits: {
+    columns: ['id', 'device_id', 'target_onset', 'target_offset', 'onset', 'offset', 'created_at'],
+    select: 'id, device_id, target_onset, target_offset, onset, offset, created_at',
+    order: 'device_id, onset, id',
   },
   workouts: {
     columns: ['id', 'device_id', 'day', 'start', 'end', 'zone_seconds', 'avg_hr', 'max_hr', 'source', 'label'],

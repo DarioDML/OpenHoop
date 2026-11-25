@@ -19,12 +19,24 @@ import {
   sleepScore,
   zoneSeconds,
 } from '@openhoop/analytics';
-import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample } from '@openhoop/analytics';
+import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample, SleepPeriod } from '@openhoop/analytics';
 import { FrameError, decodeFrame } from '@openhoop/protocol';
 import type { Packet } from '@openhoop/protocol';
 import { sampleFromPacket } from './mapping';
+import { applySleepEdits, editsTouching, measuredNight } from './sleepEdits';
+import type { MergedSleepPeriod } from './sleepEdits';
 import { bindStore } from './store/store';
-import type { DayRecord, DeleteBeforeResult, Derived, SampleRow, SampleSource, SleepPeriodRecord, Store, WorkoutRecord } from './store/types';
+import type {
+  DayRecord,
+  DeleteBeforeResult,
+  Derived,
+  SampleRow,
+  SampleSource,
+  SleepEdit,
+  SleepPeriodRecord,
+  Store,
+  WorkoutRecord,
+} from './store/types';
 
 const DAY_S = 86_400;
 const HOUR_S = 3_600;
@@ -65,7 +77,8 @@ interface Context {
   calibration: Calibration;
   first: number;
   last: number;
-  mains: Map<number, Night | null>;
+  edits: SleepEdit[];
+  mains: Map<number, Night<MergedSleepPeriod> | null>;
   clockFlags: Map<number, boolean>;
   blocks: Map<number, Block>;
 }
@@ -199,8 +212,8 @@ function evictBefore(ctx: Context, unixS: number): void {
   for (const index of ctx.blocks.keys()) if (index < limit) ctx.blocks.delete(index);
 }
 
-function pickMainNight(nights: Night[], index: number, tz: number): Night | null {
-  let best: Night | null = null;
+function pickMainNight<P extends SleepPeriod>(nights: Night<P>[], index: number, tz: number): Night<P> | null {
+  let best: Night<P> | null = null;
   for (const night of nights) {
     if (localDayIndex(night.offset, tz) !== index) continue;
     if (timeOfDay(night.offset, tz) >= MAIN_NIGHT_LATEST_TOD_S) continue;
@@ -209,16 +222,24 @@ function pickMainNight(nights: Night[], index: number, tz: number): Night | null
   return best;
 }
 
-async function mainNightOf(ctx: Context, index: number): Promise<Night | null> {
+function mergedPeriods(ctx: Context, samples: Sample[], from: number, to: number): MergedSleepPeriod[] {
+  return applySleepEdits(sleepPeriods(samples), editsTouching(ctx.edits, from, to), samples);
+}
+
+function nightsOf(periods: MergedSleepPeriod[]): Night<MergedSleepPeriod>[] {
+  return groupNights(periods.filter((p) => p.source !== 'manual'));
+}
+
+async function mainNightOf(ctx: Context, index: number): Promise<Night<MergedSleepPeriod> | null> {
   const cached = ctx.mains.get(index);
   if (cached !== undefined) return cached;
   const midnight = localMidnight(index, ctx.tz);
   const from = Math.max(midnight - SCAN_BEFORE_S, ctx.first);
   const to = Math.min(midnight + SCAN_AFTER_S, ctx.last + 1);
-  let found: Night | null = null;
+  let found: Night<MergedSleepPeriod> | null = null;
   if (from < to) {
     const { samples } = await readWindow(ctx, from, to);
-    found = pickMainNight(groupNights(sleepPeriods(samples)), index, ctx.tz);
+    found = pickMainNight(nightsOf(mergedPeriods(ctx, samples, from, to)), index, ctx.tz);
   }
   ctx.mains.set(index, found);
   return found;
@@ -233,6 +254,10 @@ async function dayWindow(ctx: Context, index: number): Promise<{ start: number; 
   const start = await boundary(ctx, index);
   const end = Math.min(await boundary(ctx, index + 1), ctx.last + 1);
   return { start, end };
+}
+
+function unmeasuredAsMissing<T>(outcome: Outcome<T>, night: Night): Outcome<T> {
+  return !outcome.ok && night.periods.length === 0 ? { ok: false, reason: 'missing-signal', algo: outcome.algo } : outcome;
 }
 
 function derive(outcome: Outcome<number>): Derived {
@@ -326,14 +351,16 @@ async function computeDay(
 
   const key = formatDayIndex(index);
   const scanned = await mainNightOf(ctx, index);
-  const periods = sleepPeriods(samples);
-  const main = scanned === null ? null : pickMainNight(groupNights(periods), index, tz);
+  const periods = mergedPeriods(ctx, samples, start, end).filter((p) => p.onset >= start && p.onset < end);
+  const main = scanned === null ? null : pickMainNight(nightsOf(periods), index, tz);
   const periodRecords: SleepPeriodRecord[] = periods.map((p) => ({
     onset: p.onset,
     offset: p.offset,
     asleepS: p.asleepS,
     inBedS: p.inBedS,
     nap: main === null || !main.periods.includes(p),
+    source: p.source,
+    editId: p.editId,
   }));
 
   const previous = history[history.length - 1] ?? null;
@@ -381,15 +408,16 @@ async function computeDay(
     score = missing('no-sleep', ALGO.sleepScore);
     readinessDerived = missing('no-sleep', ALGO.readiness);
   } else {
-    const hrvOutcome = nightlyHrv(samples, main);
-    const rhrOutcome = nightlyRestingHr(samples, main);
+    const measured = measuredNight(main);
+    const hrvOutcome = unmeasuredAsMissing(nightlyHrv(samples, measured), measured);
+    const rhrOutcome = unmeasuredAsMissing(nightlyRestingHr(samples, measured), measured);
     hrv = derive(hrvOutcome);
     restingHrDerived = derive(rhrOutcome);
-    respiratory = derive(respiratoryRate(samples, main));
-    spo2 = derive(nightlySpo2(samples, main));
+    respiratory = derive(unmeasuredAsMissing(respiratoryRate(samples, measured), measured));
+    spo2 = derive(unmeasuredAsMissing(nightlySpo2(samples, measured), measured));
     if (rhrOutcome.ok) nightRestingHr = rhrOutcome.value;
 
-    const skin = nightlySkinTemp(samples, main, skinBaseline);
+    const skin = unmeasuredAsMissing(nightlySkinTemp(samples, measured, skinBaseline), measured);
     if (skin.ok) {
       skinTemp = { value: skin.value.meanC, reason: null, coverage: skin.coverage, algo: skin.algo };
       skinDeviation =
@@ -544,6 +572,8 @@ export async function recomputeDays(store: Store, opts: RecomputeOptions): Promi
   const { deviceId } = opts;
   const range = await store.sampleRange(deviceId);
   if (range === null) return [];
+  const edits = await store.listSleepEdits(deviceId);
+  const last = edits.reduce((latest, e) => Math.max(latest, e.offset - 1), range.last);
   const ctx: Context = {
     store,
     deviceId,
@@ -551,12 +581,13 @@ export async function recomputeDays(store: Store, opts: RecomputeOptions): Promi
     tz: opts.tzOffsetS,
     calibration: opts.calibration ?? DEFAULT_CALIBRATION,
     first: range.first,
-    last: range.last,
+    last,
+    edits,
     mains: new Map(),
     clockFlags: new Map(),
     blocks: new Map(),
   };
-  const to = Math.min(opts.to, range.last + 1);
+  const to = Math.min(opts.to, last + 1);
   let from = Math.max(opts.from, range.first);
   if (from >= to) return [];
 
@@ -572,7 +603,7 @@ export async function recomputeDays(store: Store, opts: RecomputeOptions): Promi
     const out: DayRecord[] = [];
     for (let index = firstIndex; ; index++) {
       const { start, end } = await dayWindow(ctx, index);
-      if (start >= to || start > range.last) break;
+      if (start >= to || start > last) break;
       if (end <= start) continue;
       const record = await computeDay(ctx, index, start, end, history);
       if (record === null) continue;
