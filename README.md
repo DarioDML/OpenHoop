@@ -153,6 +153,7 @@ On Android, OpenHoop can write heart rate (minute averages), resting heart rate,
 - Weight and body fat from other apps go into the body log, labelled with the app they came from. They never overwrite or compete with your own entries: a day you entered by hand is skipped, an imported entry you edit becomes yours, and one you delete stays deleted.
 - Sync runs when you tap "Sync now", and after each band sync if you turn that on. To withdraw a permission or delete what OpenHoop wrote, use Health Connect itself.
 - Third-party cloud services (for example Strava) are not built.
+- Android home-screen widgets cannot open the encrypted database. While at least one OpenHoop widget is on the home screen, the app keeps a small unencrypted file in its private cache with only the numbers the widget shows (Readiness, Sleep score, Load, resting heart rate, HRV, or the reason a value is missing), the day, the sync time and the app language. There is no name and no raw data in it. Android also keeps the drawn widget images in the app's private storage. Turning "Show values on widgets" off replaces the file with one that holds no values; removing the last widget deletes the file and the images. Neither is included in Android backups.
 
 ## Not a medical device
 
