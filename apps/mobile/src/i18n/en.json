@@ -273,5 +273,7 @@
   "range.calibrating": "● Calibrating range",
   "readiness.high": "High",
   "readiness.medium": "Medium",
-  "readiness.low": "Low"
+  "readiness.low": "Low",
+  "error.healthConnect": "Health Connect could not be opened.",
+  "error.healthConnectSync": "Health Connect sync did not finish. Nothing on this phone was lost; try again."
 }

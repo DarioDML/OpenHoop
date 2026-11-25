@@ -2,8 +2,11 @@ import type { Interval } from '@openhoop/analytics';
 import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
+import type { HcDataType } from '@/lib/healthConnectMapping';
 import type { InboxEntry } from '@/lib/notificationPlan';
 
+import type { HcAvailability } from './healthConnectApi';
+import type { HealthConnectState } from './healthConnectState';
 import type { PermissionState } from './notifier';
 
 import type { SleepEditRequest } from './sleepEditForm';
@@ -111,6 +114,13 @@ export interface StrengthActions {
   removeSession(id: number): Promise<boolean>;
 }
 
+export interface HealthConnectView {
+  availability: HcAvailability | 'checking';
+  granted: string[];
+  state: HealthConnectState;
+  syncing: boolean;
+}
+
 export interface AppData {
   ready: boolean;
   days: DayRecord[];
@@ -132,6 +142,7 @@ export interface AppData {
   notice: Notice | null;
   inbox: InboxEntry[];
   notificationPermission: PermissionState;
+  healthConnect: HealthConnectView;
   activities: ActivityRow[];
   pendingDelete: PendingDelete | null;
   scan(): Promise<DiscoveredBand[]>;
@@ -170,6 +181,13 @@ export interface AppData {
   setNotificationsEnabled(enabled: boolean): Promise<PermissionState>;
   markInboxRead(): Promise<void>;
   clearInbox(): Promise<void>;
+  refreshHealthConnect(): Promise<void>;
+  setHealthConnectType(type: HcDataType, enabled: boolean): Promise<boolean>;
+  setHealthConnectAfterSync(enabled: boolean): Promise<void>;
+  requestHealthConnectAccess(): Promise<void>;
+  syncHealthConnect(): Promise<void>;
+  openHealthConnectSettings(): void;
+  installHealthConnect(): Promise<void>;
 }
 
 export type ParityLevel = 'A' | 'B' | 'C' | 'D';
