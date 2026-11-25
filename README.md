@@ -90,7 +90,8 @@ The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to
 - No account, no server, no network access and no telemetry.
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
-- Export gives you the whole database and one CSV file per table.
+- Export gives you the whole database and one CSV file per table, plus `notifications.json` with your notification settings and inbox.
+- Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
 
 ## Not a medical device
 
