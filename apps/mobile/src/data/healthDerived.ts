@@ -4,7 +4,8 @@ import type { Href } from 'expo-router';
 import type { TranslationKey } from '@/i18n';
 
 import { addDays, baselineAt, mean, metricValue, rangeStatus, type Baseline, type MetricKey, type RangeStatus } from './derived';
-import type { ParityLevel } from './types';
+import { latestVo2 } from './healthspanDerived';
+import type { ParityLevel, Profile } from './types';
 import type { JournalAnswer } from './userData';
 
 export type VitalId = 'hrv' | 'rhr' | 'resp' | 'spo2' | 'temp';
@@ -120,7 +121,7 @@ export interface CatalogueItem {
   category: MetricCategory;
   level: ParityLevel | null;
   href: Href;
-  read: (days: readonly DayRecord[], weightKg: number | null) => MetricReading;
+  read: (days: readonly DayRecord[], weightKg: number | null, profile: Profile) => MetricReading;
 }
 
 function numeric(key: MetricKey, decimals: number, unitKey: TranslationKey | null): CatalogueItem['read'] {
@@ -167,7 +168,17 @@ export const CATALOGUE: readonly CatalogueItem[] = [
     },
   },
   { id: 'bodyAge', labelKey: 'health.metrics.bodyAge', category: 'health', level: null, href: '/health/body-age', read: none },
-  { id: 'vo2max', labelKey: 'health.metrics.vo2max', category: 'health', level: null, href: '/health/vo2max', read: none },
+  {
+    id: 'vo2max',
+    labelKey: 'health.metrics.vo2max',
+    category: 'health',
+    level: 'C',
+    href: '/health/vo2max',
+    read: (days, _weightKg, profile) => {
+      const { result } = latestVo2(days, profile, null);
+      return result.ok ? { kind: 'number', value: result.value.vo2max, decimals: 0, unitKey: 'health.vo2max.unit' } : { kind: 'none' };
+    },
+  },
   { id: 'stress', labelKey: 'health.metrics.stress', category: 'health', level: null, href: '/health/stress', read: none },
   {
     id: 'weight',

@@ -76,7 +76,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A | SpO2, skin temperature |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones |
-| C | Sleep consistency, automatic workouts, calories (estimate) |
+| C | Sleep consistency, automatic workouts, calories (estimate), VO2 max (estimate), healthspan pillars |
 | D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
 
 When the data does not support a number, the app shows the reason instead of a number.
@@ -90,6 +90,21 @@ The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to
 ## Calories
 
 Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart rate at or above 40 % of heart rate reserve use the sex-specific equations without VO2max from Keytel et al., "Prediction of energy expenditure from heart rate monitoring during submaximal exercise", J Sports Sci 2005;23(3):289-297. All other minutes, including minutes without heart rate, use resting energy from the Mifflin-St Jeor equation (Mifflin et al., Am J Clin Nutr 1990;51(2):241-247). The estimate needs height, weight, sex and birth year. For the sex "other" it uses the mean of the male and female equations. Without a complete profile or with fewer than 600 minutes of heart rate in a day, the app shows the reason instead of a number.
+
+## Healthspan
+
+VO2 max and the healthspan pillars are estimates, OpenHoop's own methods (level C). They are not medical values.
+
+VO2 max uses the heart rate ratio method from Uth et al., "Estimation of VO2max from the ratio between HRmax and HRrest - the Heart Rate Ratio Method", Eur J Appl Physiol 2004;91(1):111-115: VO2 max ≈ 15.3 × maximum heart rate ÷ resting heart rate. The resting heart rate is the median of at least 5 nightly values in the last 14 days. The maximum heart rate comes from your profile, or else from 208 − 0.7 × age (Tanaka et al., J Am Coll Cardiol 2001;37(1):153-156). The formula was fitted on 46 well-trained men aged 21 to 51, with a standard error of 2.7 mL/kg/min for a measured maximum and 4.7 for an age-predicted one; the authors say other groups still need validation. OpenHoop's resting heart rate is the lowest 5-minute average during sleep, which is usually lower than a resting value taken awake, so the estimate may read high. Without enough nights, or without a birth year and a maximum heart rate, the app shows the reason instead of a number.
+
+There are four pillars and no combined score:
+
+- Sleep: the mean of the last 7 nights against the recommendation of at least 7 hours for adults (Watson et al., Sleep 2015;38(6):843-844), against OpenHoop's sleep need, and the sleep consistency.
+- Recovery: the mean HRV and resting heart rate of the last 7 nights against your own range (mean ± 1 SD) over the 30 nights before.
+- Activity: minutes at or above 40 % of heart rate reserve in the last 7 days against the WHO range of 150 to 300 minutes of moderate activity a week (Bull et al., Br J Sports Med 2020;54(24):1451-1462). A vigorous minute counts once, not twice as in the WHO guideline, so the count is conservative. Below 150 minutes is only judged when all 7 days were measured for at least 10 hours.
+- Fitness: the VO2 max estimate against the treadmill reference values per sex and age group in Loe et al., "Aerobic capacity reference data in 3816 healthy men and women 20-90 years", PLoS One 2013;8(5):e64319, Table 2.
+
+There is no body age. A fitness age from the HUNT study exists, but its exact method could not be checked, and the error of the VO2 max estimate would turn into many years of "age".
 
 ## Privacy
 
