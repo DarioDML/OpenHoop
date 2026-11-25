@@ -131,6 +131,18 @@ describe('import screen', () => {
     await waitFor(() => expect(screen.getByText('Nothing could be imported')).toBeTruthy());
   });
 
+  it('calls a repeated import already up to date, not a failure', async () => {
+    pick.mockResolvedValue({ picked: true, files: [], rejected: [] });
+    const again: VendorImportResult = {
+      counts: { ...outcome.counts, cycles: { imported: 0, skipped: 5, invalid: 0 }, journal: { imported: 0, skipped: 0, invalid: 0 } },
+      files: [],
+    };
+    await render(withAppData(<ImportExportScreen />, 'en', { importVendorFiles: async () => again }));
+    await fireEvent.press(screen.getByTestId('import-choose'));
+    await waitFor(() => expect(screen.getByText('Already up to date: these rows were imported before')).toBeTruthy());
+    expect(screen.queryByText('Nothing could be imported')).toBeNull();
+  });
+
   it('shows imported values labelled as the official app’s, apart from anything else', async () => {
     await render(withAppData(<ImportExportScreen />, 'en', { vendorData: stored() }));
     expect(screen.getByTestId('import-stored-counts').props.children).toBe('2 cycles, 1 sleeps, 1 workouts, 1 journal answers');

@@ -318,5 +318,6 @@
   "onboarding.official.importTitle": "Bringing history from the official app?",
   "onboarding.official.importBody": "Ask the official app for your data export, then import it under Settings, Import and export. It stays labelled as the official app's own numbers and never mixes with OpenHoop's scores.",
   "onboarding.official.importAction": "Import an export",
-  "import.chart.note": "Shows up to the latest {count} cycles that have a recovery value."
+  "import.chart.note": "Shows up to the latest {count} cycles that have a recovery value.",
+  "import.result.already": "Already up to date: these rows were imported before"
 }

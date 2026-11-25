@@ -31,7 +31,3 @@ export function summariseImport(parsed: ParsedExport, written: VendorWriteResult
   }
   return { counts, files: [...rejected, ...parsed.files] };
 }
-
-export function importedAnything(result: VendorImportResult): boolean {
-  return VENDOR_KIND_ORDER.some((kind) => result.counts[kind].imported + result.counts[kind].skipped + result.counts[kind].invalid > 0);
-}

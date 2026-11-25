@@ -318,5 +318,6 @@
   "onboarding.official.importTitle": "Geschiedenis meenemen uit de officiële app?",
   "onboarding.official.importBody": "Vraag de officiële app om een export van je gegevens en importeer die later via Instellingen, Import en export. Ze blijven gelabeld als de eigen cijfers van de officiële app en worden nooit gemengd met de scores van OpenHoop.",
   "onboarding.official.importAction": "Een export importeren",
-  "import.chart.note": "Toont maximaal de laatste {count} cycli met een herstelwaarde."
+  "import.chart.note": "Toont maximaal de laatste {count} cycli met een herstelwaarde.",
+  "import.result.already": "Al bijgewerkt: deze rijen waren al eerder geïmporteerd"
 }

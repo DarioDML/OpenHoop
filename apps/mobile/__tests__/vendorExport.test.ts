@@ -4,7 +4,7 @@ import { CSV_LIMITS, parseCsv } from '@/data/vendorExport/csv';
 import { cleanText, normalizeHeader, parseBoolean, parseNumber, parseTime, parseZone } from '@/data/vendorExport/fields';
 import { parseVendorTexts } from '@/data/vendorExport/parse';
 import { parseVendorSources, SOURCE_LIMITS, type SourceFile } from '@/data/vendorExport/sources';
-import { importedAnything, summariseImport } from '@/data/vendorExport/summary';
+import { summariseImport } from '@/data/vendorExport/summary';
 import { dayRange, newestFirst, recoverySeries, storedTotal } from '@/data/vendorExport/view';
 
 const CYCLES_HEADER =
@@ -421,14 +421,6 @@ describe('import summary and view helpers', () => {
     expect(result.counts.cycles).toEqual({ imported: 0, skipped: 2, invalid: 2 });
     expect(result.counts.sleeps).toEqual({ imported: 1, skipped: 2, invalid: 1 });
     expect(result.files.map((f) => f.name)).toEqual(['big.zip', 'physiological_cycles.csv', 'sleeps.csv']);
-    expect(importedAnything(result)).toBe(true);
-  });
-
-  it('recognises an import that found nothing', () => {
-    const none = parseVendorTexts([{ name: 'a.csv', text: 'a,b' }]);
-    const zero = { imported: 0, skipped: 0 };
-    const result = summariseImport(none, { cycles: zero, sleeps: zero, workouts: zero, journal: zero }, []);
-    expect(importedAnything(result)).toBe(false);
   });
 
   it('builds the recovery series from the newest cycles that have a value', () => {

@@ -23,10 +23,12 @@ interface ResultProps {
 
 export function ImportResultCard({ result }: ResultProps) {
   const { t } = useT();
-  const total = VENDOR_KIND_ORDER.reduce((sum, kind) => sum + result.counts[kind].imported, 0);
+  const imported = VENDOR_KIND_ORDER.reduce((sum, kind) => sum + result.counts[kind].imported, 0);
+  const skipped = VENDOR_KIND_ORDER.reduce((sum, kind) => sum + result.counts[kind].skipped, 0);
+  const title = imported > 0 ? t('import.result.title') : skipped > 0 ? t('import.result.already') : t('import.result.none');
   return (
-    <Card testID="import-result" tone={total > 0 ? 'accent' : 'default'}>
-      <AppText variant="bodyStrong">{total > 0 ? t('import.result.title') : t('import.result.none')}</AppText>
+    <Card testID="import-result" tone={imported > 0 ? 'accent' : 'default'}>
+      <AppText variant="bodyStrong">{title}</AppText>
       {VENDOR_KIND_ORDER.map((kind) => {
         const counts = result.counts[kind];
         if (counts.imported + counts.skipped + counts.invalid === 0) return null;
