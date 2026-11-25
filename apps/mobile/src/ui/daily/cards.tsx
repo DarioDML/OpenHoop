@@ -9,6 +9,7 @@ import { baselineAt } from '@/data/derived';
 import { caloriesForDay } from '@/data/energyDerived';
 import { stressForDay } from '@/data/stressDerived';
 import { formatHm, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { strengthWeek } from '@/data/strength';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -283,10 +284,11 @@ export function MyDayCard({ days, index, actions = true }: MyDayProps) {
 export function WeekCard({ days, index }: DayProps) {
   const { t } = useT();
   const { colors } = useTheme();
-  const { userData } = useAppData();
+  const { userData, strength } = useAppData();
   const day = days[index];
   if (!day) return null;
   const progress = weekProgress(days, day.day);
+  const strengthWeekStats = strengthWeek(strength.sessions, day.day);
   const plan = userData.weeklyPlan;
   const row = (label: string, dots: ReadonlyArray<boolean | null>, count: number, target: number | null, color: string, testID: string) => (
     <View key={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 36 }}>
@@ -306,6 +308,7 @@ export function WeekCard({ days, index }: DayProps) {
       <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
       {row(t('home.weekActive'), progress.loadDots, progress.loadCount, plan?.loadDays ?? null, colors.metric.loadBright, 'week-load')}
       {row(t('home.weekSleep'), progress.sleepDots, progress.sleepCount, plan?.sleepNights ?? null, colors.metric.sleep, 'week-sleep')}
+      {row(t('strength.week.label'), strengthWeekStats.dots, strengthWeekStats.count, null, colors.accent, 'week-strength')}
     </Card>
   );
 }

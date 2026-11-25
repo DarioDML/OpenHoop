@@ -24,6 +24,18 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_BODY_FAT",
+        "android.permission.health.WRITE_HEART_RATE",
+        "android.permission.health.WRITE_RESTING_HEART_RATE",
+        "android.permission.health.WRITE_HEART_RATE_VARIABILITY",
+        "android.permission.health.WRITE_SLEEP",
+        "android.permission.health.WRITE_EXERCISE",
+        "android.permission.health.WRITE_OXYGEN_SATURATION",
+        "android.permission.health.WRITE_RESPIRATORY_RATE",
+        "android.permission.health.WRITE_SKIN_TEMPERATURE"
+      ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.VIBRATE",
@@ -90,7 +102,16 @@
       ],
       "./plugins/withLocalNotificationsOnly",
       "./plugins/withAndroidBuildFixes",
-      "./plugins/withReleaseSigning"
+      "./plugins/withReleaseSigning",
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -63,8 +63,8 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     order: 'device_id, id',
   },
   body_measurements: {
-    columns: ['id', 'day', 'weight_kg', 'body_fat_pct', 'created_at'],
-    select: 'id, day, weight_kg, body_fat_pct, created_at',
+    columns: ['id', 'day', 'weight_kg', 'body_fat_pct', 'created_at', 'source', 'origin', 'external_id', 'deleted_at'],
+    select: 'id, day, weight_kg, body_fat_pct, created_at, source, origin, external_id, deleted_at',
     order: 'day, id',
   },
   lab_results: {
@@ -102,6 +102,80 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, due_day, created_at',
     order: 'id',
   },
+  strength_exercises: {
+    columns: ['id', 'name', 'muscle', 'created_at'],
+    select: 'id, name, muscle, created_at',
+    order: 'id',
+  },
+  strength_templates: {
+    columns: ['id', 'name', 'created_at', 'updated_at'],
+    select: 'id, name, created_at, updated_at',
+    order: 'id',
+  },
+  strength_template_items: {
+    columns: ['id', 'template_id', 'position', 'exercise_key', 'exercise_name', 'muscle', 'sets', 'reps', 'weight_kg'],
+    select: 'id, template_id, position, exercise_key, exercise_name, muscle, sets, reps, weight_kg',
+    order: 'template_id, position, id',
+  },
+  strength_sessions: {
+    columns: ['id', 'template_id', 'name', 'day', 'started_at', 'ended_at'],
+    select: 'id, template_id, name, day, started_at, ended_at',
+    order: 'started_at, id',
+  },
+  strength_session_exercises: {
+    columns: ['id', 'session_id', 'position', 'exercise_key', 'exercise_name', 'muscle', 'sets', 'reps', 'weight_kg'],
+    select: 'id, session_id, position, exercise_key, exercise_name, muscle, sets, reps, weight_kg',
+    order: 'session_id, position, id',
+  },
+  strength_sets: {
+    columns: ['id', 'session_id', 'exercise_key', 'exercise_name', 'muscle', 'reps', 'weight_kg', 'rpe', 'done_at'],
+    select: 'id, session_id, exercise_key, exercise_name, muscle, reps, weight_kg, rpe, done_at',
+    order: 'session_id, id',
+  },
+  journal_notes: {
+    columns: ['id', 'day', 'body', 'tags', 'created_at'],
+    select: 'id, day, body, tags, created_at',
+    order: 'day, id',
+  },
+  vendor_cycles: {
+    columns: ['start_t', 'end_t', 'tz_offset_s', 'day', 'recovery_pct', 'resting_hr', 'hrv_ms', 'skin_temp_c', 'spo2_pct', 'respiratory_rate', 'day_strain', 'source', 'imported_at'],
+    select: 'start_t, end_t, tz_offset_s, day, recovery_pct, resting_hr, hrv_ms, skin_temp_c, spo2_pct, respiratory_rate, day_strain, source, imported_at',
+    order: 'start_t',
+  },
+  vendor_sleeps: {
+    columns: [
+      'onset',
+      'wake',
+      'tz_offset_s',
+      'day',
+      'nap',
+      'performance_pct',
+      'asleep_min',
+      'in_bed_min',
+      'light_min',
+      'deep_min',
+      'rem_min',
+      'awake_min',
+      'efficiency_pct',
+      'consistency_pct',
+      'respiratory_rate',
+      'source',
+      'imported_at',
+    ],
+    select:
+      'onset, wake, tz_offset_s, day, nap, performance_pct, asleep_min, in_bed_min, light_min, deep_min, rem_min, awake_min, efficiency_pct, consistency_pct, respiratory_rate, source, imported_at',
+    order: 'onset',
+  },
+  vendor_workouts: {
+    columns: ['start_t', 'end_t', 'tz_offset_s', 'day', 'activity', 'strain', 'avg_hr', 'max_hr', 'source', 'imported_at'],
+    select: 'start_t, end_t, tz_offset_s, day, activity, strain, avg_hr, max_hr, source, imported_at',
+    order: 'start_t',
+  },
+  vendor_journal: {
+    columns: ['cycle_start', 'question', 'tz_offset_s', 'day', 'answered_yes', 'notes', 'source', 'imported_at'],
+    select: 'cycle_start, question, tz_offset_s, day, answered_yes, notes, source, imported_at',
+    order: 'cycle_start, question',
+  },
   route_points: {
     columns: ['activity_id', 'seq', 'segment', 't_ms', 'lat', 'lon', 'alt_m', 'accuracy_m'],
     select: 'activity_id, seq, segment, t_ms, lat, lon, alt_m, accuracy_m',
@@ -109,9 +183,14 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
   },
 };
 
+const FORMULA_START = /^[=+\-@\t\r]/;
+const PLAIN_NUMBER = /^[+-]?\d+(\.\d+)?$/;
+
 function cell(value: SqlValue | undefined): string {
   if (value === null || value === undefined) return '';
-  const text = value instanceof Uint8Array ? '' : String(value);
+  if (value instanceof Uint8Array) return '';
+  const raw = String(value);
+  const text = typeof value === 'string' && FORMULA_START.test(raw) && !PLAIN_NUMBER.test(raw) ? `'${raw}` : raw;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 

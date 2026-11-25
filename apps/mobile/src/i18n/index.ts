@@ -10,13 +10,15 @@ import dailyEn from './sections/daily.en.json';
 import dailyNl from './sections/daily.nl.json';
 import healthEn from './sections/health.en.json';
 import healthNl from './sections/health.nl.json';
+import strengthEn from './sections/strength.en.json';
+import strengthNl from './sections/strength.nl.json';
 import manageEn from './sections/manage.en.json';
 import manageNl from './sections/manage.nl.json';
 import routeEn from './sections/route.en.json';
 import routeNl from './sections/route.nl.json';
 
-const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...routeNl };
-const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...routeEn };
+const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl, ...routeNl };
+const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn, ...routeEn };
 
 export type TranslationKey = keyof typeof nl;
 export type TranslationParams = Record<string, string | number>;

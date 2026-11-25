@@ -179,6 +179,17 @@ export type ExportTable =
   | 'cycle_periods'
   | 'symptom_logs'
   | 'pregnancy'
+  | 'strength_exercises'
+  | 'strength_templates'
+  | 'strength_template_items'
+  | 'strength_sessions'
+  | 'strength_session_exercises'
+  | 'strength_sets'
+  | 'journal_notes'
+  | 'vendor_cycles'
+  | 'vendor_sleeps'
+  | 'vendor_workouts'
+  | 'vendor_journal'
   | 'route_points';
 
 export interface Store {

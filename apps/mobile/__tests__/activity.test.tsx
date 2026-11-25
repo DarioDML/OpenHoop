@@ -40,7 +40,6 @@ import AddActivityScreen from '@/app/activity/add';
 import ActivityDetailsScreen from '@/app/activity/details';
 import EditActivityScreen from '@/app/activity/edit';
 import LiveActivityScreen from '@/app/activity/live';
-import ShareActivityScreen from '@/app/activity/share';
 import StartActivityScreen from '@/app/activity/start';
 import LoadScreen from '@/app/load/index';
 import LoadTargetScreen from '@/app/load/target';
@@ -54,12 +53,6 @@ import AchievementsScreen from '@/app/profile/achievements';
 import EditProfileScreen from '@/app/profile/edit';
 import ProfileScreen from '@/app/profile/index';
 import StepsScreen from '@/app/steps';
-import StrengthBuilderScreen from '@/app/strength/builder';
-import StrengthExerciseScreen from '@/app/strength/exercise';
-import StrengthHomeScreen from '@/app/strength/index';
-import StrengthLiveScreen from '@/app/strength/live';
-import StrengthSummaryScreen from '@/app/strength/summary';
-import StrengthTrendsScreen from '@/app/strength/trends';
 
 const days = createFixtureDays(FIXTURE_NOW);
 
@@ -222,11 +215,6 @@ describe('activity screens', () => {
     await render(withAppData(<ActivityDetailsScreen />));
     expect(screen.getByText('Activity not found')).toBeTruthy();
   });
-
-  it('marks share as not built', async () => {
-    await render(withAppData(<ShareActivityScreen />));
-    expect(screen.getByTestId('not-built-share')).toBeTruthy();
-  });
 });
 
 describe('steps', () => {
@@ -240,21 +228,6 @@ describe('steps', () => {
     await render(withAppData(<StepsScreen />, 'en', { userData: { ...defaultUserData(), stepsGoal: 8000 } }));
     expect(screen.queryByTestId('steps-set-goal')).toBeNull();
     expect(screen.getByTestId('steps-goal-days')).toBeTruthy();
-  });
-});
-
-describe('strength', () => {
-  it.each([
-    ['home', StrengthHomeScreen],
-    ['builder', StrengthBuilderScreen],
-    ['live', StrengthLiveScreen],
-    ['summary', StrengthSummaryScreen],
-    ['exercise', StrengthExerciseScreen],
-    ['trends', StrengthTrendsScreen],
-  ])('shows the not-built notice on %s', async (_name, Component) => {
-    await render(withAppData(<Component />));
-    expect(screen.getByTestId('not-built-strength')).toBeTruthy();
-    expect(screen.queryByText(/\d\d\d kg/)).toBeNull();
   });
 });
 
