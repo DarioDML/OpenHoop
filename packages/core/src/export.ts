@@ -132,6 +132,11 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, session_id, exercise_key, exercise_name, muscle, reps, weight_kg, rpe, done_at',
     order: 'session_id, id',
   },
+  journal_notes: {
+    columns: ['id', 'day', 'body', 'tags', 'created_at'],
+    select: 'id, day, body, tags, created_at',
+    order: 'day, id',
+  },
 };
 
 function cell(value: SqlValue | undefined): string {
