@@ -9,6 +9,9 @@ jest.mock('expo-notifications', () => ({
   addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   cancelAllScheduledNotificationsAsync: jest.fn(async () => undefined),
+  clearLastNotificationResponseAsync: jest.fn(async () => undefined),
+  getAllScheduledNotificationsAsync: jest.fn(async () => [{ identifier: 'digest:2026-11-26' }]),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
   scheduleNotificationAsync: jest.fn(async () => 'id'),
@@ -61,4 +64,24 @@ describe('expo notifier', () => {
     expect(second?.trigger === null || (second?.trigger !== undefined && !('type' in second.trigger))).toBe(true);
     expect(mocked.setNotificationHandler).toHaveBeenCalled();
   });
+
+  it('reports which alerts the phone still has scheduled', async () => {
+    expect(await expoNotifier.scheduledIds()).toEqual(new Set(['digest:2026-11-26']));
+  });
+
+  it('opens the inbox once for a tap that launched the app', async () => {
+    mocked.getLastNotificationResponseAsync.mockResolvedValueOnce({
+      actionIdentifier: 'expo.modules.notifications.actions.DEFAULT',
+      notification: { date: 0, request: { identifier: 'sync:1', content: { title: 't', subtitle: null, body: 'b', data: {}, sound: null, categoryIdentifier: null, threadIdentifier: null }, trigger: null } },
+    });
+    const listener = jest.fn();
+    const stop = expoNotifier.onOpened(listener);
+    await waitForCalls(() => mocked.clearLastNotificationResponseAsync.mock.calls.length > 0);
+    expect(listener).toHaveBeenCalledTimes(1);
+    stop();
+  });
 });
+
+async function waitForCalls(done: () => boolean): Promise<void> {
+  for (let i = 0; i < 20 && !done(); i += 1) await Promise.resolve();
+}

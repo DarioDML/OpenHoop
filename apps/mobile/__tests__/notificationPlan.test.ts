@@ -32,7 +32,7 @@ function input(overrides: Partial<PlanInput> = {}): PlanInput {
     now: at(25, 12),
     prefs: PREFS,
     pending: [],
-    inbox: [],
+    sent: [],
     factsFor: () => null,
     lastSyncAt: null,
     watchBand: false,
@@ -40,9 +40,6 @@ function input(overrides: Partial<PlanInput> = {}): PlanInput {
   };
 }
 
-function sent(alert: Alert): InboxEntry {
-  return { ...alert, read: false };
-}
 
 describe('quiet hours', () => {
   it('treats a window that crosses midnight as quiet on both sides of it', () => {
@@ -95,7 +92,7 @@ describe('morning digest', () => {
     const now = at(25, 8);
     const first = planDigests(input({ now: at(25, 6) }))[0];
     if (first === undefined) throw new Error('expected a digest');
-    const later = planDigests(input({ now, inbox: [sent(first)], prefs: { ...PREFS, quietEnd: '09:00' } }));
+    const later = planDigests(input({ now, sent: [first.id], prefs: { ...PREFS, quietEnd: '09:00' } }));
     expect(later.map((alert) => alert.id)).not.toContain(first.id);
     expect(later.every((alert) => alert.at > now.getTime())).toBe(true);
   });
@@ -142,7 +139,7 @@ describe('data at risk', () => {
     expect(planDataAtRisk(input({ watchBand: true, lastSyncAt: null }))).toBeNull();
     const first = planDataAtRisk(input({ watchBand: true, lastSyncAt }));
     if (first === null) throw new Error('expected an alert');
-    expect(planDataAtRisk(input({ watchBand: true, lastSyncAt, now: at(29, 12), inbox: [sent(first)] }))).toBeNull();
+    expect(planDataAtRisk(input({ watchBand: true, lastSyncAt, now: at(29, 12), sent: [first.id] }))).toBeNull();
   });
 
   it('moves forward after a new sync', () => {
@@ -156,8 +153,8 @@ describe('sync failures', () => {
   it('sends at most one alert in six hours', () => {
     const first = syncFailedAlert(at(25, 12), PREFS, []);
     if (first === null) throw new Error('expected an alert');
-    expect(syncFailedAlert(at(25, 14), PREFS, [first])).toBeNull();
-    expect(syncFailedAlert(at(25, 19), PREFS, [first])).not.toBeNull();
+    expect(syncFailedAlert(at(25, 14), PREFS, [first.id])).toBeNull();
+    expect(syncFailedAlert(at(25, 19), PREFS, [first.id])).not.toBeNull();
   });
 
   it('respects the preference and quiet hours', () => {
@@ -191,15 +188,36 @@ describe('inbox', () => {
   const digest: Alert = { kind: 'digest', id: 'digest:2026-11-25', at: at(25, 7).getTime(), day: '2026-11-25', readiness: null, sleepScore: null, load: null };
   const later: Alert = { kind: 'digest', id: 'digest:2026-11-26', at: at(26, 7).getTime(), day: '2026-11-26', readiness: null, sleepScore: null, load: null };
 
+  const none: ReadonlySet<string> = new Set();
+
   it('moves delivered alerts into the inbox once their time has passed', () => {
-    const result = reconcile([digest, later], [], at(25, 12), true);
+    const result = reconcile({ pending: [digest, later], inbox: [], sent: [] }, at(25, 12), true, none);
     expect(result.inbox.map((entry) => entry.id)).toEqual([digest.id]);
+    expect(result.sent).toEqual([digest.id]);
     expect(result.pending).toEqual([later]);
     expect(unreadCount(result.inbox)).toBe(1);
   });
 
   it('records nothing when the phone did not allow notifications', () => {
-    expect(reconcile([digest], [], at(25, 12), false).inbox).toEqual([]);
+    expect(reconcile({ pending: [digest], inbox: [], sent: [] }, at(25, 12), false, none).inbox).toEqual([]);
+  });
+
+  it('waits while the phone still has a late alert scheduled, then sends it right away', () => {
+    const result = reconcile({ pending: [digest], inbox: [], sent: [] }, at(25, 12), true, new Set([digest.id]));
+    expect(result.inbox).toEqual([]);
+    expect(result.pending).toEqual([digest]);
+    const plan = planAlerts(input({ now: at(25, 12), pending: result.pending, sent: result.sent }));
+    expect(plan[0]).toEqual(digest);
+  });
+
+  it('does not send an alert again after the inbox is cleared', () => {
+    const lastSyncAt = at(20, 12).getTime();
+    const risk = planDataAtRisk(input({ watchBand: true, lastSyncAt, now: at(25, 12) }));
+    if (risk === null) throw new Error('expected an alert');
+    const delivered = reconcile({ pending: [risk], inbox: [], sent: [] }, at(25, 13), true, none);
+    const cleared = { ...delivered, inbox: [] };
+    expect(planAlerts(input({ watchBand: true, lastSyncAt, now: at(25, 14), sent: cleared.sent })).map((alert) => alert.id)).not.toContain(risk.id);
+    expect(reconcile(cleared, at(25, 15), true, none).inbox).toEqual([]);
   });
 
   it('keeps 30 days and at most the limit, newest first, without duplicates', () => {
@@ -213,14 +231,19 @@ describe('inbox', () => {
   });
 
   it('round-trips through storage and rejects tampered entries', () => {
-    const state = { pending: [later], inbox: [{ ...digest, read: true }] };
+    const state = { pending: [later], inbox: [{ ...digest, read: true }], sent: [digest.id] };
     expect(parseNotificationState(serializeNotificationState(state))).toEqual(state);
     const tampered = JSON.stringify({
       pending: [{ kind: 'digest', id: 'digest:2026-11-25', at: 1, day: '2026-11-26' }, { kind: 'dataAtRisk', id: 'risk:1', at: 5, days: -1 }, 'x'],
       inbox: [{ kind: 'evil', id: 'sync:1', at: 5 }, { kind: 'syncFailed', id: 'sync:2', at: 5, read: 'yes' }],
+      sent: ['sync:2', 'drop table', 7],
     });
-    expect(parseNotificationState(tampered)).toEqual({ pending: [], inbox: [{ kind: 'syncFailed', id: 'sync:2', at: 5, read: false }] });
-    expect(parseNotificationState('not json')).toEqual({ pending: [], inbox: [] });
+    expect(parseNotificationState(tampered)).toEqual({
+      pending: [],
+      inbox: [{ kind: 'syncFailed', id: 'sync:2', at: 5, read: false }],
+      sent: ['sync:2'],
+    });
+    expect(parseNotificationState('not json')).toEqual({ pending: [], inbox: [], sent: [] });
   });
 
   it('keeps the notification switch off for older saved preferences', () => {

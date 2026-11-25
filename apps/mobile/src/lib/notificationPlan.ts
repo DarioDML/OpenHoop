@@ -5,6 +5,7 @@ export const DATA_AT_RISK_DAYS = 2;
 export const DIGEST_HORIZON_DAYS = 3;
 export const SYNC_ALERT_GAP_MS = 6 * 3_600_000;
 export const INBOX_LIMIT = 50;
+export const SENT_LIMIT = 100;
 const DAY_MS = 86_400_000;
 
 export interface DigestFacts {
@@ -26,7 +27,7 @@ export interface PlanInput {
   now: Date;
   prefs: NotificationPrefs;
   pending: readonly Alert[];
-  inbox: readonly InboxEntry[];
+  sent: readonly string[];
   factsFor: (day: string) => DigestFacts | null;
   lastSyncAt: number | null;
   watchBand: boolean;
@@ -67,10 +68,10 @@ export function outOfQuiet(date: Date, prefs: Pick<NotificationPrefs, 'quietStar
   return sameDay.getTime() > date.getTime() ? sameDay : atMinutes(date, end, 1);
 }
 
-export function planDigests(input: Pick<PlanInput, 'now' | 'prefs' | 'inbox' | 'factsFor'>): Alert[] {
+export function planDigests(input: Pick<PlanInput, 'now' | 'prefs' | 'sent' | 'factsFor'>): Alert[] {
   const { now, prefs } = input;
   const digestAt = clockMinutes(DIGEST_CLOCK) ?? 7 * 60;
-  const sent = new Set(input.inbox.map((entry) => entry.id));
+  const sent = new Set(input.sent);
   const out: Alert[] = [];
   for (let offset = 0; out.length < DIGEST_HORIZON_DAYS && offset <= DIGEST_HORIZON_DAYS + 1; offset += 1) {
     const at = outOfQuiet(atMinutes(now, digestAt, offset), prefs);
@@ -84,28 +85,35 @@ export function planDigests(input: Pick<PlanInput, 'now' | 'prefs' | 'inbox' | '
   return out;
 }
 
-export function planDataAtRisk(input: Pick<PlanInput, 'now' | 'prefs' | 'inbox' | 'lastSyncAt' | 'watchBand'>): Alert | null {
+export function planDataAtRisk(input: Pick<PlanInput, 'now' | 'prefs' | 'sent' | 'lastSyncAt' | 'watchBand'>): Alert | null {
   const { now, prefs, lastSyncAt } = input;
   if (!input.watchBand || lastSyncAt === null) return null;
   const id = `risk:${lastSyncAt}`;
-  if (input.inbox.some((entry) => entry.id === id)) return null;
+  if (input.sent.includes(id)) return null;
   const due = Math.max(lastSyncAt + DATA_AT_RISK_DAYS * DAY_MS, now.getTime());
   const at = outOfQuiet(new Date(due), prefs).getTime();
   const days = Math.max(DATA_AT_RISK_DAYS, Math.floor((at - lastSyncAt) / DAY_MS));
   return { kind: 'dataAtRisk', id, at, days };
 }
 
-export function syncFailedAlert(now: Date, prefs: NotificationPrefs, recent: readonly Alert[]): Alert | null {
+function syncAlertTime(id: string): number | null {
+  const match = /^sync:(\d+)$/.exec(id);
+  return match ? Number(match[1]) : null;
+}
+
+export function syncFailedAlert(now: Date, prefs: NotificationPrefs, recentIds: readonly string[]): Alert | null {
   if (!prefs.enabled || !prefs.syncProblems) return null;
   const since = now.getTime() - SYNC_ALERT_GAP_MS;
-  if (recent.some((alert) => alert.kind === 'syncFailed' && alert.at > since)) return null;
+  if (recentIds.some((id) => (syncAlertTime(id) ?? 0) > since)) return null;
   return { kind: 'syncFailed', id: `sync:${now.getTime()}`, at: outOfQuiet(now, prefs).getTime() };
 }
 
 export function planAlerts(input: PlanInput): Alert[] {
   const { prefs, now } = input;
   if (!prefs.enabled) return [];
-  const planned: Alert[] = [];
+  const planned: Alert[] = input.pending.filter(
+    (alert) => alert.at <= now.getTime() && (alert.kind === 'digest' ? prefs.morningDigest : prefs.syncProblems),
+  );
   if (prefs.syncProblems) {
     for (const alert of input.pending) {
       if (alert.kind === 'syncFailed' && alert.at > now.getTime()) planned.push(alert);
@@ -139,17 +147,20 @@ export function trimInbox(entries: readonly InboxEntry[], now: Date): InboxEntry
     .slice(0, INBOX_LIMIT);
 }
 
-export interface Reconciled {
-  inbox: InboxEntry[];
+export interface NotificationLedger {
   pending: Alert[];
+  inbox: InboxEntry[];
+  sent: string[];
 }
 
-export function reconcile(pending: readonly Alert[], inbox: readonly InboxEntry[], now: Date, delivered: boolean): Reconciled {
-  const due = pending.filter((alert) => alert.at <= now.getTime());
-  const later = pending.filter((alert) => alert.at > now.getTime());
-  const known = new Set(inbox.map((entry) => entry.id));
-  const arrived: InboxEntry[] = delivered ? due.filter((alert) => !known.has(alert.id)).map((alert) => ({ ...alert, read: false })) : [];
-  return { inbox: trimInbox([...arrived, ...inbox], now), pending: later };
+export function reconcile(ledger: NotificationLedger, now: Date, delivered: boolean, stillScheduled: ReadonlySet<string>): NotificationLedger {
+  const isDone = (alert: Alert): boolean => alert.at <= now.getTime() && !stillScheduled.has(alert.id);
+  const done = ledger.pending.filter(isDone);
+  const pending = ledger.pending.filter((alert) => !isDone(alert));
+  const arrived = delivered ? done.filter((alert) => !ledger.sent.includes(alert.id)) : [];
+  const inbox = trimInbox([...arrived.map((alert) => ({ ...alert, read: false })), ...ledger.inbox], now);
+  const sent = [...ledger.sent, ...arrived.map((alert) => alert.id)].slice(-SENT_LIMIT);
+  return { pending, inbox, sent };
 }
 
 export function unreadCount(inbox: readonly InboxEntry[]): number {

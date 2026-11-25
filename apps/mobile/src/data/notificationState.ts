@@ -1,12 +1,9 @@
-import { INBOX_LIMIT, type Alert, type InboxEntry } from '@/lib/notificationPlan';
+import { INBOX_LIMIT, SENT_LIMIT, type Alert, type NotificationLedger } from '@/lib/notificationPlan';
 
 export const NOTIFICATION_STATE_KEY = 'notifications.state';
 const MAX_PENDING = 20;
 
-export interface NotificationState {
-  pending: Alert[];
-  inbox: InboxEntry[];
-}
+export type NotificationState = NotificationLedger;
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
@@ -49,7 +46,7 @@ function parseList<T>(value: Json | undefined, limit: number, parse: (item: Json
 }
 
 export function emptyNotificationState(): NotificationState {
-  return { pending: [], inbox: [] };
+  return { pending: [], inbox: [], sent: [] };
 }
 
 export function parseNotificationState(raw: string | null): NotificationState {
@@ -68,6 +65,9 @@ export function parseNotificationState(raw: string | null): NotificationState {
       if (alert === null || !isRecord(item)) return null;
       return { ...alert, read: item.read === true };
     }),
+    sent: Array.isArray(parsed.sent)
+      ? parsed.sent.slice(-SENT_LIMIT).filter((id): id is string => typeof id === 'string' && ALERT_ID.test(id))
+      : [],
   };
 }
 

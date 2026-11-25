@@ -737,7 +737,7 @@ export class AppController {
     return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([t, b]) => ({ t, hr: b.sum / b.count }));
   };
 
-  private digestFacts(): (day: string) => DigestFacts | null {
+  private digestFacts(now: Date): (day: string) => DigestFacts | null {
     const byDay = new Map(this.snapshot.days.map((record) => [record.day, record]));
     return (day) => {
       const record = byDay.get(day);
@@ -746,7 +746,7 @@ export class AppController {
       return {
         readiness: record.readiness.value,
         sleepScore: record.sleep.score.value,
-        load: yesterday?.load.value ?? null,
+        load: yesterday !== undefined && yesterday.end * 1000 <= now.getTime() ? yesterday.load.value : null,
       };
     };
   }
@@ -766,36 +766,43 @@ export class AppController {
   refreshNotifications = (options: { syncFailed?: boolean } = {}): Promise<void> =>
     this.notificationTask(async () => {
       if (this.app === null) return;
-      const permission = await this.notifier.permission().catch((): PermissionState => 'undetermined');
+      const permission = await this.notifier.permission();
+      const stillScheduled = await this.notifier.scheduledIds();
       const now = new Date();
       const { userData, settings } = this.snapshot;
       const prefs = userData.notifications;
       const delivered = permission === 'granted';
-      const settled = reconcile(this.notificationState.pending, this.notificationState.inbox, now, delivered);
+      const settled = reconcile(this.notificationState, now, delivered, stillScheduled);
       const active = prefs.enabled && delivered;
-      const failure = options.syncFailed === true ? syncFailedAlert(now, prefs, [...settled.pending, ...settled.inbox]) : null;
+      const recentIds = [...settled.pending.map((alert) => alert.id), ...settled.sent];
+      const failure = options.syncFailed === true ? syncFailedAlert(now, prefs, recentIds) : null;
       const fresh: Alert[] = failure === null ? [] : [failure];
-      const pending = active
+      let pending = active
         ? planAlerts({
             now,
             prefs,
             pending: settled.pending,
-            inbox: settled.inbox,
-            factsFor: this.digestFacts(),
+            sent: settled.sent,
+            factsFor: this.digestFacts(now),
             lastSyncAt: this.lastSyncAt === null ? null : this.lastSyncAt * 1000,
             watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
             fresh,
           })
         : [];
-      await this.saveNotificationState({ inbox: settled.inbox, pending });
       this.patch({ notificationPermission: permission });
-      if (!active) {
-        await this.notifier.cancelAll();
-        return;
+      try {
+        if (active) {
+          const channel = translate(settings.language, 'notif.channel');
+          const texts = pending.map((alert) => ({ id: alert.id, at: alert.at, ...alertText(settings.language, alert) }));
+          await this.notifier.replaceAll(texts, channel, now.getTime());
+        } else {
+          await this.notifier.cancelAll();
+        }
+      } catch {
+        pending = [];
+        await this.notifier.cancelAll().catch(() => undefined);
       }
-      const channel = translate(settings.language, 'notif.channel');
-      const texts = pending.map((alert) => ({ id: alert.id, at: alert.at, ...alertText(settings.language, alert) }));
-      await this.notifier.replaceAll(texts, channel, now.getTime());
+      await this.saveNotificationState({ ...settled, pending });
     });
 
   setNotificationsEnabled = async (enabled: boolean): Promise<PermissionState> => {
@@ -826,8 +833,8 @@ export class AppController {
     });
 
   private notificationsExport(): string {
-    const { pending, inbox } = this.notificationState;
-    return JSON.stringify({ preferences: this.snapshot.userData.notifications, inbox, scheduled: pending }, null, 2);
+    const { pending, inbox, sent } = this.notificationState;
+    return JSON.stringify({ preferences: this.snapshot.userData.notifications, inbox, scheduled: pending, sent }, null, 2);
   }
 
   exportData = async (): Promise<void> => {

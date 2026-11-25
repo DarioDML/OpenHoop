@@ -4,6 +4,9 @@ import {
   addNotificationReceivedListener,
   addNotificationResponseReceivedListener,
   cancelAllScheduledNotificationsAsync,
+  clearLastNotificationResponseAsync,
+  getAllScheduledNotificationsAsync,
+  getLastNotificationResponseAsync,
   getPermissionsAsync,
   requestPermissionsAsync,
   scheduleNotificationAsync,
@@ -27,6 +30,7 @@ export interface Notifier {
   request(channelName: string): Promise<PermissionState>;
   replaceAll(items: readonly ScheduledText[], channelName: string, now: number): Promise<void>;
   cancelAll(): Promise<void>;
+  scheduledIds(): Promise<ReadonlySet<string>>;
   onReceived(listener: () => void): () => void;
   onOpened(listener: () => void): () => void;
 }
@@ -78,13 +82,28 @@ export const expoNotifier: Notifier = {
   async cancelAll() {
     await cancelAllScheduledNotificationsAsync();
   },
+  async scheduledIds() {
+    const requests = await getAllScheduledNotificationsAsync();
+    return new Set(requests.map((request) => request.identifier));
+  },
   onReceived(listener) {
     ensureHandler();
     const subscription = addNotificationReceivedListener(() => listener());
     return () => subscription.remove();
   },
   onOpened(listener) {
+    let active = true;
+    void getLastNotificationResponseAsync()
+      .then(async (response) => {
+        if (response === null || !active) return;
+        await clearLastNotificationResponseAsync();
+        listener();
+      })
+      .catch(() => undefined);
     const subscription = addNotificationResponseReceivedListener(() => listener());
-    return () => subscription.remove();
+    return () => {
+      active = false;
+      subscription.remove();
+    };
   },
 };
