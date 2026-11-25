@@ -10,3 +10,4 @@ export * from './live';
 export * from './deviceInfo';
 export * from './config';
 export * from './pipeline';
+export * from './sleepEdits';

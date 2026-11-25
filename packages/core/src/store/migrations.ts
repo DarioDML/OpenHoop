@@ -186,15 +186,13 @@ ALTER TABLE sleeps ADD COLUMN source TEXT NOT NULL DEFAULT 'detected' CHECK (sou
 CREATE TABLE sleep_edits (
   id INTEGER PRIMARY KEY,
   device_id INTEGER NOT NULL REFERENCES devices(id),
-  kind TEXT NOT NULL CHECK (kind IN ('night', 'nap')),
   target_onset INTEGER,
   target_offset INTEGER,
   onset INTEGER NOT NULL,
   offset INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
   CHECK (offset > onset),
-  CHECK ((target_onset IS NULL) = (target_offset IS NULL)),
-  CHECK (kind = 'nap' OR target_onset IS NOT NULL)
+  CHECK ((target_onset IS NULL) = (target_offset IS NULL))
 );
 CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
 `;

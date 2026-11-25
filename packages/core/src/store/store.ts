@@ -7,7 +7,6 @@ import type {
   EventRow,
   SampleRow,
   SampleSource,
-  SleepEditKind,
   SleepEditRow,
   SleepSource,
   SqlDriver,
@@ -139,6 +138,8 @@ function isSleepSource(value: unknown): value is SleepSource {
 }
 
 function withSleepSources(record: DayRecord): DayRecord {
+  const sleep: unknown = record.sleep;
+  if (typeof sleep !== 'object' || sleep === null || !Array.isArray(record.sleep.periods)) return record;
   const periods = record.sleep.periods.map((p) => {
     const source: unknown = p.source;
     const editId: unknown = p.editId;
@@ -156,7 +157,6 @@ function parseDayRecord(text: string): DayRecord {
 type SleepEditDb = {
   id: number;
   device_id: number;
-  kind: string;
   target_onset: number | null;
   target_offset: number | null;
   onset: number;
@@ -164,16 +164,10 @@ type SleepEditDb = {
   created_at: number;
 };
 
-function toSleepEditKind(value: string): SleepEditKind {
-  if (value === 'night' || value === 'nap') return value;
-  throw new Error(`Unknown sleep edit kind in database: ${value}`);
-}
-
 function toSleepEdit(row: SleepEditDb): SleepEditRow {
   return {
     id: row.id,
     deviceId: row.device_id,
-    kind: toSleepEditKind(row.kind),
     targetOnset: row.target_onset,
     targetOffset: row.target_offset,
     onset: row.onset,
@@ -462,16 +456,16 @@ export function bindStore(driver: SqlDriver): Store {
     async saveSleepEdit(edit) {
       if (edit.id === null) {
         const result = await driver.run(
-          `INSERT INTO sleep_edits (device_id, kind, target_onset, target_offset, onset, offset, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [edit.deviceId, edit.kind, edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt],
+          `INSERT INTO sleep_edits (device_id, target_onset, target_offset, onset, offset, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [edit.deviceId, edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt],
         );
         return result.lastInsertRowid;
       }
       const result = await driver.run(
-        `UPDATE sleep_edits SET kind = ?, target_onset = ?, target_offset = ?, onset = ?, offset = ?, created_at = ?
+        `UPDATE sleep_edits SET target_onset = ?, target_offset = ?, onset = ?, offset = ?, created_at = ?
          WHERE id = ? AND device_id = ?`,
-        [edit.kind, edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt, edit.id, edit.deviceId],
+        [edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt, edit.id, edit.deviceId],
       );
       if (result.changes === 0) throw new Error(`Sleep edit ${edit.id} does not exist`);
       return edit.id;

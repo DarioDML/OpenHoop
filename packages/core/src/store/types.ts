@@ -88,7 +88,6 @@ export interface Derived {
 }
 
 export type SleepSource = 'detected' | 'edited' | 'manual';
-export type SleepEditKind = 'night' | 'nap';
 
 export interface SleepPeriodRecord {
   onset: number;
@@ -102,7 +101,6 @@ export interface SleepPeriodRecord {
 
 export interface SleepEdit {
   id: number;
-  kind: SleepEditKind;
   targetOnset: number | null;
   targetOffset: number | null;
   onset: number;

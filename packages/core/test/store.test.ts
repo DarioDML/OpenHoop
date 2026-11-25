@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deflateSync } from 'fflate';
 import { exportCsv, openStore } from '../src/index';
-import type { DayRecord, Derived, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
+import type { DayRecord, Derived, DeviceRow, SampleRow, SleepEditInput, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 
 const DEVICE: Omit<DeviceRow, 'id'> = {
@@ -59,8 +59,8 @@ function dayRecord(deviceId: number, day: string, over: Partial<DayRecord> = {})
     flags: [],
     sleep: {
       periods: [
-        { onset: 100, offset: 28_900, asleepS: 27_000, inBedS: 28_800, nap: false },
-        { onset: 50_000, offset: 51_800, asleepS: 1_700, inBedS: 1_800, nap: true },
+        { onset: 100, offset: 28_900, asleepS: 27_000, inBedS: 28_800, nap: false, source: 'detected', editId: null },
+        { onset: 50_000, offset: 51_800, asleepS: 1_700, inBedS: 1_800, nap: true, source: 'detected', editId: null },
       ],
       asleepS: 28_700,
       inBedS: 30_600,
@@ -119,7 +119,7 @@ describe('store', () => {
     for (const t of [
       'devices', 'raw_chunks', 'samples_1hz', 'events', 'console_log', 'sync_state', 'daily_metrics', 'sleeps',
       'workouts', 'baselines', 'calibration', 'settings', 'sleep_stages', 'journal', 'oracle_values', 'optical_bursts',
-      'imu_blocks', 'ecg_recordings',
+      'imu_blocks', 'ecg_recordings', 'sleep_edits',
     ]) {
       expect(names).toContain(t);
     }
@@ -411,14 +411,75 @@ describe('store', () => {
       [sample(device.id, 1_000)],
       { events: [], console: [{ deviceId: device.id, t: 1, sequence: 1, text: 'a,b' }], unknownFrames: 0, syncState: syncState(device.id) },
     );
-    const tables = ['devices', 'samples_1hz', 'daily_metrics', 'sleeps', 'workouts', 'events', 'console_log', 'raw_chunks'] as const;
+    await store.saveSleepEdit({ id: null, deviceId: device.id, targetOnset: 100, targetOffset: 28_900, onset: 50, offset: 28_000, createdAt: 9 });
+    const tables = ['devices', 'samples_1hz', 'daily_metrics', 'sleeps', 'sleep_edits', 'workouts', 'events', 'console_log', 'raw_chunks'] as const;
     for (const table of tables) {
       const csv = await exportCsv(store, table);
       expect(csv.endsWith('\r\n')).toBe(true);
     }
     expect((await exportCsv(store, 'sleeps')).split('\r\n')).toHaveLength(4);
+    expect(await exportCsv(store, 'sleeps')).toContain(',detected\r\n');
+    expect(await exportCsv(store, 'sleep_edits')).toBe(
+      'id,device_id,target_onset,target_offset,onset,offset,created_at\r\n1,1,100,28900,50,28000,9\r\n',
+    );
     expect(await exportCsv(store, 'console_log')).toContain('"a,b"');
     expect(await exportCsv(store, 'raw_chunks')).toContain(',AB,');
     await expect(exportCsv(store, 'settings' as 'devices')).rejects.toThrow();
+  });
+  describe('sleep edits', () => {
+    const edit = (overrides: Partial<SleepEditInput> = {}): SleepEditInput => ({
+      id: null,
+      deviceId: device.id,
+      targetOnset: 1_000,
+      targetOffset: 2_000,
+      onset: 900,
+      offset: 2_100,
+      createdAt: 5,
+      ...overrides,
+    });
+
+    it('saves, updates, lists per device and deletes', async () => {
+      const other = await store.upsertDevice({ ...DEVICE, bleId: 'CC:DD' });
+      const first = await store.saveSleepEdit(edit());
+      const nap = await store.saveSleepEdit(edit({ targetOnset: null, targetOffset: null, onset: 5_000, offset: 6_000 }));
+      await store.saveSleepEdit(edit({ deviceId: other.id }));
+      expect(await store.listSleepEdits(device.id)).toEqual([
+        { id: first, deviceId: device.id, targetOnset: 1_000, targetOffset: 2_000, onset: 900, offset: 2_100, createdAt: 5 },
+        { id: nap, deviceId: device.id, targetOnset: null, targetOffset: null, onset: 5_000, offset: 6_000, createdAt: 5 },
+      ]);
+
+      expect(await store.saveSleepEdit(edit({ id: first, onset: 950, createdAt: 6 }))).toBe(first);
+      expect((await store.listSleepEdits(device.id))[0]).toMatchObject({ id: first, onset: 950, createdAt: 6 });
+      await expect(store.saveSleepEdit(edit({ id: first, deviceId: other.id }))).rejects.toThrow();
+      await expect(store.saveSleepEdit(edit({ id: 999 }))).rejects.toThrow();
+
+      expect(await store.deleteSleepEdit(other.id, first)).toBe(false);
+      expect(await store.deleteSleepEdit(device.id, first)).toBe(true);
+      expect((await store.listSleepEdits(device.id)).map((e) => e.id)).toEqual([nap]);
+      expect(await store.listSleepEdits(other.id)).toHaveLength(1);
+    });
+
+    it('the schema rejects an end before the start and a half-set target', async () => {
+      await expect(store.saveSleepEdit(edit({ onset: 2_000, offset: 2_000 }))).rejects.toThrow();
+      await expect(store.saveSleepEdit(edit({ targetOffset: null }))).rejects.toThrow();
+      expect(await store.listSleepEdits(device.id)).toEqual([]);
+    });
+
+    it('clearDerived keeps the edits and deleteBefore drops the older ones', async () => {
+      await store.saveSleepEdit(edit({ onset: 10, offset: 40 }));
+      const kept = await store.saveSleepEdit(edit({ onset: 60, offset: 90 }));
+      await store.clearDerived(device.id);
+      expect(await store.listSleepEdits(device.id)).toHaveLength(2);
+      await store.deleteBefore(device.id, 50, () => null);
+      expect((await store.listSleepEdits(device.id)).map((e) => e.id)).toEqual([kept]);
+    });
+
+    it('reads a stored record written before sleep sources existed as detected sleep', async () => {
+      const record = dayRecord(device.id, '2026-11-25');
+      const legacy = { ...record, sleep: { ...record.sleep, periods: record.sleep.periods.map(({ onset, offset, asleepS, inBedS, nap }) => ({ onset, offset, asleepS, inBedS, nap })) } };
+      await store.replaceDay(record);
+      await store.driver.run('UPDATE daily_metrics SET record = ? WHERE device_id = ?', [JSON.stringify(legacy), device.id]);
+      expect(await store.getDay(device.id, '2026-11-25')).toEqual(record);
+    });
   });
 });
