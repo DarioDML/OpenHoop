@@ -54,8 +54,8 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     order: 'device_id, id',
   },
   body_measurements: {
-    columns: ['id', 'day', 'weight_kg', 'body_fat_pct', 'created_at'],
-    select: 'id, day, weight_kg, body_fat_pct, created_at',
+    columns: ['id', 'day', 'weight_kg', 'body_fat_pct', 'created_at', 'source', 'origin', 'external_id', 'deleted_at'],
+    select: 'id, day, weight_kg, body_fat_pct, created_at, source, origin, external_id, deleted_at',
     order: 'day, id',
   },
 };

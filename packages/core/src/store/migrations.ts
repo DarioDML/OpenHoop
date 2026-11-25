@@ -208,7 +208,15 @@ CREATE TABLE sleep_edits (
 CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4];
+const V5 = `
+ALTER TABLE body_measurements ADD COLUMN source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'health_connect'));
+ALTER TABLE body_measurements ADD COLUMN external_id TEXT;
+ALTER TABLE body_measurements ADD COLUMN origin TEXT;
+ALTER TABLE body_measurements ADD COLUMN deleted_at INTEGER;
+CREATE UNIQUE INDEX body_measurements_external ON body_measurements (external_id);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
