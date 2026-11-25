@@ -185,7 +185,11 @@ export type ExportTable =
   | 'strength_sessions'
   | 'strength_session_exercises'
   | 'strength_sets'
-  | 'journal_notes';
+  | 'journal_notes'
+  | 'vendor_cycles'
+  | 'vendor_sleeps'
+  | 'vendor_workouts'
+  | 'vendor_journal';
 
 export interface Store {
   driver: SqlDriver;

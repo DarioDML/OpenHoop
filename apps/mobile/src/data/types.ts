@@ -1,5 +1,5 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { InboxEntry } from '@/lib/notificationPlan';
@@ -8,6 +8,9 @@ import type { PermissionState } from './notifier';
 
 import type { SleepEditRequest } from './sleepEditForm';
 import type { UserData } from './userData';
+import type { FileReport } from './vendorExport/parse';
+import type { SourceFile } from './vendorExport/sources';
+import type { VendorImportResult } from './vendorExport/summary';
 
 export type Language = 'nl' | 'en';
 export type DataSource = 'demo' | 'band';
@@ -124,6 +127,7 @@ export interface AppData {
   strength: StrengthData;
   strengthActions: StrengthActions;
   journalNotes: JournalNote[];
+  vendorData: VendorData;
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
@@ -153,6 +157,8 @@ export interface AppData {
   removeAllCycleData(): Promise<boolean>;
   saveJournalNote(id: number | null, input: JournalNoteInput): Promise<boolean>;
   removeJournalNote(id: number): Promise<boolean>;
+  importVendorFiles(files: SourceFile[], rejected: FileReport[]): Promise<VendorImportResult | null>;
+  removeVendorData(): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;

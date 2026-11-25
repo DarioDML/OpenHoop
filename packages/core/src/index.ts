@@ -14,6 +14,7 @@ export * from './bodyMeasurements';
 export * from './cycle';
 export * from './strength';
 export * from './journalNotes';
+export * from './vendorImport';
 export * from './sleepEdits';
 export * from './labResults';
 export * from './activities';

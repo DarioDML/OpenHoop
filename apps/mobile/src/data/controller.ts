@@ -23,6 +23,7 @@ import {
   deleteDataBefore,
   deleteLabResult,
   exportCsv,
+  emptyVendorData,
   insertBodyMeasurement,
   insertJournalNote,
   insertLabResult,
@@ -30,6 +31,7 @@ import {
   listJournalNotes,
   listLabResults,
   loadReference,
+  listVendorData,
   clearPregnancy,
   deleteAllCycleData,
   deletePeriod,
@@ -53,6 +55,8 @@ import {
   type ActivityMetricsRecord,
   type ActivityRow,
   type ActivityStore,
+  upsertVendorData,
+  clearVendorData,
   updatePeriod,
   upsertSymptom,
   updateJournalNote,
@@ -73,6 +77,7 @@ import {
   type LabResultInput,
   type PeriodInput,
   type SleepEditRow,
+  type VendorData,
   type SymptomInput,
   type SyncProgress,
   type SyncStop,
@@ -106,6 +111,10 @@ import {
 } from './notificationState';
 import { expoNotifier, type Notifier, type PermissionState } from './notifier';
 import { otherSleepSpans, recomputeFrom, type SleepEditRequest } from './sleepEditForm';
+import { parseVendorSources } from './vendorExport/sources';
+import type { FileReport } from './vendorExport/parse';
+import type { SourceFile } from './vendorExport/sources';
+import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
@@ -158,6 +167,7 @@ export interface Snapshot {
   bodyMeasurements: BodyMeasurement[];
   journalNotes: JournalNote[];
   labResults: LabResult[];
+  vendorData: VendorData;
   cycle: CycleData;
   strength: StrengthData;
   syncProgress: SyncProgressView | null;
@@ -250,6 +260,7 @@ export class AppController {
       bodyMeasurements: [],
       journalNotes: [],
       labResults: [],
+      vendorData: emptyVendorData(),
       cycle: emptyCycleData(),
       strength: emptyStrengthData(),
       syncProgress: null,
@@ -351,6 +362,7 @@ export class AppController {
     setNetworkPrefs(userData.network);
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
     const labResults = await listLabResults(this.app.driver);
+    const vendorData = await listVendorData(this.app.driver);
     const cycle = await loadCycleData(this.app.driver);
     const strength = await listStrengthData(this.app.driver);
     const journalNotes = await listJournalNotes(this.app.driver);
@@ -361,6 +373,7 @@ export class AppController {
       bodyMeasurements,
       journalNotes,
       labResults,
+      vendorData,
       cycle,
       inbox: this.notificationState.inbox,
       strength,
@@ -946,6 +959,38 @@ export class AppController {
     return run;
   }
 
+  importVendorFiles = (files: SourceFile[], rejected: FileReport[]): Promise<VendorImportResult | null> => {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const parsed = parseVendorSources(files);
+        const written = await upsertVendorData(driver, parsed.data, nowSeconds());
+        this.patch({ vendorData: await listVendorData(driver) });
+        return summariseImport(parsed, written, rejected);
+      } catch (error) {
+        this.fail(error);
+        return null;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  };
+
+  removeVendorData = (): Promise<boolean> => {
+    const run = this.userDataChain.then(async () => {
+      try {
+        await clearVendorData(this.requireApp().driver);
+        this.patch({ vendorData: emptyVendorData() });
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  };
+
   private runStrength<T>(task: (driver: AppStore['driver']) => Promise<T>, failed: T): Promise<T> {
     const run = this.userDataChain.then(async () => {
       try {
@@ -1370,6 +1415,8 @@ export class AppController {
       removeJournalNote: this.removeJournalNote,
       saveLabResult: this.saveLabResult,
       removeLabResult: this.removeLabResult,
+      importVendorFiles: this.importVendorFiles,
+      removeVendorData: this.removeVendorData,
       savePeriod: this.savePeriod,
       removePeriod: this.removePeriod,
       saveSymptom: this.saveSymptom,
