@@ -93,6 +93,10 @@ The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to
 
 Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart rate at or above 40 % of heart rate reserve use the sex-specific equations without VO2max from Keytel et al., "Prediction of energy expenditure from heart rate monitoring during submaximal exercise", J Sports Sci 2005;23(3):289-297. All other minutes, including minutes without heart rate, use resting energy from the Mifflin-St Jeor equation (Mifflin et al., Am J Clin Nutr 1990;51(2):241-247). The estimate needs height, weight, sex and birth year. For the sex "other" it uses the mean of the male and female equations. Without a complete profile or with fewer than 600 minutes of heart rate in a day, the app shows the reason instead of a number.
 
+## Health report
+
+The health report is a PDF of the last 30 or 90 days that you can share with your doctor. It is made on the phone with `expo-print` from HTML that contains no network references, and is handed to the system share sheet. The temporary file is deleted after sharing and any leftover is removed at the next start. You choose the period, the sections and whether your name is on it. For each value it shows the average, the range, the trend, the coverage (days with data out of the days in the period) and the parity level of the value. Averages and ranges keep the level of the value they summarise. The trend compares the mean of the first half of the values with the mean of the second half and calls it rising or falling only when the difference is larger than the noise of the series (twice the standard deviation divided by the square root of the number of values), and needs at least 6 values. When there is no value, the report shows the reason, not a number. It ends with: not a medical device, OpenHoop's own estimates, generated on the date on this phone.
+
 ## Privacy
 
 - No account, no server, no network access and no telemetry.
