@@ -1,7 +1,7 @@
 {
   "name": "@openhoop/mobile",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index.ts",
   "dependencies": {
     "@expo-google-fonts/barlow-condensed": "^0.4.1",
     "@expo-google-fonts/inter": "^0.4.2",
@@ -29,6 +29,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.1",
+    "react-native-android-widget": "^0.26.0",
     "react-native-ble-manager": "^13.0.2",
     "react-native-safe-area-context": "~5.11.1",
     "react-native-screens": "~4.30.1",

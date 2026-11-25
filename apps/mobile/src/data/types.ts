@@ -133,6 +133,7 @@ export interface AppData {
   clearNotice(): void;
   refreshNotifications(): Promise<void>;
   setNotificationsEnabled(enabled: boolean): Promise<PermissionState>;
+  refreshWidgets(): Promise<void>;
   markInboxRead(): Promise<void>;
   clearInbox(): Promise<void>;
 }

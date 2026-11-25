@@ -38,6 +38,7 @@ export interface UserData {
   journalQuestions: string[] | null;
   journal: Record<string, Record<string, JournalAnswer>>;
   weeklyPlan: { loadDays: number; sleepNights: number } | null;
+  widgetValues: boolean;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -60,6 +61,7 @@ export function defaultUserData(): UserData {
     journalQuestions: null,
     journal: {},
     weeklyPlan: null,
+    widgetValues: true,
   };
 }
 
@@ -166,6 +168,7 @@ export function parseUserData(raw: string | null): UserData {
     journalQuestions: Array.isArray(parsed.journalQuestions) ? stringList(parsed.journalQuestions, 40, 40).filter((id) => ID.test(id)) : null,
     journal: parseJournal(parsed.journal),
     weeklyPlan: loadDays !== null && sleepNights !== null ? { loadDays, sleepNights } : null,
+    widgetValues: parsed.widgetValues !== false,
   };
 }
 

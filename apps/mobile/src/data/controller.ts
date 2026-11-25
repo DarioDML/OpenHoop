@@ -50,6 +50,8 @@ import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
 import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
+import { buildWidgetFile } from '@/lib/widgetSnapshot';
+import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
 
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
@@ -188,9 +190,13 @@ export class AppController {
   private started = false;
   private notificationState: NotificationState = emptyNotificationState();
   private notificationChain: Promise<void> = Promise.resolve();
+  private widgetChain: Promise<void> = Promise.resolve();
   lastTimings: SyncTimings | null = null;
 
-  constructor(private readonly notifier: Notifier = expoNotifier) {
+  constructor(
+    private readonly notifier: Notifier = expoNotifier,
+    private readonly widgets: WidgetBridge = androidWidgetBridge,
+  ) {
     const language = detectLanguage(getLocales()[0]?.languageCode);
     this.snapshot = {
       ready: false,
@@ -354,6 +360,7 @@ export class AppController {
     const sleepEdits = row === null ? [] : await store.listSleepEdits(row.id);
     const activities = row === null ? [] : await this.activityStore().list(row.id);
     this.patch({ days, sleepEdits, activities });
+    void this.refreshWidgets();
   }
 
   private activityStore(): ActivityStore {
@@ -569,6 +576,7 @@ export class AppController {
       throw appError;
     } finally {
       void this.refreshNotifications({ syncFailed: failed });
+      void this.refreshWidgets();
       if (this.connection === 'syncing') this.connection = this.conn?.session.isConnected === true ? 'connected' : 'disconnected';
       this.patch({ syncProgress: null });
       this.patchDevice();
@@ -718,6 +726,7 @@ export class AppController {
       this.patch({ settings: { ...this.snapshot.settings, language: patch.language } });
       this.patchDevice();
       void this.refreshNotifications();
+      void this.refreshWidgets();
     }
     if (patch.ownerSince !== undefined && patch.ownerSince !== null && patch.ownerSince !== current.ownerSince) {
       await this.changeOwnerSince(patch.ownerSince);
@@ -789,6 +798,7 @@ export class AppController {
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
         this.patch({ userData: next });
         if (patch.notifications !== undefined) void this.refreshNotifications();
+        if (patch.widgetValues !== undefined) void this.refreshWidgets();
         return true;
       } catch (error) {
         this.fail(error);
@@ -949,6 +959,19 @@ export class AppController {
       }
       await this.saveNotificationState({ ...settled, pending });
     });
+
+  refreshWidgets = (): Promise<void> => {
+    const run = this.widgetChain.then(async () => {
+      if (await this.widgets.placed() === 0) {
+        await this.widgets.clear();
+        return;
+      }
+      const { days, userData, settings } = this.snapshot;
+      await this.widgets.publish(buildWidgetFile({ enabled: userData.widgetValues, day: days[days.length - 1], syncedAt: this.lastSyncAt, language: settings.language }));
+    });
+    this.widgetChain = run.catch(() => undefined);
+    return this.widgetChain;
+  };
 
   setNotificationsEnabled = async (enabled: boolean): Promise<PermissionState> => {
     if (!enabled) {
@@ -1161,6 +1184,7 @@ export class AppController {
       clearNotice: this.clearNotice,
       refreshNotifications: this.refreshNotifications,
       setNotificationsEnabled: this.setNotificationsEnabled,
+      refreshWidgets: this.refreshWidgets,
       markInboxRead: this.markInboxRead,
       clearInbox: this.clearInbox,
     };
