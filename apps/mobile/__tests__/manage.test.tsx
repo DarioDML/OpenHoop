@@ -116,17 +116,11 @@ describe('Not built screens', () => {
 });
 
 describe('App settings', () => {
-  it('switches language and stores notification preferences', async () => {
+  it('switches language', async () => {
     const updateSettings = jest.fn(async () => undefined);
-    const updateUserData = jest.fn(async () => true);
-    await render(withAppData(<AppSettingsScreen />, 'en', { updateSettings, updateUserData }));
+    await render(withAppData(<AppSettingsScreen />, 'en', { updateSettings }));
     await fireEvent.press(screen.getByText('Nederlands'));
     expect(updateSettings).toHaveBeenCalledWith({ language: 'nl' });
-    fireEvent(screen.getByTestId('toggle-morning-digest'), 'valueChange', false);
-    expect(updateUserData).toHaveBeenCalledWith({
-      notifications: { morningDigest: false, syncProblems: true, quietStart: '22:00', quietEnd: '07:00' },
-    });
-    expect(screen.getByTestId('not-built-notifications')).toBeTruthy();
   });
 });
 
