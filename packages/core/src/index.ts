@@ -13,3 +13,6 @@ export * from './pipeline';
 export * from './bodyMeasurements';
 export * from './cycle';
 export * from './sleepEdits';
+export * from './labResults';
+export * from './activities';
+export * from './coach';

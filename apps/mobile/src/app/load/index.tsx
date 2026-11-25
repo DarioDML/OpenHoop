@@ -3,11 +3,13 @@ import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { loadTargetBand } from '@/data/activityDerived';
+import { dayEntries, dayTotals } from '@/data/activities';
 import { rangeStatus } from '@/data/derived';
 import { useT } from '@/i18n/useT';
 import { formatDuration, formatNumber, formatShortDay } from '@/lib/format';
 import { CaloriesCard } from '@/ui/activity/CaloriesCard';
-import { NoDataScreen, ProgressBar, StatRow, StatTile, WorkoutRow } from '@/ui/activity/parts';
+import { EntryRow, entryHref, UndoBar } from '@/ui/activity/entries';
+import { NoDataScreen, ProgressBar, StatRow, StatTile } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { BarChart } from '@/ui/BarChart';
 import { Card, CardHeader } from '@/ui/Card';
@@ -22,10 +24,10 @@ import { Section } from '@/ui/Section';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { spacing, useTheme } from '@/ui/theme';
 import { TopBar } from '@/ui/TopBar';
-import { ZoneBar } from '@/ui/ZoneBar';
+import { displayedZones, ZoneBar } from '@/ui/ZoneBar';
 
 export default function LoadScreen() {
-  const { days, userData } = useAppData();
+  const { days, userData, activities } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const day = days[days.length - 1];
@@ -33,11 +35,13 @@ export default function LoadScreen() {
   if (!day) return <NoDataScreen title={t('score.load')} />;
 
   const recent = days.slice(-14);
-  const zoneTotal = day.zoneSeconds.reduce((a, b) => a + b, 0);
+  const zoneTotal = displayedZones(day.zoneSeconds).reduce((a, b) => a + b, 0);
   const band = loadTargetBand(days);
   const status = rangeStatus(day.load.value, band);
   const stepsGoal = userData.stepsGoal;
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
+  const entries = dayEntries(days, day, activities);
+  const totals = dayTotals(entries);
 
   return (
     <Screen
@@ -79,16 +83,25 @@ export default function LoadScreen() {
         )}
       </Card>
 
-      <Section title={t('load.workouts')}>
-        {day.workouts.length === 0 ? (
+      <UndoBar />
+      <Section title={t('load.workouts')} hint={totals.count > 0 ? t('activity.totals', { count: totals.count, time: formatDuration(t, totals.seconds) }) : undefined}>
+        {entries.length === 0 ? (
           <Card>
             <AppText variant="body" muted>
               {t('load.noWorkouts')}
             </AppText>
           </Card>
         ) : (
-          day.workouts.map((_, index) => <WorkoutRow key={day.workouts[index]?.start ?? index} day={day} index={index} />)
+          entries.map((entry) => {
+            const index = entry.id === null ? day.workouts.findIndex((w) => w.start === entry.detectedStart) : null;
+            return <EntryRow key={entry.key} entry={entry} href={entryHref(entry, day.day, index)} tzOffsetS={day.tzOffsetS} testID={`entry-${entry.key}`} />;
+          })
         )}
+        {totals.count > 0 ? (
+          <AppText variant="caption" muted>
+            {t('activity.dayLoadNote')}
+          </AppText>
+        ) : null}
         <Button label={t('loadx.addActivity')} variant="secondary" onPress={() => router.push('/activity/add')} />
       </Section>
 

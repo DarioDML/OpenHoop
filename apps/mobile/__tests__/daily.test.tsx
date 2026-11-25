@@ -138,11 +138,12 @@ describe('Home', () => {
     expect(screen.getByText('No data yet')).toBeTruthy();
   });
 
-  it('shows why calories are missing and keeps stress marked as not built', async () => {
+  it('shows why calories are missing and the stress tile has a value instead of a not-built notice', async () => {
     await render(withAppData(<HomeScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, dashboardTiles: ['hrv', 'calories'] } }));
     expect(screen.getByTestId('tile-calories-reason')).toHaveTextContent('Body profile incomplete');
     expect(screen.queryByText('Issue #13')).toBeNull();
-    expect(screen.getAllByText('Issue #15').length).toBe(1);
+    expect(screen.queryByText('Issue #15')).toBeNull();
+    expect(screen.getByTestId('stress-tile-level')).toBeTruthy();
   });
 });
 
@@ -190,9 +191,9 @@ describe('Home sub-screens', () => {
     expect(screen.getByTestId('line-readiness')).toBeTruthy();
   });
 
-  it('marks notifications and widgets as not built', async () => {
+  it('marks widgets as not built and no longer notifications', async () => {
     await render(withAppData(<NotificationsScreen />));
-    expect(screen.getByTestId('not-built-notifications')).toBeTruthy();
+    expect(screen.queryByTestId('not-built-notifications')).toBeNull();
     await render(withAppData(<WidgetsScreen />));
     expect(screen.getByTestId('not-built-widgets')).toBeTruthy();
     expect(screen.getByTestId('widget-lock-value')).toBeTruthy();
