@@ -136,7 +136,6 @@ const PROGRESS_INTERVAL_MS = 250;
 const EARLIEST_DAY = '0000-01-01';
 const LATEST_DAY = '9999-12-31';
 const INCREMENTAL_RECOMPUTE_BACK_S = 2 * DAY_S;
-  journalNotes: JournalNote[];
 const MAX_DEMO_BACKLOG_DAYS = 20;
 export const UNDO_MS = 5_000;
 const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null };
@@ -155,6 +154,7 @@ export interface Snapshot {
   settings: Settings;
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
+  journalNotes: JournalNote[];
   labResults: LabResult[];
   cycle: CycleData;
   strength: StrengthData;
@@ -220,7 +220,6 @@ export class AppController {
   private battery: number | null = null;
   private backlogPages: number | null = null;
   private lastSyncAt: number | null = null;
-      journalNotes: [],
   private chain: Promise<unknown> = Promise.resolve();
   private userDataChain: Promise<void> = Promise.resolve();
   private syncRun: Promise<void> | null = null;
@@ -246,6 +245,7 @@ export class AppController {
       settings: { language, dataSource: 'demo', ownerSince: null },
       userData: defaultUserData(),
       bodyMeasurements: [],
+      journalNotes: [],
       labResults: [],
       cycle: emptyCycleData(),
       strength: emptyStrengthData(),
@@ -1233,8 +1233,6 @@ export class AppController {
       }
     });
 
-      saveJournalNote: this.saveJournalNote,
-      removeJournalNote: this.removeJournalNote,
   deleteActivity = (target: DeleteTarget): Promise<boolean> =>
     this.exclusive(async () => {
       try {
@@ -1333,6 +1331,8 @@ export class AppController {
       updateUserData: this.updateUserData,
       saveBodyMeasurement: this.saveBodyMeasurement,
       removeBodyMeasurement: this.removeBodyMeasurement,
+      saveJournalNote: this.saveJournalNote,
+      removeJournalNote: this.removeJournalNote,
       saveLabResult: this.saveLabResult,
       removeLabResult: this.removeLabResult,
       savePeriod: this.savePeriod,
