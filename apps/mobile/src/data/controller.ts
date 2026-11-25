@@ -8,9 +8,13 @@ import {
   recomputeDays,
   recordHeartRate,
   syncHistory,
+  validateSleepEdit,
+  EDITED_SLEEP_MAX_S,
+  MANUAL_NAP_MAX_S,
   type BandModel,
   type DayRecord,
   type DeviceRow,
+  type SleepEditRow,
   type SyncProgress,
   type SyncStop,
   type Transport,
@@ -27,6 +31,7 @@ import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/
 import { openAppStore, type AppStore } from './appStore';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
+import { otherSleepSpans, recomputeFrom, type SleepEditRequest } from './sleepEditForm';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
@@ -41,6 +46,7 @@ import type {
   Notice,
   Profile,
   Settings,
+  SleepEditOutcome,
   SyncProgressView,
 } from './types';
 
@@ -63,6 +69,7 @@ const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
 export interface Snapshot {
   ready: boolean;
   days: DayRecord[];
+  sleepEdits: SleepEditRow[];
   device: DeviceStatus;
   live: LiveState;
   profile: Profile;
@@ -138,6 +145,7 @@ export class AppController {
     this.snapshot = {
       ready: false,
       days: [],
+      sleepEdits: [],
       device: emptyDevice(),
       live: IDLE_LIVE,
       profile: { birthYear: null, maxHeartRate: null },
@@ -273,9 +281,10 @@ export class AppController {
 
   private async refreshDays(): Promise<void> {
     const { store } = this.requireApp();
-    const days =
-      this.deviceRow === null ? [] : await store.listDays(this.deviceRow.id, EARLIEST_DAY, LATEST_DAY);
-    this.patch({ days });
+    const row = this.deviceRow;
+    const days = row === null ? [] : await store.listDays(row.id, EARLIEST_DAY, LATEST_DAY);
+    const sleepEdits = row === null ? [] : await store.listSleepEdits(row.id);
+    this.patch({ days, sleepEdits });
   }
 
   private analyticsProfile(): { maxHr: number | null; birthYear: number | null; restingHr: number | null } {
@@ -704,6 +713,51 @@ export class AppController {
     return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([t, b]) => ({ t, hr: b.sum / b.count }));
   };
 
+  saveSleepEdit = (request: SleepEditRequest): Promise<SleepEditOutcome> =>
+    this.exclusive(async () => {
+      try {
+        const row = this.deviceRow;
+        if (row === null) throw new AppError('error.noBandPaired');
+        const { sleepEdits, days } = this.snapshot;
+        const problem = validateSleepEdit(request, otherSleepSpans(days, sleepEdits, request), nowSeconds());
+        if (problem !== null) return problem;
+        const previous = request.id === null ? null : (sleepEdits.find((e) => e.id === request.id) ?? null);
+        await this.requireApp().store.saveSleepEdit({
+          id: request.id,
+          deviceId: row.id,
+          targetOnset: request.targetOnset,
+          targetOffset: request.targetOffset,
+          onset: request.onset,
+          offset: request.offset,
+          createdAt: nowSeconds(),
+        });
+        await this.recompute(row.id, recomputeFrom(request, previous));
+        return 'saved';
+      } catch (error) {
+        this.fail(error);
+        return 'error';
+      } finally {
+        this.patch({ syncProgress: null });
+      }
+    });
+
+  deleteSleepEdit = (id: number): Promise<boolean> =>
+    this.exclusive(async () => {
+      try {
+        const row = this.deviceRow;
+        const edit = this.snapshot.sleepEdits.find((e) => e.id === id) ?? null;
+        if (row === null || edit === null) return false;
+        if (!(await this.requireApp().store.deleteSleepEdit(row.id, id))) return false;
+        await this.recompute(row.id, recomputeFrom(edit, null));
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      } finally {
+        this.patch({ syncProgress: null });
+      }
+    });
+
   exportData = async (): Promise<void> => {
     const app = this.requireApp();
     try {
@@ -717,6 +771,7 @@ export class AppController {
     const snapshot = this.snapshot;
     return {
       ...snapshot,
+      sleepEditLimits: { napMaxS: MANUAL_NAP_MAX_S, sleepMaxS: EDITED_SLEEP_MAX_S },
       scan: this.scan,
       pair: this.pair,
       sync: this.sync,
@@ -727,6 +782,8 @@ export class AppController {
       updateSettings: this.updateSettings,
       updateUserData: this.updateUserData,
       heartRateBetween: this.heartRateBetween,
+      saveSleepEdit: this.saveSleepEdit,
+      deleteSleepEdit: this.deleteSleepEdit,
       clearNotice: this.clearNotice,
     };
   }

@@ -13,6 +13,7 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'samples_1hz',
   'daily_metrics',
   'sleeps',
+  'sleep_edits',
   'workouts',
   'events',
   'console_log',

@@ -81,6 +81,8 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 
 When the data does not support a number, the app shows the reason instead of a number.
 
+You can correct the start and end of a detected sleep and add a nap by hand. A correction is stored next to the detected sleep, which is kept, so it can be restored. Sleep need, debt, Sleep score and Readiness are recomputed from your times, keep their level, and the sleep is labelled "edited" or "added by hand". HRV, resting heart rate and the other night values still come only from what the band measured while you slept.
+
 ## Scores
 
 The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to 100). They are OpenHoop's own models. Their constants come from the open reference project `wearable5.0` and were fitted on one wearer, so they are not the vendor's scores and may differ for you. The constants live in a `Calibration` object so they can be refitted without changing code. The first three nights are labelled "calibrating".

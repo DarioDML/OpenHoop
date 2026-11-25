@@ -77,12 +77,12 @@ function buildSleep(dayStart: number, rand: () => number): SleepPart {
   const inBedMain = Math.round((7.4 + rand() * 1.1) * 3600);
   const asleepMain = Math.round(inBedMain * (0.88 + rand() * 0.07));
   const periods: SleepPeriodRecord[] = [
-    { onset, offset: onset + inBedMain, asleepS: asleepMain, inBedS: inBedMain, nap: false },
+    { onset, offset: onset + inBedMain, asleepS: asleepMain, inBedS: inBedMain, nap: false, source: 'detected', editId: null },
   ];
   if (rand() > 0.8) {
     const napOnset = dayStart + Math.round((14 + rand() * 1.5) * 3600);
     const napLen = Math.round((20 + rand() * 25) * 60);
-    periods.push({ onset: napOnset, offset: napOnset + napLen, asleepS: Math.round(napLen * 0.85), inBedS: napLen, nap: true });
+    periods.push({ onset: napOnset, offset: napOnset + napLen, asleepS: Math.round(napLen * 0.85), inBedS: napLen, nap: true, source: 'detected', editId: null });
   }
   return { periods, asleepS: asleepMain, inBedS: inBedMain };
 }
