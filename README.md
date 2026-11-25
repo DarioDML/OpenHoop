@@ -76,7 +76,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A | SpO2, skin temperature |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones |
-| C | Sleep consistency, automatic workouts, calories (estimate) |
+| C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range) |
 | D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
 
 When the data does not support a number, the app shows the reason instead of a number.
@@ -93,10 +93,13 @@ Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart 
 
 ## Privacy
 
-- No account, no server, no network access and no telemetry.
+- No account, no OpenHoop server and no telemetry.
+- No network access by default. Every request goes through one gate in the app that refuses it unless you switch on "Network features" and the specific feature under Privacy, and the address is https on that feature's fixed host. Both switches start off.
+- Opt-in network features and what leaves the phone:
+  - **Coach** sends your question, the current conversation, a summary of the last 7 days of Readiness, Sleep score, Load, HRV and resting heart rate (with their levels) and your coach memory notes to Anthropic (`api.anthropic.com`), using your own API key. No name, band identifiers or raw readings are sent. Coach settings show the exact text. The key stays in the device's secure storage and is never written to the database or the export. Anthropic's own terms apply to what you send.
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
-- Export gives you the whole database and one CSV file per table.
+- Export gives you the whole database and one CSV file per table, including coach conversations and memory notes.
 
 ## Not a medical device
 
