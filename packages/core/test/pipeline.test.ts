@@ -348,6 +348,114 @@ describe('pipeline', () => {
     });
   });
 
+  describe('sleep edits', () => {
+    const DAY_S = 24 * HOUR_S;
+
+    async function recomputeAfterEdit(onset: number): Promise<DayRecord[]> {
+      await recomputeDays(store, { deviceId, from: onset - DAY_S, to: Number.MAX_SAFE_INTEGER, profile: PROFILE, tzOffsetS: TZ_S });
+      return storedDays();
+    }
+
+    function nightOf(day: DayRecord | undefined): DayRecord['sleep']['periods'][number] {
+      const period = day?.sleep.periods.find((p) => !p.nap);
+      if (period === undefined) throw new Error('missing night');
+      return period;
+    }
+
+    it('a shortened night recomputes debt, score and readiness from that day on, and reverting restores the detected days', async () => {
+      const rows = simulateDays(deviceId, { days: 6 });
+      await store.insertSamples(rows);
+      const original = await recompute(rows);
+      const night = nightOf(original[3]);
+      const onset = night.onset;
+      const offset = night.offset + 1 - 2 * HOUR_S;
+      const id = await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset, createdAt: 1 });
+
+      const edited = await recomputeAfterEdit(onset);
+      const day = edited[3];
+      expect(day?.sleep.periods).toEqual([{ onset, offset, asleepS: 6 * HOUR_S, inBedS: 6 * HOUR_S, nap: false, source: 'edited', editId: id }]);
+      expect(day?.sleep.asleepS).toBe(6 * HOUR_S);
+      expect(day?.sleep.need.value).toBe(original[3]?.sleep.need.value);
+      expect(day?.sleep.debt.value).toBeGreaterThan(original[3]?.sleep.debt.value ?? Infinity);
+      expect(day?.sleep.score.value).toBeLessThan(original[3]?.sleep.score.value ?? -Infinity);
+      expect(day?.readiness.reason).toBeNull();
+      expect(day?.readiness.value).not.toBe(original[3]?.readiness.value);
+      expect(day?.hrv.reason).toBeNull();
+      expect(edited[4]?.sleep.need.value).toBeGreaterThan(original[4]?.sleep.need.value ?? Infinity);
+      expect(edited.slice(0, 3)).toEqual(original.slice(0, 3));
+      expect(await recompute(rows)).toEqual(edited);
+
+      expect(await store.deleteSleepEdit(deviceId, id)).toBe(true);
+      expect(await recomputeAfterEdit(onset)).toEqual(original);
+    });
+
+    it('an earlier onset moves the day boundary and counts the added time as asleep', async () => {
+      const rows = simulateDays(deviceId, { days: 4 });
+      await store.insertSamples(rows);
+      const original = await recompute(rows);
+      const night = nightOf(original[2]);
+      const onset = night.onset - HOUR_S;
+      await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset: night.offset + 1, createdAt: 1 });
+
+      const edited = await recomputeAfterEdit(onset);
+      expect(edited[2]?.start).toBe(onset);
+      expect(edited[1]?.end).toBe(onset);
+      expect(edited[2]?.sleep.asleepS).toBe(9 * HOUR_S);
+      expect(edited[2]?.restingHr.value).toBeCloseTo(original[2]?.restingHr.value ?? 0, 6);
+      expect(edited[1]?.sleep.periods.every((p) => p.source === 'detected')).toBe(true);
+    });
+
+    it('a night moved away from all measured sleep keeps its times but gives no night values', async () => {
+      const rows = simulateDays(deviceId, { days: 3 });
+      await store.insertSamples(rows);
+      const original = await recompute(rows);
+      const night = nightOf(original[2]);
+      const onset = localMidnight(2) + 8 * HOUR_S;
+      await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset: onset + 6 * HOUR_S, createdAt: 1 });
+
+      const edited = await recomputeAfterEdit(onset);
+      expect(edited[2]?.start).toBe(onset);
+      expect(edited[2]?.sleep.asleepS).toBe(6 * HOUR_S);
+      expect(edited[2]?.sleep.score.reason).toBeNull();
+      for (const value of [edited[2]?.hrv, edited[2]?.restingHr, edited[2]?.respiratoryRate, edited[2]?.spo2, edited[2]?.skinTempC, edited[2]?.readiness]) {
+        expect(value).toMatchObject({ value: null, reason: 'missing-signal' });
+      }
+      expect(edited[1]?.sleep.periods.map((p) => p.source)).toEqual(['detected']);
+    });
+
+    it('a nap added by hand right after waking stays a nap and lowers the next night need', async () => {
+      const rows = simulateDays(deviceId, { days: 3 });
+      await store.insertSamples(rows);
+      const original = await recompute(rows);
+      const night = nightOf(original[1]);
+      const onset = night.offset + 1 + 30 * 60;
+      const id = await store.saveSleepEdit({ id: null, deviceId, targetOnset: null, targetOffset: null, onset, offset: onset + 2_700, createdAt: 1 });
+
+      const edited = await recomputeAfterEdit(onset);
+      expect(edited[1]?.sleep.periods).toEqual([
+        { ...night },
+        { onset, offset: onset + 2_700, asleepS: 2_700, inBedS: 2_700, nap: true, source: 'manual', editId: id },
+      ]);
+      expect(edited[1]?.sleep.asleepS).toBe(original[1]?.sleep.asleepS);
+      const drop = (original[2]?.sleep.need.value ?? 0) - (edited[2]?.sleep.need.value ?? 0);
+      expect(drop).toBeCloseTo(2_700, 6);
+    });
+
+    it('keeps a nap added after the newest reading', async () => {
+      const rows = simulateDays(deviceId, { days: 2 });
+      await store.insertSamples(rows);
+      await recompute(rows);
+      const newest = rows[rows.length - 1]?.t ?? 0;
+      const onset = newest + 600;
+      await store.saveSleepEdit({ id: null, deviceId, targetOnset: null, targetOffset: null, onset, offset: onset + 1_800, createdAt: 1 });
+
+      const edited = await recomputeAfterEdit(onset);
+      const last = edited[edited.length - 1];
+      expect(last?.sleep.periods.find((p) => p.source === 'manual')).toMatchObject({ onset, asleepS: 1_800, nap: true });
+      expect(last?.end).toBe(onset + 1_800);
+    });
+  });
+
   describe('rebuildFromRaw', () => {
     it('reproduces identical records from the raw frame archive', async () => {
       const rows = simulateDays(deviceId, { days: 2, workoutDays: [1] });

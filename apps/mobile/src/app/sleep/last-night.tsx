@@ -77,9 +77,12 @@ export default function LastNightScreen() {
             {day.sleep.asleepS === null ? t('reason.no-sleep') : formatHm(day.sleep.asleepS)}
           </AppText>
           {main ? (
-            <AppText variant="label" muted numeric>
-              {formatClock(main.onset, day.tzOffsetS)} – {formatClock(main.offset, day.tzOffsetS)}
-            </AppText>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <AppText variant="label" muted numeric>
+                {formatClock(main.onset, day.tzOffsetS)} – {formatClock(main.offset, day.tzOffsetS)}
+              </AppText>
+              {main.source === 'edited' ? <Chip label={t('sleepx.sourceEdited')} tone="info" small testID="night-edited" /> : null}
+            </View>
           ) : null}
         </View>
       }>
@@ -140,10 +143,19 @@ export default function LastNightScreen() {
         <Card style={{ gap: 0 }} testID="card-naps">
           <CardHeader title={t('sleepx.naps')} />
           {naps.map((nap) => (
-            <StatRow key={nap.onset} label={`${formatClock(nap.onset, day.tzOffsetS)} – ${formatClock(nap.offset, day.tzOffsetS)}`} value={formatDuration(t, nap.asleepS)} />
+            <StatRow
+              key={nap.onset}
+              label={`${formatClock(nap.onset, day.tzOffsetS)} – ${formatClock(nap.offset, day.tzOffsetS)}`}
+              caption={nap.source === 'manual' ? t('sleepx.sourceManual') : nap.source === 'edited' ? t('sleepx.sourceEdited') : undefined}
+              value={formatDuration(t, nap.asleepS)}
+            />
           ))}
         </Card>
       ) : null}
+
+      <Card style={{ gap: 0 }}>
+        <StatRow testID="link-edit-sleep" label={t('sleepx.editLink')} value="" href={`/sleep/edit?day=${day.day}`} />
+      </Card>
     </Page>
   );
 }
