@@ -85,6 +85,10 @@ You can correct the start and end of a detected sleep and add a nap by hand. A c
 
 An activity's Load uses the same minute formula as the day's Load, over the heart rate the band recorded during the activity (pauses left out). The day's Load already counts every minute of heart rate once, so adding an activity never counts the same minutes twice, also when it overlaps a detected workout. Editing or deleting a detected workout is stored next to it; the detected record is kept.
 
+## Sharing an activity
+
+From an activity you can make a snapshot image. The card is drawn on the phone, handed to the system share sheet and the temporary file is deleted afterwards. Nothing is uploaded. You choose which values appear, the name is off by default, and the time of day is never drawn. Each value keeps its level. A value the data cannot support is left out, and a card without heart rate says so.
+
 ## Scores
 
 The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to 100). They are OpenHoop's own models. Their constants come from the open reference project `wearable5.0` and were fitted on one wearer, so they are not the vendor's scores and may differ for you. The constants live in a `Calibration` object so they can be refitted without changing code. The first three nights are labelled "calibrating".
