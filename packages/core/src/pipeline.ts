@@ -478,7 +478,10 @@ async function computeDay(
   const existing = await store.getDay(deviceId, key);
   const manual = (existing?.workouts ?? []).filter((w) => w.source === 'manual' && w.start >= start && w.start < end);
   const workouts = [...auto, ...manual].sort((a, b) => a.start - b.start);
-  const stressHistory: StressWindow[][] = history.slice(-STRESS_HISTORY_DAYS).map((d) => parseStressDay(d.stress)?.windows ?? []);
+  const stressHistory: StressWindow[][] = history.slice(-STRESS_HISTORY_DAYS).map((d) => {
+    const stored = parseStressDay(d.stress);
+    return stored !== null && stored.algo === ALGO.stress ? stored.windows : [];
+  });
   const stress = dayStress(samples, { start, end, workouts, activeThresholdBpm: activeThresholdBpm(rest, maxHr) }, stressHistory);
 
   let hrMin: number | null = null;
