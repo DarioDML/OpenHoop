@@ -19,6 +19,7 @@ import {
   type Fix,
   type RoutePoint,
 } from '@/data/route';
+import { defaultUserData, parseUserData, serializeUserData } from '@/data/userData';
 
 const T0 = 1_800_000_000_000;
 const LAT = 51.05;
@@ -168,5 +169,14 @@ describe('markers, splits and hidden zones', () => {
   it('shows nothing when the route is shorter than both hidden zones', () => {
     expect(visibleRoute(line(4, 100, 30_000), 200, 200, 500)).toBeNull();
     expect(visibleRoute(line(1, 100, 30_000), 0, 0, 500)).toBeNull();
+  });
+});
+
+describe('hidden route ends setting', () => {
+  it('is on by default and only accepts a boolean', () => {
+    expect(defaultUserData().hideRouteEnds).toBe(true);
+    expect(parseUserData(null).hideRouteEnds).toBe(true);
+    expect(parseUserData(JSON.stringify({ hideRouteEnds: 'no' })).hideRouteEnds).toBe(true);
+    expect(parseUserData(serializeUserData({ ...defaultUserData(), hideRouteEnds: false })).hideRouteEnds).toBe(false);
   });
 });

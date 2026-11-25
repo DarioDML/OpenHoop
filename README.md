@@ -76,7 +76,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A | SpO2, skin temperature |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
-| C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range) |
+| C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), route distance, pace, speed and elevation gain from the phone GPS (estimates) |
 | D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat, lab results with the reference range you copied from your own report) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
@@ -84,6 +84,8 @@ When the data does not support a number, the app shows the reason instead of a n
 You can correct the start and end of a detected sleep and add a nap by hand. A correction is stored next to the detected sleep, which is kept, so it can be restored. Sleep need, debt, Sleep score and Readiness are recomputed from your times, keep their level, and the sleep is labelled "edited" or "added by hand". HRV, resting heart rate and the other night values still come only from what the band measured while you slept.
 
 An activity's Load uses the same minute formula as the day's Load, over the heart rate the band recorded during the activity (pauses left out). The day's Load already counts every minute of heart rate once, so adding an activity never counts the same minutes twice, also when it overlaps a detected workout. Editing or deleting a detected workout is stored next to it; the detected record is kept.
+
+An activity started "with route" also records the phone's GPS position while it runs and the app is open. Fixes with an accuracy worse than 30 m, impossible jumps (faster than 12 m/s on foot or 30 m/s otherwise) and positions that did not move are skipped. Distance is the haversine sum over the recorded parts; a pause or a GPS gap of more than a minute starts a new part and adds no distance. Pace and speed use the activity's active time, and need at least 100 m. Elevation gain needs altitude on most fixes and ignores changes below 3 m.
 
 ## Scores
 
@@ -99,9 +101,11 @@ Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart 
 - No network access by default. Every request goes through one gate in the app that refuses it unless you switch on "Network features" and the specific feature under Privacy, and the address is https on that feature's fixed host. Both switches start off.
 - Opt-in network features and what leaves the phone:
   - **Coach** sends your question, the current conversation, a summary of the last 7 days of Readiness, Sleep score, Load, HRV and resting heart rate (with their levels) and your coach memory notes to Anthropic (`api.anthropic.com`), using your own API key. No name, band identifiers or raw readings are sent. Coach settings show the exact text. The key stays in the device's secure storage and is never written to the database or the export. Anthropic's own terms apply to what you send.
+  - **Maps** loads the standard map tiles from the OpenStreetMap Foundation (`tile.openstreetmap.org`) behind a saved route when you open it. The request carries the tile numbers of the area shown, which reveal roughly where the route was, your IP address, and a User-Agent with the app name and version. The route points are never sent. Only the tiles in view are loaded, at one zoom level; there is no prefetch or offline download. Tiles are kept in the phone's image cache (iOS follows the server's caching headers, Android keeps them until its image cache is full), and requests never ask to bypass a cache. The map shows "© OpenStreetMap contributors". The OSMF privacy policy applies. With Maps off the route is still drawn on the phone, without a background.
+- Location is asked for only when you start an activity with route, and used only while it records with the app open: no background location and no "always" permission. The route is stored in the encrypted database and never uploaded. By default the first and last 200 m of a route are hidden wherever it is shown; the stored route and the export keep every point.
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
-- Export gives you the whole database and one CSV file per table, including coach conversations and memory notes, plus `notifications.json` with your notification settings and inbox.
+- Export gives you the whole database and one CSV file per table, including coach conversations and memory notes and the GPS points of your routes (`route_points.csv`), plus `notifications.json` with your notification settings and inbox.
 - Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
 
 ## Not a medical device
