@@ -21,7 +21,6 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-import CoachScreen from '@/app/coach/index';
 import EcgScreen from '@/app/health/ecg';
 import HeartRateScreen from '@/app/health/heart-rate';
 import MetricsScreen from '@/app/health/metrics';
@@ -134,12 +133,6 @@ describe('health screens', () => {
     expect(screen.getByTestId('breath-stop')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('breath-stop'));
     expect(screen.getByTestId('breath-start')).toBeTruthy();
-  });
-
-  it('renders the coach with real chips and the notice, no conversation', async () => {
-    await render(withAppData(<CoachScreen />));
-    expect(screen.getByTestId('not-built-coach')).toBeTruthy();
-    expect(screen.getByTestId('coach-chips')).toBeTruthy();
   });
 });
 

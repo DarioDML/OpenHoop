@@ -21,6 +21,9 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'raw_chunks',
   'body_measurements',
   'lab_results',
+  'coach_conversations',
+  'coach_messages',
+  'coach_memory',
 ];
 
 const PLAINTEXT_NAME = 'openhoop.db';

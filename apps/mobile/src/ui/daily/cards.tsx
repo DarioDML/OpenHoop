@@ -3,6 +3,7 @@ import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { dayEntries } from '@/data/activities';
+import { activeCheckIns } from '@/coach/checkIns';
 import { useAppData } from '@/data/context';
 import { baselineAt } from '@/data/derived';
 import { caloriesForDay } from '@/data/energyDerived';
@@ -109,6 +110,8 @@ export function MorningBriefCard({ days, index }: DayProps) {
 export function CoachPill() {
   const { t } = useT();
   const { colors } = useTheme();
+  const { days, userData } = useAppData();
+  const checkIns = userData.coach.checkIns ? activeCheckIns(days, userData.coach.dismissedCheckIns).length : 0;
   return (
     <Pressable
       testID="coach-pill"
@@ -129,6 +132,7 @@ export function CoachPill() {
       <AppText variant="body" muted style={{ flex: 1 }}>
         {t('home.askCoach')}
       </AppText>
+      {checkIns > 0 ? <Chip label={t('coach.checkIn.title')} tone="purple" small testID="coach-pill-check-in" /> : null}
     </Pressable>
   );
 }

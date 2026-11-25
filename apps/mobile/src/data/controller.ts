@@ -50,6 +50,8 @@ import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
 import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
+import { setNetworkPrefs } from '@/net';
+import { strictestPrefs } from '@/net/features';
 
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
@@ -298,6 +300,7 @@ export class AppController {
     const userData = parseUserData(rawUserData);
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
     this.notificationState = parseNotificationState(await store.getSetting(NOTIFICATION_STATE_KEY));
+    setNetworkPrefs(userData.network);
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
     const labResults = await listLabResults(this.app.driver);
     this.patch({
@@ -783,14 +786,18 @@ export class AppController {
 
   updateUserData = (patch: Partial<UserData>): Promise<boolean> => {
     const run = this.userDataChain.then(async () => {
+      const network = this.snapshot.userData.network;
       try {
         const { store } = this.requireApp();
         const next = parseUserData(serializeUserData({ ...this.snapshot.userData, ...patch }));
+        setNetworkPrefs(strictestPrefs(network, next.network));
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
+        setNetworkPrefs(next.network);
         this.patch({ userData: next });
         if (patch.notifications !== undefined) void this.refreshNotifications();
         return true;
       } catch (error) {
+        setNetworkPrefs(network);
         this.fail(error);
         return false;
       }
