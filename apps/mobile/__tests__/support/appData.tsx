@@ -28,7 +28,7 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     exportData: noop,
     updateProfile: noop,
     updateSettings: noop,
-    updateUserData: noop,
+    updateUserData: async () => true,
     heartRateBetween: async () => [],
     ...overrides,
   };

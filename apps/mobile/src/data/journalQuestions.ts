@@ -31,7 +31,7 @@ export function findQuestion(id: string): JournalQuestion | undefined {
   return JOURNAL_QUESTIONS.find((q) => q.id === id);
 }
 
-export function activeQuestions(selected: readonly string[]): JournalQuestion[] {
-  const ids = selected.length > 0 ? selected : DEFAULT_JOURNAL_QUESTIONS;
+export function activeQuestions(selected: readonly string[] | null): JournalQuestion[] {
+  const ids = selected ?? DEFAULT_JOURNAL_QUESTIONS;
   return ids.map(findQuestion).filter((q): q is JournalQuestion => q !== undefined);
 }

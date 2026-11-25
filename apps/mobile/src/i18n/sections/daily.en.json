@@ -56,7 +56,7 @@
   "home.startActivity": "Start activity",
   "home.thisWeek": "This week",
   "home.weeklyPlan": "Weekly plan",
-  "home.weekActive": "Active days",
+  "home.weekActive": "Load days (≥ 7)",
   "home.weekSleep": "Sleep nights",
   "home.tonight": "Tonight's sleep",
   "home.planner": "Planner",

@@ -29,7 +29,7 @@ export interface UserData {
   dashboardTiles: DashboardTile[];
   previousDashboardTiles: DashboardTile[] | null;
   notifications: NotificationPrefs;
-  journalQuestions: string[];
+  journalQuestions: string[] | null;
   journal: Record<string, Record<string, JournalAnswer>>;
   weeklyPlan: { loadDays: number; sleepNights: number } | null;
 }
@@ -49,7 +49,7 @@ export function defaultUserData(): UserData {
     dashboardTiles: [...DEFAULT_DASHBOARD],
     previousDashboardTiles: null,
     notifications: { morningDigest: true, syncProblems: true, quietStart: '22:00', quietEnd: '07:00' },
-    journalQuestions: [],
+    journalQuestions: null,
     journal: {},
     weeklyPlan: null,
   };
@@ -150,7 +150,7 @@ export function parseUserData(raw: string | null): UserData {
       quietStart: clockOr(notifications.quietStart, base.notifications.quietStart),
       quietEnd: clockOr(notifications.quietEnd, base.notifications.quietEnd),
     },
-    journalQuestions: stringList(parsed.journalQuestions, 40, 40).filter((id) => ID.test(id)),
+    journalQuestions: Array.isArray(parsed.journalQuestions) ? stringList(parsed.journalQuestions, 40, 40).filter((id) => ID.test(id)) : null,
     journal: parseJournal(parsed.journal),
     weeklyPlan: loadDays !== null && sleepNights !== null ? { loadDays, sleepNights } : null,
   };

@@ -34,8 +34,12 @@ export default function BodyScreen() {
       setInvalid(true);
       return;
     }
-    await updateProfile({ birthYear: profileCheck.birthYear, maxHeartRate: profileCheck.maxHeartRate });
-    await updateUserData({ heightCm: heightCheck.value, weightKg: weightCheck.value, sex: sex === 'none' ? null : sex });
+    try {
+      await updateProfile({ birthYear: profileCheck.birthYear, maxHeartRate: profileCheck.maxHeartRate });
+      if (!(await updateUserData({ heightCm: heightCheck.value, weightKg: weightCheck.value, sex: sex === 'none' ? null : sex }))) return;
+    } catch {
+      return;
+    }
     router.push('/onboarding/goals');
   };
 

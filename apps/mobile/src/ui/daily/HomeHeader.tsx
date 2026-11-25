@@ -7,6 +7,7 @@ import { addDays, wearStreak } from '@/data/derived';
 import { formatLongDay, indexOfDay } from '@/data/dailyDerived';
 import { initialOf } from '@/data/userData';
 import { useT } from '@/i18n/useT';
+import { todayIso } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Icon } from '@/ui/Icon';
 import { radius, useTheme } from '@/ui/theme';
@@ -113,7 +114,7 @@ export function HomeHeader({ days, index }: Props) {
           accessibilityLabel={t('home.pickDay')}
           onPress={() => router.push('/home/date-picker')}
           style={{ minWidth: 120, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
-          <AppText variant="cardTitle">{isToday ? t('common.today') : formatLongDay(day.day, language)}</AppText>
+          <AppText variant="cardTitle">{day.day === todayIso(new Date()) ? t('common.today') : formatLongDay(day.day, language)}</AppText>
         </Pressable>
         <ChevronButton direction="next" enabled={hasNext} label={t('home.nextDay')} onPress={() => goDay(nextDay, indexOfDay(days, nextDay) === days.length - 1)} />
       </View>

@@ -82,7 +82,7 @@ export interface AppData {
   exportData(): Promise<void>;
   updateProfile(patch: Partial<Profile>): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
-  updateUserData(patch: Partial<UserData>): Promise<void>;
+  updateUserData(patch: Partial<UserData>): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
   clearNotice(): void;
 }

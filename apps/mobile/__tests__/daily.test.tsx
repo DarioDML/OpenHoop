@@ -176,7 +176,7 @@ describe('Home sub-screens', () => {
   });
 
   it('writes the dashboard layout and keeps a previous layout', async () => {
-    const updateUserData = jest.fn(async () => undefined);
+    const updateUserData = jest.fn(async () => true);
     await render(withAppData(<CustomizeScreen />, 'en', { updateUserData, userData: { ...defaultUserData(), onboardingDone: true, dashboardTiles: ['hrv', 'steps'], previousDashboardTiles: ['spo2'] } }));
     await fireEvent.press(screen.getByTestId('down-hrv'));
     expect(updateUserData).toHaveBeenCalledWith(expect.objectContaining({ dashboardTiles: ['steps', 'hrv'] }));

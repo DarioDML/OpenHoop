@@ -21,7 +21,7 @@ interface Failure {
 }
 
 export default function PairScanScreen() {
-  const { scan, pair, updateSettings } = useAppData();
+  const { scan, pair, updateSettings, settings, clearNotice } = useAppData();
   const { t } = useT();
   const { colors } = useTheme();
   const [scanning, setScanning] = useState(false);
@@ -38,6 +38,10 @@ export default function PairScanScreen() {
     setScanning(true);
     setFailure(null);
     try {
+      if (settings.dataSource !== 'band') {
+        await updateSettings({ dataSource: 'band' });
+        clearNotice();
+      }
       setBands(await scan());
       setScanned(true);
     } catch (error) {
@@ -64,8 +68,14 @@ export default function PairScanScreen() {
   };
 
   const useDemo = async (): Promise<void> => {
-    await updateSettings({ dataSource: 'demo' });
-    router.push('/onboarding/setup');
+    setFailure(null);
+    try {
+      await updateSettings({ dataSource: 'demo' });
+      router.push('/onboarding/setup');
+    } catch (error) {
+      const failed = toAppError(error);
+      setFailure({ key: failed.key, params: failed.params });
+    }
   };
 
   return (

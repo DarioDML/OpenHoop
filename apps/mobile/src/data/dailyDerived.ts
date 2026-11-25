@@ -1,5 +1,6 @@
 import type { DayRecord, SleepPeriodRecord } from '@openhoop/core';
 
+import { isLoadDay, sleepNightMet } from './activityDerived';
 import { addDays, baselineAt, daysInWeek, mean, metricValue, rangeStatus, type Baseline, type MetricKey } from './derived';
 
 export const VITAL_KEYS = ['hrv', 'restingHr', 'respiratoryRate', 'spo2', 'skinTemp'] as const satisfies readonly MetricKey[];
@@ -128,16 +129,6 @@ export function planBedtime(days: readonly DayRecord[], endIndex: number, asleep
   return { wakeMinutes, bedMinutes: ((Math.round(bedMinutes) % 1440) + 1440) % 1440, awakeInBedS, nights: wake?.nights ?? 0 };
 }
 
-export function sleepNightMet(day: DayRecord): boolean | null {
-  const need = day.sleep.need.value;
-  if (day.sleep.asleepS === null || need === null || need <= 0) return null;
-  return day.sleep.asleepS >= need * 0.85;
-}
-
-export function hasWorkout(day: DayRecord): boolean {
-  return day.workouts.length > 0;
-}
-
 export interface WeekProgress {
   loadDots: Array<boolean | null>;
   sleepDots: Array<boolean | null>;
@@ -148,7 +139,7 @@ export interface WeekProgress {
 
 export function weekProgress(days: readonly DayRecord[], anyDayInWeek: string): WeekProgress {
   const week = daysInWeek(days, anyDayInWeek);
-  const loadDots = week.map((d) => (d ? hasWorkout(d) : null));
+  const loadDots = week.map((d) => (d ? isLoadDay(d) : null));
   const sleepDots = week.map((d) => (d ? sleepNightMet(d) : null));
   return {
     loadDots,

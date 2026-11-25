@@ -21,8 +21,12 @@ export default function WelcomeScreen() {
   const { updateSettings, updateUserData } = useAppData();
 
   const useDemo = async (): Promise<void> => {
-    await updateSettings({ dataSource: 'demo' });
-    await updateUserData({ onboardingDone: true });
+    try {
+      await updateSettings({ dataSource: 'demo' });
+      if (!(await updateUserData({ onboardingDone: true }))) return;
+    } catch {
+      return;
+    }
     router.replace('/');
   };
 

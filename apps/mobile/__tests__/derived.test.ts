@@ -53,3 +53,13 @@ describe('user data codec', () => {
     expect(initialOf('élise')).toBe('É');
   });
 });
+
+describe('journal question selection', () => {
+  it('keeps an explicitly empty selection apart from the defaults', () => {
+    const { activeQuestions, DEFAULT_JOURNAL_QUESTIONS } = jest.requireActual<typeof import('@/data/journalQuestions')>('@/data/journalQuestions');
+    expect(activeQuestions(null)).toHaveLength(DEFAULT_JOURNAL_QUESTIONS.length);
+    expect(activeQuestions([])).toHaveLength(0);
+    expect(parseUserData(JSON.stringify({ journalQuestions: [] })).journalQuestions).toEqual([]);
+    expect(parseUserData('{}').journalQuestions).toBeNull();
+  });
+});

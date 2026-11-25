@@ -9,7 +9,7 @@ import { ListGroup, ListRow } from '@/ui/ListGroup';
 export default function JournalCustomizeScreen() {
   const { t } = useT();
   const { userData, updateUserData } = useAppData();
-  const selected = userData.journalQuestions.length > 0 ? userData.journalQuestions : [...DEFAULT_JOURNAL_QUESTIONS];
+  const selected = userData.journalQuestions ?? [...DEFAULT_JOURNAL_QUESTIONS];
 
   const toggle = (id: string, on: boolean): void => {
     const next = on ? [...selected, id] : selected.filter((existing) => existing !== id);
@@ -39,7 +39,7 @@ export default function JournalCustomizeScreen() {
       <Button
         label={t('journal.customize.reset')}
         variant="tertiary"
-        onPress={() => void updateUserData({ journalQuestions: [] })}
+        onPress={() => void updateUserData({ journalQuestions: null })}
         testID="customize-reset"
       />
     </HealthPage>

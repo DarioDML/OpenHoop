@@ -118,7 +118,7 @@ describe('Not built screens', () => {
 describe('App settings', () => {
   it('switches language and stores notification preferences', async () => {
     const updateSettings = jest.fn(async () => undefined);
-    const updateUserData = jest.fn(async () => undefined);
+    const updateUserData = jest.fn(async () => true);
     await render(withAppData(<AppSettingsScreen />, 'en', { updateSettings, updateUserData }));
     await fireEvent.press(screen.getByText('Nederlands'));
     expect(updateSettings).toHaveBeenCalledWith({ language: 'nl' });
@@ -198,7 +198,7 @@ describe('System states', () => {
 describe('Onboarding', () => {
   it('lets the demo band finish the flow from the welcome screen', async () => {
     const updateSettings = jest.fn(async () => undefined);
-    const updateUserData = jest.fn(async () => undefined);
+    const updateUserData = jest.fn(async () => true);
     await render(withAppData(<WelcomeScreen />, 'en', { updateSettings, updateUserData }));
     await fireEvent.press(screen.getByTestId('welcome-demo'));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/'));
@@ -207,7 +207,7 @@ describe('Onboarding', () => {
   });
 
   it('marks onboarding done on the calibration screen', async () => {
-    const updateUserData = jest.fn(async () => undefined);
+    const updateUserData = jest.fn(async () => true);
     await render(withAppData(<CalibrationScreen />, 'en', { updateUserData }));
     await fireEvent.press(screen.getByTestId('calibration-finish'));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/'));

@@ -278,7 +278,7 @@ describe('plan', () => {
   });
 
   it('saves the plan through updateUserData', async () => {
-    const updateUserData = jest.fn(async () => undefined);
+    const updateUserData = jest.fn(async () => true);
     await render(withAppData(<PlanSetupScreen />, 'en', { updateUserData }));
     await fireEvent.press(screen.getByTestId('plan-load-days-plus'));
     await fireEvent.press(screen.getByTestId('plan-save'));
@@ -323,7 +323,7 @@ describe('profile', () => {
   });
 
   it('rejects invalid profile input and saves valid input', async () => {
-    const updateUserData = jest.fn(async () => undefined);
+    const updateUserData = jest.fn(async () => true);
     const updateProfile = jest.fn(async () => undefined);
     await render(withAppData(<EditProfileScreen />, 'en', { updateUserData, updateProfile }));
     await fireEvent.changeText(screen.getByTestId('profile-height-input'), '20');

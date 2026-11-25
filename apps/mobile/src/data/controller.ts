@@ -125,6 +125,7 @@ export class AppController {
   private backlogPages: number | null = null;
   private lastSyncAt: number | null = null;
   private chain: Promise<unknown> = Promise.resolve();
+  private userDataChain: Promise<void> = Promise.resolve();
   private syncRun: Promise<void> | null = null;
   private liveAbort: AbortController | null = null;
   private liveRun: Promise<void> | null = null;
@@ -228,7 +229,9 @@ export class AppController {
       await store.getSetting(SETTING_KEYS.maxHeartRate),
       new Date().getFullYear(),
     );
-    const userData = parseUserData(await store.getSetting(USER_DATA_KEY));
+    const rawUserData = await store.getSetting(USER_DATA_KEY);
+    const userData = parseUserData(rawUserData);
+    if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
     this.patch({ settings: { ...this.snapshot.settings, language, dataSource }, profile, userData });
     await this.loadActiveDevice();
     this.patch({ ready: true });
@@ -666,11 +669,21 @@ export class AppController {
     }
   }
 
-  updateUserData = async (patch: Partial<UserData>): Promise<void> => {
-    const { store } = this.requireApp();
-    const next = parseUserData(serializeUserData({ ...this.snapshot.userData, ...patch }));
-    await store.setSetting(USER_DATA_KEY, serializeUserData(next));
-    this.patch({ userData: next });
+  updateUserData = (patch: Partial<UserData>): Promise<boolean> => {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { store } = this.requireApp();
+        const next = parseUserData(serializeUserData({ ...this.snapshot.userData, ...patch }));
+        await store.setSetting(USER_DATA_KEY, serializeUserData(next));
+        this.patch({ userData: next });
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
   };
 
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {

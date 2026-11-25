@@ -60,8 +60,17 @@ export default function EditProfileScreen() {
       return;
     }
     const trimmed = name.trim().slice(0, 40);
-    await updateUserData({ name: trimmed === '' ? null : trimmed, heightCm, weightKg, sex: sex === 'unset' ? null : sex, stepsGoal: goal });
-    await updateProfile({ birthYear: by, maxHeartRate: hr });
+    try {
+      const stored = await updateUserData({ name: trimmed === '' ? null : trimmed, heightCm, weightKg, sex: sex === 'unset' ? null : sex, stepsGoal: goal });
+      if (!stored) {
+        setState('idle');
+        return;
+      }
+      await updateProfile({ birthYear: by, maxHeartRate: hr });
+    } catch {
+      setState('idle');
+      return;
+    }
     setState('saved');
   };
 
