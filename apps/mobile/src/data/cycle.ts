@@ -24,7 +24,7 @@ export const FLOW_OPTIONS = [1, 2, 3] as const satisfies readonly FlowLevel[];
 export const INTENSITY_OPTIONS = [1, 2, 3] as const satisfies readonly Intensity[];
 
 type AssertNever<T extends never> = T;
-export type CompleteOptions = [
+type CompleteOptions = [
   AssertNever<Exclude<Symptom, (typeof SYMPTOM_OPTIONS)[number]>>,
   AssertNever<Exclude<FlowLevel, (typeof FLOW_OPTIONS)[number]>>,
   AssertNever<Exclude<Intensity, (typeof INTENSITY_OPTIONS)[number]>>,
@@ -249,8 +249,8 @@ export function buildTimeline(days: readonly DayRecord[], periods: readonly Peri
   for (const record of days) deviation.set(record.day, metricValue(record, 'skinTempDeviation'));
   const flows = new Map<string, FlowLevel>();
   for (const period of periods) {
-    const last = period.endDay ?? period.startDay;
-    for (let day = period.startDay; day <= last; day = shiftIsoDay(day, 1)) flows.set(day, period.flow);
+    const length = Math.min(Math.max(daysBetween(period.startDay, period.endDay ?? period.startDay), 0), CYCLE_LIMITS.maxPeriodDays);
+    for (let offset = 0; offset <= length; offset++) flows.set(shiftIsoDay(period.startDay, offset), period.flow);
   }
   const timeline: TimelineDay[] = [];
   for (let offset = range - 1; offset >= 0; offset--) {

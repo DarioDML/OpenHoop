@@ -65,12 +65,16 @@ export function CycleTimeline({ days, height = 140, formatTick, emptyLabel, star
     <View testID={testID} style={{ gap: 4 }}>
       <View style={{ flexDirection: 'row', height }}>
         <View style={{ width: AXIS_WIDTH, justifyContent: 'space-between', paddingVertical: 2 }}>
-          <AppText variant="caption" muted numeric>
-            {formatTick(max)}
-          </AppText>
-          <AppText variant="caption" muted numeric>
-            {formatTick(min)}
-          </AppText>
+          {values.length > 0 ? (
+            <>
+              <AppText variant="caption" muted numeric>
+                {formatTick(max)}
+              </AppText>
+              <AppText variant="caption" muted numeric>
+                {formatTick(min)}
+              </AppText>
+            </>
+          ) : null}
         </View>
         <View style={{ flex: 1 }} onLayout={onLayout}>
           {width > 0 ? (
