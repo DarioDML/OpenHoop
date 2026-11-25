@@ -1,4 +1,13 @@
-import type { BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, SleepEditProblem, SleepEditRow } from '@openhoop/core';
+import type {
+  BandModel,
+  BodyMeasurement,
+  BodyMeasurementInput,
+  DayRecord,
+  JournalNote,
+  JournalNoteInput,
+  SleepEditProblem,
+  SleepEditRow,
+} from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { InboxEntry } from '@/lib/notificationPlan';
@@ -86,6 +95,7 @@ export interface AppData {
   settings: Settings;
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
+  journalNotes: JournalNote[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
@@ -101,6 +111,8 @@ export interface AppData {
   updateUserData(patch: Partial<UserData>): Promise<boolean>;
   saveBodyMeasurement(id: number | null, input: BodyMeasurementInput): Promise<boolean>;
   removeBodyMeasurement(id: number): Promise<boolean>;
+  saveJournalNote(id: number | null, input: JournalNoteInput): Promise<boolean>;
+  removeJournalNote(id: number): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;

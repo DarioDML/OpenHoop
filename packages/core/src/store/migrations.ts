@@ -208,7 +208,18 @@ CREATE TABLE sleep_edits (
 CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4];
+const V5 = `
+CREATE TABLE journal_notes (
+  id INTEGER PRIMARY KEY,
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  body TEXT NOT NULL CHECK (length(body) >= 1 AND length(body) <= 2000),
+  tags TEXT NOT NULL DEFAULT '' CHECK (length(tags) <= 250),
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX journal_notes_day ON journal_notes (day, id);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

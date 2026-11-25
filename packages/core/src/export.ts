@@ -58,6 +58,11 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, day, weight_kg, body_fat_pct, created_at',
     order: 'day, id',
   },
+  journal_notes: {
+    columns: ['id', 'day', 'body', 'tags', 'created_at'],
+    select: 'id, day, body, tags, created_at',
+    order: 'day, id',
+  },
 };
 
 function cell(value: SqlValue | undefined): string {
