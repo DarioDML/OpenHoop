@@ -456,7 +456,15 @@ CREATE TABLE vendor_journal (
 CREATE INDEX vendor_journal_day ON vendor_journal (day);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11];
+const V12 = `
+ALTER TABLE body_measurements ADD COLUMN source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'health_connect'));
+ALTER TABLE body_measurements ADD COLUMN external_id TEXT;
+ALTER TABLE body_measurements ADD COLUMN origin TEXT;
+ALTER TABLE body_measurements ADD COLUMN deleted_at INTEGER;
+CREATE UNIQUE INDEX body_measurements_external ON body_measurements (external_id);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

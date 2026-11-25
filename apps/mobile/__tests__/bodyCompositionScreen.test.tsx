@@ -19,7 +19,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 function entry(id: number, day: string, weightKg: number, bodyFatPct: number | null = null): BodyMeasurement {
-  return { id, day, weightKg, bodyFatPct, createdAt: id };
+  return { id, day, weightKg, bodyFatPct, createdAt: id, source: 'manual', origin: null };
 }
 
 const userData = { ...defaultUserData(), onboardingDone: true, heightCm: 180 };

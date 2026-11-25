@@ -86,7 +86,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
 | C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training), jet lag plan (rule-based guidance), VO2 max (estimate), healthspan pillars |
-| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat, lab results with the reference range you copied from your own report, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered, average cycle and period length, next-period estimate, pregnancy week). OpenHoop ships no reference ranges of its own |
+| D | Raw records, for example optical and motion data. Also the values you enter by hand or read from Health Connect (weight, body fat, lab results with the reference range you copied from your own report, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered, average cycle and period length, next-period estimate, pregnancy week). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
 
@@ -146,11 +146,22 @@ The health report is a PDF of the last 30 or 90 days that you can share with you
   - **Coach** sends your question, the current conversation, a summary of the last 7 days of Readiness, Sleep score, Load, HRV and resting heart rate (with their levels) and your coach memory notes to Anthropic (`api.anthropic.com`), using your own API key. No name, band identifiers or raw readings are sent. Coach settings show the exact text. The key stays in the device's secure storage and is never written to the database or the export. Anthropic's own terms apply to what you send.
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
-- Export gives you the whole database and one CSV file per table, including coach conversations and memory notes, plus `notifications.json` with your notification settings and inbox.
+- Export gives you the whole database and one CSV file per table, including coach conversations and memory notes, plus `notifications.json` with your notification settings and inbox, and `health-connect.json` with your Health Connect choices and the last sync result.
 - Journal notes you type are kept in the same encrypted database. They are not sent anywhere and they are part of the export.
 - Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
 - Cycle, symptom and pregnancy entries are sensitive. They stay in the encrypted database on the phone, are part of the export, and can be deleted one by one or all at once on the cycle screen. The next-period date is a plain average of your own logged cycles. It is not a fertility or ovulation prediction.
 - Import reads a data export file (ZIP or CSV) that you requested from the official app yourself, for interoperability. Nothing is fetched from the vendor and the file is read on the phone. Its values are stored in separate tables tagged `vendor-export`, shown as "from the official app's export", and never mixed with band data or OpenHoop's own scores. Removing them is one button.
+- Health Connect (Android only) is opt-in per data type and off by default. It is a store on the phone, not a server, but other apps you allow in Health Connect can read what OpenHoop writes there. See "Health Connect".
+
+## Health Connect
+
+On Android, OpenHoop can write heart rate (minute averages), resting heart rate, HRV (RMSSD), sleep sessions, exercise sessions, SpO2, respiratory rate and skin temperature to Health Connect, and read weight and body fat from it. Each type has its own switch, and OpenHoop asks Health Connect only for the permissions of the types you turn on. The app declares these Health Connect permissions and no others: write heart rate, resting heart rate, heart rate variability, sleep, exercise, oxygen saturation, respiratory rate and skin temperature; read weight and body fat.
+
+- It writes only band data, never the simulated demo data, and only values the app also shows: a value the data cannot support is left out, not estimated. Sleep sessions have a start and an end but no stages.
+- Each sync replaces only the records OpenHoop wrote itself in the last 30 days, with stable record ids, so a re-sync or a sleep correction updates instead of duplicating. Data from other apps is never changed or deleted.
+- Weight and body fat from other apps go into the body log, labelled with the app they came from. They never overwrite or compete with your own entries: a day you entered by hand is skipped, an imported entry you edit becomes yours, and one you delete stays deleted.
+- Sync runs when you tap "Sync now", and after each band sync if you turn that on. To withdraw a permission or delete what OpenHoop wrote, use Health Connect itself.
+- Third-party cloud services (for example Strava) are not built.
 
 ## Not a medical device
 

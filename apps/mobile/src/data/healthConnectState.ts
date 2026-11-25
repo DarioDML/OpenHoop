@@ -1,0 +1,128 @@
+import { HC_EXPORT_TYPES, HC_IMPORT_TYPES, type HcDataType, type HcExportType, type HcImportType, type HcPreferences } from '@/lib/healthConnectMapping';
+
+export const HEALTH_CONNECT_STATE_KEY = 'healthConnect.state';
+
+export type HcTypeResult =
+  | { status: 'ok'; count: number }
+  | { status: 'denied' }
+  | { status: 'demo' }
+  | { status: 'error'; step: HcFailedStep };
+
+export type HcFailedStep = 'read' | 'write' | 'store';
+
+export interface HcSyncReport {
+  at: number;
+  results: Partial<Record<HcDataType, HcTypeResult>>;
+}
+
+export interface HealthConnectState extends HcPreferences {
+  afterBandSync: boolean;
+  heartRateCursorS: number | null;
+  lastImportS: number | null;
+  lastSync: HcSyncReport | null;
+}
+
+type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
+const ALL_TYPES: readonly HcDataType[] = [...HC_EXPORT_TYPES, ...HC_IMPORT_TYPES];
+const STEPS: readonly HcFailedStep[] = ['read', 'write', 'store'];
+const MAX_COUNT = 10_000_000;
+
+function exportOff(): Record<HcExportType, boolean> {
+  return {
+    heartRate: false,
+    restingHeartRate: false,
+    hrv: false,
+    sleep: false,
+    exercise: false,
+    spo2: false,
+    respiratoryRate: false,
+    skinTemperature: false,
+  };
+}
+
+function importOff(): Record<HcImportType, boolean> {
+  return { weight: false, bodyFat: false };
+}
+
+export function defaultHealthConnectState(): HealthConnectState {
+  return {
+    export: exportOff(),
+    import: importOff(),
+    afterBandSync: false,
+    heartRateCursorS: null,
+    lastImportS: null,
+    lastSync: null,
+  };
+}
+
+function isRecord(value: Json | undefined): value is { [key: string]: Json } {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function unixOrNull(value: Json | undefined): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : null;
+}
+
+function parseFlags<T extends string>(value: Json | undefined, types: readonly T[], out: Record<T, boolean>): Record<T, boolean> {
+  if (!isRecord(value)) return out;
+  for (const type of types) out[type] = value[type] === true;
+  return out;
+}
+
+function parseResult(value: Json | undefined): HcTypeResult | null {
+  if (!isRecord(value)) return null;
+  const { status } = value;
+  if (status === 'ok') {
+    const { count } = value;
+    return typeof count === 'number' && Number.isSafeInteger(count) && count >= 0 && count <= MAX_COUNT ? { status, count } : null;
+  }
+  if (status === 'denied' || status === 'demo') return { status };
+  if (status === 'error') {
+    const step = STEPS.find((s) => s === value.step);
+    return step === undefined ? null : { status, step };
+  }
+  return null;
+}
+
+function parseReport(value: Json | undefined): HcSyncReport | null {
+  if (!isRecord(value)) return null;
+  const at = unixOrNull(value.at);
+  if (at === null) return null;
+  const results: Partial<Record<HcDataType, HcTypeResult>> = {};
+  if (isRecord(value.results)) {
+    for (const type of ALL_TYPES) {
+      const result = parseResult(value.results[type]);
+      if (result !== null) results[type] = result;
+    }
+  }
+  return { at, results };
+}
+
+export function parseHealthConnectState(raw: string | null): HealthConnectState {
+  const base = defaultHealthConnectState();
+  if (raw === null || raw === '') return base;
+  let parsed: Json;
+  try {
+    parsed = JSON.parse(raw) as Json;
+  } catch {
+    return base;
+  }
+  if (!isRecord(parsed)) return base;
+  return {
+    export: parseFlags(parsed.export, HC_EXPORT_TYPES, exportOff()),
+    import: parseFlags(parsed.import, HC_IMPORT_TYPES, importOff()),
+    afterBandSync: parsed.afterBandSync === true,
+    heartRateCursorS: unixOrNull(parsed.heartRateCursorS),
+    lastImportS: unixOrNull(parsed.lastImportS),
+    lastSync: parseReport(parsed.lastSync),
+  };
+}
+
+export function serializeHealthConnectState(state: HealthConnectState): string {
+  return JSON.stringify(state);
+}
+
+export function anyTypeEnabled(prefs: HcPreferences): boolean {
+  return HC_EXPORT_TYPES.some((type) => prefs.export[type]) || HC_IMPORT_TYPES.some((type) => prefs.import[type]);
+}

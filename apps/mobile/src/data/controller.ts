@@ -23,6 +23,7 @@ import {
   deleteDataBefore,
   deleteLabResult,
   exportCsv,
+  importBodyMeasurements,
   emptyVendorData,
   insertBodyMeasurement,
   insertJournalNote,
@@ -61,6 +62,7 @@ import {
   upsertSymptom,
   updateJournalNote,
   type BandModel,
+  type BodyImportResult,
   type BodyMeasurement,
   type BodyMeasurementInput,
   type JournalNote,
@@ -73,6 +75,7 @@ import {
   type StrengthTemplateInput,
   type DayRecord,
   type DeviceRow,
+  type ImportedBodyMeasurement,
   type LabResult,
   type LabResultInput,
   type PeriodInput,
@@ -87,10 +90,12 @@ import { formatFirmware } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
 import { getLocales } from 'expo-localization';
 
+import { dayEntries } from './activities';
 import { BleManagerTransport } from '@/ble/bleManagerTransport';
 import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
+import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
 import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 import { setNetworkPrefs } from '@/net';
@@ -102,6 +107,15 @@ import { openAppStore, type AppStore } from './appStore';
 import { addDays } from './derived';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
+import { OPENHOOP_PACKAGE, nativeHealthConnect, type HealthConnectApi } from './healthConnectApi';
+import {
+  HEALTH_CONNECT_STATE_KEY,
+  defaultHealthConnectState,
+  parseHealthConnectState,
+  serializeHealthConnectState,
+  type HealthConnectState,
+} from './healthConnectState';
+import { runHealthConnectSync } from './healthConnectSync';
 import { removeLeftoverReports } from './reportFiles';
 import {
   NOTIFICATION_STATE_KEY,
@@ -126,6 +140,7 @@ import type {
   DeleteTarget,
   DeviceStatus,
   DiscoveredBand,
+  HealthConnectView,
   HeartRatePoint,
   LiveState,
   LockState,
@@ -175,6 +190,7 @@ export interface Snapshot {
   notice: Notice | null;
   inbox: InboxEntry[];
   notificationPermission: PermissionState;
+  healthConnect: HealthConnectView;
   activities: ActivityRow[];
   pendingDelete: PendingDelete | null;
 }
@@ -245,9 +261,14 @@ export class AppController {
   private started = false;
   private notificationState: NotificationState = emptyNotificationState();
   private notificationChain: Promise<void> = Promise.resolve();
+  private healthConnectChain: Promise<void> = Promise.resolve();
+  private healthConnectRun: Promise<void> | null = null;
   lastTimings: SyncTimings | null = null;
 
-  constructor(private readonly notifier: Notifier = expoNotifier) {
+  constructor(
+    private readonly notifier: Notifier = expoNotifier,
+    private readonly healthConnect: HealthConnectApi = nativeHealthConnect,
+  ) {
     const language = detectLanguage(getLocales()[0]?.languageCode);
     this.snapshot = {
       ready: false,
@@ -268,6 +289,7 @@ export class AppController {
       notice: null,
       inbox: [],
       notificationPermission: 'undetermined',
+      healthConnect: { availability: 'checking', granted: [], state: defaultHealthConnectState(), syncing: false },
       activities: [],
       pendingDelete: null,
     };
@@ -363,6 +385,7 @@ export class AppController {
     this.notificationState = parseNotificationState(await store.getSetting(NOTIFICATION_STATE_KEY));
     setNetworkPrefs(userData.network);
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
+    const healthConnectState = parseHealthConnectState(await store.getSetting(HEALTH_CONNECT_STATE_KEY));
     const labResults = await listLabResults(this.app.driver);
     const vendorData = await listVendorData(this.app.driver);
     const cycle = await loadCycleData(this.app.driver);
@@ -378,11 +401,13 @@ export class AppController {
       vendorData,
       cycle,
       inbox: this.notificationState.inbox,
+      healthConnect: { ...this.snapshot.healthConnect, state: healthConnectState },
       strength,
     });
     await this.loadActiveDevice();
     this.patch({ ready: true });
     void this.refreshNotifications();
+    void this.refreshHealthConnect();
     if (dataSource === 'demo') void this.sync();
   }
 
@@ -582,7 +607,9 @@ export class AppController {
   sync = (): Promise<void> => {
     if (this.syncRun !== null) return this.syncRun;
     const run = this.exclusive(() => this.runSync()).then(
-      () => undefined,
+      () => {
+        if (this.snapshot.healthConnect.state.afterBandSync && this.snapshot.settings.dataSource === 'band') void this.syncHealthConnect();
+      },
       () => undefined,
     ).finally(() => {
       this.syncRun = null;
@@ -917,6 +944,21 @@ export class AppController {
     }
   }
 
+  private importBodyEntries(entries: ImportedBodyMeasurement[], withBodyFat: boolean): Promise<BodyImportResult> {
+    const run = this.userDataChain.then(async () => {
+      const { driver } = this.requireApp();
+      const before = this.snapshot.bodyMeasurements;
+      const result = await importBodyMeasurements(driver, entries, nowSeconds(), { bodyFat: withBodyFat });
+      if (result.saved > 0) await this.applyBodyChange(before);
+      return result;
+    });
+    this.userDataChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
   private runBodyChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
     const run = this.userDataChain.then(async () => {
       try {
@@ -943,7 +985,7 @@ export class AppController {
       return updateBodyMeasurement(driver, id, input);
     });
 
-  removeBodyMeasurement = (id: number): Promise<boolean> => this.runBodyChange((driver) => deleteBodyMeasurement(driver, id));
+  removeBodyMeasurement = (id: number): Promise<boolean> => this.runBodyChange((driver) => deleteBodyMeasurement(driver, id, nowSeconds()));
 
   private runLabChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
     const run = this.userDataChain.then(async () => {
@@ -1289,6 +1331,123 @@ export class AppController {
       }
     });
 
+  private patchHealthConnect(change: Partial<HealthConnectView>): void {
+    this.patch({ healthConnect: { ...this.snapshot.healthConnect, ...change } });
+  }
+
+  private healthConnectTask<T>(task: () => Promise<T>, fallback: T): Promise<T> {
+    const run = this.healthConnectChain.then(task).catch(() => fallback);
+    this.healthConnectChain = run.then(() => undefined);
+    return run;
+  }
+
+  private async saveHealthConnectState(state: HealthConnectState): Promise<void> {
+    await this.requireApp().store.setSetting(HEALTH_CONNECT_STATE_KEY, serializeHealthConnectState(state));
+    this.patchHealthConnect({ state });
+  }
+
+  private async readGranted(): Promise<void> {
+    try {
+      this.patchHealthConnect({ granted: [...(await this.healthConnect.grantedPermissions())] });
+    } catch {
+      this.patchHealthConnect({ granted: [] });
+    }
+  }
+
+  refreshHealthConnect = (): Promise<void> =>
+    this.healthConnectTask(async () => {
+      let availability: HealthConnectView['availability'];
+      try {
+        availability = await this.healthConnect.availability();
+      } catch {
+        availability = 'not-installed';
+      }
+      this.patchHealthConnect({ availability });
+      if (availability === 'available') await this.readGranted();
+      else this.patchHealthConnect({ granted: [] });
+    }, undefined);
+
+  setHealthConnectType = (type: HcDataType, enabled: boolean): Promise<boolean> =>
+    this.healthConnectTask(async () => {
+      const current = this.snapshot.healthConnect.state;
+      const state: HealthConnectState = isExportType(type)
+        ? { ...current, export: { ...current.export, [type]: enabled } }
+        : { ...current, import: { ...current.import, [type]: enabled } };
+      await this.saveHealthConnectState(state);
+      if (!enabled || this.snapshot.healthConnect.availability !== 'available') return true;
+      const permission = permissionFor(type);
+      const key = permissionKey(permission);
+      if (this.snapshot.healthConnect.granted.includes(key)) return true;
+      const granted = await this.healthConnect.requestPermissions([permission]);
+      this.patchHealthConnect({ granted: [...granted] });
+      return granted.has(key);
+    }, false);
+
+  setHealthConnectAfterSync = (enabled: boolean): Promise<void> =>
+    this.healthConnectTask(async () => {
+      await this.saveHealthConnectState({ ...this.snapshot.healthConnect.state, afterBandSync: enabled });
+    }, undefined);
+
+  requestHealthConnectAccess = (): Promise<void> =>
+    this.healthConnectTask(async () => {
+      if (this.snapshot.healthConnect.availability !== 'available') return;
+      const granted = await this.healthConnect.requestPermissions(wantedPermissions(this.snapshot.healthConnect.state));
+      this.patchHealthConnect({ granted: [...granted] });
+    }, undefined);
+
+  syncHealthConnect = (): Promise<void> => {
+    if (this.healthConnectRun !== null) return this.healthConnectRun;
+    const run = this.healthConnectTask(async () => {
+      if (this.app === null || this.snapshot.healthConnect.availability !== 'available') return;
+      this.patchHealthConnect({ syncing: true });
+      try {
+        const outcome = await runHealthConnectSync({
+          api: this.healthConnect,
+          state: this.snapshot.healthConnect.state,
+          days: this.snapshot.days,
+          exercises: this.snapshot.days.flatMap((day) => dayEntries(this.snapshot.days, day, this.snapshot.activities)),
+          exportAllowed: this.snapshot.settings.dataSource === 'band' && this.deviceRow !== null,
+          heartRate: (fromS, toS) => this.heartRateBetween(fromS, toS, 60),
+          importBody: (entries, withBodyFat) => this.importBodyEntries(entries, withBodyFat),
+          ownPackage: OPENHOOP_PACKAGE,
+          nowS: nowSeconds(),
+          version: Date.now(),
+          tzOffsetAt: (unixS) => deviceTzOffsetS(new Date(unixS * 1000)),
+        });
+        await this.saveHealthConnectState({
+          ...this.snapshot.healthConnect.state,
+          heartRateCursorS: outcome.heartRateCursorS,
+          lastImportS: outcome.lastImportS,
+          lastSync: outcome.report,
+        });
+        await this.readGranted();
+      } catch {
+        this.fail(new AppError('error.healthConnectSync'));
+      } finally {
+        this.patchHealthConnect({ syncing: false });
+      }
+    }, undefined).finally(() => {
+      this.healthConnectRun = null;
+    });
+    this.healthConnectRun = run;
+    return run;
+  };
+
+  openHealthConnectSettings = (): void => {
+    try {
+      this.healthConnect.openSettings();
+    } catch {
+      this.fail(new AppError('error.healthConnect'));
+    }
+  };
+
+  installHealthConnect = async (): Promise<void> => {
+    try {
+      await this.healthConnect.openStore();
+    } catch {
+      this.fail(new AppError('error.healthConnect'));
+    }
+  };
   saveActivity = (draft: ActivityDraft, id?: number): Promise<number | null> =>
     this.exclusive(async () => {
       try {
@@ -1390,7 +1549,12 @@ export class AppController {
   exportData = async (): Promise<void> => {
     const app = this.requireApp();
     try {
-      await this.exclusive(() => exportAll(app, exportCsv, { 'notifications.json': this.notificationsExport() }));
+      await this.exclusive(() =>
+        exportAll(app, exportCsv, {
+          'notifications.json': this.notificationsExport(),
+          'health-connect.json': JSON.stringify(this.snapshot.healthConnect.state, null, 2),
+        }),
+      );
     } catch (error) {
       this.fail(error);
     }
@@ -1438,6 +1602,13 @@ export class AppController {
       setNotificationsEnabled: this.setNotificationsEnabled,
       markInboxRead: this.markInboxRead,
       clearInbox: this.clearInbox,
+      refreshHealthConnect: this.refreshHealthConnect,
+      setHealthConnectType: this.setHealthConnectType,
+      setHealthConnectAfterSync: this.setHealthConnectAfterSync,
+      requestHealthConnectAccess: this.requestHealthConnectAccess,
+      syncHealthConnect: this.syncHealthConnect,
+      openHealthConnectSettings: this.openHealthConnectSettings,
+      installHealthConnect: this.installHealthConnect,
     };
   }
 }
