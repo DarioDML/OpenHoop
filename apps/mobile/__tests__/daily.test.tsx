@@ -138,11 +138,12 @@ describe('Home', () => {
     expect(screen.getByText('No data yet')).toBeTruthy();
   });
 
-  it('shows why calories are missing and keeps stress marked as not built', async () => {
+  it('shows why calories are missing and the stress tile has a value instead of a not-built notice', async () => {
     await render(withAppData(<HomeScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, dashboardTiles: ['hrv', 'calories'] } }));
     expect(screen.getByTestId('tile-calories-reason')).toHaveTextContent('Body profile incomplete');
     expect(screen.queryByText('Issue #13')).toBeNull();
-    expect(screen.getAllByText('Issue #15').length).toBe(1);
+    expect(screen.queryByText('Issue #15')).toBeNull();
+    expect(screen.getByTestId('stress-tile-level')).toBeTruthy();
   });
 });
 
@@ -213,6 +214,12 @@ describe('Sleep', () => {
     expect(screen.getByTestId('ring-sleep-score')).toBeTruthy();
     expect(screen.getByTestId('card-contributors')).toBeTruthy();
     expect(screen.getByTestId('tile-asleep')).toBeTruthy();
+  });
+
+  it('links to the jet lag plan', async () => {
+    await render(withAppData(<SleepScreen />));
+    await fireEvent.press(screen.getByTestId('link-jet-lag'));
+    expect(mockPush).toHaveBeenCalledWith('/sleep/jet-lag');
   });
 
   it('shows last night with the stages not-built notice', async () => {

@@ -88,7 +88,7 @@ export function HomeBody({ days, index }: Props) {
     summary: (
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <VitalsCard days={days} index={index} />
-        <StressCard />
+        <StressCard days={days} index={index} />
       </View>
     ),
     brief: <MorningBriefCard days={days} index={index} />,

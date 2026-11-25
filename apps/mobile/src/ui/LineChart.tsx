@@ -15,6 +15,7 @@ interface Props {
   minSpan?: number;
   color?: string;
   band?: { low: number; high: number } | null;
+  domain?: { min: number; max: number } | null;
   testID?: string;
 }
 
@@ -22,7 +23,7 @@ const AXIS_WIDTH = 40;
 const PAD_Y = 8;
 const PAD_X = 6;
 
-export function LineChart({ data, height = 120, formatTick, emptyLabel, startLabel, endLabel, minSpan = 1, color, band = null, testID }: Props) {
+export function LineChart({ data, height = 120, formatTick, emptyLabel, startLabel, endLabel, minSpan = 1, color, band = null, domain = null, testID }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const values = data.filter((v): v is number => v !== null);
@@ -43,8 +44,8 @@ export function LineChart({ data, height = 120, formatTick, emptyLabel, startLab
   const lo = Math.min(...values, ...(band ? [band.low] : []));
   const hi = Math.max(...values, ...(band ? [band.high] : []));
   const pad = Math.max((hi - lo) * 0.15, (minSpan - (hi - lo)) / 2, 0);
-  const min = lo - pad;
-  const max = hi + pad;
+  const min = domain ? Math.min(domain.min, lo) : lo - pad;
+  const max = domain ? Math.max(domain.max, hi) : hi + pad;
   const span = max - min || 1;
   const plotH = height - PAD_Y * 2;
   const x = (i: number): number => (data.length <= 1 ? width / 2 : PAD_X + (i / (data.length - 1)) * (width - PAD_X * 2));

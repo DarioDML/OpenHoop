@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Profile } from '@openhoop/analytics';
-import { bindStore, dayKey, deleteDataBefore, newestFrameTime, openStore, rebuildFromRaw, recomputeDays } from '../src/index';
+import { bindStore, dayKey, deleteDataBefore, exportCsv, newestFrameTime, openStore, rebuildFromRaw, recomputeDays } from '../src/index';
 import type { DayRecord, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 import { TZ_S, awakeSamples, decodeRow, localMidnight, nightSamples, simulateDays, toFrame } from './sampleFactory';
@@ -144,6 +144,38 @@ describe('pipeline', () => {
         expect(active).toBeLessThanOrEqual(41);
         expect(workoutDay?.activeHr.every((bin) => bin.bpm >= (workoutDay.thresholdBpm ?? Infinity) - 0.5)).toBe(true);
         expect(records[0]?.activeMinutes?.activeHr).toEqual([]);
+      });
+
+      it('stores stress windows for awake time only, calibrating for the first three days', () => {
+        expect(records.map((r) => (r.stress === undefined || r.stress === null ? 'missing' : r.stress.reason))).toEqual([
+          'needs-history',
+          'needs-history',
+          'needs-history',
+          null,
+          null,
+          null,
+          null,
+        ]);
+        for (const r of records) {
+          const windows = r.stress?.windows ?? [];
+          expect(windows.length).toBeGreaterThan(100);
+          const main = r.sleep.periods.find((p) => !p.nap);
+          expect(windows.every((w) => main === undefined || w.t + 300 <= main.onset || w.t > main.offset)).toBe(true);
+          expect(windows.every((w) => (w.score === null) === (r.stress?.reason !== null))).toBe(true);
+        }
+        const workout = records[5]?.workouts[0];
+        expect(workout).toBeDefined();
+        const near = (records[5]?.stress?.windows ?? []).filter(
+          (w) => workout !== undefined && w.t + 300 > workout.start && w.t <= workout.end + 1_800,
+        );
+        expect(near).toEqual([]);
+        expect(records[4]?.stress?.baselineDays).toBe(4);
+      });
+
+      it('exports the stress windows with the daily record', async () => {
+        const csv = await exportCsv(weekStore, 'daily_metrics');
+        expect(csv).toContain('""stress"":{""algo"":""stress.hr-hrv-z5m@1""');
+        expect(csv).toContain('""reason"":""needs-history""');
       });
 
       it('recomputing the same range twice yields identical records', async () => {

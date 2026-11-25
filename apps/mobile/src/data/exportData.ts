@@ -21,6 +21,23 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'raw_chunks',
   'body_measurements',
   'lab_results',
+  'coach_conversations',
+  'coach_messages',
+  'coach_memory',
+  'cycle_periods',
+  'symptom_logs',
+  'pregnancy',
+  'strength_exercises',
+  'strength_templates',
+  'strength_template_items',
+  'strength_sessions',
+  'strength_session_exercises',
+  'strength_sets',
+  'journal_notes',
+  'vendor_cycles',
+  'vendor_sleeps',
+  'vendor_workouts',
+  'vendor_journal',
 ];
 
 const PLAINTEXT_NAME = 'openhoop.db';
@@ -88,7 +105,7 @@ export async function exportAll(
     }
 
     const zip = new File(folder, ZIP_NAME);
-    zip.write(zipSync(archive));
+    await zip.write(zipSync(archive));
     await shareAsync(zip.uri, { mimeType: 'application/zip', dialogTitle: 'OpenHoop' });
     return { databaseIncluded, tables: EXPORT_TABLES.length };
   } finally {
