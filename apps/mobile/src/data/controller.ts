@@ -16,6 +16,7 @@ import {
   loadReference,
   probeLock,
   readDeviceInformation,
+  readKeys,
   recomputeDays,
   recordHeartRate,
   syncHistory,
@@ -51,6 +52,7 @@ import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/
 import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 
+import { buildSnapshot, serializeSnapshot } from './bandConfig';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
 import { addDays } from './derived';
@@ -150,6 +152,7 @@ function emptyDevice(): DeviceStatus {
     backlogPages: null,
     lockState: 'unknown',
     connection: 'disconnected',
+    configSnapshot: null,
   };
 }
 
@@ -240,6 +243,7 @@ export class AppController {
         backlogPages: this.backlogPages,
         lockState: this.lockState,
         connection: this.connection,
+        configSnapshot: row?.configSnapshot ?? null,
       },
     });
   }
@@ -679,6 +683,36 @@ export class AppController {
     } catch (error) {
       this.liveAbort = null;
       this.patch({ live: IDLE_LIVE });
+      this.fail(error);
+    }
+  };
+
+  readBandConfig = async (): Promise<void> => {
+    if (this.syncRun !== null || this.liveAbort !== null) {
+      this.fail(new AppError('error.bandConfigBusy'));
+      return;
+    }
+    try {
+      await this.exclusive(async () => {
+        const conn = await this.ensureConnection();
+        const flags = await readKeys(conn.session, 'featureFlags');
+        const config = await readKeys(conn.session, 'deviceConfig');
+        if (flags.length + config.length === 0) throw new AppError('error.bandConfigEmpty');
+        const snapshot = buildSnapshot(nowSeconds(), this.snapshot.settings.dataSource, flags, config);
+        const row = this.deviceRow;
+        if (row === null) throw new AppError('error.noBandPaired');
+        this.deviceRow = await this.requireApp().store.upsertDevice({
+          bleId: row.bleId,
+          name: row.name,
+          model: row.model,
+          firmware: row.firmware,
+          serial: row.serial,
+          ownerSince: row.ownerSince,
+          configSnapshot: serializeSnapshot(snapshot),
+        });
+        this.patchDevice();
+      });
+    } catch (error) {
       this.fail(error);
     }
   };
@@ -1143,6 +1177,7 @@ export class AppController {
       pair: this.pair,
       sync: this.sync,
       startLive: this.startLive,
+      readBandConfig: this.readBandConfig,
       stopLive: this.stopLive,
       exportData: this.exportData,
       updateProfile: this.updateProfile,

@@ -23,6 +23,7 @@ export interface DeviceStatus {
   backlogPages: number | null;
   lockState: LockState;
   connection: ConnectionState;
+  configSnapshot: string | null;
 }
 
 export interface LiveState {
@@ -115,6 +116,7 @@ export interface AppData {
   pair(bandId: string, ownerSince: string): Promise<void>;
   sync(): Promise<void>;
   startLive(): Promise<void>;
+  readBandConfig(): Promise<void>;
   stopLive(): Promise<void>;
   exportData(): Promise<void>;
   updateProfile(patch: Partial<Profile>): Promise<void>;
