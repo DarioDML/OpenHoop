@@ -100,6 +100,7 @@ Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart 
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
 - Export gives you the whole database and one CSV file per table, plus `notifications.json` with your notification settings and inbox.
 - Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
+- Import reads a data export file (ZIP or CSV) that you requested from the official app yourself, for interoperability. Nothing is fetched from the vendor and the file is read on the phone. Its values are stored in separate tables tagged `vendor-export`, shown as "from the official app's export", and never mixed with band data or OpenHoop's own scores. Removing them is one button.
 
 ## Not a medical device
 

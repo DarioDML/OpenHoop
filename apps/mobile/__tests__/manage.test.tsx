@@ -34,7 +34,6 @@ import BandConfigScreen from '@/app/settings/band-config';
 import BatteryPackScreen from '@/app/settings/battery-pack';
 import ConnectProviderScreen from '@/app/settings/connect-provider';
 import DeviceSettingsScreen from '@/app/settings/device';
-import ImportExportScreen from '@/app/settings/import';
 import IntegrationsScreen from '@/app/settings/integrations';
 import PrivacyScreen from '@/app/settings/privacy';
 import SafetyLockScreen from '@/app/settings/safety-lock';
@@ -105,7 +104,6 @@ describe('Not built screens', () => {
   it.each([
     ['band-config', BandConfigScreen, 'not-built-bandConfig'],
     ['battery-pack', BatteryPackScreen, 'not-built-battery'],
-    ['import', ImportExportScreen, 'not-built-import'],
     ['integrations', IntegrationsScreen, 'not-built-integrations'],
     ['connect-provider', ConnectProviderScreen, 'not-built-integrations'],
     ['community', CommunityScreen, 'not-built-community'],

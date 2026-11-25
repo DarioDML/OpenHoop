@@ -9,11 +9,13 @@ import {
   deleteDataBefore,
   deleteLabResult,
   exportCsv,
+  emptyVendorData,
   insertBodyMeasurement,
   insertLabResult,
   listBodyMeasurements,
   listLabResults,
   loadReference,
+  listVendorData,
   probeLock,
   readDeviceInformation,
   recomputeDays,
@@ -28,6 +30,8 @@ import {
   type ActivityMetricsRecord,
   type ActivityRow,
   type ActivityStore,
+  upsertVendorData,
+  clearVendorData,
   type BandModel,
   type BodyMeasurement,
   type BodyMeasurementInput,
@@ -36,6 +40,7 @@ import {
   type LabResult,
   type LabResultInput,
   type SleepEditRow,
+  type VendorData,
   type SyncProgress,
   type SyncStop,
   type Transport,
@@ -65,6 +70,10 @@ import {
 } from './notificationState';
 import { expoNotifier, type Notifier, type PermissionState } from './notifier';
 import { otherSleepSpans, recomputeFrom, type SleepEditRequest } from './sleepEditForm';
+import { parseVendorSources } from './vendorExport/sources';
+import type { FileReport } from './vendorExport/parse';
+import type { SourceFile } from './vendorExport/sources';
+import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
@@ -115,6 +124,7 @@ export interface Snapshot {
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
   labResults: LabResult[];
+  vendorData: VendorData;
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
@@ -203,6 +213,7 @@ export class AppController {
       userData: defaultUserData(),
       bodyMeasurements: [],
       labResults: [],
+      vendorData: emptyVendorData(),
       syncProgress: null,
       notice: null,
       inbox: [],
@@ -300,12 +311,14 @@ export class AppController {
     this.notificationState = parseNotificationState(await store.getSetting(NOTIFICATION_STATE_KEY));
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
     const labResults = await listLabResults(this.app.driver);
+    const vendorData = await listVendorData(this.app.driver);
     this.patch({
       settings: { ...this.snapshot.settings, language, dataSource },
       profile,
       userData,
       bodyMeasurements,
       labResults,
+      vendorData,
       inbox: this.notificationState.inbox,
     });
     await this.loadActiveDevice();
@@ -866,6 +879,38 @@ export class AppController {
 
   removeLabResult = (id: number): Promise<boolean> => this.runLabChange((driver) => deleteLabResult(driver, id));
 
+  importVendorFiles = (files: SourceFile[], rejected: FileReport[]): Promise<VendorImportResult | null> => {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const parsed = parseVendorSources(files);
+        const written = await upsertVendorData(driver, parsed.data, nowSeconds());
+        this.patch({ vendorData: await listVendorData(driver) });
+        return summariseImport(parsed, written, rejected);
+      } catch (error) {
+        this.fail(error);
+        return null;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  };
+
+  removeVendorData = (): Promise<boolean> => {
+    const run = this.userDataChain.then(async () => {
+      try {
+        await clearVendorData(this.requireApp().driver);
+        this.patch({ vendorData: emptyVendorData() });
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  };
+
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
@@ -1152,6 +1197,8 @@ export class AppController {
       removeBodyMeasurement: this.removeBodyMeasurement,
       saveLabResult: this.saveLabResult,
       removeLabResult: this.removeLabResult,
+      importVendorFiles: this.importVendorFiles,
+      removeVendorData: this.removeVendorData,
       heartRateBetween: this.heartRateBetween,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,

@@ -4,6 +4,8 @@ import { CSV_LIMITS, parseCsv } from '@/data/vendorExport/csv';
 import { cleanText, normalizeHeader, parseBoolean, parseNumber, parseTime, parseZone } from '@/data/vendorExport/fields';
 import { parseVendorTexts } from '@/data/vendorExport/parse';
 import { parseVendorSources, SOURCE_LIMITS, type SourceFile } from '@/data/vendorExport/sources';
+import { importedAnything, summariseImport } from '@/data/vendorExport/summary';
+import { dayRange, newestFirst, recoverySeries, storedTotal } from '@/data/vendorExport/view';
 
 const CYCLES_HEADER =
   'Cycle start time,Cycle end time,Cycle timezone,Recovery score %,Resting heart rate (bpm),Heart rate variability (ms),Skin temp (celsius),Blood oxygen %,Day Strain,Sleep onset,Wake onset';
@@ -399,5 +401,56 @@ describe('parseVendorSources', () => {
   it('reports a ZIP with no CSV files', () => {
     const zip = zipSync({ 'notes.txt': strToU8('hi') });
     expect(parseVendorSources([{ name: 'x.zip', bytes: zip }]).files[0]?.problem).toBe('unsupported');
+  });
+});
+
+describe('import summary and view helpers', () => {
+  const parsed = parseVendorSources([
+    { name: 'physiological_cycles.csv', bytes: strToU8(CYCLES_CSV) },
+    { name: 'sleeps.csv', bytes: strToU8(SLEEPS_CSV) },
+  ]);
+
+  it('adds rows that were already stored to the skipped count', () => {
+    const written = {
+      cycles: { imported: 0, skipped: 1 },
+      sleeps: { imported: 1, skipped: 1 },
+      workouts: { imported: 0, skipped: 0 },
+      journal: { imported: 0, skipped: 0 },
+    };
+    const result = summariseImport(parsed, written, [{ name: 'big.zip', kind: null, rows: 0, invalid: 0, problem: 'too-large' }]);
+    expect(result.counts.cycles).toEqual({ imported: 0, skipped: 2, invalid: 2 });
+    expect(result.counts.sleeps).toEqual({ imported: 1, skipped: 2, invalid: 1 });
+    expect(result.files.map((f) => f.name)).toEqual(['big.zip', 'physiological_cycles.csv', 'sleeps.csv']);
+    expect(importedAnything(result)).toBe(true);
+  });
+
+  it('recognises an import that found nothing', () => {
+    const none = parseVendorTexts([{ name: 'a.csv', text: 'a,b' }]);
+    const zero = { imported: 0, skipped: 0 };
+    const result = summariseImport(none, { cycles: zero, sleeps: zero, workouts: zero, journal: zero }, []);
+    expect(importedAnything(result)).toBe(false);
+  });
+
+  it('builds the recovery series from the newest cycles that have a value', () => {
+    const cycle = (day: string, recoveryPct: number | null) => ({
+      startT: Date.parse(`${day}T00:00:00Z`) / 1000,
+      endT: null,
+      tzOffsetS: 0,
+      day,
+      recoveryPct,
+      restingHr: null,
+      hrvMs: null,
+      skinTempC: null,
+      spo2Pct: null,
+      respiratoryRate: null,
+      dayStrain: null,
+    });
+    const data = { cycles: [cycle('2024-01-01', 40), cycle('2024-01-02', null), cycle('2024-01-03', 60), cycle('2024-01-04', 80)], sleeps: [], workouts: [], journal: [] };
+    expect(recoverySeries(data, 2)).toEqual({ values: [60, 80], firstDay: '2024-01-03', lastDay: '2024-01-04' });
+    expect(recoverySeries({ ...data, cycles: [] })).toEqual({ values: [], firstDay: null, lastDay: null });
+    expect(dayRange(data)).toEqual({ first: '2024-01-01', last: '2024-01-04' });
+    expect(dayRange({ cycles: [], sleeps: [], workouts: [], journal: [] })).toBeNull();
+    expect(storedTotal(data)).toBe(4);
+    expect(newestFirst([1, 2, 3])).toEqual([3, 2, 1]);
   });
 });
