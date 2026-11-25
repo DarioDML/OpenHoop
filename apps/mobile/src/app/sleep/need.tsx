@@ -51,13 +51,13 @@ export default function SleepNeedScreen() {
         <StatRow
           label={t('sleepx.typicalNeed')}
           caption={t('sleepx.typicalNeedHint', { count: present })}
-          value={typical === null ? '–' : formatHm(typical * 3600)}
+          value={typical === null ? reason('needs-history') : formatHm(typical * 3600)}
           testID="typical-need"
         />
         <Divider />
-        <StatRow label={t('metric.debt')} caption={t('sleepx.debtHint')} value={debt === null ? '–' : formatDuration(t, debt)} testID="debt" />
+        <StatRow label={t('metric.debt')} caption={t('sleepx.debtHint')} value={debt === null ? reason(day.sleep.debt.reason) : formatDuration(t, debt)} testID="debt" />
         <Divider />
-        <StatRow label={t('sleepx.lastAsleep')} value={day.sleep.asleepS === null ? '–' : formatDuration(t, day.sleep.asleepS)} />
+        <StatRow label={t('sleepx.lastAsleep')} value={day.sleep.asleepS === null ? reason('no-sleep') : formatDuration(t, day.sleep.asleepS)} />
       </Card>
       <Card tone="outline" style={{ gap: spacing.sm }}>
         <ParityBadge level={PARITY.sleepNeed} long />

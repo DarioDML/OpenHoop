@@ -231,5 +231,7 @@
   "profile.ach.nights": "{count} nights of sleep recorded",
   "profile.ach.workouts": "{count} workouts recorded",
   "profile.ach.progress": "{current} of {target}",
-  "profile.ach.note": "Achievements are counted from the days stored on this phone. They have no levels or points."
+  "profile.ach.note": "Achievements are counted from the days stored on this phone. They have no levels or points.",
+  "activity.notFound.title": "Activity not found",
+  "activity.notFound.body": "This workout is not in your data. It may have been recomputed after a sync."
 }

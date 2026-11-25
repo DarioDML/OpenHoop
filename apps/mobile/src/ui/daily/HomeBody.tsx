@@ -1,8 +1,10 @@
 import type { DayRecord } from '@openhoop/core';
 import { router } from 'expo-router';
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
+import type { HomeSection } from '@/data/userData';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -79,29 +81,44 @@ export function LiveHeartRateCard() {
 
 export function HomeBody({ days, index }: Props) {
   const { t } = useT();
+  const { userData } = useAppData();
   const day = days[index];
   if (!day) return null;
-  return (
-    <>
-      <Notices day={day} />
+  const sections: Record<HomeSection, ReactNode> = {
+    summary: (
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <VitalsCard days={days} index={index} />
         <StressCard />
       </View>
-      <MorningBriefCard days={days} index={index} />
-      <CoachPill />
-      <LiveHeartRateCard />
-      <MyDayCard days={days} index={index} />
-      <WeekCard days={days} index={index} />
-      <TonightCard days={days} index={index} />
-      <CapRow
-        title={t('home.dashboard')}
-        links={[
-          { label: t('home.allMetrics'), onPress: () => router.push('/health/metrics'), testID: 'link-all-metrics' },
-          { label: t('common.edit'), onPress: () => router.push('/home/customize'), testID: 'link-edit-dashboard' },
-        ]}
-      />
-      <DashboardGrid days={days} index={index} />
+    ),
+    brief: <MorningBriefCard days={days} index={index} />,
+    coach: <CoachPill />,
+    live: <LiveHeartRateCard />,
+    myDay: <MyDayCard days={days} index={index} />,
+    week: <WeekCard days={days} index={index} />,
+    tonight: <TonightCard days={days} index={index} />,
+    dashboard: (
+      <>
+        <CapRow
+          title={t('home.dashboard')}
+          links={[
+            { label: t('home.allMetrics'), onPress: () => router.push('/health/metrics'), testID: 'link-all-metrics' },
+            { label: t('common.edit'), onPress: () => router.push('/home/customize'), testID: 'link-edit-dashboard' },
+          ]}
+        />
+        <DashboardGrid days={days} index={index} />
+      </>
+    ),
+  };
+  return (
+    <>
+      <Notices day={day} />
+      {userData.homeSections.map((section) => (
+        <View key={section} style={{ gap: spacing.md }}>
+          {sections[section]}
+        </View>
+      ))}
+      <Button variant="tertiary" icon="edit" label={t('home.customizeHome')} onPress={() => router.push('/home/customize')} testID="link-customize-home" />
     </>
   );
 }

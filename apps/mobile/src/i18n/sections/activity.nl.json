@@ -231,5 +231,7 @@
   "profile.ach.nights": "{count} nachten slaap vastgelegd",
   "profile.ach.workouts": "{count} workouts vastgelegd",
   "profile.ach.progress": "{current} van {target}",
-  "profile.ach.note": "Prestaties worden geteld uit de dagen op deze telefoon. Ze hebben geen levels of punten."
+  "profile.ach.note": "Prestaties worden geteld uit de dagen op deze telefoon. Ze hebben geen levels of punten.",
+  "activity.notFound.title": "Activiteit niet gevonden",
+  "activity.notFound.body": "Deze workout staat niet in je data. Misschien is hij na een synchronisatie opnieuw berekend."
 }

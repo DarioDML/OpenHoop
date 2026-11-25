@@ -219,7 +219,7 @@ describe('activity screens', () => {
   it('does not crash on invalid details params', async () => {
     mockParams = { day: 'x', index: '9' };
     await render(withAppData(<ActivityDetailsScreen />));
-    expect(screen.getByText('No data yet')).toBeTruthy();
+    expect(screen.getByText('Activity not found')).toBeTruthy();
   });
 
   it('marks edit, gps and share as not built', async () => {

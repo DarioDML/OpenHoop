@@ -24,7 +24,7 @@ function RootStack() {
   return (
     <ThemeProvider value={navTheme}>
       <StatusBar style={dark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <Stack screenOptions={{ headerShown: false, presentation: 'card', contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="(tabs)" />
       </Stack>
     </ThemeProvider>

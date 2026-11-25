@@ -153,16 +153,17 @@ export function PlannedScreen({ title, intro, issue, tint = 'load', bullets, bul
 interface NoDataProps {
   title: string;
   tint?: Tint;
+  notFound?: boolean;
 }
 
-export function NoDataScreen({ title, tint = 'load' }: NoDataProps) {
+export function NoDataScreen({ title, tint = 'load', notFound = false }: NoDataProps) {
   const { t } = useT();
   return (
     <Screen tint={tint} header={<TopBar title={title} />}>
       <Card>
-        <AppText variant="title">{t('empty.title')}</AppText>
+        <AppText variant="title">{notFound ? t('activity.notFound.title') : t('empty.title')}</AppText>
         <AppText variant="body" muted>
-          {t('empty.body')}
+          {notFound ? t('activity.notFound.body') : t('empty.body')}
         </AppText>
       </Card>
     </Screen>

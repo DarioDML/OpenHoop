@@ -162,7 +162,7 @@
   "readinessx.vsBaseline": "Contributors · vs your average",
   "readinessx.last7": "Last 7 days",
   "readinessx.trends": "Readiness trends",
-  "readinessx.impacts": "What affects readiness",
+  "readinessx.impacts": "What affects it",
   "readinessx.bandCounts": "Last {days} days by band",
   "readinessx.bandNote": "The shaded band on the HRV chart is your normal range: your 30-day average plus and minus one standard deviation.",
   "readinessx.impactsIntro": "Compares your next-day readiness after higher and lower days, using only your own recorded data.",
@@ -196,5 +196,16 @@
   "metricDetail.method.resp": "Respiratory rate is estimated by OpenHoop from the band's signals during sleep. It is a calibrated model.",
   "metricDetail.method.spo2": "SpO2 is reported by the band itself. OpenHoop shows it as received.",
   "metricDetail.method.temp": "Skin temperature is reported by the band itself. OpenHoop shows it as received.",
-  "home.actionCenter.title": "Action center"
+  "home.actionCenter.title": "Action center",
+  "home.customizeHome": "Customize Home",
+  "home.sections": "Sections on Home",
+  "home.sectionsHint": "Hide what you do not use and put the rest in your own order.",
+  "home.section.summary": "Vitals and stress",
+  "home.section.brief": "Morning brief",
+  "home.section.coach": "Ask your coach",
+  "home.section.live": "Live heart rate",
+  "home.section.myDay": "My Day",
+  "home.section.week": "This week",
+  "home.section.tonight": "Tonight's sleep",
+  "home.section.dashboard": "My Dashboard"
 }

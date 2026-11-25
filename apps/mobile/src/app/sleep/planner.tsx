@@ -84,8 +84,8 @@ export default function SleepPlannerScreen() {
       <Card testID="plan-result" style={{ gap: spacing.md }}>
         {plan ? (
           <>
-            <View style={{ flexDirection: 'row', gap: spacing.lg }}>
-              <View style={{ flex: 1, gap: 4 }}>
+            <View style={{ gap: spacing.lg }}>
+              <View style={{ gap: 4 }}>
                 <AppText variant="capSmall" muted>
                   {t('sleepx.bedBy')}
                 </AppText>
@@ -93,7 +93,7 @@ export default function SleepPlannerScreen() {
                   {formatMinutes(plan.bedMinutes)}
                 </Num>
               </View>
-              <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ gap: 4 }}>
                 <AppText variant="capSmall" muted>
                   {t('sleepx.wake')}
                 </AppText>

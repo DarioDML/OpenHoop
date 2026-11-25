@@ -162,7 +162,7 @@
   "readinessx.vsBaseline": "Bijdragers · t.o.v. je gemiddelde",
   "readinessx.last7": "Laatste 7 dagen",
   "readinessx.trends": "Paraatheidstrends",
-  "readinessx.impacts": "Wat beïnvloedt paraatheid",
+  "readinessx.impacts": "Invloeden",
   "readinessx.bandCounts": "Laatste {days} dagen per band",
   "readinessx.bandNote": "De gearceerde band in de HRV-grafiek is je normale bereik: je gemiddelde van 30 dagen plus en min één standaarddeviatie.",
   "readinessx.impactsIntro": "Vergelijkt je paraatheid de volgende dag na hogere en lagere dagen, alleen met je eigen vastgelegde data.",
@@ -196,5 +196,16 @@
   "metricDetail.method.resp": "OpenHoop schat de ademhalingsfrequentie uit de signalen van de band tijdens slaap. Het is een gekalibreerd model.",
   "metricDetail.method.spo2": "SpO2 wordt door de band zelf gemeten. OpenHoop toont het zoals ontvangen.",
   "metricDetail.method.temp": "Huidtemperatuur wordt door de band zelf gemeten. OpenHoop toont het zoals ontvangen.",
-  "home.actionCenter.title": "Actiecentrum"
+  "home.actionCenter.title": "Actiecentrum",
+  "home.customizeHome": "Home aanpassen",
+  "home.sections": "Onderdelen op Home",
+  "home.sectionsHint": "Verberg wat je niet gebruikt en zet de rest in je eigen volgorde.",
+  "home.section.summary": "Vitale waarden en stress",
+  "home.section.brief": "Ochtendoverzicht",
+  "home.section.coach": "Vraag het je coach",
+  "home.section.live": "Live hartslag",
+  "home.section.myDay": "Mijn dag",
+  "home.section.week": "Deze week",
+  "home.section.tonight": "Slaap vannacht",
+  "home.section.dashboard": "Mijn dashboard"
 }

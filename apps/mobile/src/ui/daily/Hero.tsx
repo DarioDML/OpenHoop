@@ -45,7 +45,12 @@ export function HeroRing({ label, value, max, color, decimals = 0, percent = fal
               {text}
             </Num>
             {caption ? (
-              <AppText variant="capSmall" color={captionColor ?? color} style={{ fontSize: 9, lineHeight: 11 }}>
+              <AppText
+                variant="capSmall"
+                color={captionColor ?? color}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={{ fontSize: 9, lineHeight: 11, letterSpacing: 0.6, maxWidth: size * 0.62, textAlign: 'center' }}>
                 {caption}
               </AppText>
             ) : null}

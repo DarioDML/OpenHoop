@@ -18,7 +18,7 @@ export default function EditActivityScreen() {
   const params = useLocalSearchParams<{ day?: string; index?: string }>();
   const ref = resolveWorkout(days, params.day, params.index);
 
-  if (ref === null) return <NoDataScreen title={t('activity.edit.title')} />;
+  if (ref === null) return <NoDataScreen title={t('activity.edit.title')} notFound />;
   const { day, workout } = ref;
 
   return (

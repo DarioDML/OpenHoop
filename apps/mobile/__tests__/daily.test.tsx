@@ -277,3 +277,21 @@ describe('Readiness', () => {
     expect(screen.getByText('This metric does not exist.')).toBeTruthy();
   });
 });
+
+describe('home sections', () => {
+  it('shows only the chosen sections in the chosen order', async () => {
+    const userData = { ...defaultUserData(), onboardingDone: true, homeSections: ['week' as const, 'brief' as const] };
+    await render(withAppData(<HomeScreen />, 'en', { userData }));
+    expect(screen.getByTestId('card-week')).toBeTruthy();
+    expect(screen.getByTestId('card-brief')).toBeTruthy();
+    expect(screen.queryByTestId('card-tonight')).toBeNull();
+    expect(screen.queryByTestId('card-vitals')).toBeNull();
+  });
+
+  it('saves section changes from the customize screen', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<CustomizeScreen />, 'en', { updateUserData }));
+    fireEvent(screen.getByTestId('section-toggle-coach'), 'valueChange', false);
+    expect(updateUserData).toHaveBeenCalledWith(expect.objectContaining({ homeSections: expect.not.arrayContaining(['coach']) }));
+  });
+});

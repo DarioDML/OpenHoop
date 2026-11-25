@@ -58,7 +58,7 @@ export function ListRow({ title, subtitle, icon, leading, right, value, href, on
   const press = onPress ?? (href ? () => router.push(href) : undefined);
   const showChevron = chevron ?? press !== undefined;
   const content = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: subtitle ? 68 : 56, opacity: disabled ? 0.5 : 1 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: subtitle ? 68 : 56, paddingVertical: spacing.md, opacity: disabled ? 0.5 : 1 }}>
       {leading}
       {icon ? (
         <View style={{ width: 36, height: 36, borderRadius: radius.sm, backgroundColor: icon.background, alignItems: 'center', justifyContent: 'center' }}>
