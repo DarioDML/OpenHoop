@@ -28,7 +28,9 @@
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.VIBRATE",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "com.google.android.c2dm.permission.RECEIVE",
+        "android.permission.ACCESS_NETWORK_STATE"
       ]
     },
     "plugins": [
@@ -62,6 +64,15 @@
           "bluetoothAlwaysPermission": "OpenHoop uses Bluetooth to find your band and read its data. The data stays on your phone."
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "enableRemoteNotifications": false,
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#0D1114"
+        }
+      ],
+      "./plugins/withLocalNotificationsOnly",
       "./plugins/withAndroidBuildFixes",
       "./plugins/withReleaseSigning"
     ],

@@ -18,6 +18,7 @@ export const GOALS = ['sleep', 'recovery', 'fitness', 'stress', 'health', 'perfo
 export type Goal = (typeof GOALS)[number];
 
 export interface NotificationPrefs {
+  enabled: boolean;
   morningDigest: boolean;
   syncProblems: boolean;
   quietStart: string;
@@ -61,7 +62,7 @@ export function defaultUserData(): UserData {
     previousDashboardTiles: null,
     homeSections: [...HOME_SECTIONS],
     previousHomeSections: null,
-    notifications: { morningDigest: true, syncProblems: true, quietStart: '22:00', quietEnd: '07:00' },
+    notifications: { enabled: false, morningDigest: true, syncProblems: true, quietStart: '22:00', quietEnd: '07:00' },
     journalQuestions: null,
     journal: {},
     weeklyPlan: null,
@@ -158,6 +159,7 @@ export function parseUserData(raw: string | null): UserData {
     homeSections: Array.isArray(parsed.homeSections) ? sections : base.homeSections,
     previousHomeSections: previousSections,
     notifications: {
+      enabled: notifications.enabled === true,
       morningDigest: typeof notifications.morningDigest === 'boolean' ? notifications.morningDigest : base.notifications.morningDigest,
       syncProblems: typeof notifications.syncProblems === 'boolean' ? notifications.syncProblems : base.notifications.syncProblems,
       quietStart: clockOr(notifications.quietStart, base.notifications.quietStart),

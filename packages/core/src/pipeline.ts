@@ -7,6 +7,7 @@ import {
   detectWorkouts,
   effectiveMaxHr,
   groupNights,
+  minuteMeans,
   nightlyHrv,
   nightlySkinTemp,
   nightlySpo2,
@@ -40,7 +41,6 @@ import type {
 
 const DAY_S = 86_400;
 const HOUR_S = 3_600;
-const MINUTE_S = 60;
 const MAIN_NIGHT_LATEST_TOD_S = 15 * HOUR_S;
 const BLOCK_S = HOUR_S;
 const SCAN_BEFORE_S = 12 * HOUR_S;
@@ -51,14 +51,13 @@ const BASELINE_DAYS = 14;
 const SKIN_BASELINE_MIN_DAYS = 3;
 const RESTING_HR_FALLBACK = 60;
 const CALIBRATING_NIGHTS = 3;
-const MINUTE_MIN_VALID_S = 30;
 const HR_MIN = 25;
 const HR_MAX = 230;
 const STEP_MODULUS = 65_536;
 const STEP_WRAP_MAX = 4_096;
 const EARLIEST_DAY = '0000-01-01';
 
-const SOURCE_RANK: Record<SampleSource, number> = { history: 0, live: 1, hrm: 2 };
+export const SOURCE_RANK: Readonly<Record<SampleSource, number>> = { history: 0, live: 1, hrm: 2 };
 
 export interface RecomputeOptions {
   deviceId: number;
@@ -126,7 +125,7 @@ export function dayKey(unixS: number, tzOffsetS: number): string {
   return formatDayIndex(localDayIndex(unixS, tzOffsetS));
 }
 
-function validHr(hr: number | null): number | null {
+export function validHr(hr: number | null): number | null {
   return hr !== null && hr >= HR_MIN && hr <= HR_MAX ? hr : null;
 }
 
@@ -301,25 +300,6 @@ function countSteps(samples: Sample[]): number | null {
     previous = s.steps;
   }
   return seen ? total : null;
-}
-
-function minuteMeans(samples: Sample[], start: number, end: number): (number | null)[] {
-  const minutes = Math.ceil((end - start) / MINUTE_S);
-  const counts = new Int32Array(minutes);
-  const sums = new Float64Array(minutes);
-  for (const s of samples) {
-    if (s.hr === null) continue;
-    const m = Math.floor((s.t - start) / MINUTE_S);
-    if (m < 0 || m >= minutes) continue;
-    counts[m] = (counts[m] ?? 0) + 1;
-    sums[m] = (sums[m] ?? 0) + s.hr;
-  }
-  const out: (number | null)[] = [];
-  for (let m = 0; m < minutes; m++) {
-    const c = counts[m] ?? 0;
-    out.push(c >= MINUTE_MIN_VALID_S ? (sums[m] ?? 0) / c : null);
-  }
-  return out;
 }
 
 async function clockOffsetFlagged(ctx: Context, chunkId: number): Promise<boolean> {
