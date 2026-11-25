@@ -38,6 +38,7 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     saveLabResult: async () => true,
     removeLabResult: async () => true,
     heartRateBetween: async () => [],
+    routeFor: async () => [],
     inbox: [],
     notificationPermission: 'undetermined',
     refreshNotifications: noop,

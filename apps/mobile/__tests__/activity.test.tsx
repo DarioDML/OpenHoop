@@ -39,7 +39,6 @@ jest.mock('react-native-safe-area-context', () => ({
 import AddActivityScreen from '@/app/activity/add';
 import ActivityDetailsScreen from '@/app/activity/details';
 import EditActivityScreen from '@/app/activity/edit';
-import GpsActivityScreen from '@/app/activity/gps';
 import LiveActivityScreen from '@/app/activity/live';
 import ShareActivityScreen from '@/app/activity/share';
 import StartActivityScreen from '@/app/activity/start';
@@ -182,7 +181,7 @@ describe('activity screens', () => {
     mockParams = { type: 'running' };
     await render(withAppData(<StartActivityScreen />));
     expect(screen.getByTestId('start-type').props.children).toBe('Running');
-    expect(screen.getByTestId('not-built-gps')).toBeTruthy();
+    expect(screen.getByTestId('start-route')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('start-begin'));
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'running' } });
   });
@@ -224,9 +223,7 @@ describe('activity screens', () => {
     expect(screen.getByText('Activity not found')).toBeTruthy();
   });
 
-  it('marks gps and share as not built', async () => {
-    await render(withAppData(<GpsActivityScreen />));
-    expect(screen.getByTestId('not-built-gps')).toBeTruthy();
+  it('marks share as not built', async () => {
     await render(withAppData(<ShareActivityScreen />));
     expect(screen.getByTestId('not-built-share')).toBeTruthy();
   });

@@ -5,18 +5,18 @@ import { defaultNetworkPrefs, featureEnabled, parseNetworkPrefs, strictestPrefs,
 import { NetworkRefusedError, checkRequest, createGate, type Transport } from '@/net/gate';
 import { defaultUserData, parseUserData, serializeUserData } from '@/data/userData';
 
-const ON: NetworkPrefs = { enabled: true, features: { coach: true } };
+const ON: NetworkPrefs = { enabled: true, features: { coach: true, maps: false } };
 const URL_OK = 'https://api.anthropic.com/v1/messages';
 
 describe('network prefs', () => {
   it('default to everything off', () => {
-    expect(defaultNetworkPrefs()).toEqual({ enabled: false, features: { coach: false } });
+    expect(defaultNetworkPrefs()).toEqual({ enabled: false, features: { coach: false, maps: false } });
     expect(defaultUserData().network).toEqual(defaultNetworkPrefs());
     expect(parseUserData(null).network).toEqual(defaultNetworkPrefs());
   });
 
   it('only accept literal true and survive a round trip', () => {
-    expect(parseNetworkPrefs({ enabled: 'yes', features: { coach: 1 } })).toEqual(defaultNetworkPrefs());
+    expect(parseNetworkPrefs({ enabled: 'yes', features: { coach: 1, maps: false } })).toEqual(defaultNetworkPrefs());
     expect(parseNetworkPrefs([true])).toEqual(defaultNetworkPrefs());
     const stored = serializeUserData({ ...defaultUserData(), network: ON });
     expect(parseUserData(stored).network).toEqual(ON);
@@ -24,8 +24,8 @@ describe('network prefs', () => {
 
   it('needs both switches for a feature', () => {
     expect(featureEnabled(ON, 'coach')).toBe(true);
-    expect(featureEnabled({ enabled: false, features: { coach: true } }, 'coach')).toBe(false);
-    expect(featureEnabled({ enabled: true, features: { coach: false } }, 'coach')).toBe(false);
+    expect(featureEnabled({ enabled: false, features: { coach: true, maps: false } }, 'coach')).toBe(false);
+    expect(featureEnabled({ enabled: true, features: { coach: false, maps: false } }, 'coach')).toBe(false);
   });
 
   it('take the strictest of two settings while a change is saved', () => {
@@ -36,8 +36,8 @@ describe('network prefs', () => {
 
 describe('network gate', () => {
   it.each([
-    ['global switch off', { enabled: false, features: { coach: true } }, URL_OK, 'network-off'],
-    ['feature off', { enabled: true, features: { coach: false } }, URL_OK, 'feature-off'],
+    ['global switch off', { enabled: false, features: { coach: true, maps: false } }, URL_OK, 'network-off'],
+    ['feature off', { enabled: true, features: { coach: false, maps: false } }, URL_OK, 'feature-off'],
     ['plain http', ON, 'http://api.anthropic.com/v1/messages', 'not-https'],
     ['another host', ON, 'https://example.com/v1/messages', 'host-not-allowed'],
     ['a look-alike host', ON, 'https://api.anthropic.com.evil.example/v1', 'host-not-allowed'],
@@ -68,7 +68,7 @@ describe('network gate', () => {
     const transport = jest.fn<ReturnType<Transport>, Parameters<Transport>>(async () => new Response('{}'));
     const send = createGate(() => prefs, transport);
     await send('coach', URL_OK, { method: 'POST', body: '{}' });
-    prefs = { enabled: false, features: { coach: true } };
+    prefs = { enabled: false, features: { coach: true, maps: false } };
     await expect(send('coach', URL_OK, { method: 'POST' })).rejects.toMatchObject({ reason: 'network-off' });
     expect(transport).toHaveBeenCalledTimes(1);
     expect(transport.mock.calls[0]?.[1]).toMatchObject({ method: 'POST', redirect: 'error', credentials: 'omit' });

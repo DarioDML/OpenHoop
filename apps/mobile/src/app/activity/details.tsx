@@ -9,6 +9,7 @@ import { unixToIsoDate } from '@/lib/dates';
 import { formatClock, formatDuration, formatNumber, formatShortDay } from '@/lib/format';
 import { entryTitle, kindLabel, UndoBar, useResolvedEntry } from '@/ui/activity/entries';
 import { NoDataScreen, StatRow, StatTile } from '@/ui/activity/parts';
+import { RouteSection } from '@/ui/activity/RouteSection';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
@@ -125,11 +126,7 @@ export default function ActivityDetailsScreen() {
           {t('activity.details.dayLoad')}
         </AppText>
       </Card>
-      <Card tone="outline">
-        <AppText variant="label" muted>
-          {t('activity.details.noMap')}
-        </AppText>
-      </Card>
+      <RouteSection activityId={entry.id} activeS={m.activeS} type={entry.type} />
       <Button label={t('activity.details.edit')} variant="secondary" onPress={() => router.push({ pathname: '/activity/edit', params: query })} testID="detail-edit" />
       <Button label={t('activity.delete')} variant="danger" disabled={deleting} onPress={() => void remove()} testID="detail-delete" />
     </Screen>

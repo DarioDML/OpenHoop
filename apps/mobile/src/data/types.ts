@@ -1,5 +1,5 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, LabResult, LabResultInput, SleepEditProblem, SleepEditRow, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, LabResult, LabResultInput, RoutePoint, SleepEditProblem, SleepEditRow, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { InboxEntry } from '@/lib/notificationPlan';
@@ -77,6 +77,7 @@ export interface ActivityDraft {
   end: number;
   paused: Interval[];
   note: string | null;
+  route?: RoutePoint[];
 }
 
 export type DeleteTarget = { kind: 'activity'; id: number } | { kind: 'detected'; workout: WorkoutRecord };
@@ -125,6 +126,7 @@ export interface AppData {
   saveLabResult(id: number | null, input: LabResultInput): Promise<boolean>;
   removeLabResult(id: number): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
+  routeFor(activityId: number): Promise<RoutePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;
   saveActivity(draft: ActivityDraft, id?: number): Promise<number | null>;

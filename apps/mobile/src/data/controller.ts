@@ -1,5 +1,6 @@
 import {
   ActivityInputError,
+  RouteInputError,
   Session,
   bindActivityStore,
   bindStore,
@@ -13,11 +14,13 @@ import {
   insertLabResult,
   listBodyMeasurements,
   listLabResults,
+  listRoute,
   loadReference,
   probeLock,
   readDeviceInformation,
   recomputeDays,
   recordHeartRate,
+  saveRoute,
   syncHistory,
   validateSleepEdit,
   EDITED_SLEEP_MAX_S,
@@ -35,6 +38,7 @@ import {
   type DeviceRow,
   type LabResult,
   type LabResultInput,
+  type RoutePoint,
   type SleepEditRow,
   type SyncProgress,
   type SyncStop,
@@ -873,6 +877,11 @@ export class AppController {
 
   removeLabResult = (id: number): Promise<boolean> => this.runLabChange((driver) => deleteLabResult(driver, id));
 
+  routeFor = async (activityId: number): Promise<RoutePoint[]> => {
+    if (this.app === null || !this.snapshot.activities.some((a) => a.id === activityId && a.deletedAt === null)) return [];
+    return listRoute(this.app.driver, activityId);
+  };
+
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
@@ -1039,9 +1048,18 @@ export class AppController {
       try {
         const device = this.deviceRow;
         if (device === null) throw new AppError('activity.error.noBand');
-        const input = checkActivityInput({ ...draft, deviceId: device.id });
+        const { route, ...fields } = draft;
+        const input = checkActivityInput({ ...fields, deviceId: device.id });
         const metrics = await this.metricsFor(device.id, input, this.snapshot.days);
-        const saved = await this.activityStore().save(input, metrics, nowSeconds(), id);
+        const now = nowSeconds();
+        const saved =
+          route === undefined
+            ? await this.activityStore().save(input, metrics, now, id)
+            : await this.requireApp().store.driver.transaction(async (tx) => {
+                const row = await bindActivityStore(tx).save(input, metrics, now, id);
+                await saveRoute(tx, row.id, route);
+                return row;
+              });
         if (input.source === 'live') {
           this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
           try {
@@ -1054,7 +1072,7 @@ export class AppController {
         }
         return saved.id;
       } catch (error) {
-        this.fail(error instanceof ActivityInputError ? new AppError('activity.error.invalid') : error);
+        this.fail(error instanceof ActivityInputError || error instanceof RouteInputError ? new AppError('activity.error.invalid') : error);
         return null;
       }
     });
@@ -1160,6 +1178,7 @@ export class AppController {
       saveLabResult: this.saveLabResult,
       removeLabResult: this.removeLabResult,
       heartRateBetween: this.heartRateBetween,
+      routeFor: this.routeFor,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
       saveActivity: this.saveActivity,

@@ -1,21 +1,17 @@
-import { loadReference } from '@openhoop/analytics';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useReducer, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { formatElapsed, loadTargetBand, parseActivityType } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { rangeStatus } from '@/data/derived';
-import { activeSeconds, hudFor, IDLE_SESSION, liveReducer, type LiveEvent } from '@/data/liveSession';
 import { useT } from '@/i18n/useT';
-import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { formatNumber } from '@/lib/format';
 import { ProgressBar, StatRow, StatTile } from '@/ui/activity/parts';
+import { nowSeconds, useLiveRecording } from '@/ui/activity/useLiveRecording';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
-import { NotBuilt } from '@/ui/NotBuilt';
 import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
@@ -24,87 +20,18 @@ import { spacing, useTheme } from '@/ui/theme';
 import { TopBar } from '@/ui/TopBar';
 
 const ZONE_KEYS = ['zone.1', 'zone.2', 'zone.3', 'zone.4', 'zone.5'] as const;
-const MIN_SAVE_S = 60;
-
-type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved'; id: number } | { kind: 'short' } | { kind: 'failed' };
-
-function nowSeconds(): number {
-  return Math.floor(Date.now() / 1000);
-}
 
 export default function LiveActivityScreen() {
-  const { live, profile, days, startLive, stopLive, saveActivity, notice } = useAppData();
+  const { days, notice } = useAppData();
   const { t, language, reason } = useT();
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ type?: string }>();
   const type = parseActivityType(params.type);
-  const [session, dispatch] = useReducer(liveReducer, IDLE_SESSION);
-  const [now, setNow] = useState(nowSeconds);
-  const [save, setSave] = useState<SaveState>({ kind: 'idle' });
-  const startedLive = useRef(false);
-  const stopRef = useRef(stopLive);
-  stopRef.current = stopLive;
-  const sessionRef = useRef(session);
-  sessionRef.current = session;
-
-  const ticking = session.phase === 'running' || session.phase === 'paused';
-  useEffect(() => {
-    if (!ticking) return undefined;
-    const id = setInterval(() => setNow(nowSeconds()), 1000);
-    return () => clearInterval(id);
-  }, [ticking]);
-
-  useEffect(() => {
-    if (live.heartRate === null || live.updatedAt === null) return;
-    dispatch({ kind: 'beat', at: live.updatedAt / 1000, hr: live.heartRate });
-    setNow(nowSeconds());
-  }, [live.heartRate, live.updatedAt]);
-
-  useEffect(
-    () => () => {
-      if (startedLive.current) void stopRef.current();
-    },
-    [],
-  );
-
-  const send = (event: LiveEvent): void => {
-    dispatch(event);
-    setNow(nowSeconds());
-  };
-
-  const begin = async (): Promise<void> => {
-    send({ kind: 'start', at: nowSeconds() });
-    startedLive.current = true;
-    await startLive();
-  };
-
-  const finish = async (): Promise<void> => {
-    const at = nowSeconds();
-    const final = liveReducer(sessionRef.current, { kind: 'stop', at });
-    send({ kind: 'stop', at });
-    startedLive.current = false;
-    await stopLive();
-    if (final.startedAt === null || final.endedAt === null) return;
-    if (activeSeconds(final, at) < MIN_SAVE_S) {
-      setSave({ kind: 'short' });
-      return;
-    }
-    setSave({ kind: 'saving' });
-    const id = await saveActivity({ source: 'live', detectedStart: null, type, start: final.startedAt, end: final.endedAt, paused: final.paused, note: null });
-    setSave(id === null ? { kind: 'failed' } : { kind: 'saved', id });
-  };
-
-  const tz = deviceTzOffsetS(new Date());
-  const ref = loadReference(days, { maxHr: profile.maxHeartRate, birthYear: profile.birthYear, restingHr: null }, now, new Date(now * 1000).getFullYear());
-  const latest = days[days.length - 1] ?? null;
-  const today = latest !== null && latest.day === unixToIsoDate(now, tz) ? latest : null;
-  const heartRate = live.active ? live.heartRate : null;
-  const hud = hudFor(session, now, heartRate, ref, today);
+  const { session, save, running, send, begin, finish, ref, heartRate, hud } = useLiveRecording(type);
   const zone = hud.zone;
   const zoneColor = zone !== null && zone > 0 ? colors.zones[zone - 1] : undefined;
   const band = loadTargetBand(days);
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
-  const running = session.phase === 'running' || session.phase === 'paused';
 
   const footer =
     session.phase === 'ready' ? (
@@ -221,7 +148,6 @@ export default function LiveActivityScreen() {
         </AppText>
       ) : null}
 
-      <NotBuilt issue="gps" compact body={t('activity.start.gps')} />
     </Screen>
   );
 }

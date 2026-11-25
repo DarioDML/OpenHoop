@@ -44,6 +44,7 @@ export interface UserData {
   weeklyPlan: { loadDays: number; sleepNights: number } | null;
   network: NetworkPrefs;
   coach: CoachPrefs;
+  hideRouteEnds: boolean;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -68,6 +69,7 @@ export function defaultUserData(): UserData {
     weeklyPlan: null,
     network: defaultNetworkPrefs(),
     coach: defaultCoachPrefs(),
+    hideRouteEnds: true,
   };
 }
 
@@ -170,6 +172,7 @@ export function parseUserData(raw: string | null): UserData {
     weeklyPlan: loadDays !== null && sleepNights !== null ? { loadDays, sleepNights } : null,
     network: parseNetworkPrefs(parsed.network),
     coach: parseCoachPrefs(parsed.coach),
+    hideRouteEnds: typeof parsed.hideRouteEnds === 'boolean' ? parsed.hideRouteEnds : base.hideRouteEnds,
   };
 }
 
