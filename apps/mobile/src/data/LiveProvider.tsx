@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
 
 import { darkColors } from '@/ui/theme';
 
 import { AppController } from './controller';
 import { AppDataContext } from './context';
+import { expoNotifier } from './notifier';
 
 interface Props {
   children: ReactNode;
@@ -16,6 +17,20 @@ export function LiveProvider({ children }: Props) {
 
   useEffect(() => {
     void controller.start();
+  }, [controller]);
+
+  useEffect(() => {
+    const refresh = (): void => {
+      void controller.refreshNotifications();
+    };
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    const stopReceived = expoNotifier.onReceived(refresh);
+    return () => {
+      appState.remove();
+      stopReceived();
+    };
   }, [controller]);
 
   const value = useMemo(() => controller.appData(), [controller, snapshot]);

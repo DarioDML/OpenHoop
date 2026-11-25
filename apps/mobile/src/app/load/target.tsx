@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { View } from 'react-native';
 
 import { loadTargetBand, targetAdvice } from '@/data/activityDerived';
@@ -9,7 +10,7 @@ import { NoDataScreen } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
-import { NotBuilt } from '@/ui/NotBuilt';
+import { Button } from '@/ui/controls';
 import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
@@ -77,7 +78,13 @@ export default function LoadTargetScreen() {
         </AppText>
       </Card>
 
-      <NotBuilt issue="activities" body={t('loadx.target.live')} />
+      <Card testID="target-live">
+        <AppText variant="cardTitle">{t('loadx.target.liveTitle')}</AppText>
+        <AppText variant="body" muted>
+          {t('loadx.target.live')}
+        </AppText>
+        <Button label={t('home.startActivity')} variant="secondary" icon="play" onPress={() => router.push('/activity/start')} testID="target-start" />
+      </Card>
 
       <Card tone="outline">
         <ParityBadge level={PARITY.load} long />

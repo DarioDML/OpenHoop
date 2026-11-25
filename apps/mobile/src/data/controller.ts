@@ -1,11 +1,19 @@
 import {
+  ActivityInputError,
   Session,
+  bindActivityStore,
   bindStore,
+  checkActivityInput,
+  computeActivityMetrics,
   deleteBodyMeasurement,
   deleteDataBefore,
+  deleteLabResult,
   exportCsv,
   insertBodyMeasurement,
+  insertLabResult,
   listBodyMeasurements,
+  listLabResults,
+  loadReference,
   probeLock,
   readDeviceInformation,
   recomputeDays,
@@ -15,11 +23,18 @@ import {
   EDITED_SLEEP_MAX_S,
   MANUAL_NAP_MAX_S,
   updateBodyMeasurement,
+  updateLabResult,
+  type ActivityInput,
+  type ActivityMetricsRecord,
+  type ActivityRow,
+  type ActivityStore,
   type BandModel,
   type BodyMeasurement,
   type BodyMeasurementInput,
   type DayRecord,
   type DeviceRow,
+  type LabResult,
+  type LabResultInput,
   type SleepEditRow,
   type SyncProgress,
   type SyncStop,
@@ -33,24 +48,38 @@ import { BleManagerTransport } from '@/ble/bleManagerTransport';
 import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
+import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
+import { alertText } from '@/lib/notificationText';
 
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
+import { addDays } from './derived';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
+import {
+  NOTIFICATION_STATE_KEY,
+  emptyNotificationState,
+  parseNotificationState,
+  serializeNotificationState,
+  type NotificationState,
+} from './notificationState';
+import { expoNotifier, type Notifier, type PermissionState } from './notifier';
 import { otherSleepSpans, recomputeFrom, type SleepEditRequest } from './sleepEditForm';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
+  ActivityDraft,
   AppData,
   ConnectionState,
   DataSource,
+  DeleteTarget,
   DeviceStatus,
   DiscoveredBand,
   HeartRatePoint,
   LiveState,
   LockState,
   Notice,
+  PendingDelete,
   Profile,
   Settings,
   SleepEditOutcome,
@@ -68,6 +97,8 @@ const EARLIEST_DAY = '0000-01-01';
 const LATEST_DAY = '9999-12-31';
 const INCREMENTAL_RECOMPUTE_BACK_S = 2 * DAY_S;
 const MAX_DEMO_BACKLOG_DAYS = 20;
+export const UNDO_MS = 5_000;
+const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null };
 const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
   clock: 'sync.stop.clock',
   corrupt: 'sync.stop.corrupt',
@@ -83,8 +114,13 @@ export interface Snapshot {
   settings: Settings;
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
+  labResults: LabResult[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
+  inbox: InboxEntry[];
+  notificationPermission: PermissionState;
+  activities: ActivityRow[];
+  pendingDelete: PendingDelete | null;
 }
 
 interface Connection {
@@ -99,6 +135,8 @@ export interface SyncTimings {
   samples: number;
   chunks: number;
 }
+
+const SYNC_FAILURES_NOT_ALERTED: ReadonlySet<TranslationKey> = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
 
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
 
@@ -145,10 +183,14 @@ export class AppController {
   private liveAbort: AbortController | null = null;
   private liveRun: Promise<void> | null = null;
   private lastProgressAt = 0;
+  private pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingCreated = false;
   private started = false;
+  private notificationState: NotificationState = emptyNotificationState();
+  private notificationChain: Promise<void> = Promise.resolve();
   lastTimings: SyncTimings | null = null;
 
-  constructor() {
+  constructor(private readonly notifier: Notifier = expoNotifier) {
     const language = detectLanguage(getLocales()[0]?.languageCode);
     this.snapshot = {
       ready: false,
@@ -160,8 +202,13 @@ export class AppController {
       settings: { language, dataSource: 'demo', ownerSince: null },
       userData: defaultUserData(),
       bodyMeasurements: [],
+      labResults: [],
       syncProgress: null,
       notice: null,
+      inbox: [],
+      notificationPermission: 'undetermined',
+      activities: [],
+      pendingDelete: null,
     };
   }
 
@@ -239,6 +286,7 @@ export class AppController {
       return;
     }
     const { store } = this.app;
+    await this.activityStore().purgeDeleted(null);
     const language = parseLanguage(await store.getSetting(SETTING_KEYS.language)) ?? this.snapshot.settings.language;
     const dataSource = parseDataSource(await store.getSetting(SETTING_KEYS.dataSource));
     const profile = parseProfile(
@@ -249,10 +297,20 @@ export class AppController {
     const rawUserData = await store.getSetting(USER_DATA_KEY);
     const userData = parseUserData(rawUserData);
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
+    this.notificationState = parseNotificationState(await store.getSetting(NOTIFICATION_STATE_KEY));
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
-    this.patch({ settings: { ...this.snapshot.settings, language, dataSource }, profile, userData, bodyMeasurements });
+    const labResults = await listLabResults(this.app.driver);
+    this.patch({
+      settings: { ...this.snapshot.settings, language, dataSource },
+      profile,
+      userData,
+      bodyMeasurements,
+      labResults,
+      inbox: this.notificationState.inbox,
+    });
     await this.loadActiveDevice();
     this.patch({ ready: true });
+    void this.refreshNotifications();
     if (dataSource === 'demo') void this.sync();
   }
 
@@ -294,7 +352,33 @@ export class AppController {
     const row = this.deviceRow;
     const days = row === null ? [] : await store.listDays(row.id, EARLIEST_DAY, LATEST_DAY);
     const sleepEdits = row === null ? [] : await store.listSleepEdits(row.id);
-    this.patch({ days, sleepEdits });
+    const activities = row === null ? [] : await this.activityStore().list(row.id);
+    this.patch({ days, sleepEdits, activities });
+  }
+
+  private activityStore(): ActivityStore {
+    return bindActivityStore(this.requireApp().store.driver);
+  }
+
+  private async loadActivities(): Promise<void> {
+    const activities = this.deviceRow === null ? [] : await this.activityStore().list(this.deviceRow.id);
+    this.patch({ activities });
+  }
+
+  private async metricsFor(deviceId: number, input: ActivityInput, days: readonly DayRecord[]): Promise<ActivityMetricsRecord> {
+    const year = new Date(input.start * 1000).getFullYear();
+    const ref = loadReference(days, this.analyticsProfile(), input.start, year);
+    return computeActivityMetrics(this.requireApp().store, deviceId, { start: input.start, end: input.end }, input.paused, ref);
+  }
+
+  private async refreshActivityMetrics(deviceId: number, from: number | null): Promise<void> {
+    const { store } = this.requireApp();
+    const activities = this.activityStore();
+    const days = await store.listDays(deviceId, EARLIEST_DAY, LATEST_DAY);
+    for (const row of await activities.list(deviceId)) {
+      if (row.deletedAt !== null || (from !== null && row.end < from)) continue;
+      await activities.setMetrics(row.id, await this.metricsFor(deviceId, row, days));
+    }
   }
 
   private analyticsProfile(): { maxHr: number | null; birthYear: number | null; restingHr: number | null } {
@@ -438,6 +522,7 @@ export class AppController {
   private async runSync(): Promise<void> {
     await this.stopLiveInternal();
     const { store } = this.requireApp();
+    let failed = false;
     try {
       this.patch({ notice: null, syncProgress: this.progressView('connecting', 0, null, 0, 0) });
       await this.requireOwnerSince();
@@ -479,8 +564,11 @@ export class AppController {
       const stopNotice = STOP_NOTICES[result.stoppedBy];
       if (stopNotice !== undefined) throw new AppError(stopNotice);
     } catch (error) {
-      throw this.fail(error);
+      const appError = this.fail(error);
+      failed = this.snapshot.settings.dataSource === 'band' && !SYNC_FAILURES_NOT_ALERTED.has(appError.key);
+      throw appError;
     } finally {
+      void this.refreshNotifications({ syncFailed: failed });
       if (this.connection === 'syncing') this.connection = this.conn?.session.isConnected === true ? 'connected' : 'disconnected';
       this.patch({ syncProgress: null });
       this.patchDevice();
@@ -515,6 +603,7 @@ export class AppController {
       profile: this.analyticsProfile(),
       tzOffsetS: deviceTzOffsetS(new Date()),
     });
+    await this.refreshActivityMetrics(deviceId, from);
     await this.refreshDays();
   }
 
@@ -628,6 +717,7 @@ export class AppController {
       await store.setSetting(SETTING_KEYS.language, patch.language);
       this.patch({ settings: { ...this.snapshot.settings, language: patch.language } });
       this.patchDevice();
+      void this.refreshNotifications();
     }
     if (patch.ownerSince !== undefined && patch.ownerSince !== null && patch.ownerSince !== current.ownerSince) {
       await this.changeOwnerSince(patch.ownerSince);
@@ -677,6 +767,7 @@ export class AppController {
       this.connection = 'disconnected';
       await this.loadActiveDevice();
     });
+    void this.refreshNotifications();
     if (source === 'demo') {
       void this.sync();
       return;
@@ -697,6 +788,7 @@ export class AppController {
         const next = parseUserData(serializeUserData({ ...this.snapshot.userData, ...patch }));
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
         this.patch({ userData: next });
+        if (patch.notifications !== undefined) void this.refreshNotifications();
         return true;
       } catch (error) {
         this.fail(error);
@@ -747,6 +839,33 @@ export class AppController {
 
   removeBodyMeasurement = (id: number): Promise<boolean> => this.runBodyChange((driver) => deleteBodyMeasurement(driver, id));
 
+  private runLabChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const done = await task(driver);
+        this.patch({ labResults: await listLabResults(driver) });
+        return done;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
+  saveLabResult = (id: number | null, input: LabResultInput): Promise<boolean> =>
+    this.runLabChange(async (driver) => {
+      if (id === null) {
+        await insertLabResult(driver, input, nowSeconds());
+        return true;
+      }
+      return updateLabResult(driver, id, input);
+    });
+
+  removeLabResult = (id: number): Promise<boolean> => this.runLabChange((driver) => deleteLabResult(driver, id));
+
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
@@ -762,6 +881,106 @@ export class AppController {
     }
     return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([t, b]) => ({ t, hr: b.sum / b.count }));
   };
+
+  private digestFacts(now: Date): (day: string) => DigestFacts | null {
+    const byDay = new Map(this.snapshot.days.map((record) => [record.day, record]));
+    return (day) => {
+      const record = byDay.get(day);
+      if (record === undefined) return null;
+      const yesterday = byDay.get(addDays(day, -1));
+      return {
+        readiness: record.readiness.value,
+        sleepScore: record.sleep.score.value,
+        load: yesterday !== undefined && yesterday.end * 1000 <= now.getTime() ? yesterday.load.value : null,
+      };
+    };
+  }
+
+  private async saveNotificationState(state: NotificationState): Promise<void> {
+    this.notificationState = state;
+    await this.requireApp().store.setSetting(NOTIFICATION_STATE_KEY, serializeNotificationState(state));
+    this.patch({ inbox: state.inbox });
+  }
+
+  private notificationTask(task: () => Promise<void>): Promise<void> {
+    const run = this.notificationChain.then(task).catch(() => undefined);
+    this.notificationChain = run;
+    return run;
+  }
+
+  refreshNotifications = (options: { syncFailed?: boolean } = {}): Promise<void> =>
+    this.notificationTask(async () => {
+      if (this.app === null) return;
+      const permission = await this.notifier.permission();
+      const stillScheduled = await this.notifier.scheduledIds();
+      const now = new Date();
+      const { userData, settings } = this.snapshot;
+      const prefs = userData.notifications;
+      const delivered = permission === 'granted';
+      const settled = reconcile(this.notificationState, now, delivered, stillScheduled);
+      const active = prefs.enabled && delivered;
+      const recentIds = [...settled.pending.map((alert) => alert.id), ...settled.sent];
+      const failure = options.syncFailed === true ? syncFailedAlert(now, prefs, recentIds) : null;
+      const fresh: Alert[] = failure === null ? [] : [failure];
+      let pending = active
+        ? planAlerts({
+            now,
+            prefs,
+            pending: settled.pending,
+            sent: settled.sent,
+            factsFor: this.digestFacts(now),
+            lastSyncAt: this.lastSyncAt === null ? null : this.lastSyncAt * 1000,
+            watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
+            fresh,
+          })
+        : [];
+      this.patch({ notificationPermission: permission });
+      try {
+        if (active) {
+          const channel = translate(settings.language, 'notif.channel');
+          const texts = pending.map((alert) => ({ id: alert.id, at: alert.at, ...alertText(settings.language, alert) }));
+          await this.notifier.replaceAll(texts, channel, now.getTime());
+        } else {
+          await this.notifier.cancelAll();
+        }
+      } catch {
+        pending = [];
+        await this.notifier.cancelAll().catch(() => undefined);
+      }
+      await this.saveNotificationState({ ...settled, pending });
+    });
+
+  setNotificationsEnabled = async (enabled: boolean): Promise<PermissionState> => {
+    if (!enabled) {
+      await this.updateUserData({ notifications: { ...this.snapshot.userData.notifications, enabled: false } });
+      return this.snapshot.notificationPermission;
+    }
+    const channel = translate(this.snapshot.settings.language, 'notif.channel');
+    const permission = await this.notifier.request(channel).catch((): PermissionState => 'denied');
+    this.patch({ notificationPermission: permission });
+    if (permission === 'granted') await this.updateUserData({ notifications: { ...this.snapshot.userData.notifications, enabled: true } });
+    return permission;
+  };
+
+  markInboxRead = (): Promise<void> =>
+    this.notificationTask(async () => {
+      if (this.app === null || this.notificationState.inbox.every((entry) => entry.read)) return;
+      await this.saveNotificationState({
+        ...this.notificationState,
+        inbox: this.notificationState.inbox.map((entry) => ({ ...entry, read: true })),
+      });
+    });
+
+  clearInbox = (): Promise<void> =>
+    this.notificationTask(async () => {
+      if (this.app === null) return;
+      await this.saveNotificationState({ ...this.notificationState, inbox: [] });
+    });
+
+  private notificationsExport(): string {
+    const { pending, inbox, sent } = this.notificationState;
+    return JSON.stringify({ preferences: this.snapshot.userData.notifications, inbox, scheduled: pending, sent }, null, 2);
+  }
 
   saveSleepEdit = (request: SleepEditRequest): Promise<SleepEditOutcome> =>
     this.exclusive(async () => {
@@ -808,10 +1027,108 @@ export class AppController {
       }
     });
 
+  saveActivity = (draft: ActivityDraft, id?: number): Promise<number | null> =>
+    this.exclusive(async () => {
+      try {
+        const device = this.deviceRow;
+        if (device === null) throw new AppError('activity.error.noBand');
+        const input = checkActivityInput({ ...draft, deviceId: device.id });
+        const metrics = await this.metricsFor(device.id, input, this.snapshot.days);
+        const saved = await this.activityStore().save(input, metrics, nowSeconds(), id);
+        if (input.source === 'live') {
+          this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
+          try {
+            await this.recompute(device.id, input.start);
+          } finally {
+            this.patch({ syncProgress: null });
+          }
+        } else {
+          await this.loadActivities();
+        }
+        return saved.id;
+      } catch (error) {
+        this.fail(error instanceof ActivityInputError ? new AppError('activity.error.invalid') : error);
+        return null;
+      }
+    });
+
+  deleteActivity = (target: DeleteTarget): Promise<boolean> =>
+    this.exclusive(async () => {
+      try {
+        await this.finishPendingDelete();
+        const device = this.deviceRow;
+        if (device === null) throw new AppError('activity.error.noBand');
+        const activities = this.activityStore();
+        const now = nowSeconds();
+        let id: number;
+        let created = false;
+        if (target.kind === 'activity') {
+          const row = await activities.get(target.id);
+          if (row === null || row.deviceId !== device.id) throw new AppError('activity.error.missing');
+          id = row.id;
+        } else {
+          const existing = await activities.findDetected(device.id, target.workout.start);
+          if (existing !== null) {
+            id = existing.id;
+          } else {
+            const w = target.workout;
+            const draft: ActivityInput = { deviceId: device.id, source: 'auto', detectedStart: w.start, type: 'other', start: w.start, end: w.end, paused: [], note: null };
+            id = (await activities.save(draft, NO_METRICS, now)).id;
+            created = true;
+          }
+        }
+        await activities.setDeleted(id, now, now);
+        this.pendingCreated = created;
+        this.pendingTimer = setTimeout(() => {
+          void this.exclusive(() => (this.snapshot.pendingDelete?.id === id ? this.finishPendingDelete() : Promise.resolve())).catch((error: unknown) =>
+            this.fail(error),
+          );
+        }, UNDO_MS);
+        this.patch({ pendingDelete: { id, until: Date.now() + UNDO_MS } });
+        await this.loadActivities();
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+
+  undoDelete = (): Promise<void> =>
+    this.exclusive(async () => {
+      const pending = this.snapshot.pendingDelete;
+      if (pending === null) return;
+      this.clearPendingTimer();
+      try {
+        const activities = this.activityStore();
+        if (this.pendingCreated) await activities.remove(pending.id);
+        else await activities.setDeleted(pending.id, null, nowSeconds());
+        await this.loadActivities();
+      } catch (error) {
+        this.fail(error);
+      } finally {
+        this.pendingCreated = false;
+        this.patch({ pendingDelete: null });
+      }
+    });
+
+  private clearPendingTimer(): void {
+    if (this.pendingTimer !== null) clearTimeout(this.pendingTimer);
+    this.pendingTimer = null;
+  }
+
+  private async finishPendingDelete(): Promise<void> {
+    this.clearPendingTimer();
+    if (this.snapshot.pendingDelete === null) return;
+    this.pendingCreated = false;
+    this.patch({ pendingDelete: null });
+    await this.activityStore().purgeDeleted(null);
+    await this.loadActivities();
+  }
+
   exportData = async (): Promise<void> => {
     const app = this.requireApp();
     try {
-      await this.exclusive(() => exportAll(app, exportCsv));
+      await this.exclusive(() => exportAll(app, exportCsv, { 'notifications.json': this.notificationsExport() }));
     } catch (error) {
       this.fail(error);
     }
@@ -833,10 +1150,19 @@ export class AppController {
       updateUserData: this.updateUserData,
       saveBodyMeasurement: this.saveBodyMeasurement,
       removeBodyMeasurement: this.removeBodyMeasurement,
+      saveLabResult: this.saveLabResult,
+      removeLabResult: this.removeLabResult,
       heartRateBetween: this.heartRateBetween,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
+      saveActivity: this.saveActivity,
+      deleteActivity: this.deleteActivity,
+      undoDelete: this.undoDelete,
       clearNotice: this.clearNotice,
+      refreshNotifications: this.refreshNotifications,
+      setNotificationsEnabled: this.setNotificationsEnabled,
+      markInboxRead: this.markInboxRead,
+      clearInbox: this.clearInbox,
     };
   }
 }

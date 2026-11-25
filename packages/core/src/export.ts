@@ -37,6 +37,15 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, device_id, day, start, "end", zone_seconds, avg_hr, max_hr, source, label',
     order: 'device_id, day, start',
   },
+  activities: {
+    columns: [
+      'id', 'device_id', 'source', 'detected_start', 'type', 'start', 'end', 'paused', 'note', 'deleted_at', 'active_s',
+      'load', 'load_reason', 'zone_seconds', 'avg_hr', 'max_hr', 'hr_seconds', 'active_minutes', 'created_at', 'updated_at',
+    ],
+    select:
+      'id, device_id, source, detected_start, type, start, "end", paused, note, deleted_at, active_s, load, load_reason, zone_seconds, avg_hr, max_hr, hr_seconds, active_minutes, created_at, updated_at',
+    order: 'device_id, start, id',
+  },
   events: {
     columns: ['id', 'device_id', 't', 'event', 'name', 'payload_hex', 'chunk_id'],
     select: 'id, device_id, t, event, name, payload_hex, chunk_id',
@@ -56,6 +65,11 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
   body_measurements: {
     columns: ['id', 'day', 'weight_kg', 'body_fat_pct', 'created_at'],
     select: 'id, day, weight_kg, body_fat_pct, created_at',
+    order: 'day, id',
+  },
+  lab_results: {
+    columns: ['id', 'biomarker', 'unit', 'value', 'day', 'ref_low', 'ref_high', 'note', 'created_at'],
+    select: 'id, biomarker, unit, value, day, ref_low, ref_high, note, created_at',
     order: 'day, id',
   },
 };

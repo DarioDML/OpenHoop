@@ -12,9 +12,14 @@ interface Props {
 
 const ZONE_KEYS = ['zone.1', 'zone.2', 'zone.3', 'zone.4', 'zone.5'] as const;
 
-export function ZoneBar({ zoneSeconds }: Props) {
+export function displayedZones(zoneSeconds: ReadonlyArray<number>): ReadonlyArray<number> {
+  return zoneSeconds.length > ZONE_KEYS.length ? zoneSeconds.slice(zoneSeconds.length - ZONE_KEYS.length) : zoneSeconds;
+}
+
+export function ZoneBar({ zoneSeconds: raw }: Props) {
   const { colors } = useTheme();
   const { t } = useT();
+  const zoneSeconds = displayedZones(raw);
   const total = zoneSeconds.reduce((a, b) => a + b, 0);
 
   return (
