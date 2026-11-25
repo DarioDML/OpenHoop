@@ -19,4 +19,5 @@ export const PARITY = {
   workouts: 'C',
   calories: 'C',
   stress: 'C',
+  jetLag: 'C',
 } as const satisfies Record<string, ParityLevel>;

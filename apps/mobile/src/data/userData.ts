@@ -1,6 +1,8 @@
-import { defaultCoachPrefs, parseCoachPrefs, type CoachPrefs } from '@/coach/prefs';
+import { type CoachPrefs, defaultCoachPrefs, parseCoachPrefs } from '@/coach/prefs';
 import { isRecord, type Json } from '@/lib/json';
-import { defaultNetworkPrefs, parseNetworkPrefs, type NetworkPrefs } from '@/net/features';
+import { defaultNetworkPrefs, type NetworkPrefs, parseNetworkPrefs } from '@/net/features';
+import { parseIsoDate } from '@/lib/dates';
+import { isValidTimeZone } from '@/lib/timeZones';
 
 export const USER_DATA_KEY = 'user.data';
 
@@ -25,6 +27,22 @@ export interface NotificationPrefs {
   quietEnd: string;
 }
 
+export const JET_LAG_ANCHOR_SOURCES = ['sleep-data', 'entered'] as const;
+export type JetLagAnchorSource = (typeof JET_LAG_ANCHOR_SOURCES)[number];
+
+export const MAX_PRE_ADJUST_DAYS = 7;
+
+export interface SavedJetLagPlan {
+  departureDate: string;
+  departureMinutes: number;
+  homeZone: string;
+  destZone: string;
+  preDays: number | null;
+  bedMinutes: number;
+  wakeMinutes: number;
+  anchorSource: JetLagAnchorSource;
+}
+
 export interface UserData {
   name: string | null;
   heightCm: number | null;
@@ -44,6 +62,7 @@ export interface UserData {
   weeklyPlan: { loadDays: number; sleepNights: number } | null;
   network: NetworkPrefs;
   coach: CoachPrefs;
+  jetLagPlan: SavedJetLagPlan | null;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -68,6 +87,7 @@ export function defaultUserData(): UserData {
     weeklyPlan: null,
     network: defaultNetworkPrefs(),
     coach: defaultCoachPrefs(),
+    jetLagPlan: null,
   };
 }
 
@@ -127,6 +147,31 @@ function parseJournal(value: Json | undefined): UserData['journal'] {
   return out;
 }
 
+function wholeNumberIn(value: Json | undefined, min: number, max: number): number | null {
+  const n = numberIn(value, min, max);
+  return n !== null && Number.isInteger(n) ? n : null;
+}
+
+function zoneOrNull(value: Json | undefined): string | null {
+  return typeof value === 'string' && isValidTimeZone(value) ? value : null;
+}
+
+function parseJetLagPlan(value: Json | undefined): SavedJetLagPlan | null {
+  if (!isRecord(value)) return null;
+  const departureDate = typeof value.departureDate === 'string' && parseIsoDate(value.departureDate) !== null ? value.departureDate : null;
+  const departureMinutes = wholeNumberIn(value.departureMinutes, 0, 1439);
+  const homeZone = zoneOrNull(value.homeZone);
+  const destZone = zoneOrNull(value.destZone);
+  const bedMinutes = wholeNumberIn(value.bedMinutes, 0, 1439);
+  const wakeMinutes = wholeNumberIn(value.wakeMinutes, 0, 1439);
+  const anchorSource = oneOf(value.anchorSource, JET_LAG_ANCHOR_SOURCES);
+  const preDays = value.preDays === null ? null : wholeNumberIn(value.preDays, 0, MAX_PRE_ADJUST_DAYS);
+  if (value.preDays !== null && preDays === null) return null;
+  if (departureDate === null || departureMinutes === null || homeZone === null || destZone === null) return null;
+  if (bedMinutes === null || wakeMinutes === null || bedMinutes === wakeMinutes || anchorSource === null) return null;
+  return { departureDate, departureMinutes, homeZone, destZone, preDays, bedMinutes, wakeMinutes, anchorSource };
+}
+
 export function parseUserData(raw: string | null): UserData {
   const base = defaultUserData();
   if (raw === null || raw === '') return base;
@@ -170,6 +215,7 @@ export function parseUserData(raw: string | null): UserData {
     weeklyPlan: loadDays !== null && sleepNights !== null ? { loadDays, sleepNights } : null,
     network: parseNetworkPrefs(parsed.network),
     coach: parseCoachPrefs(parsed.coach),
+    jetLagPlan: parseJetLagPlan(parsed.jetLagPlan),
   };
 }
 
