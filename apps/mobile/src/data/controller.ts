@@ -909,8 +909,9 @@ export class AppController {
         await activities.setDeleted(id, now, now);
         this.pendingCreated = created;
         this.pendingTimer = setTimeout(() => {
-          this.pendingTimer = null;
-          void this.exclusive(() => this.finishPendingDelete()).catch((error: unknown) => this.fail(error));
+          void this.exclusive(() => (this.snapshot.pendingDelete?.id === id ? this.finishPendingDelete() : Promise.resolve())).catch((error: unknown) =>
+            this.fail(error),
+          );
         }, UNDO_MS);
         this.patch({ pendingDelete: { id, until: Date.now() + UNDO_MS } });
         await this.loadActivities();

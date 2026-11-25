@@ -169,6 +169,7 @@ export interface ValidActivity {
 export type FormResult = { ok: true; value: ValidActivity } | { ok: false; error: FormError };
 
 const TIME = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+export const OVERNIGHT_MAX_S = 12 * 3600;
 
 export function parseClock(text: string): number | null {
   const match = TIME.exec(text.trim());
@@ -190,8 +191,10 @@ export function validateActivityForm(form: ActivityForm, nowS: number, tzOffsetS
   if (endOfDay === null) return { ok: false, error: 'end' };
   const start = localUnix(form.date, startOfDay, tzOffsetS);
   if (start === null) return { ok: false, error: 'date' };
-  const end = start + (endOfDay - startOfDay);
-  if (end <= start) return { ok: false, error: 'endBeforeStart' };
+  const sameDay = endOfDay - startOfDay;
+  const span = sameDay > 0 ? sameDay : sameDay + 86_400;
+  if (sameDay === 0 || (sameDay < 0 && span > OVERNIGHT_MAX_S)) return { ok: false, error: 'endBeforeStart' };
+  const end = start + span;
   if (end > nowS) return { ok: false, error: 'future' };
   if (end - start < ACTIVITY_MIN_S) return { ok: false, error: 'tooShort' };
   if (end - start > ACTIVITY_MAX_S) return { ok: false, error: 'tooLong' };
@@ -211,6 +214,13 @@ export function clockText(unixS: number, tzOffsetS: number): string {
 
 export function formFor(type: ActivityType, start: number, end: number, note: string | null, tzOffsetS: number): ActivityForm {
   return { type, date: unixToIsoDate(start, tzOffsetS), startTime: clockText(start, tzOffsetS), endTime: clockText(end, tzOffsetS), note: note ?? '' };
+}
+
+export function keepSeconds(original: { start: number; end: number }, edited: { start: number; end: number }): { start: number; end: number } {
+  const sameMinute = (a: number, b: number): boolean => Math.floor(a / 60) * 60 === b;
+  const start = sameMinute(original.start, edited.start) ? original.start : edited.start;
+  const end = sameMinute(original.end, edited.end) ? original.end : edited.end;
+  return end > start ? { start, end } : edited;
 }
 
 export function defaultForm(type: ActivityType, nowS: number, tzOffsetS: number): ActivityForm {

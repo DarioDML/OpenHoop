@@ -2,7 +2,7 @@ import type { ActivitySource } from '@openhoop/core';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 
-import { formFor, validateActivityForm, type ActivityEntry, type ActivityForm, type EntryKind, type FormError } from '@/data/activities';
+import { formFor, keepSeconds, validateActivityForm, type ActivityEntry, type ActivityForm, type EntryKind, type FormError } from '@/data/activities';
 import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatShortDay } from '@/lib/format';
@@ -53,13 +53,14 @@ function EditForm({ resolved }: { resolved: ResolvedEntry }) {
     setBusy(true);
     setFailed(false);
     const row = entry.id === null ? undefined : activities.find((r) => r.id === entry.id);
+    const times = keepSeconds(entry, result.value);
     const id = await saveActivity(
       {
         source: SOURCE_OF[entry.kind],
         detectedStart: entry.detectedStart,
         type: result.value.type,
-        start: result.value.start,
-        end: result.value.end,
+        start: times.start,
+        end: times.end,
         paused: row?.paused ?? [],
         note: result.value.note,
       },

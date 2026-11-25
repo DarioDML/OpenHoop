@@ -9,6 +9,7 @@ import {
   defaultForm,
   entryById,
   entryForWorkout,
+  keepSeconds,
   parseClock,
   parseIdParam,
   validateActivityForm,
@@ -103,6 +104,8 @@ describe('activity form validation', () => {
 
   it('requires the end after the start, in the past, and within limits', () => {
     expect(validateActivityForm(form({ endTime: '06:59' }), NOW_S, TZ)).toEqual({ ok: false, error: 'endBeforeStart' });
+    const overnight = validateActivityForm(form({ date: '2026-11-23', startTime: '23:30', endTime: '00:30' }), NOW_S, TZ);
+    expect(overnight).toMatchObject({ ok: true, value: { start: Date.UTC(2026, 10, 23, 23, 30) / 1000, end: Date.UTC(2026, 10, 24, 0, 30) / 1000 } });
     expect(validateActivityForm(form({ endTime: '07:00' }), NOW_S, TZ)).toEqual({ ok: false, error: 'endBeforeStart' });
     expect(validateActivityForm(form({ date: '2026-11-25', startTime: '11:00', endTime: '13:00' }), NOW_S, TZ)).toEqual({ ok: false, error: 'future' });
     expect(validateActivityForm(form({ note: 'x'.repeat(501) }), NOW_S, TZ)).toEqual({ ok: false, error: 'note' });
@@ -121,6 +124,14 @@ describe('activity form validation', () => {
     const f = defaultForm('yoga', NOW_S, TZ);
     expect(f).toEqual({ type: 'yoga', date: '2026-11-25', startTime: '11:00', endTime: '12:00', note: '' });
     expect(validateActivityForm(f, NOW_S, TZ).ok).toBe(true);
+  });
+});
+
+describe('editing keeps second precision', () => {
+  it('keeps the original seconds when a time was not changed', () => {
+    expect(keepSeconds({ start: 1037, end: 4237 }, { start: 1020, end: 4200 })).toEqual({ start: 1037, end: 4237 });
+    expect(keepSeconds({ start: 1037, end: 4237 }, { start: 1020, end: 4800 })).toEqual({ start: 1037, end: 4800 });
+    expect(keepSeconds({ start: 1037, end: 4237 }, { start: 1620, end: 4200 })).toEqual({ start: 1620, end: 4237 });
   });
 });
 
@@ -238,7 +249,7 @@ describe('add activity screen', () => {
     await fireEvent.changeText(screen.getByTestId('form-start'), '08:00');
     await fireEvent.changeText(screen.getByTestId('form-end'), '07:00');
     await fireEvent.press(screen.getByTestId('form-save'));
-    expect(screen.getByTestId('form-error')).toHaveTextContent('The end must be after the start on the same day.');
+    expect(screen.getByTestId('form-error')).toHaveTextContent(/The end must be after the start/);
     expect(saveActivity).not.toHaveBeenCalled();
     await fireEvent.changeText(screen.getByTestId('form-date'), '2026-11-20');
     await fireEvent.changeText(screen.getByTestId('form-end'), '09:00');
