@@ -20,6 +20,7 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     profile: { birthYear: null, maxHeartRate: null },
     settings: createFixtureSettings(language, FIXTURE_NOW),
     userData: { ...defaultUserData(), onboardingDone: true },
+    bodyMeasurements: [],
     scan: async () => [],
     pair: noop,
     sync: noop,
@@ -29,6 +30,8 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     updateProfile: noop,
     updateSettings: noop,
     updateUserData: async () => true,
+    saveBodyMeasurement: async () => true,
+    removeBodyMeasurement: async () => true,
     heartRateBetween: async () => [],
     ...overrides,
   };

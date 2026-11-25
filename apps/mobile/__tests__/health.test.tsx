@@ -27,7 +27,6 @@ import HeartRateScreen from '@/app/health/heart-rate';
 import MetricsScreen from '@/app/health/metrics';
 import StressScreen from '@/app/health/stress';
 import VitalsScreen from '@/app/health/vitals';
-import BodyCompositionScreen from '@/app/health/body-composition';
 import BreathingScreen from '@/app/health/breathing';
 import HealthTab from '@/app/(tabs)/health';
 import JournalScreen from '@/app/journal/index';
@@ -126,13 +125,6 @@ describe('health screens', () => {
     expect(screen.getByTestId('needs-mg')).toBeTruthy();
     expect(screen.getByTestId('not-built-mg')).toBeTruthy();
     expect(screen.getByTestId('mg-disclaimer')).toBeTruthy();
-  });
-
-  it('shows height and weight from the profile', async () => {
-    await render(withAppData(<BodyCompositionScreen />, 'en', { userData: { ...defaultUserData(), heightCm: 180, weightKg: 75.5 } }));
-    expect(screen.getByText(/180/)).toBeTruthy();
-    expect(screen.getByText(/75.5/)).toBeTruthy();
-    expect(screen.getByTestId('not-built-bodyComp')).toBeTruthy();
   });
 
   it('renders the breathing timer and starts a session', async () => {

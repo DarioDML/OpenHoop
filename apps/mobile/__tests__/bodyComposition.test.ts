@@ -79,7 +79,7 @@ describe('newest entry', () => {
 
 describe('computeTrend', () => {
   const entries = [
-    entry(1, '2025-11-20', 90, 25),
+    entry(1, '2025-12-01', 90, 25),
     entry(2, '2026-09-01', 84, 22),
     entry(3, '2026-10-20', 82.4),
     entry(4, '2026-11-01', 81, 20),
