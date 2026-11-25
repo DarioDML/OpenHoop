@@ -175,7 +175,10 @@ export type ExportTable =
   | 'lab_results'
   | 'coach_conversations'
   | 'coach_messages'
-  | 'coach_memory';
+  | 'coach_memory'
+  | 'cycle_periods'
+  | 'symptom_logs'
+  | 'pregnancy';
 
 export interface Store {
   driver: SqlDriver;

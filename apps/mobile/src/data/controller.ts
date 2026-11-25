@@ -14,10 +14,18 @@ import {
   listBodyMeasurements,
   listLabResults,
   loadReference,
+  clearPregnancy,
+  deleteAllCycleData,
+  deletePeriod,
+  deleteSymptom,
+  emptyCycleData,
+  insertPeriod,
+  loadCycleData,
   probeLock,
   readDeviceInformation,
   recomputeDays,
   recordHeartRate,
+  setPregnancy,
   syncHistory,
   validateSleepEdit,
   EDITED_SLEEP_MAX_S,
@@ -28,14 +36,19 @@ import {
   type ActivityMetricsRecord,
   type ActivityRow,
   type ActivityStore,
+  updatePeriod,
+  upsertSymptom,
   type BandModel,
   type BodyMeasurement,
   type BodyMeasurementInput,
+  type CycleData,
   type DayRecord,
   type DeviceRow,
   type LabResult,
   type LabResultInput,
+  type PeriodInput,
   type SleepEditRow,
+  type SymptomInput,
   type SyncProgress,
   type SyncStop,
   type Transport,
@@ -117,6 +130,7 @@ export interface Snapshot {
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
   labResults: LabResult[];
+  cycle: CycleData;
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
@@ -205,6 +219,7 @@ export class AppController {
       userData: defaultUserData(),
       bodyMeasurements: [],
       labResults: [],
+      cycle: emptyCycleData(),
       syncProgress: null,
       notice: null,
       inbox: [],
@@ -303,12 +318,14 @@ export class AppController {
     setNetworkPrefs(userData.network);
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
     const labResults = await listLabResults(this.app.driver);
+    const cycle = await loadCycleData(this.app.driver);
     this.patch({
       settings: { ...this.snapshot.settings, language, dataSource },
       profile,
       userData,
       bodyMeasurements,
       labResults,
+      cycle,
       inbox: this.notificationState.inbox,
     });
     await this.loadActiveDevice();
@@ -862,6 +879,22 @@ export class AppController {
     return run;
   }
 
+  private runCycleChange<T>(task: (driver: AppStore['driver']) => Promise<T>, fallback: T): Promise<T> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const result = await task(driver);
+        this.patch({ cycle: await loadCycleData(driver) });
+        return result;
+      } catch (error) {
+        this.fail(error);
+        return fallback;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
   saveLabResult = (id: number | null, input: LabResultInput): Promise<boolean> =>
     this.runLabChange(async (driver) => {
       if (id === null) {
@@ -872,6 +905,39 @@ export class AppController {
     });
 
   removeLabResult = (id: number): Promise<boolean> => this.runLabChange((driver) => deleteLabResult(driver, id));
+
+  savePeriod = (id: number | null, input: PeriodInput): Promise<boolean> =>
+    this.runCycleChange(async (driver) => {
+      if (id === null) {
+        await insertPeriod(driver, input, nowSeconds());
+        return true;
+      }
+      return updatePeriod(driver, id, input);
+    }, false);
+
+  removePeriod = (id: number): Promise<boolean> => this.runCycleChange((driver) => deletePeriod(driver, id), false);
+
+  saveSymptom = (input: SymptomInput): Promise<boolean> =>
+    this.runCycleChange(async (driver) => {
+      await upsertSymptom(driver, input, nowSeconds());
+      return true;
+    }, false);
+
+  removeSymptom = (id: number): Promise<boolean> => this.runCycleChange((driver) => deleteSymptom(driver, id), false);
+
+  savePregnancy = (dueDay: string): Promise<boolean> =>
+    this.runCycleChange(async (driver) => {
+      await setPregnancy(driver, dueDay, nowSeconds());
+      return true;
+    }, false);
+
+  removePregnancy = (): Promise<boolean> => this.runCycleChange((driver) => clearPregnancy(driver), false);
+
+  removeAllCycleData = (): Promise<boolean> =>
+    this.runCycleChange(async (driver) => {
+      await deleteAllCycleData(driver);
+      return true;
+    }, false);
 
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
@@ -1159,6 +1225,13 @@ export class AppController {
       removeBodyMeasurement: this.removeBodyMeasurement,
       saveLabResult: this.saveLabResult,
       removeLabResult: this.removeLabResult,
+      savePeriod: this.savePeriod,
+      removePeriod: this.removePeriod,
+      saveSymptom: this.saveSymptom,
+      removeSymptom: this.removeSymptom,
+      savePregnancy: this.savePregnancy,
+      removePregnancy: this.removePregnancy,
+      removeAllCycleData: this.removeAllCycleData,
       heartRateBetween: this.heartRateBetween,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
