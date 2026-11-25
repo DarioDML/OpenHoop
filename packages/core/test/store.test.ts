@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deflateSync } from 'fflate';
 import { exportCsv, openStore } from '../src/index';
 import type { DayRecord, Derived, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
-import { openNodeDriver } from '../src/node/index';
+import { openStrictDriver } from './strictDriver';
 
 const DEVICE: Omit<DeviceRow, 'id'> = {
   bleId: 'AA:BB',
@@ -97,7 +97,7 @@ describe('store', () => {
   let device: DeviceRow;
 
   beforeEach(async () => {
-    store = await openStore(openNodeDriver(':memory:'));
+    store = await openStore(openStrictDriver());
     device = await store.upsertDevice(DEVICE);
   });
   afterEach(async () => {
@@ -146,6 +146,98 @@ describe('store', () => {
     expect(await count(store, 'events')).toBe(1);
     expect(await count(store, 'console_log')).toBe(1);
     expect(await store.getSyncState(device.id)).toEqual(syncState(device.id));
+  });
+
+  it('commitChunk archives an identical chunk once and still applies the new sync state', async () => {
+    const frames = [new Uint8Array([1, 2, 3]), new Uint8Array([4, 5])];
+    const chunk = { deviceId: device.id, endToken: new Uint8Array([7]), frames, clockOffsetS: 0, receivedAt: 10 };
+    const first = await store.commitChunk(chunk, [sample(device.id, 1_000)], {
+      events: [],
+      console: [],
+      unknownFrames: 0,
+      syncState: syncState(device.id, { readPage: 1 }),
+    });
+    const second = await store.commitChunk({ ...chunk, receivedAt: 20 }, [sample(device.id, 1_000), sample(device.id, 1_001)], {
+      events: [{ deviceId: device.id, t: 1_001, event: 3, name: 'BATTERY', payloadHex: '0a' }],
+      console: [],
+      unknownFrames: 0,
+      syncState: syncState(device.id, { readPage: 2 }),
+    });
+    expect(second).toBe(first);
+    expect(await count(store, 'raw_chunks')).toBe(1);
+    expect((await store.samplesBetween(device.id, 0, 5_000)).map((s) => s.chunkId)).toEqual([first, first]);
+    expect(await store.getSyncState(device.id)).toEqual(syncState(device.id, { readPage: 2 }));
+    const other = await store.upsertDevice({ ...DEVICE, bleId: 'CC:DD' });
+    const elsewhere = await store.commitChunk({ ...chunk, deviceId: other.id }, [], {
+      events: [],
+      console: [],
+      unknownFrames: 0,
+      syncState: syncState(other.id),
+    });
+    expect(elsewhere).not.toBe(first);
+    const changed = await store.commitChunk({ ...chunk, frames: [new Uint8Array([1, 2, 3])] }, [], {
+      events: [],
+      console: [],
+      unknownFrames: 0,
+      syncState: syncState(device.id),
+    });
+    expect(changed).not.toBe(first);
+    expect(await count(store, 'raw_chunks')).toBe(3);
+  });
+
+  it('deleteBefore removes older rows and wholly older chunks for one device in one transaction', async () => {
+    const newest = (frames: Uint8Array[]): number | null => {
+      let out: number | null = null;
+      for (const frame of frames) {
+        const t = frame[0];
+        if (t !== undefined && (out === null || t > out)) out = t;
+      }
+      return out;
+    };
+    const commit = (frames: number[], samples: number[], extras: { event?: number; line?: number } = {}): Promise<number> =>
+      store.commitChunk(
+        { deviceId: device.id, endToken: null, frames: frames.map((t) => new Uint8Array([t, 0])), clockOffsetS: null, receivedAt: 1 },
+        samples.map((t) => sample(device.id, t)),
+        {
+          events: extras.event === undefined ? [] : [{ deviceId: device.id, t: extras.event, event: 1, name: 'x', payloadHex: '' }],
+          console: extras.line === undefined ? [] : [{ deviceId: device.id, t: extras.line, sequence: 1, text: 'line' }],
+          unknownFrames: 0,
+          syncState: syncState(device.id),
+        },
+      );
+    const old = await commit([10, 20], [10, 20], { event: 15 });
+    const straddling = await commit([40, 60], [40, 60]);
+    const newer = await commit([70], [70], { line: 75 });
+    const undated = await commit([], []);
+    await store.insertSamples([sample(device.id, 30, { source: 'live' })]);
+    await store.replaceDay(dayRecord(device.id, '2026-11-25'));
+    const other = await store.upsertDevice({ ...DEVICE, bleId: 'CC:DD' });
+    await store.insertSamples([sample(other.id, 5)]);
+
+    const result = await store.deleteBefore(device.id, 50, newest);
+
+    expect(result).toEqual({ samples: 4, events: 1, console: 0, chunks: 1 });
+    expect(await store.listChunkIds(device.id)).toEqual([straddling, newer, undated]);
+    expect(old).toBeLessThan(straddling);
+    expect((await store.samplesBetween(device.id, 0, 1_000)).map((s) => s.t)).toEqual([60, 70]);
+    expect(await count(store, 'console_log')).toBe(1);
+    expect(await count(store, 'daily_metrics')).toBe(0);
+    expect(await store.sampleRange(other.id)).toEqual({ first: 5, last: 5, count: 1 });
+  });
+
+  it('deleteBefore rolls back completely when it fails', async () => {
+    await store.commitChunk(
+      { deviceId: device.id, endToken: null, frames: [new Uint8Array([10])], clockOffsetS: null, receivedAt: 1 },
+      [sample(device.id, 10)],
+      { events: [], console: [], unknownFrames: 0, syncState: syncState(device.id) },
+    );
+    await expect(
+      store.deleteBefore(device.id, 50, () => {
+        throw new Error('decoder failed');
+      }),
+    ).rejects.toThrow('decoder failed');
+    expect(await count(store, 'samples_1hz')).toBe(1);
+    expect(await count(store, 'raw_chunks')).toBe(1);
   });
 
   it('a throw inside commitChunk leaves no chunk, no samples and the old sync state', async () => {

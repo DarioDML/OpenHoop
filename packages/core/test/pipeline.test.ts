@@ -1,8 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Profile } from '@stoop/analytics';
-import { dayKey, openStore, rebuildFromRaw, recomputeDays } from '../src/index';
+import { bindStore, dayKey, deleteDataBefore, newestFrameTime, openStore, rebuildFromRaw, recomputeDays } from '../src/index';
 import type { DayRecord, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
-import { openNodeDriver } from '../src/node/index';
+import { openStrictDriver } from './strictDriver';
 import { TZ_S, awakeSamples, decodeRow, localMidnight, nightSamples, simulateDays, toFrame } from './sampleFactory';
 
 const HOUR_S = 3_600;
@@ -42,7 +42,7 @@ describe('pipeline', () => {
   let deviceId: number;
 
   beforeEach(async () => {
-    store = await openStore(openNodeDriver(':memory:'));
+    store = await openStore(openStrictDriver());
     deviceId = (await store.upsertDevice(DEVICE)).id;
   });
   afterEach(async () => {
@@ -78,7 +78,7 @@ describe('pipeline', () => {
       const weekOpts = () => ({ deviceId: weekDevice, ...range(rows), profile: PROFILE, tzOffsetS: TZ_S });
 
       beforeAll(async () => {
-        weekStore = await openStore(openNodeDriver(':memory:'));
+        weekStore = await openStore(openStrictDriver());
         weekDevice = (await weekStore.upsertDevice(DEVICE)).id;
         rows = simulateDays(weekDevice, { days: 7, workoutDays: [2, 5] });
         await weekStore.insertSamples(rows);
@@ -419,6 +419,40 @@ describe('pipeline', () => {
       );
       await store.upsertDevice({ ...DEVICE, ownerSince: (rows[4] as SampleRow).t });
       expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 1, samples: 6 });
+    });
+  });
+
+  describe('deleteDataBefore', () => {
+    it('removes older samples and wholly older raw chunks, keeps a straddling chunk, and rebuild stays clean', async () => {
+      const rows = simulateDays(deviceId, { days: 1 }).slice(0, 30);
+      const chunks = [rows.slice(0, 10), rows.slice(10, 20), rows.slice(20, 30)];
+      const ids: number[] = [];
+      let index = 0;
+      for (const part of chunks) {
+        const frames = part.map((row) => toFrame(row, index++));
+        ids.push(
+          await store.commitChunk(
+            { deviceId, endToken: null, frames, clockOffsetS: 0, receivedAt: 1 },
+            part,
+            { events: [], console: [], unknownFrames: 0, syncState: syncState(deviceId) },
+          ),
+        );
+      }
+      expect(newestFrameTime(chunks[0]?.map((row, i) => toFrame(row, i)) ?? [])).toBe((rows[9] as SampleRow).t);
+      const cut = (rows[15] as SampleRow).t;
+      await recompute(rows);
+
+      const result = await store.driver.transaction(async (tx) => {
+        const inner = bindStore(tx);
+        await inner.upsertDevice({ ...DEVICE, ownerSince: cut });
+        return deleteDataBefore(inner, deviceId, cut);
+      });
+
+      expect(result).toEqual({ samples: 15, events: 0, console: 0, chunks: 1 });
+      expect(await store.listChunkIds(deviceId)).toEqual([ids[1], ids[2]]);
+      expect(await store.sampleRange(deviceId)).toEqual({ first: cut, last: (rows[29] as SampleRow).t, count: 15 });
+      expect(await storedDays()).toEqual([]);
+      expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 2, samples: 15 });
     });
   });
 });

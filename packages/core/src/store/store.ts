@@ -1,4 +1,4 @@
-import { decodeChunk, encodeChunk } from './chunkCodec';
+import { ChunkIntegrityError, decodeChunk, encodeChunk } from './chunkCodec';
 import { migrate } from './migrations';
 import type {
   ConsoleRow,
@@ -178,9 +178,19 @@ async function writeSyncState(driver: SqlDriver, s: SyncStateRow): Promise<void>
   );
 }
 
+async function clearDerivedRaw(tx: SqlDriver, deviceId: number): Promise<void> {
+  await tx.run('DELETE FROM daily_metrics WHERE device_id = ?', [deviceId]);
+  await tx.run('DELETE FROM sleeps WHERE device_id = ?', [deviceId]);
+  await tx.run('DELETE FROM workouts WHERE device_id = ?', [deviceId]);
+  await tx.run('DELETE FROM baselines WHERE device_id = ?', [deviceId]);
+}
+
 export async function openStore(driver: SqlDriver): Promise<Store> {
   await migrate(driver);
+  return bindStore(driver);
+}
 
+export function bindStore(driver: SqlDriver): Store {
   const getDevice = async (id: number): Promise<DeviceRow | null> => {
     const rows = await driver.all<DeviceDb>('SELECT * FROM devices WHERE id = ?', [id]);
     const row = rows[0];
@@ -217,36 +227,46 @@ export async function openStore(driver: SqlDriver): Promise<Store> {
 
     async commitChunk(chunk, samples, extras) {
       const encoded = encodeChunk(chunk.frames);
-      return driver.transaction(async () => {
-        const inserted = await driver.run(
-          `INSERT INTO raw_chunks (device_id, end_token, frames, frame_count, sha256, clock_offset_s, received_at, unknown_frames)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            chunk.deviceId,
-            chunk.endToken,
-            encoded.blob,
-            encoded.frameCount,
-            encoded.sha256,
-            chunk.clockOffsetS,
-            chunk.receivedAt,
-            extras.unknownFrames,
-          ],
-        );
-        const chunkId = inserted.lastInsertRowid;
-        await insertSamplesRaw(driver, samples, chunkId);
+      return driver.transaction(async (tx) => {
+        const existing =
+          encoded.frameCount === 0
+            ? []
+            : await tx.all<{ id: number }>(
+                'SELECT id FROM raw_chunks WHERE device_id = ? AND sha256 = ? ORDER BY id LIMIT 1',
+                [chunk.deviceId, encoded.sha256],
+              );
+        const chunkId =
+          existing[0]?.id ??
+          (
+            await tx.run(
+              `INSERT INTO raw_chunks (device_id, end_token, frames, frame_count, sha256, clock_offset_s, received_at, unknown_frames)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                chunk.deviceId,
+                chunk.endToken,
+                encoded.blob,
+                encoded.frameCount,
+                encoded.sha256,
+                chunk.clockOffsetS,
+                chunk.receivedAt,
+                extras.unknownFrames,
+              ],
+            )
+          ).lastInsertRowid;
+        await insertSamplesRaw(tx, samples, chunkId);
         await bulkInsert(
-          driver,
+          tx,
           'INSERT OR IGNORE INTO events (device_id, t, event, name, payload_hex, chunk_id)',
           6,
           extras.events.map((e: EventRow) => [e.deviceId, e.t, e.event, e.name, e.payloadHex, chunkId]),
         );
         await bulkInsert(
-          driver,
+          tx,
           'INSERT OR IGNORE INTO console_log (device_id, t, sequence, text, chunk_id)',
           5,
           extras.console.map((c: ConsoleRow) => [c.deviceId, c.t, c.sequence, c.text, chunkId]),
         );
-        await writeSyncState(driver, extras.syncState);
+        await writeSyncState(tx, extras.syncState);
         return chunkId;
       });
     },
@@ -278,7 +298,7 @@ export async function openStore(driver: SqlDriver): Promise<Store> {
     },
 
     async insertSamples(samples) {
-      return driver.transaction(() => insertSamplesRaw(driver, samples, undefined));
+      return driver.transaction((tx) => insertSamplesRaw(tx, samples, undefined));
     },
 
     async samplesBetween(deviceId, from, to) {
@@ -318,8 +338,8 @@ export async function openStore(driver: SqlDriver): Promise<Store> {
     },
 
     async replaceDay(day) {
-      await driver.transaction(async () => {
-        await driver.run(
+      await driver.transaction(async (tx) => {
+        await tx.run(
           `INSERT INTO daily_metrics (device_id, day, record, readiness, load, sleep_score)
            VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(device_id, day) DO UPDATE SET
@@ -329,16 +349,16 @@ export async function openStore(driver: SqlDriver): Promise<Store> {
              sleep_score = excluded.sleep_score`,
           [day.deviceId, day.day, JSON.stringify(day), day.readiness.value, day.load.value, day.sleep.score.value],
         );
-        await driver.run('DELETE FROM sleeps WHERE device_id = ? AND day = ?', [day.deviceId, day.day]);
-        await driver.run('DELETE FROM workouts WHERE device_id = ? AND day = ?', [day.deviceId, day.day]);
+        await tx.run('DELETE FROM sleeps WHERE device_id = ? AND day = ?', [day.deviceId, day.day]);
+        await tx.run('DELETE FROM workouts WHERE device_id = ? AND day = ?', [day.deviceId, day.day]);
         await bulkInsert(
-          driver,
+          tx,
           'INSERT INTO sleeps (device_id, day, onset, offset, asleep_s, in_bed_s, nap)',
           7,
           day.sleep.periods.map((p) => [day.deviceId, day.day, p.onset, p.offset, p.asleepS, p.inBedS, p.nap ? 1 : 0]),
         );
         await bulkInsert(
-          driver,
+          tx,
           'INSERT INTO workouts (device_id, day, start, end, zone_seconds, avg_hr, max_hr, source, label)',
           9,
           day.workouts.map((w) => [
@@ -386,11 +406,53 @@ export async function openStore(driver: SqlDriver): Promise<Store> {
     },
 
     async clearDerived(deviceId) {
-      await driver.transaction(async () => {
-        await driver.run('DELETE FROM daily_metrics WHERE device_id = ?', [deviceId]);
-        await driver.run('DELETE FROM sleeps WHERE device_id = ?', [deviceId]);
-        await driver.run('DELETE FROM workouts WHERE device_id = ?', [deviceId]);
-        await driver.run('DELETE FROM baselines WHERE device_id = ?', [deviceId]);
+      await driver.transaction((tx) => clearDerivedRaw(tx, deviceId));
+    },
+
+    async deleteBefore(deviceId, t, newestInChunk) {
+      return driver.transaction(async (tx) => {
+        const retained = new Set(
+          (
+            await tx.all<{ chunk_id: number }>(
+              `SELECT chunk_id FROM samples_1hz WHERE device_id = ? AND t >= ? AND chunk_id IS NOT NULL
+               UNION SELECT chunk_id FROM events WHERE device_id = ? AND t >= ? AND chunk_id IS NOT NULL
+               UNION SELECT chunk_id FROM console_log WHERE device_id = ? AND t >= ? AND chunk_id IS NOT NULL`,
+              [deviceId, t, deviceId, t, deviceId, t],
+            )
+          ).map((row) => row.chunk_id),
+        );
+        const ids = await tx.all<{ id: number }>('SELECT id FROM raw_chunks WHERE device_id = ? ORDER BY id', [deviceId]);
+        // A raw chunk is the band's bytes as received, so it is kept whole: it is removed only when every
+        // dated frame in it is older than t. A chunk straddling t, or with no dated frame, stays on disk.
+        const doomed: number[] = [];
+        for (const { id } of ids) {
+          if (retained.has(id)) continue;
+          const rows = await tx.all<{ frames: Uint8Array; sha256: Uint8Array }>(
+            'SELECT frames, sha256 FROM raw_chunks WHERE id = ?',
+            [id],
+          );
+          const row = rows[0];
+          if (row === undefined) continue;
+          let frames: Uint8Array[];
+          try {
+            frames = decodeChunk(row.frames, row.sha256);
+          } catch (error) {
+            if (error instanceof ChunkIntegrityError) continue;
+            throw error;
+          }
+          const newest = newestInChunk(frames);
+          if (newest !== null && newest < t) doomed.push(id);
+        }
+        const samples = await tx.run('DELETE FROM samples_1hz WHERE device_id = ? AND t < ?', [deviceId, t]);
+        const events = await tx.run('DELETE FROM events WHERE device_id = ? AND t < ?', [deviceId, t]);
+        const consoleLines = await tx.run('DELETE FROM console_log WHERE device_id = ? AND t < ?', [deviceId, t]);
+        for (const table of ['optical_bursts', 'imu_blocks', 'ecg_recordings', 'sleep_stages', 'oracle_values']) {
+          await tx.run(`DELETE FROM ${table} WHERE device_id = ? AND t < ?`, [deviceId, t]);
+        }
+        let chunks = 0;
+        for (const id of doomed) chunks += (await tx.run('DELETE FROM raw_chunks WHERE id = ?', [id])).changes;
+        await clearDerivedRaw(tx, deviceId);
+        return { samples: samples.changes, events: events.changes, console: consoleLines.changes, chunks };
       });
     },
   };

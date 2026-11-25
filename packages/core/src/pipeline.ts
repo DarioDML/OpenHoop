@@ -22,7 +22,8 @@ import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample } fro
 import { FrameError, decodeFrame } from '@stoop/protocol';
 import type { Packet } from '@stoop/protocol';
 import { sampleFromPacket } from './mapping';
-import type { DayRecord, Derived, SampleRow, SampleSource, SleepPeriodRecord, Store, WorkoutRecord } from './store/types';
+import { bindStore } from './store/store';
+import type { DayRecord, DeleteBeforeResult, Derived, SampleRow, SampleSource, SleepPeriodRecord, Store, WorkoutRecord } from './store/types';
 
 const DAY_S = 86_400;
 const HOUR_S = 3_600;
@@ -582,29 +583,48 @@ export async function recomputeDays(store: Store, opts: RecomputeOptions): Promi
 }
 
 export async function rebuildFromRaw(store: Store, deviceId: number): Promise<{ chunks: number; samples: number }> {
-  const device = await store.getDevice(deviceId);
-  const ownerSince = device?.ownerSince ?? null;
-  return store.driver.transaction(async () => {
-    await store.deleteSamples(deviceId, 'history');
-    await store.clearDerived(deviceId);
-    const chunkIds = await store.listChunkIds(deviceId);
+  return store.driver.transaction(async (tx) => {
+    const inner = bindStore(tx);
+    const device = await inner.getDevice(deviceId);
+    const ownerSince = device?.ownerSince ?? null;
+    await inner.deleteSamples(deviceId, 'history');
+    await inner.clearDerived(deviceId);
+    const chunkIds = await inner.listChunkIds(deviceId);
     let samples = 0;
     for (const chunkId of chunkIds) {
       const rows: SampleRow[] = [];
-      for (const frame of await store.readChunkFrames(chunkId)) {
-        let packet: Packet;
-        try {
-          packet = decodeFrame(frame);
-        } catch (error) {
-          if (error instanceof FrameError) continue;
-          throw error;
-        }
+      for (const frame of await inner.readChunkFrames(chunkId)) {
+        const packet = tryDecode(frame);
+        if (packet === null) continue;
         const row = sampleFromPacket(deviceId, packet, chunkId);
         if (row === null || (ownerSince !== null && row.t < ownerSince)) continue;
         rows.push({ ...row, source: 'history' });
       }
-      samples += await store.insertSamples(rows);
+      samples += await inner.insertSamples(rows);
     }
     return { chunks: chunkIds.length, samples };
   });
+}
+
+function tryDecode(frame: Uint8Array): Packet | null {
+  try {
+    return decodeFrame(frame);
+  } catch (error) {
+    if (error instanceof FrameError) return null;
+    throw error;
+  }
+}
+
+export function newestFrameTime(frames: Uint8Array[]): number | null {
+  let newest: number | null = null;
+  for (const frame of frames) {
+    const packet = tryDecode(frame);
+    if (packet === null || !('unixS' in packet)) continue;
+    if (newest === null || packet.unixS > newest) newest = packet.unixS;
+  }
+  return newest;
+}
+
+export function deleteDataBefore(store: Store, deviceId: number, t: number): Promise<DeleteBeforeResult> {
+  return store.deleteBefore(deviceId, t, newestFrameTime);
 }

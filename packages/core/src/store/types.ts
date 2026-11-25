@@ -1,10 +1,20 @@
 export type SqlValue = string | number | null | Uint8Array;
 
+export interface SqlRunResult {
+  changes: number;
+  lastInsertRowid: number;
+}
+
 export interface SqlDriver {
   exec(sql: string): Promise<void>;
-  run(sql: string, params?: SqlValue[]): Promise<{ changes: number; lastInsertRowid: number }>;
+  run(sql: string, params?: SqlValue[]): Promise<SqlRunResult>;
   all<T extends Record<string, SqlValue>>(sql: string, params?: SqlValue[]): Promise<T[]>;
-  transaction<T>(fn: () => Promise<T>): Promise<T>;
+  /**
+   * Top-level calls are serialised: each waits for any open transaction and for earlier calls.
+   * Inside `fn` every statement must go through `tx`; calling the top-level driver there deadlocks.
+   * `tx.transaction(inner)` joins the open transaction, and `tx.close()` throws.
+   */
+  transaction<T>(fn: (tx: SqlDriver) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }
 
@@ -162,4 +172,16 @@ export interface Store {
   getSetting(key: string): Promise<string | null>;
   setSetting(key: string, value: string): Promise<void>;
   clearDerived(deviceId: number): Promise<void>;
+  deleteBefore(
+    deviceId: number,
+    t: number,
+    newestInChunk: (frames: Uint8Array[]) => number | null,
+  ): Promise<DeleteBeforeResult>;
+}
+
+export interface DeleteBeforeResult {
+  samples: number;
+  events: number;
+  console: number;
+  chunks: number;
 }

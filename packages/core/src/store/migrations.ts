@@ -176,7 +176,11 @@ CREATE TABLE ecg_recordings (
 );
 `;
 
-export const MIGRATIONS: readonly string[] = [V1];
+const V2 = `
+CREATE INDEX raw_chunks_checksum ON raw_chunks (device_id, sha256);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
@@ -189,9 +193,9 @@ export async function migrate(driver: SqlDriver): Promise<void> {
   for (let version = current + 1; version <= SCHEMA_VERSION; version++) {
     const script = MIGRATIONS[version - 1];
     if (script === undefined) throw new Error(`Missing migration ${version}`);
-    await driver.transaction(async () => {
-      await driver.exec(script);
-      await driver.exec(`PRAGMA user_version = ${version}`);
+    await driver.transaction(async (tx) => {
+      await tx.exec(script);
+      await tx.exec(`PRAGMA user_version = ${version}`);
     });
   }
 }
