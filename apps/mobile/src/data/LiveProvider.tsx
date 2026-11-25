@@ -22,6 +22,7 @@ export function LiveProvider({ children }: Props) {
   useEffect(() => {
     const refresh = (): void => {
       void controller.refreshNotifications();
+      void controller.refreshWidgets();
     };
     const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active') refresh();

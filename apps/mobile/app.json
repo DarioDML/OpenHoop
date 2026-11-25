@@ -111,6 +111,40 @@
             "minSdkVersion": 26
           }
         }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./node_modules/@expo-google-fonts/barlow-condensed/700Bold/BarlowCondensed_700Bold.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "OpenHoopScores",
+              "label": "OpenHoop scores",
+              "description": "Readiness, Sleep score and Load",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "widgetCategory": "home_screen",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "OpenHoopOverview",
+              "label": "OpenHoop overview",
+              "description": "Scores with resting heart rate and HRV",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "widgetCategory": "home_screen",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
       ]
     ],
     "experiments": {

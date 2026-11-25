@@ -1,0 +1,44 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      workspace-minor:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: npm
+    directory: /apps/mobile
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    ignore:
+      # The Expo SDK pins these together; upgrade them with `npx expo install --fix`, not one by one.
+      - dependency-name: 'expo'
+      - dependency-name: 'expo-*'
+      - dependency-name: 'jest-expo'
+      - dependency-name: 'react'
+      - dependency-name: 'react-dom'
+      - dependency-name: 'react-native'
+      - dependency-name: 'react-native-*'
+      - dependency-name: 'react-test-renderer'
+      - dependency-name: '@types/react'
+    groups:
+      mobile-minor:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore

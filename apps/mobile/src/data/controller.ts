@@ -102,6 +102,8 @@ import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/
 import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
 import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
+import { buildWidgetFile } from '@/lib/widgetSnapshot';
+import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
 import { setNetworkPrefs } from '@/net';
 import { strictestPrefs } from '@/net/features';
 
@@ -169,6 +171,8 @@ const LATEST_DAY = '9999-12-31';
 const INCREMENTAL_RECOMPUTE_BACK_S = 2 * DAY_S;
 const MAX_DEMO_BACKLOG_DAYS = 20;
 export const UNDO_MS = 5_000;
+const PIN_WAIT_ATTEMPTS = 60;
+const PIN_WAIT_MS = 1_000;
 const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null };
 const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
   clock: 'sync.stop.clock',
@@ -265,6 +269,7 @@ export class AppController {
   private started = false;
   private notificationState: NotificationState = emptyNotificationState();
   private notificationChain: Promise<void> = Promise.resolve();
+  private widgetChain: Promise<void> = Promise.resolve();
   private healthConnectChain: Promise<void> = Promise.resolve();
   private healthConnectRun: Promise<void> | null = null;
   lastTimings: SyncTimings | null = null;
@@ -272,6 +277,7 @@ export class AppController {
   constructor(
     private readonly notifier: Notifier = expoNotifier,
     private readonly healthConnect: HealthConnectApi = nativeHealthConnect,
+    private readonly widgets: WidgetBridge = androidWidgetBridge,
   ) {
     const language = detectLanguage(getLocales()[0]?.languageCode);
     this.snapshot = {
@@ -455,6 +461,7 @@ export class AppController {
     const sleepEdits = row === null ? [] : await store.listSleepEdits(row.id);
     const activities = row === null ? [] : await this.activityStore().list(row.id);
     this.patch({ days, sleepEdits, activities });
+    void this.refreshWidgets();
   }
 
   private activityStore(): ActivityStore {
@@ -672,6 +679,7 @@ export class AppController {
       throw appError;
     } finally {
       void this.refreshNotifications({ syncFailed: failed });
+      void this.refreshWidgets();
       if (this.connection === 'syncing') this.connection = this.conn?.session.isConnected === true ? 'connected' : 'disconnected';
       this.patch({ syncProgress: null });
       this.patchDevice();
@@ -851,6 +859,7 @@ export class AppController {
       this.patch({ settings: { ...this.snapshot.settings, language: patch.language } });
       this.patchDevice();
       void this.refreshNotifications();
+      void this.refreshWidgets();
     }
     if (patch.ownerSince !== undefined && patch.ownerSince !== null && patch.ownerSince !== current.ownerSince) {
       await this.changeOwnerSince(patch.ownerSince);
@@ -925,6 +934,7 @@ export class AppController {
         setNetworkPrefs(next.network);
         this.patch({ userData: next });
         if (patch.notifications !== undefined) void this.refreshNotifications();
+        if (patch.widgetValues !== undefined) void this.refreshWidgets();
         return true;
       } catch (error) {
         setNetworkPrefs(network);
@@ -1262,6 +1272,27 @@ export class AppController {
       }
       await this.saveNotificationState({ ...settled, pending });
     });
+
+  refreshWidgets = (): Promise<void> => {
+    const run = this.widgetChain.then(async () => {
+      if (await this.widgets.placed() === 0) {
+        await this.widgets.clear();
+        return;
+      }
+      const { days, userData, settings } = this.snapshot;
+      await this.widgets.publish(buildWidgetFile({ enabled: userData.widgetValues, day: days[days.length - 1], syncedAt: this.lastSyncAt, language: settings.language }));
+    });
+    this.widgetChain = run.catch(() => undefined);
+    return this.widgetChain;
+  };
+
+  refreshWidgetsAfterPin = async (): Promise<void> => {
+    for (let attempt = 0; attempt < PIN_WAIT_ATTEMPTS; attempt += 1) {
+      if ((await this.widgets.placed().catch(() => 0)) > 0) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, PIN_WAIT_MS));
+    }
+    await this.refreshWidgets();
+  };
 
   setNotificationsEnabled = async (enabled: boolean): Promise<PermissionState> => {
     if (!enabled) {
@@ -1619,6 +1650,8 @@ export class AppController {
       clearNotice: this.clearNotice,
       refreshNotifications: this.refreshNotifications,
       setNotificationsEnabled: this.setNotificationsEnabled,
+      refreshWidgets: this.refreshWidgets,
+      refreshWidgetsAfterPin: this.refreshWidgetsAfterPin,
       markInboxRead: this.markInboxRead,
       clearInbox: this.clearInbox,
       refreshHealthConnect: this.refreshHealthConnect,

@@ -63,6 +63,7 @@ export interface UserData {
   network: NetworkPrefs;
   coach: CoachPrefs;
   jetLagPlan: SavedJetLagPlan | null;
+  widgetValues: boolean;
   hideRouteEnds: boolean;
 }
 
@@ -89,6 +90,7 @@ export function defaultUserData(): UserData {
     network: defaultNetworkPrefs(),
     coach: defaultCoachPrefs(),
     jetLagPlan: null,
+    widgetValues: true,
     hideRouteEnds: true,
   };
 }
@@ -218,6 +220,7 @@ export function parseUserData(raw: string | null): UserData {
     network: parseNetworkPrefs(parsed.network),
     coach: parseCoachPrefs(parsed.coach),
     jetLagPlan: parseJetLagPlan(parsed.jetLagPlan),
+    widgetValues: parsed.widgetValues !== false,
     hideRouteEnds: typeof parsed.hideRouteEnds === 'boolean' ? parsed.hideRouteEnds : base.hideRouteEnds,
   };
 }
