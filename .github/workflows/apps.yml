@@ -98,7 +98,8 @@ jobs:
         working-directory: apps/mobile/android
         env:
           OPENHOOP_UNSIGNED_RELEASE: ${{ env.RELEASE_BUILD == 'true' && '1' || '' }}
-        run: ./gradlew assembleRelease --build-cache -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+          ABIS: ${{ env.RELEASE_BUILD == 'true' && 'arm64-v8a,armeabi-v7a' || 'arm64-v8a,armeabi-v7a,x86_64' }}
+        run: ./gradlew assembleRelease --build-cache "-PreactNativeArchitectures=$ABIS"
       - name: Collect the APK
         run: |
           if [ "$RELEASE_BUILD" = true ]; then
