@@ -145,7 +145,8 @@ export type ExportTable =
   | 'workouts'
   | 'events'
   | 'console_log'
-  | 'raw_chunks';
+  | 'raw_chunks'
+  | 'body_measurements';
 
 export interface Store {
   driver: SqlDriver;
