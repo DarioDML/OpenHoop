@@ -411,7 +411,7 @@ describe('store', () => {
       [sample(device.id, 1_000)],
       { events: [], console: [{ deviceId: device.id, t: 1, sequence: 1, text: 'a,b' }], unknownFrames: 0, syncState: syncState(device.id) },
     );
-    const tables = ['devices', 'samples_1hz', 'daily_metrics', 'sleeps', 'workouts', 'events', 'console_log', 'raw_chunks'] as const;
+    const tables = ['devices', 'samples_1hz', 'daily_metrics', 'sleeps', 'workouts', 'events', 'console_log', 'raw_chunks', 'body_measurements'] as const;
     for (const table of tables) {
       const csv = await exportCsv(store, table);
       expect(csv.endsWith('\r\n')).toBe(true);

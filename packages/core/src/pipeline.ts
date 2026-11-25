@@ -1,6 +1,7 @@
 import {
   ALGO,
   DEFAULT_CALIBRATION,
+  activeMinutes,
   dayLoad,
   debtMs,
   detectWorkouts,
@@ -456,7 +457,8 @@ async function computeDay(
         ? mean(restingValues)
         : RESTING_HR_FALLBACK;
 
-  const load = derive(dayLoad(minuteMeans(samples, start, end), rest, maxHr, calibration));
+  const minuteHr = minuteMeans(samples, start, end);
+  const load = derive(dayLoad(minuteHr, rest, maxHr, calibration));
 
   const hrSeries = samples.map((s) => s.hr);
   const zones: number[] = maxHr > rest ? [...zoneSeconds(hrSeries, rest, maxHr)] : [0, 0, 0, 0, 0, 0];
@@ -524,6 +526,7 @@ async function computeDay(
     steps: countSteps(samples),
     heartRate: { min: hrMin, avg: hrCount > 0 ? hrSum / hrCount : null, max: hrMax },
     workouts,
+    activeMinutes: activeMinutes(minuteHr, rest, maxHr),
   };
 }
 

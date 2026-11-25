@@ -233,5 +233,16 @@
   "profile.ach.progress": "{current} of {target}",
   "profile.ach.note": "Achievements are counted from the days stored on this phone. They have no levels or points.",
   "activity.notFound.title": "Activity not found",
-  "activity.notFound.body": "This workout is not in your data. It may have been recomputed after a sync."
+  "activity.notFound.body": "This workout is not in your data. It may have been recomputed after a sync.",
+  "calories.title": "Calories",
+  "calories.estimate": "Estimate",
+  "calories.unit": "kcal",
+  "calories.resting": "Resting",
+  "calories.active": "Active",
+  "calories.activeTime": "Active time",
+  "calories.method": "Estimated from your heart rate and body profile. Minutes at or above {threshold} bpm use the heart rate equations of Keytel et al. (2005). All other minutes use resting energy from the Mifflin-St Jeor equation (1990). This is an own method, not comparable to other apps, and not a medical measurement.",
+  "calories.coverage": "Heart rate covered {percent}% of this day. Minutes without heart rate count as rest, so the real value may be higher.",
+  "calories.other": "Your sex is set to 'other', so OpenHoop uses the average of the equations for men and women.",
+  "calories.needsProfile": "Calories need your height, weight, sex and birth year (age 18 to 100).",
+  "calories.completeProfile": "Complete profile"
 }

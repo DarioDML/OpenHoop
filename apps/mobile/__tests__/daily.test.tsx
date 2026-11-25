@@ -138,10 +138,10 @@ describe('Home', () => {
     expect(screen.getByText('No data yet')).toBeTruthy();
   });
 
-  it('marks calories and stress as not built instead of showing numbers', async () => {
+  it('shows why calories are missing and keeps stress marked as not built', async () => {
     await render(withAppData(<HomeScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, dashboardTiles: ['hrv', 'calories'] } }));
-    expect(screen.getByTestId('tile-calories')).toBeTruthy();
-    expect(screen.getAllByText('Issue #13').length).toBe(1);
+    expect(screen.getByTestId('tile-calories-reason')).toHaveTextContent('Body profile incomplete');
+    expect(screen.queryByText('Issue #13')).toBeNull();
     expect(screen.getAllByText('Issue #15').length).toBe(1);
   });
 });

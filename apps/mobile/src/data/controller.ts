@@ -1,14 +1,20 @@
 import {
   Session,
   bindStore,
+  deleteBodyMeasurement,
   deleteDataBefore,
   exportCsv,
+  insertBodyMeasurement,
+  listBodyMeasurements,
   probeLock,
   readDeviceInformation,
   recomputeDays,
   recordHeartRate,
   syncHistory,
+  updateBodyMeasurement,
   type BandModel,
+  type BodyMeasurement,
+  type BodyMeasurementInput,
   type DayRecord,
   type DeviceRow,
   type SyncProgress,
@@ -26,6 +32,7 @@ import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/
 import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 
+import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
 import { addDays } from './derived';
 import { AppError, toAppError } from './errors';
@@ -79,6 +86,7 @@ export interface Snapshot {
   profile: Profile;
   settings: Settings;
   userData: UserData;
+  bodyMeasurements: BodyMeasurement[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
@@ -160,6 +168,7 @@ export class AppController {
       profile: { birthYear: null, maxHeartRate: null },
       settings: { language, dataSource: 'demo', ownerSince: null },
       userData: defaultUserData(),
+      bodyMeasurements: [],
       syncProgress: null,
       notice: null,
       inbox: [],
@@ -252,10 +261,12 @@ export class AppController {
     const userData = parseUserData(rawUserData);
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
     this.notificationState = parseNotificationState(await store.getSetting(NOTIFICATION_STATE_KEY));
+    const bodyMeasurements = await listBodyMeasurements(this.app.driver);
     this.patch({
       settings: { ...this.snapshot.settings, language, dataSource },
       profile,
       userData,
+      bodyMeasurements,
       inbox: this.notificationState.inbox,
     });
     await this.loadActiveDevice();
@@ -721,6 +732,46 @@ export class AppController {
     return run;
   };
 
+  private async applyBodyChange(before: readonly BodyMeasurement[]): Promise<void> {
+    const { driver } = this.requireApp();
+    const after = await listBodyMeasurements(driver);
+    this.patch({ bodyMeasurements: after });
+    const newest = newestChanged(before, after);
+    if (newest !== null && newest.weightKg !== this.snapshot.userData.weightKg) {
+      const next = parseUserData(serializeUserData({ ...this.snapshot.userData, weightKg: newest.weightKg }));
+      await this.requireApp().store.setSetting(USER_DATA_KEY, serializeUserData(next));
+      this.patch({ userData: next });
+    }
+  }
+
+  private runBodyChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const before = this.snapshot.bodyMeasurements;
+        const done = await task(driver);
+        await this.applyBodyChange(before);
+        return done;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
+  saveBodyMeasurement = (id: number | null, input: BodyMeasurementInput): Promise<boolean> =>
+    this.runBodyChange(async (driver) => {
+      if (id === null) {
+        await insertBodyMeasurement(driver, input, nowSeconds());
+        return true;
+      }
+      return updateBodyMeasurement(driver, id, input);
+    });
+
+  removeBodyMeasurement = (id: number): Promise<boolean> => this.runBodyChange((driver) => deleteBodyMeasurement(driver, id));
+
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
@@ -859,6 +910,8 @@ export class AppController {
       updateProfile: this.updateProfile,
       updateSettings: this.updateSettings,
       updateUserData: this.updateUserData,
+      saveBodyMeasurement: this.saveBodyMeasurement,
+      removeBodyMeasurement: this.removeBodyMeasurement,
       heartRateBetween: this.heartRateBetween,
       clearNotice: this.clearNotice,
       refreshNotifications: this.refreshNotifications,

@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { baselineAt } from '@/data/derived';
+import { caloriesForDay } from '@/data/energyDerived';
 import { formatHm, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration } from '@/lib/format';
@@ -309,7 +310,7 @@ export function TonightCard({ days, index }: DayProps) {
 }
 
 export function DashboardGrid({ days, index }: DayProps) {
-  const { userData } = useAppData();
+  const { userData, profile } = useAppData();
   const { t } = useT();
   const rangeChip = useRangeChip();
   const day = days[index];
@@ -320,10 +321,20 @@ export function DashboardGrid({ days, index }: DayProps) {
       {userData.dashboardTiles.map((tile) => {
         const label = t(TILE_LABEL[tile]);
         if (tile === 'calories') {
+          const calories = caloriesForDay(day, userData, profile);
           return (
-            <View key={tile} style={tileStyle}>
-              <PendingCard label={label} issue="calories" testID="tile-calories" />
-            </View>
+            <MetricTile
+              key={tile}
+              style={tileStyle}
+              testID="tile-calories"
+              label={label}
+              value={calories.estimate?.totalKcal ?? null}
+              reason={calories.reason}
+              unit={t('calories.unit')}
+              level={PARITY.calories}
+              href="/load"
+              caption={t('calories.estimate')}
+            />
           );
         }
         if (tile === 'steps') {
