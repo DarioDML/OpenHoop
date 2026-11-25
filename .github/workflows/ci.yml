@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
@@ -39,7 +39,12 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: apps/mobile/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            apps/mobile/package-lock.json
+      - name: Install workspace packages the app imports by path
+        run: npm ci --ignore-scripts
+        working-directory: .
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx jest
