@@ -136,6 +136,16 @@ describe('pipeline', () => {
         expect(records[3]?.sleep.need.value).toBeGreaterThan(records[2]?.sleep.need.value ?? Infinity);
       });
 
+      it('stores the active heart rate minutes the energy model needs', () => {
+        const workoutDay = records[2]?.activeMinutes;
+        expect(workoutDay).toMatchObject({ totalMinutes: 1_440, measuredMinutes: 1_440 });
+        const active = (workoutDay?.activeHr ?? []).reduce((sum, bin) => sum + bin.minutes, 0);
+        expect(active).toBeGreaterThanOrEqual(39);
+        expect(active).toBeLessThanOrEqual(41);
+        expect(workoutDay?.activeHr.every((bin) => bin.bpm >= (workoutDay.thresholdBpm ?? Infinity) - 0.5)).toBe(true);
+        expect(records[0]?.activeMinutes?.activeHr).toEqual([]);
+      });
+
       it('recomputing the same range twice yields identical records', async () => {
         const stored = await weekStore.listDays(weekDevice, '0000-01-01', '9999-12-31');
         const again = await recomputeDays(weekStore, weekOpts());

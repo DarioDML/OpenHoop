@@ -76,7 +76,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A | SpO2, skin temperature |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones |
-| C | Sleep consistency, automatic workouts |
+| C | Sleep consistency, automatic workouts, calories (estimate) |
 | D | Raw records, for example optical and motion data |
 
 When the data does not support a number, the app shows the reason instead of a number.
@@ -84,6 +84,10 @@ When the data does not support a number, the app shows the reason instead of a n
 ## Scores
 
 The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to 100). They are OpenHoop's own models. Their constants come from the open reference project `wearable5.0` and were fitted on one wearer, so they are not the vendor's scores and may differ for you. The constants live in a `Calibration` object so they can be refitted without changing code. The first three nights are labelled "calibrating".
+
+## Calories
+
+Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart rate at or above 40 % of heart rate reserve use the sex-specific equations without VO2max from Keytel et al., "Prediction of energy expenditure from heart rate monitoring during submaximal exercise", J Sports Sci 2005;23(3):289-297. All other minutes, including minutes without heart rate, use resting energy from the Mifflin-St Jeor equation (Mifflin et al., Am J Clin Nutr 1990;51(2):241-247). The estimate needs height, weight, sex and birth year. For the sex "other" it uses the mean of the male and female equations. Without a complete profile or with fewer than 600 minutes of heart rate in a day, the app shows the reason instead of a number.
 
 ## Privacy
 

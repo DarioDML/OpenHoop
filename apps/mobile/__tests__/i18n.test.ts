@@ -31,6 +31,7 @@ describe('reason-to-text mapping', () => {
     'no-sleep': { nl: 'Geen slaap vastgelegd', en: 'No sleep recorded' },
     'missing-signal': { nl: 'Signaal ontbreekt', en: 'Signal missing' },
     'needs-history': { nl: 'Eerst meer nachten nodig', en: 'Needs more nights first' },
+    'no-profile': { nl: 'Lichaamsprofiel onvolledig', en: 'Body profile incomplete' },
   };
 
   it.each(KNOWN_REASONS)('maps %s in both languages', (reason) => {

@@ -233,5 +233,16 @@
   "profile.ach.progress": "{current} van {target}",
   "profile.ach.note": "Prestaties worden geteld uit de dagen op deze telefoon. Ze hebben geen levels of punten.",
   "activity.notFound.title": "Activiteit niet gevonden",
-  "activity.notFound.body": "Deze workout staat niet in je data. Misschien is hij na een synchronisatie opnieuw berekend."
+  "activity.notFound.body": "Deze workout staat niet in je data. Misschien is hij na een synchronisatie opnieuw berekend.",
+  "calories.title": "Calorieën",
+  "calories.estimate": "Schatting",
+  "calories.unit": "kcal",
+  "calories.resting": "In rust",
+  "calories.active": "Actief",
+  "calories.activeTime": "Actieve tijd",
+  "calories.method": "Geschat op basis van je hartslag en lichaamsprofiel. Minuten vanaf {threshold} bpm gebruiken de hartslagformules van Keytel e.a. (2005). Alle andere minuten gebruiken de rustverbranding volgens de formule van Mifflin-St Jeor (1990). Dit is een eigen methode, niet vergelijkbaar met andere apps, en geen medische meting.",
+  "calories.coverage": "Er was hartslag voor {percent}% van deze dag. Minuten zonder hartslag tellen als rust, dus de echte waarde kan hoger liggen.",
+  "calories.other": "Je geslacht staat op 'anders', dus OpenHoop gebruikt het gemiddelde van de formules voor mannen en vrouwen.",
+  "calories.needsProfile": "Voor calorieën zijn je lengte, gewicht, geslacht en geboortejaar nodig (leeftijd 18 tot 100).",
+  "calories.completeProfile": "Profiel aanvullen"
 }
