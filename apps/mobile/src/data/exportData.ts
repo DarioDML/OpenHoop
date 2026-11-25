@@ -64,6 +64,7 @@ export interface ExportSummary {
 export async function exportAll(
   app: AppStore,
   csvFor: (store: Store, table: ExportTable) => Promise<string>,
+  extraFiles: Readonly<Record<string, string>> = {},
 ): Promise<ExportSummary> {
   if (!(await isAvailableAsync())) throw new AppError('error.shareUnavailable');
   removeLeftoverExports();
@@ -73,6 +74,9 @@ export async function exportAll(
     const archive: Zippable = {};
     for (const table of EXPORT_TABLES) {
       archive[`${table}.csv`] = [strToU8(await csvFor(app.store, table)), { level: 1 }];
+    }
+    for (const [name, text] of Object.entries(extraFiles)) {
+      archive[name] = [strToU8(text), { level: 1 }];
     }
 
     const plaintext = new File(folder, PLAINTEXT_NAME);

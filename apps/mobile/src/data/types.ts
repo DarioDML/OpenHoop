@@ -1,6 +1,9 @@
 import type { BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, LabResult, LabResultInput, SleepEditProblem, SleepEditRow } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
+import type { InboxEntry } from '@/lib/notificationPlan';
+
+import type { PermissionState } from './notifier';
 
 import type { SleepEditRequest } from './sleepEditForm';
 import type { UserData } from './userData';
@@ -86,6 +89,8 @@ export interface AppData {
   labResults: LabResult[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
+  inbox: InboxEntry[];
+  notificationPermission: PermissionState;
   scan(): Promise<DiscoveredBand[]>;
   pair(bandId: string, ownerSince: string): Promise<void>;
   sync(): Promise<void>;
@@ -103,6 +108,10 @@ export interface AppData {
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;
   clearNotice(): void;
+  refreshNotifications(): Promise<void>;
+  setNotificationsEnabled(enabled: boolean): Promise<PermissionState>;
+  markInboxRead(): Promise<void>;
+  clearInbox(): Promise<void>;
 }
 
 export type ParityLevel = 'A' | 'B' | 'C' | 'D';
