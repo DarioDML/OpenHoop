@@ -115,7 +115,7 @@ export async function runSelfTest(onResult: (result: CheckResult) => void): Prom
     const driver = await openExpoDriver(name, key);
     await driver.exec('CREATE TABLE t (v INTEGER)');
     await driver.close();
-    let opened = false;
+    let opened: boolean;
     try {
       const other = await openExpoDriver(name, getRandomBytes(32));
       opened = true;

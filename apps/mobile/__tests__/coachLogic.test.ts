@@ -1,4 +1,5 @@
 import type { DayRecord } from '@openhoop/core';
+import type * as SecureStore from 'expo-secure-store';
 
 import { API_VERSION, FALLBACK_BETA, MESSAGES_URL, buildHeaders, buildRequestBody, errorForStatus, readMessageResponse, requestCoachReply } from '@/coach/api';
 import { scanForCheckIns } from '@/coach/checkIns';
@@ -258,7 +259,7 @@ describe('API key storage', () => {
   });
 
   it('keeps the key in secure storage only, device-bound, and removes it', async () => {
-    const store = jest.requireMock<typeof import('expo-secure-store')>('expo-secure-store');
+    const store = jest.requireMock<typeof SecureStore>('expo-secure-store');
     expect(await secureKeyStore.save('nope')).toBe(false);
     expect(store.setItemAsync).not.toHaveBeenCalled();
     expect(await secureKeyStore.save(TEST_KEY)).toBe(true);

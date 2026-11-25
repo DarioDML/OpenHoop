@@ -220,7 +220,7 @@ function parseWorkout(read: (f: keyof typeof WORKOUT_ALIASES) => string): RowRes
   const zone = read('zone');
   const start = parseTime(read('start'), zone);
   if (start === null) return INVALID;
-  let end: ParsedTime | null = null;
+  let end: ParsedTime | null;
   const endText = read('end');
   const durationText = read('duration');
   if (endText !== '') end = parseTime(endText, zone);

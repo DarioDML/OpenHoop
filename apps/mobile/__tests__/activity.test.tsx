@@ -38,7 +38,6 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import AddActivityScreen from '@/app/activity/add';
 import ActivityDetailsScreen from '@/app/activity/details';
-import EditActivityScreen from '@/app/activity/edit';
 import GpsActivityScreen from '@/app/activity/gps';
 import LiveActivityScreen from '@/app/activity/live';
 import StartActivityScreen from '@/app/activity/start';

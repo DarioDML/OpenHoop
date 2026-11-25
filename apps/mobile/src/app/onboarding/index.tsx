@@ -20,7 +20,7 @@ export default function WelcomeScreen() {
   const { colors } = useTheme();
   const { updateSettings, updateUserData } = useAppData();
 
-  const useDemo = async (): Promise<void> => {
+  const startDemo = async (): Promise<void> => {
     try {
       await updateSettings({ dataSource: 'demo' });
       if (!(await updateUserData({ onboardingDone: true }))) return;
@@ -45,7 +45,7 @@ export default function WelcomeScreen() {
       subtitle={t('onboarding.welcome.subtitle')}
       primary={{ label: t('onboarding.welcome.start'), onPress: () => router.push('/onboarding/profile'), testID: 'welcome-start' }}
       secondary={{ label: t('onboarding.welcome.haveData'), onPress: () => router.push('/settings/import') }}
-      tertiary={{ label: t('onboarding.welcome.demo'), onPress: () => void useDemo(), testID: 'welcome-demo' }}>
+      tertiary={{ label: t('onboarding.welcome.demo'), onPress: () => void startDemo(), testID: 'welcome-demo' }}>
       <View style={{ flex: 1, gap: 16 }}>
         <AppText variant="title" style={{ fontWeight: '700' }}>
           Open<AppText variant="title" style={{ fontWeight: '500' }}>Hoop</AppText>

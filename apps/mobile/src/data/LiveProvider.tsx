@@ -33,6 +33,7 @@ export function LiveProvider({ children }: Props) {
     };
   }, [controller]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- appData() reads the controller's latest snapshot, so a new snapshot must rebuild it
   const value = useMemo(() => controller.appData(), [controller, snapshot]);
 
   if (!snapshot.ready) return <View style={{ flex: 1, backgroundColor: darkColors.background }} />;

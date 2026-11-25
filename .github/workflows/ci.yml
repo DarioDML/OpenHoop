@@ -53,6 +53,8 @@ jobs:
         run: npm ci --ignore-scripts
         working-directory: .
       - run: npm ci
+      - name: Generate Expo Router's typed routes so tsc checks every href
+        run: npx expo customize tsconfig.json
       - run: npx tsc --noEmit
       - run: npx jest
       - name: Bundle the app with Metro and Hermes

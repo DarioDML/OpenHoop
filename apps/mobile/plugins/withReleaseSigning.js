@@ -16,6 +16,7 @@ const RELEASE_SIGNING = `
 const DEBUG_SIGNING = /(signingConfigs\s*\{[\s\S]*?debug\s*\{[\s\S]*?\n\s{8}\})/;
 const RELEASE_BUILD_TYPE = /(buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?)signingConfig signingConfigs\.debug/;
 
+/** @param {string} gradle @returns {string} */
 function applyReleaseSigning(gradle) {
   if (gradle.includes(MARKER)) return gradle;
   if (!DEBUG_SIGNING.test(gradle) || !RELEASE_BUILD_TYPE.test(gradle)) {

@@ -10,7 +10,7 @@ import { useT } from '@/i18n/useT';
 import { formatNumber, formatSigned } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Chip, type ChipTone } from '@/ui/Chip';
+import type { ChipTone } from '@/ui/Chip';
 import { StateCard } from '@/ui/StateCard';
 import { TopBar } from '@/ui/TopBar';
 import { Screen } from '@/ui/Screen';

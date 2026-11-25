@@ -8,7 +8,7 @@ const formatters = new Map<string, Intl.DateTimeFormat | null>();
 function formatterFor(zone: string): Intl.DateTimeFormat | null {
   const cached = formatters.get(zone);
   if (cached !== undefined) return cached;
-  let made: Intl.DateTimeFormat | null = null;
+  let made: Intl.DateTimeFormat | null;
   try {
     made = new Intl.DateTimeFormat('en-US', {
       timeZone: zone,
