@@ -40,8 +40,8 @@ export function ConfirmDangerDialog({ visible, commandName, title, body, confirm
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: spacing.lg }}>
-        <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, gap: spacing.lg, borderWidth: 1, borderColor: colors.negative }}>
-          <AppText variant="title" accessibilityRole="header">
+        <View style={{ backgroundColor: colors.sheet, borderRadius: radius.lg, padding: spacing.xl, gap: spacing.lg, borderWidth: 1, borderColor: colors.negative }}>
+          <AppText variant="cardTitle" accessibilityRole="header" style={{ fontSize: 20 }}>
             {title}
           </AppText>
           <AppText variant="body">{body}</AppText>

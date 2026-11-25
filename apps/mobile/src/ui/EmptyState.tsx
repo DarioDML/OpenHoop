@@ -1,16 +1,20 @@
+import { router } from 'expo-router';
+
 import { useT } from '@/i18n/useT';
 
-import { AppText } from './AppText';
-import { Card } from './Card';
+import { StateCard } from './StateCard';
 
 export function EmptyState() {
   const { t } = useT();
   return (
-    <Card style={{ gap: 6 }}>
-      <AppText variant="title">{t('empty.title')}</AppText>
-      <AppText variant="body" muted>
-        {t('empty.body')}
-      </AppText>
-    </Card>
+    <StateCard
+      testID="empty-state"
+      icon="band"
+      tone="neutral"
+      title={t('empty.title')}
+      body={t('empty.body')}
+      actionLabel={t('band.pair')}
+      onAction={() => router.push('/onboarding/pair')}
+    />
   );
 }
