@@ -1,3 +1,5 @@
+import type { ActiveMinutes } from '@openhoop/analytics';
+
 export type SqlValue = string | number | null | Uint8Array;
 
 export interface SqlRunResult {
@@ -135,6 +137,7 @@ export interface DayRecord {
   steps: number | null;
   heartRate: { min: number | null; avg: number | null; max: number | null };
   workouts: WorkoutRecord[];
+  activeMinutes?: ActiveMinutes | null;
 }
 
 export type ExportTable =

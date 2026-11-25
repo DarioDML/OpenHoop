@@ -18,3 +18,14 @@ export { zoneSeconds } from './zones';
 export type { ZoneSeconds } from './zones';
 export { detectWorkouts } from './workouts';
 export type { Workout } from './workouts';
+export {
+  ACTIVE_HRR_FRACTION,
+  ENERGY_AGE_RANGE,
+  ENERGY_MIN_MEASURED_MINUTES,
+  activeMinutes,
+  activeThresholdBpm,
+  dailyEnergy,
+  keytelKcalPerMinute,
+  restingKcalPerDay,
+} from './energy';
+export type { ActiveHrBin, ActiveMinutes, BodyProfile, EnergyEstimate, EnergySex } from './energy';
