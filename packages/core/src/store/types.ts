@@ -169,7 +169,10 @@ export type ExportTable =
   | 'events'
   | 'console_log'
   | 'raw_chunks'
-  | 'body_measurements';
+  | 'body_measurements'
+  | 'coach_conversations'
+  | 'coach_messages'
+  | 'coach_memory';
 
 export interface Store {
   driver: SqlDriver;

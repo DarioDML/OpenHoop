@@ -208,7 +208,34 @@ CREATE TABLE sleep_edits (
 CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4];
+const V5 = `
+CREATE TABLE coach_conversations (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE coach_messages (
+  id INTEGER PRIMARY KEY,
+  conversation_id INTEGER NOT NULL REFERENCES coach_conversations(id),
+  role TEXT NOT NULL CHECK (role IN ('user', 'coach')),
+  text TEXT NOT NULL,
+  chips TEXT NOT NULL DEFAULT '[]',
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX coach_messages_conversation ON coach_messages (conversation_id, id);
+
+CREATE TABLE coach_memory (
+  id INTEGER PRIMARY KEY,
+  text TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('user', 'coach')),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

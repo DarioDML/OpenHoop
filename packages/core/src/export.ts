@@ -58,6 +58,21 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, day, weight_kg, body_fat_pct, created_at',
     order: 'day, id',
   },
+  coach_conversations: {
+    columns: ['id', 'title', 'created_at', 'updated_at'],
+    select: 'id, title, created_at, updated_at',
+    order: 'id',
+  },
+  coach_messages: {
+    columns: ['id', 'conversation_id', 'role', 'text', 'chips', 'created_at'],
+    select: 'id, conversation_id, role, text, chips, created_at',
+    order: 'conversation_id, id',
+  },
+  coach_memory: {
+    columns: ['id', 'text', 'source', 'created_at', 'updated_at'],
+    select: 'id, text, source, created_at, updated_at',
+    order: 'id',
+  },
 };
 
 function cell(value: SqlValue | undefined): string {
