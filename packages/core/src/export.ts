@@ -58,6 +58,36 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, day, weight_kg, body_fat_pct, created_at',
     order: 'day, id',
   },
+  strength_exercises: {
+    columns: ['id', 'name', 'muscle', 'created_at'],
+    select: 'id, name, muscle, created_at',
+    order: 'id',
+  },
+  strength_templates: {
+    columns: ['id', 'name', 'created_at', 'updated_at'],
+    select: 'id, name, created_at, updated_at',
+    order: 'id',
+  },
+  strength_template_items: {
+    columns: ['id', 'template_id', 'position', 'exercise_key', 'exercise_name', 'muscle', 'sets', 'reps', 'weight_kg'],
+    select: 'id, template_id, position, exercise_key, exercise_name, muscle, sets, reps, weight_kg',
+    order: 'template_id, position, id',
+  },
+  strength_sessions: {
+    columns: ['id', 'template_id', 'name', 'day', 'started_at', 'ended_at'],
+    select: 'id, template_id, name, day, started_at, ended_at',
+    order: 'started_at, id',
+  },
+  strength_session_exercises: {
+    columns: ['id', 'session_id', 'position', 'exercise_key', 'exercise_name', 'muscle', 'sets', 'reps', 'weight_kg'],
+    select: 'id, session_id, position, exercise_key, exercise_name, muscle, sets, reps, weight_kg',
+    order: 'session_id, position, id',
+  },
+  strength_sets: {
+    columns: ['id', 'session_id', 'exercise_key', 'exercise_name', 'muscle', 'reps', 'weight_kg', 'rpe', 'done_at'],
+    select: 'id, session_id, exercise_key, exercise_name, muscle, reps, weight_kg, rpe, done_at',
+    order: 'session_id, id',
+  },
 };
 
 function cell(value: SqlValue | undefined): string {
