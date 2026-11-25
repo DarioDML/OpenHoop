@@ -24,8 +24,10 @@ import {
   deleteLabResult,
   exportCsv,
   insertBodyMeasurement,
+  insertJournalNote,
   insertLabResult,
   listBodyMeasurements,
+  listJournalNotes,
   listLabResults,
   loadReference,
   clearPregnancy,
@@ -35,10 +37,6 @@ import {
   emptyCycleData,
   insertPeriod,
   loadCycleData,
-
-  insertJournalNote,
-  listBodyMeasurements,
-  listJournalNotes,
   probeLock,
   readDeviceInformation,
   recomputeDays,
@@ -56,22 +54,18 @@ import {
   type ActivityStore,
   updatePeriod,
   upsertSymptom,
-  type BandModel,
-  type BodyMeasurement,
-  type BodyMeasurementInput,
-  type CycleData,
-  type CustomExerciseInput,
-  type PlannedExercise,
-  type StrengthData,
-  type StrengthSetInput,
-  type StrengthTemplateInput,
-
   updateJournalNote,
   type BandModel,
   type BodyMeasurement,
   type BodyMeasurementInput,
   type JournalNote,
   type JournalNoteInput,
+  type CycleData,
+  type CustomExerciseInput,
+  type PlannedExercise,
+  type StrengthData,
+  type StrengthSetInput,
+  type StrengthTemplateInput,
   type DayRecord,
   type DeviceRow,
   type LabResult,
@@ -142,6 +136,7 @@ const PROGRESS_INTERVAL_MS = 250;
 const EARLIEST_DAY = '0000-01-01';
 const LATEST_DAY = '9999-12-31';
 const INCREMENTAL_RECOMPUTE_BACK_S = 2 * DAY_S;
+  journalNotes: JournalNote[];
 const MAX_DEMO_BACKLOG_DAYS = 20;
 export const UNDO_MS = 5_000;
 const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null };
@@ -163,8 +158,6 @@ export interface Snapshot {
   labResults: LabResult[];
   cycle: CycleData;
   strength: StrengthData;
-
-  journalNotes: JournalNote[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
@@ -227,6 +220,7 @@ export class AppController {
   private battery: number | null = null;
   private backlogPages: number | null = null;
   private lastSyncAt: number | null = null;
+      journalNotes: [],
   private chain: Promise<unknown> = Promise.resolve();
   private userDataChain: Promise<void> = Promise.resolve();
   private syncRun: Promise<void> | null = null;
@@ -255,8 +249,6 @@ export class AppController {
       labResults: [],
       cycle: emptyCycleData(),
       strength: emptyStrengthData(),
-
-      journalNotes: [],
       syncProgress: null,
       notice: null,
       inbox: [],
@@ -357,17 +349,15 @@ export class AppController {
     const labResults = await listLabResults(this.app.driver);
     const cycle = await loadCycleData(this.app.driver);
     const strength = await listStrengthData(this.app.driver);
-
     const journalNotes = await listJournalNotes(this.app.driver);
     this.patch({
       settings: { ...this.snapshot.settings, language, dataSource },
       profile,
       userData,
       bodyMeasurements,
+      journalNotes,
       labResults,
       cycle,
-
-      journalNotes,
       inbox: this.notificationState.inbox,
       strength,
     });
@@ -907,15 +897,11 @@ export class AppController {
   removeBodyMeasurement = (id: number): Promise<boolean> => this.runBodyChange((driver) => deleteBodyMeasurement(driver, id));
 
   private runLabChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
-
-  private runNoteChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
     const run = this.userDataChain.then(async () => {
       try {
         const { driver } = this.requireApp();
         const done = await task(driver);
         this.patch({ labResults: await listLabResults(driver) });
-
-        this.patch({ journalNotes: await listJournalNotes(driver) });
         return done;
       } catch (error) {
         this.fail(error);
@@ -1032,6 +1018,22 @@ export class AppController {
       finishSession: (id: number) => this.runStrength((driver) => finishStrengthSession(driver, id, nowSeconds()), false),
       removeSession: (id: number) => this.runStrength((driver) => deleteStrengthSession(driver, id), false),
     };
+  }
+
+  private runNoteChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const done = await task(driver);
+        this.patch({ journalNotes: await listJournalNotes(driver) });
+        return done;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
   }
 
   saveJournalNote = (id: number | null, input: JournalNoteInput): Promise<boolean> =>
@@ -1231,6 +1233,8 @@ export class AppController {
       }
     });
 
+      saveJournalNote: this.saveJournalNote,
+      removeJournalNote: this.removeJournalNote,
   deleteActivity = (target: DeleteTarget): Promise<boolean> =>
     this.exclusive(async () => {
       try {
@@ -1339,9 +1343,6 @@ export class AppController {
       removePregnancy: this.removePregnancy,
       removeAllCycleData: this.removeAllCycleData,
       strengthActions: this.strengthActionSet,
-
-      saveJournalNote: this.saveJournalNote,
-      removeJournalNote: this.removeJournalNote,
       heartRateBetween: this.heartRateBetween,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
