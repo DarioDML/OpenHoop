@@ -14,7 +14,6 @@ export type { Calibration, Profile } from './calibration';
 export { debtMs, sleepConsistency, sleepNeedMs, sleepScore, strainNeedMs } from './sleepNeed';
 export { readiness } from './readiness';
 export type { ReadinessNight, ReadinessResult } from './readiness';
-export { dayLoad } from './load';
 export { zoneSeconds } from './zones';
 export type { ZoneSeconds } from './zones';
 export { detectWorkouts } from './workouts';
@@ -26,11 +25,51 @@ export {
   activeMinutes,
   activeThresholdBpm,
   dailyEnergy,
+  windowEnergy,
+  WINDOW_MIN_COVERAGE,
   keytelKcalPerMinute,
   parseActiveMinutes,
   restingKcalPerDay,
 } from './energy';
 export type { ActiveHrBin, ActiveMinutes, BodyProfile, EnergyEstimate, EnergySex } from './energy';
+export { dayLoad, loadFromSum, loadSum, sumFromLoad } from './load';
+export {
+  ACTIVITY_MAX_S,
+  ACTIVITY_MIN_COVERAGE,
+  ACTIVITY_MIN_S,
+  ACTIVITY_NOTE_MAX,
+  SAME_SESSION_FRACTION,
+  activeSegments,
+  activityLoad,
+  activityMetrics,
+  clipIntervals,
+  coveredFraction,
+  loadReference,
+  minuteMeans,
+  normalizeIntervals,
+  overlapSeconds,
+  projectDayLoad,
+  sameSession,
+  subtractIntervals,
+  totalSeconds,
+} from './activity';
+export type { ActivityMetrics, HrPoint, Interval, LoadReference, RestingDay } from './activity';
+export { zoneIndex } from './zones';
+export {
+  STRESS_BASELINE_MIN_DAYS,
+  STRESS_HIGH_FROM,
+  STRESS_MAX_SCORE,
+  STRESS_MEDIUM_FROM,
+  STRESS_WINDOW_S,
+  dayStress,
+  parseStressDay,
+  stressBaseline,
+  stressFeatures,
+  stressLevel,
+  stressScore,
+  stressSummary,
+} from './stress';
+export type { StressBaseline, StressDay, StressInput, StressLevel, StressSpan, StressSummary, StressWindow } from './stress';
 export {
   ACTIVITY_FULL_DAY_MINUTES,
   ADULT_AGE_RANGE,

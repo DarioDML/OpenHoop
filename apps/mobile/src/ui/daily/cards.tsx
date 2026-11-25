@@ -2,20 +2,28 @@ import type { DayRecord } from '@openhoop/core';
 import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
+import { dayEntries } from '@/data/activities';
+import { activeCheckIns } from '@/coach/checkIns';
 import { useAppData } from '@/data/context';
 import { baselineAt } from '@/data/derived';
 import { caloriesForDay } from '@/data/energyDerived';
+import { stressForDay } from '@/data/stressDerived';
 import { formatHm, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { strengthWeek } from '@/data/strength';
 import { useT } from '@/i18n/useT';
-import { formatClock, formatDuration } from '@/lib/format';
+import { formatClock, formatDuration, formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Icon, type IconName } from '@/ui/Icon';
 import { MetricTile } from '@/ui/MetricTile';
 import { ISSUES, type IssueKey } from '@/ui/NotBuilt';
+import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
+import { stressColor } from '@/ui/health/StressLevels';
 import { radius, spacing, useTheme } from '@/ui/theme';
+
+import { entryHref, entryTitle } from '@/ui/activity/entries';
 
 import { Divider, WeekDots, useRangeChip } from './bits';
 import { briefLines, tonightBedtime } from './briefText';
@@ -75,9 +83,36 @@ export function VitalsCard({ days, index }: DayProps) {
   );
 }
 
-export function StressCard() {
-  const { t } = useT();
-  return <PendingCard label={t('home.stress')} issue="stress" href="/health/stress" testID="card-stress" />;
+export function StressCard({ days, index }: DayProps) {
+  const { t, language, reason } = useT();
+  const { colors } = useTheme();
+  const day = days[index];
+  const view = stressForDay(day);
+  const latest = view.latest;
+  return (
+    <Card href="/health/stress" testID="card-stress" accessibilityLabel={t('home.stress')} style={{ flex: 1, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+        <AppText variant="capSmall" muted numberOfLines={1} style={{ flexShrink: 1 }}>
+          {t('home.stress')} ›
+        </AppText>
+        <ParityBadge level={PARITY.stress} />
+      </View>
+      {latest && day ? (
+        <>
+          <AppText variant="bodyStrong" color={stressColor(colors, latest.level)} testID="stress-tile-level">
+            {t(`stress.level.${latest.level}`)} · {formatNumber(latest.score, 1, language)}
+          </AppText>
+          <AppText variant="caption" muted numeric testID="stress-tile-time">
+            {t('stress.at', { time: formatClock(latest.t, day.tzOffsetS) })} · {t('stress.estimate')}
+          </AppText>
+        </>
+      ) : (
+        <AppText variant="bodyStrong" muted testID="stress-tile-reason">
+          {view.calibrating ? t('stress.calibratingTitle') : view.reason === 'low-coverage' ? t('stress.noWindows') : reason(view.reason ?? 'no-data')}
+        </AppText>
+      )}
+    </Card>
+  );
 }
 
 export function MorningBriefCard({ days, index }: DayProps) {
@@ -106,6 +141,8 @@ export function MorningBriefCard({ days, index }: DayProps) {
 export function CoachPill() {
   const { t } = useT();
   const { colors } = useTheme();
+  const { days, userData } = useAppData();
+  const checkIns = userData.coach.checkIns ? activeCheckIns(days, userData.coach.dismissedCheckIns).length : 0;
   return (
     <Pressable
       testID="coach-pill"
@@ -126,6 +163,7 @@ export function CoachPill() {
       <AppText variant="body" muted style={{ flex: 1 }}>
         {t('home.askCoach')}
       </AppText>
+      {checkIns > 0 ? <Chip label={t('coach.checkIn.title')} tone="purple" small testID="coach-pill-check-in" /> : null}
     </Pressable>
   );
 }
@@ -172,9 +210,11 @@ interface MyDayProps extends DayProps {
 export function MyDayCard({ days, index, actions = true }: MyDayProps) {
   const { t } = useT();
   const { colors } = useTheme();
+  const { activities } = useAppData();
   const day = days[index];
   if (!day) return null;
   const main = mainPeriod(day);
+  const entries = dayEntries(days, day, activities);
   return (
     <View style={{ gap: spacing.md }}>
       <AppText variant="capLarge" muted>
@@ -209,21 +249,21 @@ export function MyDayCard({ days, index, actions = true }: MyDayProps) {
             </AppText>
           </View>
         )}
-        {day.workouts.map((workout, i) => (
-          <View key={workout.start}>
+        {entries.map((entry) => (
+          <View key={entry.key}>
             <Divider />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={workout.label ?? t('workout.default')}
-              onPress={() => router.push(`/activity/details?day=${day.day}&index=${i}`)}
+              accessibilityLabel={entryTitle(t, entry)}
+              onPress={() => router.push(entryHref(entry, day.day, entry.id === null ? day.workouts.findIndex((w) => w.start === entry.detectedStart) : null))}
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56 }}>
               <Icon name="flame" color={colors.metric.loadBright} size={20} />
               <View style={{ flex: 1, gap: 2 }}>
                 <AppText variant="body" style={{ fontWeight: '500' }}>
-                  {workout.label ?? t('workout.default')}
+                  {entryTitle(t, entry)}
                 </AppText>
                 <AppText variant="caption" muted numeric>
-                  {formatClock(workout.start, day.tzOffsetS)} – {formatClock(workout.end, day.tzOffsetS)}
+                  {formatClock(entry.start, day.tzOffsetS)} – {formatClock(entry.end, day.tzOffsetS)}
                 </AppText>
               </View>
               <Icon name="chevronRight" color={colors.textMuted} size={18} />
@@ -244,10 +284,11 @@ export function MyDayCard({ days, index, actions = true }: MyDayProps) {
 export function WeekCard({ days, index }: DayProps) {
   const { t } = useT();
   const { colors } = useTheme();
-  const { userData } = useAppData();
+  const { userData, strength } = useAppData();
   const day = days[index];
   if (!day) return null;
   const progress = weekProgress(days, day.day);
+  const strengthWeekStats = strengthWeek(strength.sessions, day.day);
   const plan = userData.weeklyPlan;
   const row = (label: string, dots: ReadonlyArray<boolean | null>, count: number, target: number | null, color: string, testID: string) => (
     <View key={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 36 }}>
@@ -267,6 +308,7 @@ export function WeekCard({ days, index }: DayProps) {
       <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
       {row(t('home.weekActive'), progress.loadDots, progress.loadCount, plan?.loadDays ?? null, colors.metric.loadBright, 'week-load')}
       {row(t('home.weekSleep'), progress.sleepDots, progress.sleepCount, plan?.sleepNights ?? null, colors.metric.sleep, 'week-sleep')}
+      {row(t('strength.week.label'), strengthWeekStats.dots, strengthWeekStats.count, null, colors.accent, 'week-strength')}
     </Card>
   );
 }

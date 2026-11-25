@@ -30,6 +30,7 @@ const LABELS: Readonly<Record<keyof typeof PARITY, TranslationKey>> = {
   consistency: 'metric.consistency',
   workouts: 'load.workouts',
   calories: 'calories.title',
+  stress: 'health.stress.title',
   vo2max: 'health.metrics.vo2max',
   pillars: 'health.hub.pillars',
 };

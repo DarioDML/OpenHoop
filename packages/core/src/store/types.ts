@@ -1,4 +1,4 @@
-import type { ActiveMinutes } from '@openhoop/analytics';
+import type { ActiveMinutes, StressDay } from '@openhoop/analytics';
 
 export type SqlValue = string | number | null | Uint8Array;
 
@@ -157,6 +157,7 @@ export interface DayRecord {
   heartRate: { min: number | null; avg: number | null; max: number | null };
   workouts: WorkoutRecord[];
   activeMinutes?: ActiveMinutes | null;
+  stress?: StressDay | null;
 }
 
 export type ExportTable =
@@ -166,10 +167,24 @@ export type ExportTable =
   | 'sleeps'
   | 'sleep_edits'
   | 'workouts'
+  | 'activities'
   | 'events'
   | 'console_log'
   | 'raw_chunks'
-  | 'body_measurements';
+  | 'body_measurements'
+  | 'lab_results'
+  | 'coach_conversations'
+  | 'coach_messages'
+  | 'coach_memory'
+  | 'cycle_periods'
+  | 'symptom_logs'
+  | 'pregnancy'
+  | 'strength_exercises'
+  | 'strength_templates'
+  | 'strength_template_items'
+  | 'strength_sessions'
+  | 'strength_session_exercises'
+  | 'strength_sets';
 
 export interface Store {
   driver: SqlDriver;

@@ -4,8 +4,9 @@ import type { Href } from 'expo-router';
 import type { TranslationKey } from '@/i18n';
 
 import { addDays, baselineAt, mean, metricValue, rangeStatus, type Baseline, type MetricKey, type RangeStatus } from './derived';
-import { latestVo2 } from './healthspanDerived';
+import { latestStressScore } from './stressDerived';
 import type { ParityLevel, Profile } from './types';
+import { latestVo2 } from './healthspanDerived';
 import type { JournalAnswer } from './userData';
 
 export type VitalId = 'hrv' | 'rhr' | 'resp' | 'spo2' | 'temp';
@@ -179,7 +180,17 @@ export const CATALOGUE: readonly CatalogueItem[] = [
       return result.ok ? { kind: 'number', value: result.value.vo2max, decimals: 0, unitKey: 'health.vo2max.unit' } : { kind: 'none' };
     },
   },
-  { id: 'stress', labelKey: 'health.metrics.stress', category: 'health', level: null, href: '/health/stress', read: none },
+  {
+    id: 'stress',
+    labelKey: 'health.metrics.stress',
+    category: 'health',
+    level: 'C',
+    href: '/health/stress',
+    read: (days) => {
+      const score = latestStressScore(days);
+      return score === null ? { kind: 'none' } : { kind: 'number', value: score, decimals: 1, unitKey: null };
+    },
+  },
   {
     id: 'weight',
     labelKey: 'health.metrics.weight',
