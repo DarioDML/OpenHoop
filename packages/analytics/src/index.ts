@@ -55,3 +55,18 @@ export {
 } from './activity';
 export type { ActivityMetrics, HrPoint, Interval, LoadReference, RestingDay } from './activity';
 export { zoneIndex } from './zones';
+export {
+  STRESS_BASELINE_MIN_DAYS,
+  STRESS_HIGH_FROM,
+  STRESS_MAX_SCORE,
+  STRESS_MEDIUM_FROM,
+  STRESS_WINDOW_S,
+  dayStress,
+  parseStressDay,
+  stressBaseline,
+  stressFeatures,
+  stressLevel,
+  stressScore,
+  stressSummary,
+} from './stress';
+export type { StressBaseline, StressDay, StressInput, StressLevel, StressSpan, StressSummary, StressWindow } from './stress';

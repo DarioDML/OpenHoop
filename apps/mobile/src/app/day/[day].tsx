@@ -49,7 +49,7 @@ export default function PastDayScreen() {
       <Notices day={record} />
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <VitalsCard days={days} index={index} />
-        <StressCard />
+        <StressCard days={days} index={index} />
       </View>
       <MyDayCard days={days} index={index} actions={false} />
       <CoachPill />

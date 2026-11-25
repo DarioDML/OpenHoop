@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { addDays } from '@/data/derived';
+import { notesForDay } from '@/data/journalNotes';
 import { activeQuestions } from '@/data/journalQuestions';
 import type { JournalAnswer } from '@/data/userData';
 import { formatShortDay, todayIso } from '@/lib/format';
@@ -12,6 +13,7 @@ import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/controls';
 import { Card } from '@/ui/Card';
 import { HealthPage } from '@/ui/health/HealthPage';
+import { JournalNoteCard } from '@/ui/health/JournalNoteCard';
 import { JournalRow } from '@/ui/health/JournalRow';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/TopBar';
@@ -24,7 +26,7 @@ type Draft = Record<string, JournalAnswer>;
 export default function JournalScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const { userData, updateUserData } = useAppData();
+  const { userData, journalNotes, updateUserData } = useAppData();
   const today = todayIso(new Date());
   const [offset, setOffset] = useState(0);
   const day = addDays(today, -offset);
@@ -39,6 +41,8 @@ export default function JournalScreen() {
   }, [day, userData.journal]);
 
   const dayLabel = offset === 0 ? t('common.today') : offset === 1 ? t('common.yesterday') : formatShortDay(day, language);
+  const dayNotes = useMemo(() => notesForDay(journalNotes, day), [journalNotes, day]);
+  const openLog = (): void => router.push({ pathname: '/journal/log', params: { day } });
   const answered = questions.filter((q) => draft[q.id] !== undefined).length;
 
   const save = async (): Promise<void> => {
@@ -77,14 +81,17 @@ export default function JournalScreen() {
         </View>
       }
       footer={<Button label={saved ? t('common.saved') : t('journal.save')} onPress={() => void save()} disabled={answered === 0} testID="journal-save" />}>
-      <Card onPress={() => router.push('/journal/log')} accessibilityLabel={t('journal.voice')} testID="journal-voice">
+      <Card onPress={openLog} accessibilityLabel={t('journal.addNote')} testID="journal-add-note">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <Icon name="mic" color={colors.textMuted} size={20} />
+          <Icon name="journal" color={colors.textMuted} size={20} />
           <AppText variant="body" muted style={{ flex: 1 }}>
-            {t('journal.voice')}
+            {t('journal.addNote')}
           </AppText>
         </View>
       </Card>
+      {dayNotes.map((note) => (
+        <JournalNoteCard key={note.id} note={note} showDay={false} onPress={openLog} />
+      ))}
       {questions.map((question) => (
         <JournalRow
           key={question.id}
