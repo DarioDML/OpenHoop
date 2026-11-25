@@ -1,10 +1,12 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { View } from 'react-native';
 
-import { parseActivityType } from '@/data/activityDerived';
+import { ACTIVITY_TYPES, parseActivityType, type ActivityType } from '@/data/activityDerived';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
+import { Pill } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { NotBuilt } from '@/ui/NotBuilt';
 import { Screen } from '@/ui/Screen';
@@ -14,7 +16,7 @@ import { spacing } from '@/ui/theme';
 export default function StartActivityScreen() {
   const { t } = useT();
   const params = useLocalSearchParams<{ type?: string }>();
-  const type = parseActivityType(params.type);
+  const [type, setType] = useState<ActivityType>(() => parseActivityType(params.type));
 
   return (
     <Screen
@@ -35,14 +37,23 @@ export default function StartActivityScreen() {
         </>
       }
       footer={<Button label={t('activity.start.begin')} onPress={() => router.replace({ pathname: '/activity/live', params: { type } })} testID="start-begin" />}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        {ACTIVITY_TYPES.map((option) => (
+          <Pill key={option} label={t(`activity.type.${option}`)} selected={option === type} onPress={() => setType(option)} testID={`start-type-${option}`} />
+        ))}
+      </View>
       <Card>
         <AppText variant="cardTitle">{t('activity.start.hr.title')}</AppText>
         <AppText variant="body" muted>
           {t('activity.start.hr.body')}
         </AppText>
       </Card>
+      <Card tone="outline">
+        <AppText variant="label" muted>
+          {t('activity.start.saved')}
+        </AppText>
+      </Card>
       <NotBuilt issue="gps" compact body={t('activity.start.gps')} />
-      <NotBuilt issue="activities" compact body={t('activity.start.save')} />
     </Screen>
   );
 }

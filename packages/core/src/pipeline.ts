@@ -2,14 +2,18 @@ import {
   ALGO,
   DEFAULT_CALIBRATION,
   activeMinutes,
+  activeThresholdBpm,
   dayLoad,
+  dayStress,
   debtMs,
   detectWorkouts,
   effectiveMaxHr,
   groupNights,
+  minuteMeans,
   nightlyHrv,
   nightlySkinTemp,
   nightlySpo2,
+  parseStressDay,
   readiness,
   respiratoryRate,
   restingHr as nightlyRestingHr,
@@ -19,7 +23,7 @@ import {
   sleepScore,
   zoneSeconds,
 } from '@openhoop/analytics';
-import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample, SleepPeriod } from '@openhoop/analytics';
+import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample, SleepPeriod, StressWindow } from '@openhoop/analytics';
 import { FrameError, decodeFrame } from '@openhoop/protocol';
 import type { Packet } from '@openhoop/protocol';
 import { sampleFromPacket } from './mapping';
@@ -40,7 +44,6 @@ import type {
 
 const DAY_S = 86_400;
 const HOUR_S = 3_600;
-const MINUTE_S = 60;
 const MAIN_NIGHT_LATEST_TOD_S = 15 * HOUR_S;
 const BLOCK_S = HOUR_S;
 const SCAN_BEFORE_S = 12 * HOUR_S;
@@ -48,17 +51,17 @@ const SCAN_AFTER_S = 18 * HOUR_S;
 const CLOCK_OFFSET_LIMIT_S = 120;
 const PARTIAL_DAY_SAMPLES = 20 * HOUR_S;
 const BASELINE_DAYS = 14;
+const STRESS_HISTORY_DAYS = 28;
 const SKIN_BASELINE_MIN_DAYS = 3;
 const RESTING_HR_FALLBACK = 60;
 const CALIBRATING_NIGHTS = 3;
-const MINUTE_MIN_VALID_S = 30;
 const HR_MIN = 25;
 const HR_MAX = 230;
 const STEP_MODULUS = 65_536;
 const STEP_WRAP_MAX = 4_096;
 const EARLIEST_DAY = '0000-01-01';
 
-const SOURCE_RANK: Record<SampleSource, number> = { history: 0, live: 1, hrm: 2 };
+export const SOURCE_RANK: Readonly<Record<SampleSource, number>> = { history: 0, live: 1, hrm: 2 };
 
 export interface RecomputeOptions {
   deviceId: number;
@@ -126,7 +129,7 @@ export function dayKey(unixS: number, tzOffsetS: number): string {
   return formatDayIndex(localDayIndex(unixS, tzOffsetS));
 }
 
-function validHr(hr: number | null): number | null {
+export function validHr(hr: number | null): number | null {
   return hr !== null && hr >= HR_MIN && hr <= HR_MAX ? hr : null;
 }
 
@@ -301,25 +304,6 @@ function countSteps(samples: Sample[]): number | null {
     previous = s.steps;
   }
   return seen ? total : null;
-}
-
-function minuteMeans(samples: Sample[], start: number, end: number): (number | null)[] {
-  const minutes = Math.ceil((end - start) / MINUTE_S);
-  const counts = new Int32Array(minutes);
-  const sums = new Float64Array(minutes);
-  for (const s of samples) {
-    if (s.hr === null) continue;
-    const m = Math.floor((s.t - start) / MINUTE_S);
-    if (m < 0 || m >= minutes) continue;
-    counts[m] = (counts[m] ?? 0) + 1;
-    sums[m] = (sums[m] ?? 0) + s.hr;
-  }
-  const out: (number | null)[] = [];
-  for (let m = 0; m < minutes; m++) {
-    const c = counts[m] ?? 0;
-    out.push(c >= MINUTE_MIN_VALID_S ? (sums[m] ?? 0) / c : null);
-  }
-  return out;
 }
 
 async function clockOffsetFlagged(ctx: Context, chunkId: number): Promise<boolean> {
@@ -502,6 +486,12 @@ async function computeDay(
   const existing = await store.getDay(deviceId, key);
   const manual = (existing?.workouts ?? []).filter((w) => w.source === 'manual' && w.start >= start && w.start < end);
   const workouts = [...auto, ...manual].sort((a, b) => a.start - b.start);
+  const stressHistory: StressWindow[][] = history.slice(-STRESS_HISTORY_DAYS).map((d) => {
+    const stored = parseStressDay(d.stress);
+    return stored !== null && stored.algo === ALGO.stress ? stored.windows : [];
+  });
+  const sleepSpans = periodRecords.map((p) => ({ start: p.onset, end: p.offset }));
+  const stress = dayStress(samples, { start, end, workouts, sleep: sleepSpans, activeThresholdBpm: activeThresholdBpm(rest, maxHr) }, stressHistory);
 
   let hrMin: number | null = null;
   let hrMax: number | null = null;
@@ -555,6 +545,7 @@ async function computeDay(
     heartRate: { min: hrMin, avg: hrCount > 0 ? hrSum / hrCount : null, max: hrMax },
     workouts,
     activeMinutes: activeMinutes(minuteHr, rest, maxHr),
+    stress,
   };
 }
 
