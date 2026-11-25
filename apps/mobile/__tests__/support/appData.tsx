@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { AppDataContext } from '@/data/context';
 import { createFixtureDays, createFixtureDevice, createFixtureSettings } from '@/data/fixtureSource';
+import { defaultHealthConnectState } from '@/data/healthConnectState';
 import type { AppData, Language } from '@/data/types';
 import { defaultUserData } from '@/data/userData';
 
@@ -43,6 +44,14 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     clearInbox: noop,
     saveSleepEdit: async () => 'saved',
     deleteSleepEdit: async () => true,
+    healthConnect: { availability: 'available', granted: [], state: defaultHealthConnectState(), syncing: false },
+    refreshHealthConnect: noop,
+    setHealthConnectType: async () => true,
+    setHealthConnectAfterSync: noop,
+    requestHealthConnectAccess: noop,
+    syncHealthConnect: noop,
+    openHealthConnectSettings: () => undefined,
+    installHealthConnect: noop,
     ...overrides,
   };
 }

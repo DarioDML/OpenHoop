@@ -285,5 +285,7 @@
   "journal.unit.drinks": "Drinks",
   "journal.unit.glasses": "Glasses",
   "journal.voice": "Or just say what happened…",
-  "journal.yes": "Yes"
+  "journal.yes": "Yes",
+  "health.bodyComposition.entries.fromHealthConnect": "From Health Connect",
+  "health.bodyComposition.entries.fromHealthConnectApp": "From Health Connect ({app})"
 }

@@ -26,6 +26,10 @@ export type HcImportType = (typeof HC_IMPORT_TYPES)[number];
 
 export type HcDataType = HcExportType | HcImportType;
 
+export function isExportType(type: HcDataType): type is HcExportType {
+  return (HC_EXPORT_TYPES as readonly HcDataType[]).includes(type);
+}
+
 export const HC_RECORD_TYPES: Readonly<Record<HcDataType, RecordType>> = {
   heartRate: 'HeartRate',
   restingHeartRate: 'RestingHeartRate',
@@ -54,7 +58,7 @@ export function permissionKey(permission: Permission): string {
 }
 
 export function permissionFor(type: HcDataType): Permission {
-  const accessType = (HC_IMPORT_TYPES as readonly string[]).includes(type) ? 'read' : 'write';
+  const accessType = isExportType(type) ? 'write' : 'read';
   return { accessType, recordType: HC_RECORD_TYPES[type] };
 }
 

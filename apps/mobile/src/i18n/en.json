@@ -273,5 +273,6 @@
   "range.calibrating": "● Calibrating range",
   "readiness.high": "High",
   "readiness.medium": "Medium",
-  "readiness.low": "Low"
+  "readiness.low": "Low",
+  "error.healthConnect": "Health Connect could not be opened."
 }

@@ -77,7 +77,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones |
 | C | Sleep consistency, automatic workouts, calories (estimate) |
-| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
+| D | Raw records, for example optical and motion data. Also the values you enter by hand or read from Health Connect (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
 
 When the data does not support a number, the app shows the reason instead of a number.
 
@@ -96,8 +96,19 @@ Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart 
 - No account, no server, no network access and no telemetry.
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
-- Export gives you the whole database and one CSV file per table, plus `notifications.json` with your notification settings and inbox.
+- Export gives you the whole database and one CSV file per table, plus `notifications.json` with your notification settings and inbox, and `health-connect.json` with your Health Connect choices and the last sync result.
 - Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
+- Health Connect (Android only) is opt-in per data type and off by default. It is a store on the phone, not a server, but other apps you allow in Health Connect can read what OpenHoop writes there. See "Health Connect".
+
+## Health Connect
+
+On Android, OpenHoop can write heart rate (minute averages), resting heart rate, HRV (RMSSD), sleep sessions, exercise sessions, SpO2, respiratory rate and skin temperature to Health Connect, and read weight and body fat from it. Each type has its own switch, and OpenHoop asks Health Connect only for the permissions of the types you turn on. The app declares these Health Connect permissions and no others: write heart rate, resting heart rate, heart rate variability, sleep, exercise, oxygen saturation, respiratory rate and skin temperature; read weight and body fat.
+
+- It writes only band data, never the simulated demo data, and only values the app also shows: a value the data cannot support is left out, not estimated. Sleep sessions have a start and an end but no stages.
+- Each sync replaces only the records OpenHoop wrote itself in the last 30 days, with stable record ids, so a re-sync or a sleep correction updates instead of duplicating. Data from other apps is never changed or deleted.
+- Weight and body fat from other apps go into the body log, labelled with the app they came from. They never overwrite or compete with your own entries: a day you entered by hand is skipped, an imported entry you edit becomes yours, and one you delete stays deleted.
+- Sync runs when you tap "Sync now", and after each band sync if you turn that on. To withdraw a permission or delete what OpenHoop wrote, use Health Connect itself.
+- Third-party cloud services (for example Strava) need network access, which OpenHoop blocks, and are not built.
 
 ## Not a medical device
 
