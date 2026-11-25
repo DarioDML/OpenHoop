@@ -209,6 +209,105 @@ CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
 `;
 
 const V5 = `
+CREATE TABLE lab_results (
+  id INTEGER PRIMARY KEY,
+  biomarker TEXT NOT NULL CHECK (length(biomarker) BETWEEN 1 AND 80),
+  unit TEXT NOT NULL CHECK (length(unit) BETWEEN 1 AND 24),
+  value REAL NOT NULL CHECK (value >= 0 AND value <= 1000000),
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  ref_low REAL CHECK (ref_low IS NULL OR (ref_low >= 0 AND ref_low <= 1000000)),
+  ref_high REAL CHECK (ref_high IS NULL OR (ref_high >= 0 AND ref_high <= 1000000)),
+  note TEXT CHECK (note IS NULL OR length(note) <= 300),
+  created_at INTEGER NOT NULL,
+  CHECK (ref_low IS NULL OR ref_high IS NULL OR ref_low < ref_high)
+);
+CREATE INDEX lab_results_biomarker_day ON lab_results (biomarker, day, id);
+`;
+
+const V6 = `
+CREATE TABLE activities (
+  id INTEGER PRIMARY KEY,
+  device_id INTEGER NOT NULL REFERENCES devices(id),
+  source TEXT NOT NULL CHECK (source IN ('manual', 'live', 'auto')),
+  detected_start INTEGER,
+  type TEXT NOT NULL,
+  start INTEGER NOT NULL,
+  end INTEGER NOT NULL,
+  paused TEXT NOT NULL DEFAULT '[]',
+  note TEXT,
+  deleted_at INTEGER,
+  active_s INTEGER NOT NULL DEFAULT 0,
+  load REAL,
+  load_reason TEXT,
+  zone_seconds TEXT NOT NULL DEFAULT '[0,0,0,0,0,0]',
+  avg_hr REAL,
+  max_hr REAL,
+  hr_seconds INTEGER NOT NULL DEFAULT 0,
+  active_minutes TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK (end > start),
+  CHECK ((source = 'auto') = (detected_start IS NOT NULL))
+);
+CREATE INDEX activities_device_start ON activities (device_id, start);
+CREATE UNIQUE INDEX activities_detected ON activities (device_id, detected_start) WHERE detected_start IS NOT NULL;
+`;
+
+const V7 = `
+CREATE TABLE coach_conversations (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE coach_messages (
+  id INTEGER PRIMARY KEY,
+  conversation_id INTEGER NOT NULL REFERENCES coach_conversations(id),
+  role TEXT NOT NULL CHECK (role IN ('user', 'coach')),
+  text TEXT NOT NULL,
+  chips TEXT NOT NULL DEFAULT '[]',
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX coach_messages_conversation ON coach_messages (conversation_id, id);
+
+CREATE TABLE coach_memory (
+  id INTEGER PRIMARY KEY,
+  text TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('user', 'coach')),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+`;
+
+const V8 = `
+CREATE TABLE cycle_periods (
+  id INTEGER PRIMARY KEY,
+  start_day TEXT NOT NULL CHECK (start_day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  end_day TEXT CHECK (end_day IS NULL OR (end_day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND end_day >= start_day)),
+  flow INTEGER NOT NULL CHECK (flow >= 1 AND flow <= 3),
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX cycle_periods_start ON cycle_periods (start_day, id);
+
+CREATE TABLE symptom_logs (
+  id INTEGER PRIMARY KEY,
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  symptom TEXT NOT NULL CHECK (symptom IN ('cramps', 'headache', 'bloating', 'mood', 'fatigue', 'breastTenderness', 'nausea', 'backPain')),
+  intensity INTEGER NOT NULL CHECK (intensity >= 1 AND intensity <= 3),
+  created_at INTEGER NOT NULL,
+  UNIQUE (day, symptom)
+);
+CREATE INDEX symptom_logs_day ON symptom_logs (day, id);
+
+CREATE TABLE pregnancy (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  due_day TEXT NOT NULL CHECK (due_day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  created_at INTEGER NOT NULL
+);
+`;
+
+const V9 = `
 CREATE TABLE strength_exercises (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 40),
@@ -276,7 +375,7 @@ CREATE INDEX strength_sets_session ON strength_sets (session_id, id);
 CREATE INDEX strength_sets_exercise ON strength_sets (exercise_key);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5];
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

@@ -136,14 +136,16 @@ describe('load screens', () => {
     expect(screen.getByTestId('hr-max')).toBeTruthy();
     expect(screen.getByText('Time per heart rate zone')).toBeTruthy();
     expect(screen.getByTestId('calories-card')).toBeTruthy();
-    if (latest && latest.workouts.length > 0) expect(screen.getByTestId(`workout-${latest.day}-0`)).toBeTruthy();
+    if (latest && latest.workouts.length > 0) expect(screen.getByTestId(`entry-w:${latest.workouts[0]?.start}`)).toBeTruthy();
     else expect(screen.getByText('No workouts on this day.')).toBeTruthy();
   });
 
   it('shows the target, trends and week screens', async () => {
     await render(withAppData(<LoadTargetScreen />));
     expect(screen.getByTestId('target-advice')).toBeTruthy();
-    expect(screen.getByTestId('not-built-activities')).toBeTruthy();
+    expect(screen.queryByTestId('not-built-activities')).toBeNull();
+    await fireEvent.press(screen.getByTestId('target-start'));
+    expect(router.push).toHaveBeenCalledWith('/activity/start');
   });
 
   it('switches trend ranges', async () => {
@@ -193,12 +195,12 @@ describe('activity screens', () => {
     );
     expect(screen.getByTestId('live-hr')).toBeTruthy();
     expect(screen.getByTestId('live-hr')).toHaveTextContent(/150/);
-    expect(screen.getByText('Zone 3')).toBeTruthy();
+    expect(screen.getByText('Zone 2')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('live-begin'));
     await waitFor(() => expect(startLive).toHaveBeenCalled());
     await fireEvent.press(screen.getByTestId('live-stop'));
     await waitFor(() => expect(stopLive).toHaveBeenCalled());
-    expect(screen.getByTestId('not-built-activities')).toBeTruthy();
+    expect(await screen.findByTestId('live-short')).toBeTruthy();
   });
 
   it('shows the real workout on the details screen', async () => {
@@ -216,11 +218,7 @@ describe('activity screens', () => {
     expect(screen.getByText('Activity not found')).toBeTruthy();
   });
 
-  it('marks edit, gps and share as not built', async () => {
-    const withWorkout = days.find((d) => d.workouts.length > 0);
-    mockParams = { day: withWorkout?.day ?? '', index: '0' };
-    await render(withAppData(<EditActivityScreen />));
-    expect(screen.getByTestId('not-built-activities')).toBeTruthy();
+  it('marks gps and share as not built', async () => {
     await render(withAppData(<GpsActivityScreen />));
     expect(screen.getByTestId('not-built-gps')).toBeTruthy();
     await render(withAppData(<ShareActivityScreen />));

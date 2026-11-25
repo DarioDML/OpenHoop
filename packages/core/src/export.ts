@@ -37,6 +37,15 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, device_id, day, start, "end", zone_seconds, avg_hr, max_hr, source, label',
     order: 'device_id, day, start',
   },
+  activities: {
+    columns: [
+      'id', 'device_id', 'source', 'detected_start', 'type', 'start', 'end', 'paused', 'note', 'deleted_at', 'active_s',
+      'load', 'load_reason', 'zone_seconds', 'avg_hr', 'max_hr', 'hr_seconds', 'active_minutes', 'created_at', 'updated_at',
+    ],
+    select:
+      'id, device_id, source, detected_start, type, start, "end", paused, note, deleted_at, active_s, load, load_reason, zone_seconds, avg_hr, max_hr, hr_seconds, active_minutes, created_at, updated_at',
+    order: 'device_id, start, id',
+  },
   events: {
     columns: ['id', 'device_id', 't', 'event', 'name', 'payload_hex', 'chunk_id'],
     select: 'id, device_id, t, event, name, payload_hex, chunk_id',
@@ -57,6 +66,41 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     columns: ['id', 'day', 'weight_kg', 'body_fat_pct', 'created_at'],
     select: 'id, day, weight_kg, body_fat_pct, created_at',
     order: 'day, id',
+  },
+  lab_results: {
+    columns: ['id', 'biomarker', 'unit', 'value', 'day', 'ref_low', 'ref_high', 'note', 'created_at'],
+    select: 'id, biomarker, unit, value, day, ref_low, ref_high, note, created_at',
+    order: 'day, id',
+  },
+  coach_conversations: {
+    columns: ['id', 'title', 'created_at', 'updated_at'],
+    select: 'id, title, created_at, updated_at',
+    order: 'id',
+  },
+  coach_messages: {
+    columns: ['id', 'conversation_id', 'role', 'text', 'chips', 'created_at'],
+    select: 'id, conversation_id, role, text, chips, created_at',
+    order: 'conversation_id, id',
+  },
+  coach_memory: {
+    columns: ['id', 'text', 'source', 'created_at', 'updated_at'],
+    select: 'id, text, source, created_at, updated_at',
+    order: 'id',
+  },
+  cycle_periods: {
+    columns: ['id', 'start_day', 'end_day', 'flow', 'created_at'],
+    select: 'id, start_day, end_day, flow, created_at',
+    order: 'start_day, id',
+  },
+  symptom_logs: {
+    columns: ['id', 'day', 'symptom', 'intensity', 'created_at'],
+    select: 'id, day, symptom, intensity, created_at',
+    order: 'day, id',
+  },
+  pregnancy: {
+    columns: ['id', 'due_day', 'created_at'],
+    select: 'id, due_day, created_at',
+    order: 'id',
   },
   strength_exercises: {
     columns: ['id', 'name', 'muscle', 'created_at'],

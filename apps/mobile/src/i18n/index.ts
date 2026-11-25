@@ -4,6 +4,8 @@ import coreEn from './en.json';
 import coreNl from './nl.json';
 import activityEn from './sections/activity.en.json';
 import activityNl from './sections/activity.nl.json';
+import coachEn from './sections/coach.en.json';
+import coachNl from './sections/coach.nl.json';
 import dailyEn from './sections/daily.en.json';
 import dailyNl from './sections/daily.nl.json';
 import healthEn from './sections/health.en.json';
@@ -13,8 +15,8 @@ import strengthNl from './sections/strength.nl.json';
 import manageEn from './sections/manage.en.json';
 import manageNl from './sections/manage.nl.json';
 
-const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...strengthNl };
-const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...strengthEn };
+const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl };
+const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn };
 
 export type TranslationKey = keyof typeof nl;
 export type TranslationParams = Record<string, string | number>;

@@ -8,6 +8,7 @@ import { formatLongDay, indexOfDay } from '@/data/dailyDerived';
 import { initialOf } from '@/data/userData';
 import { useT } from '@/i18n/useT';
 import { todayIso } from '@/lib/format';
+import { unreadCount } from '@/lib/notificationPlan';
 import { AppText } from '@/ui/AppText';
 import { Icon } from '@/ui/Icon';
 import { radius, useTheme } from '@/ui/theme';
@@ -38,7 +39,8 @@ function ChevronButton({ direction, enabled, onPress, label }: { direction: 'pre
 export function HomeHeader({ days, index }: Props) {
   const { colors } = useTheme();
   const { t, language } = useT();
-  const { userData, device } = useAppData();
+  const { userData, device, inbox } = useAppData();
+  const unread = unreadCount(inbox);
   const day = days[index];
   if (!day) return null;
   const isToday = index === days.length - 1;
@@ -100,10 +102,30 @@ export function HomeHeader({ days, index }: Props) {
         <Pressable
           testID="bell"
           accessibilityRole="button"
-          accessibilityLabel={t('home.notifications')}
+          accessibilityLabel={unread > 0 ? t('home.notif.bellUnread', { count: unread }) : t('home.notifications')}
           onPress={() => router.push('/home/notifications')}
           style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="bell" color={colors.text} size={22} />
+          {unread > 0 ? (
+            <View
+              testID="bell-badge"
+              style={{
+                position: 'absolute',
+                top: 6,
+                right: 4,
+                minWidth: 18,
+                height: 18,
+                paddingHorizontal: 4,
+                borderRadius: radius.pill,
+                backgroundColor: colors.negative,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <AppText variant="caption" numeric color={colors.primaryOn} style={{ fontWeight: '700' }}>
+                {unread > 9 ? '9+' : unread}
+              </AppText>
+            </View>
+          ) : null}
         </Pressable>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>

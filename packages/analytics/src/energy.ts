@@ -115,11 +115,25 @@ export function isValidBody(body: BodyProfile): boolean {
   );
 }
 
+export const WINDOW_MIN_COVERAGE = 0.5;
+
 export function dailyEnergy(minutes: ActiveMinutes | null, body: BodyProfile | null): Outcome<EnergyEstimate> {
   if (body === null || !isValidBody(body)) return fail('no-profile', ALGO.energy);
   if (minutes === null) return fail('missing-signal', ALGO.energy);
   if (minutes.measuredMinutes === 0 || minutes.totalMinutes <= 0) return fail('no-data', ALGO.energy);
   if (minutes.measuredMinutes < ENERGY_MIN_MEASURED_MINUTES) return fail('low-coverage', ALGO.energy);
+  return estimate(minutes, body);
+}
+
+export function windowEnergy(minutes: ActiveMinutes | null, body: BodyProfile | null): Outcome<EnergyEstimate> {
+  if (body === null || !isValidBody(body)) return fail('no-profile', ALGO.energy);
+  if (minutes === null) return fail('missing-signal', ALGO.energy);
+  if (minutes.measuredMinutes === 0 || minutes.totalMinutes <= 0) return fail('no-data', ALGO.energy);
+  if (minutes.measuredMinutes / minutes.totalMinutes < WINDOW_MIN_COVERAGE) return fail('low-coverage', ALGO.energy);
+  return estimate(minutes, body);
+}
+
+function estimate(minutes: ActiveMinutes, body: BodyProfile): Outcome<EnergyEstimate> {
   const restPerMinute = restingKcalPerDay(body) / MINUTES_PER_DAY;
   let activeKcal = 0;
   let active = 0;
