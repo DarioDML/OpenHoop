@@ -33,11 +33,22 @@ import { BleManagerTransport } from '@/ble/bleManagerTransport';
 import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
+import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
+import { alertText } from '@/lib/notificationText';
 
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
+import { addDays } from './derived';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
+import {
+  NOTIFICATION_STATE_KEY,
+  emptyNotificationState,
+  parseNotificationState,
+  serializeNotificationState,
+  type NotificationState,
+} from './notificationState';
+import { expoNotifier, type Notifier, type PermissionState } from './notifier';
 import { otherSleepSpans, recomputeFrom, type SleepEditRequest } from './sleepEditForm';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
@@ -85,6 +96,8 @@ export interface Snapshot {
   bodyMeasurements: BodyMeasurement[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
+  inbox: InboxEntry[];
+  notificationPermission: PermissionState;
 }
 
 interface Connection {
@@ -99,6 +112,8 @@ export interface SyncTimings {
   samples: number;
   chunks: number;
 }
+
+const SYNC_FAILURES_NOT_ALERTED: ReadonlySet<TranslationKey> = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
 
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
 
@@ -146,9 +161,11 @@ export class AppController {
   private liveRun: Promise<void> | null = null;
   private lastProgressAt = 0;
   private started = false;
+  private notificationState: NotificationState = emptyNotificationState();
+  private notificationChain: Promise<void> = Promise.resolve();
   lastTimings: SyncTimings | null = null;
 
-  constructor() {
+  constructor(private readonly notifier: Notifier = expoNotifier) {
     const language = detectLanguage(getLocales()[0]?.languageCode);
     this.snapshot = {
       ready: false,
@@ -162,6 +179,8 @@ export class AppController {
       bodyMeasurements: [],
       syncProgress: null,
       notice: null,
+      inbox: [],
+      notificationPermission: 'undetermined',
     };
   }
 
@@ -249,10 +268,18 @@ export class AppController {
     const rawUserData = await store.getSetting(USER_DATA_KEY);
     const userData = parseUserData(rawUserData);
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
+    this.notificationState = parseNotificationState(await store.getSetting(NOTIFICATION_STATE_KEY));
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
-    this.patch({ settings: { ...this.snapshot.settings, language, dataSource }, profile, userData, bodyMeasurements });
+    this.patch({
+      settings: { ...this.snapshot.settings, language, dataSource },
+      profile,
+      userData,
+      bodyMeasurements,
+      inbox: this.notificationState.inbox,
+    });
     await this.loadActiveDevice();
     this.patch({ ready: true });
+    void this.refreshNotifications();
     if (dataSource === 'demo') void this.sync();
   }
 
@@ -438,6 +465,7 @@ export class AppController {
   private async runSync(): Promise<void> {
     await this.stopLiveInternal();
     const { store } = this.requireApp();
+    let failed = false;
     try {
       this.patch({ notice: null, syncProgress: this.progressView('connecting', 0, null, 0, 0) });
       await this.requireOwnerSince();
@@ -479,8 +507,11 @@ export class AppController {
       const stopNotice = STOP_NOTICES[result.stoppedBy];
       if (stopNotice !== undefined) throw new AppError(stopNotice);
     } catch (error) {
-      throw this.fail(error);
+      const appError = this.fail(error);
+      failed = this.snapshot.settings.dataSource === 'band' && !SYNC_FAILURES_NOT_ALERTED.has(appError.key);
+      throw appError;
     } finally {
+      void this.refreshNotifications({ syncFailed: failed });
       if (this.connection === 'syncing') this.connection = this.conn?.session.isConnected === true ? 'connected' : 'disconnected';
       this.patch({ syncProgress: null });
       this.patchDevice();
@@ -628,6 +659,7 @@ export class AppController {
       await store.setSetting(SETTING_KEYS.language, patch.language);
       this.patch({ settings: { ...this.snapshot.settings, language: patch.language } });
       this.patchDevice();
+      void this.refreshNotifications();
     }
     if (patch.ownerSince !== undefined && patch.ownerSince !== null && patch.ownerSince !== current.ownerSince) {
       await this.changeOwnerSince(patch.ownerSince);
@@ -677,6 +709,7 @@ export class AppController {
       this.connection = 'disconnected';
       await this.loadActiveDevice();
     });
+    void this.refreshNotifications();
     if (source === 'demo') {
       void this.sync();
       return;
@@ -697,6 +730,7 @@ export class AppController {
         const next = parseUserData(serializeUserData({ ...this.snapshot.userData, ...patch }));
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
         this.patch({ userData: next });
+        if (patch.notifications !== undefined) void this.refreshNotifications();
         return true;
       } catch (error) {
         this.fail(error);
@@ -763,6 +797,106 @@ export class AppController {
     return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([t, b]) => ({ t, hr: b.sum / b.count }));
   };
 
+  private digestFacts(now: Date): (day: string) => DigestFacts | null {
+    const byDay = new Map(this.snapshot.days.map((record) => [record.day, record]));
+    return (day) => {
+      const record = byDay.get(day);
+      if (record === undefined) return null;
+      const yesterday = byDay.get(addDays(day, -1));
+      return {
+        readiness: record.readiness.value,
+        sleepScore: record.sleep.score.value,
+        load: yesterday !== undefined && yesterday.end * 1000 <= now.getTime() ? yesterday.load.value : null,
+      };
+    };
+  }
+
+  private async saveNotificationState(state: NotificationState): Promise<void> {
+    this.notificationState = state;
+    await this.requireApp().store.setSetting(NOTIFICATION_STATE_KEY, serializeNotificationState(state));
+    this.patch({ inbox: state.inbox });
+  }
+
+  private notificationTask(task: () => Promise<void>): Promise<void> {
+    const run = this.notificationChain.then(task).catch(() => undefined);
+    this.notificationChain = run;
+    return run;
+  }
+
+  refreshNotifications = (options: { syncFailed?: boolean } = {}): Promise<void> =>
+    this.notificationTask(async () => {
+      if (this.app === null) return;
+      const permission = await this.notifier.permission();
+      const stillScheduled = await this.notifier.scheduledIds();
+      const now = new Date();
+      const { userData, settings } = this.snapshot;
+      const prefs = userData.notifications;
+      const delivered = permission === 'granted';
+      const settled = reconcile(this.notificationState, now, delivered, stillScheduled);
+      const active = prefs.enabled && delivered;
+      const recentIds = [...settled.pending.map((alert) => alert.id), ...settled.sent];
+      const failure = options.syncFailed === true ? syncFailedAlert(now, prefs, recentIds) : null;
+      const fresh: Alert[] = failure === null ? [] : [failure];
+      let pending = active
+        ? planAlerts({
+            now,
+            prefs,
+            pending: settled.pending,
+            sent: settled.sent,
+            factsFor: this.digestFacts(now),
+            lastSyncAt: this.lastSyncAt === null ? null : this.lastSyncAt * 1000,
+            watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
+            fresh,
+          })
+        : [];
+      this.patch({ notificationPermission: permission });
+      try {
+        if (active) {
+          const channel = translate(settings.language, 'notif.channel');
+          const texts = pending.map((alert) => ({ id: alert.id, at: alert.at, ...alertText(settings.language, alert) }));
+          await this.notifier.replaceAll(texts, channel, now.getTime());
+        } else {
+          await this.notifier.cancelAll();
+        }
+      } catch {
+        pending = [];
+        await this.notifier.cancelAll().catch(() => undefined);
+      }
+      await this.saveNotificationState({ ...settled, pending });
+    });
+
+  setNotificationsEnabled = async (enabled: boolean): Promise<PermissionState> => {
+    if (!enabled) {
+      await this.updateUserData({ notifications: { ...this.snapshot.userData.notifications, enabled: false } });
+      return this.snapshot.notificationPermission;
+    }
+    const channel = translate(this.snapshot.settings.language, 'notif.channel');
+    const permission = await this.notifier.request(channel).catch((): PermissionState => 'denied');
+    this.patch({ notificationPermission: permission });
+    if (permission === 'granted') await this.updateUserData({ notifications: { ...this.snapshot.userData.notifications, enabled: true } });
+    return permission;
+  };
+
+  markInboxRead = (): Promise<void> =>
+    this.notificationTask(async () => {
+      if (this.app === null || this.notificationState.inbox.every((entry) => entry.read)) return;
+      await this.saveNotificationState({
+        ...this.notificationState,
+        inbox: this.notificationState.inbox.map((entry) => ({ ...entry, read: true })),
+      });
+    });
+
+  clearInbox = (): Promise<void> =>
+    this.notificationTask(async () => {
+      if (this.app === null) return;
+      await this.saveNotificationState({ ...this.notificationState, inbox: [] });
+    });
+
+  private notificationsExport(): string {
+    const { pending, inbox, sent } = this.notificationState;
+    return JSON.stringify({ preferences: this.snapshot.userData.notifications, inbox, scheduled: pending, sent }, null, 2);
+  }
+
   saveSleepEdit = (request: SleepEditRequest): Promise<SleepEditOutcome> =>
     this.exclusive(async () => {
       try {
@@ -811,7 +945,7 @@ export class AppController {
   exportData = async (): Promise<void> => {
     const app = this.requireApp();
     try {
-      await this.exclusive(() => exportAll(app, exportCsv));
+      await this.exclusive(() => exportAll(app, exportCsv, { 'notifications.json': this.notificationsExport() }));
     } catch (error) {
       this.fail(error);
     }
@@ -837,6 +971,10 @@ export class AppController {
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
       clearNotice: this.clearNotice,
+      refreshNotifications: this.refreshNotifications,
+      setNotificationsEnabled: this.setNotificationsEnabled,
+      markInboxRead: this.markInboxRead,
+      clearInbox: this.clearInbox,
     };
   }
 }
