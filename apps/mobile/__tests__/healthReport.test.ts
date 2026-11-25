@@ -15,7 +15,7 @@ const TODAY = DAYS[DAYS.length - 1]?.day ?? '';
 const HOSTILE = `<script>alert('x')</script>"><img src=x onerror=alert(1)>&`;
 
 function body(id: number, day: string, weightKg: number, bodyFatPct: number | null): BodyMeasurement {
-  return { id, day, weightKg, bodyFatPct, createdAt: id };
+  return { id, day, weightKg, bodyFatPct, createdAt: id, source: 'manual', origin: null };
 }
 
 function lab(id: number, patch: Partial<LabResult> = {}): LabResult {
