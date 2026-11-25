@@ -76,7 +76,7 @@ async function settledState(): Promise<BleState> {
   return new Promise<BleState>((resolve) => {
     const timer = setTimeout(() => {
       subscription.remove();
-      resolve(initial);
+      BleManager.checkState().then(resolve, () => resolve(initial));
     }, STATE_SETTLE_MS);
     const subscription = BleManager.onDidUpdateState(({ state }) => {
       if (isSettling(state)) return;

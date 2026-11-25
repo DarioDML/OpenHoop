@@ -44,7 +44,7 @@ On a Mac with Xcode, `npx expo run:ios` does the same for iOS. The app can use t
 
 The `App builds` workflow (`.github/workflows/apps.yml`) builds an Android APK and an unsigned iOS IPA, and starts the iOS build on a simulator to check that it launches. It runs on pull requests that change the native setup, on demand from the Actions tab, and on every `v*` tag. A tag also publishes both files as a GitHub release. To install them on a phone, see [docs/installeren.md](docs/installeren.md) (Dutch).
 
-Without signing secrets, the APK is signed with the public debug key, which is fine for testing but lets anyone sign an update for it. For releases, set the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`. The IPA needs no secrets: every iPhone user signs it with their own Apple ID.
+Pull request and on-demand builds sign the APK with the public debug key: fine for testing, but anyone could sign an update for it. A tagged release signs with your own key and fails without it. Set the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`; only tag builds can read them. The IPA needs no secrets: every iPhone user signs it with their own Apple ID.
 
 A Dutch runbook for the first day with a real band is in [docs/dag-1.md](docs/dag-1.md).
 

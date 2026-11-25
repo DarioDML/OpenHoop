@@ -106,7 +106,7 @@ describe('BleManagerTransport on iOS', () => {
 
   it('gives up waiting when the radio never reports a state', async () => {
     jest.useFakeTimers();
-    ble.checkState.mockResolvedValueOnce(BleState.Unknown);
+    ble.checkState.mockResolvedValueOnce(BleState.Unknown).mockResolvedValueOnce(BleState.Off);
     const transport = new BleManagerTransport();
     const prepared = transport.prepare().catch((error: unknown) => error);
     await jest.advanceTimersByTimeAsync(5000);
@@ -114,6 +114,7 @@ describe('BleManagerTransport on iOS', () => {
     const failure = await prepared;
     expect(failure).toBeInstanceOf(BleError);
     expect((failure as BleError).failure).toBe('off');
+    expect(ble.checkState).toHaveBeenCalledTimes(2);
   });
 });
 
