@@ -1,4 +1,4 @@
-import { GATT } from '@stoop/protocol';
+import { GATT } from '@openhoop/protocol';
 import type { Transport } from './transport';
 
 export interface DeviceInformation {

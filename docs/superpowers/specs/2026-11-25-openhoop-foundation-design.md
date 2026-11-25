@@ -1,10 +1,10 @@
-# Stoop: ontwerp van de fundering
+# OpenHoop: ontwerp van de fundering
 
 25 november 2026. Status: goedgekeurd door Dario in het gesprek (Android eerst, volledige omvang).
 
 ## Waarom
 
-Dario kocht een WHOOP 5.0 en een WHOOP MG en wil ze zonder lidmaatschap gebruiken. Bestaande open apps zijn op de 5.0/MG onaf, en geen enkele meet hoe ver haar scores van die van Whoop liggen. Stoop moet dat gat vullen: lokaal, open, en eerlijk over wat gemeten en wat geschat is.
+Dario kocht een WHOOP 5.0 en een WHOOP MG en wil ze zonder lidmaatschap gebruiken. Bestaande open apps zijn op de 5.0/MG onaf, en geen enkele meet hoe ver haar scores van die van Whoop liggen. OpenHoop moet dat gat vullen: lokaal, open, en eerlijk over wat gemeten en wat geschat is.
 
 De bands zijn onderweg. Dit ontwerp dekt alles wat zonder band gebouwd en getest kan worden, zodat de eerste dag met de band een testdag is en geen bouwdag.
 
@@ -29,7 +29,7 @@ Bron van de eisen: de twee PRD's van 25 november 2026. Waar ze elkaar tegensprek
 
 Deze zouden het project doen mislukken, ook als alles technisch werkt.
 
-- **Het firmwareslot omzeilen.** Firmware 50.43.x geeft geen geschiedenis vrij zonder een door Whoop getekend certificaat. Stoop bouwt geen enkele route om dat certificaat op te vangen, opnieuw af te spelen of na te maken. De commando's 155 tot 159 zijn in de code niet opbouwbaar.
+- **Het firmwareslot omzeilen.** Firmware 50.43.x geeft geen geschiedenis vrij zonder een door Whoop getekend certificaat. OpenHoop bouwt geen enkele route om dat certificaat op te vangen, opnieuw af te spelen of na te maken. De commando's 155 tot 159 zijn in de code niet opbouwbaar.
 - **Firmware schrijven.** De commando's voor firmware laden en DFU zijn evenmin opbouwbaar.
 - **Een band onbruikbaar maken.** Wissen, herstarten en de leeswijzer verzetten vragen een uitdrukkelijke bevestiging.
 - **Medische oordelen.** Geen ritmeclassificatie, geen bloeddrukwaarde.
@@ -128,7 +128,7 @@ Foutinjectie: verbinding verbreken midden in een stuk, een bevestiging laten ver
 
 ### apps/cli
 
-`stoop triage` (alleen lezen: diensten, firmware, batterij, klok, ringbuffer, feature flags, slotdetectie; bewaart een momentopname), `live`, `sync`, `recompute`, `export`, `decode` en `sim`. Elk commando werkt met `--sim` tegen de gesimuleerde band.
+`openhoop triage` (alleen lezen: diensten, firmware, batterij, klok, ringbuffer, feature flags, slotdetectie; bewaart een momentopname), `live`, `sync`, `recompute`, `export`, `decode` en `sim`. Elk commando werkt met `--sim` tegen de gesimuleerde band.
 
 ### apps/mobile
 
@@ -185,7 +185,7 @@ Deze onderdelen worden gebouwd maar blijven `ongetest` tot dag 1, en staan zo in
 
 Apache-2.0 voor `packages/*`, GPL-3.0 voor `apps/*`. `THIRD_PARTY_NOTICES.md` vermeldt wearable5.0 (MIT). `LEGAL.md` legt de grondslag uit (interoperabiliteit, Richtlijn 2009/24/EG) en de grenzen hierboven. `docs/provenance.md` houdt per protocolfeit bij waar het vandaan komt.
 
-De repository is privé. Publiek maken is een latere, aparte beslissing.
+De repository is publiek op GitHub (dat bleek na het schrijven van dit ontwerp; ze was het al sinds haar aanmaak).
 
 ## Wat aan de bouwer overgelaten is
 

@@ -7,7 +7,7 @@ import {
   encodeHelloBody,
   encodeMetadata,
   parseFirmware,
-} from '@stoop/protocol';
+} from '@openhoop/protocol';
 import type { BondResult, Clock, DiscoveredDevice, GattService, Transport } from '../src/index';
 
 export class VirtualClock implements Clock {

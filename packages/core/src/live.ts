@@ -1,4 +1,4 @@
-import { GATT, parseHeartRateMeasurement } from '@stoop/protocol';
+import { GATT, parseHeartRateMeasurement } from '@openhoop/protocol';
 import type { Clock } from './session';
 import { systemClock } from './session';
 import type { SampleRow, Store } from './store/types';

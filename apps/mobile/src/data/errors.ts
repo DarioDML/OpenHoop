@@ -1,4 +1,4 @@
-import { CommandFailedError, CommandTimeoutError, DisconnectedError, OwnerSinceRequiredError } from '@stoop/core';
+import { CommandFailedError, CommandTimeoutError, DisconnectedError, OwnerSinceRequiredError } from '@openhoop/core';
 
 import { BleError } from '@/ble/errors';
 import type { TranslationKey, TranslationParams } from '@/i18n';

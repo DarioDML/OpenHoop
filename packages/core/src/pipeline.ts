@@ -17,10 +17,10 @@ import {
   sleepPeriods,
   sleepScore,
   zoneSeconds,
-} from '@stoop/analytics';
-import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample } from '@stoop/analytics';
-import { FrameError, decodeFrame } from '@stoop/protocol';
-import type { Packet } from '@stoop/protocol';
+} from '@openhoop/analytics';
+import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample } from '@openhoop/analytics';
+import { FrameError, decodeFrame } from '@openhoop/protocol';
+import type { Packet } from '@openhoop/protocol';
 import { sampleFromPacket } from './mapping';
 import { bindStore } from './store/store';
 import type { DayRecord, DeleteBeforeResult, Derived, SampleRow, SampleSource, SleepPeriodRecord, Store, WorkoutRecord } from './store/types';

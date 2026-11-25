@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { FrameError, commandClass, commandName, decodeFrame, fromHex, toHex } from '@stoop/protocol';
-import type { Packet } from '@stoop/protocol';
+import { FrameError, commandClass, commandName, decodeFrame, fromHex, toHex } from '@openhoop/protocol';
+import type { Packet } from '@openhoop/protocol';
 import { CliError, UsageError } from '../args';
 import type { Command, CommandResult } from '../command';
 import type { Context } from '../context';

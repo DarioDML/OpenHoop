@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { G, Rect } from 'react-native-svg';
 
-import type { SleepPeriodRecord } from '@stoop/core';
+import type { SleepPeriodRecord } from '@openhoop/core';
 
 import { formatClock, formatDuration } from '@/lib/format';
 import { useT } from '@/i18n/useT';

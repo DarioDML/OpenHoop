@@ -1,21 +1,21 @@
 <img src="assets/icon.svg" width="64" height="64" alt="">
 
-# Stoop
+# OpenHoop
 
-Stoop is a local, open-source client for the WHOOP 5.0 / MG fitness band. It reads the band over Bluetooth, stores the data on your own device and computes sleep, heart rate variability, readiness and load from it. There is no account, no server and no subscription.
+OpenHoop is a local, open-source client for the WHOOP 5.0 / MG fitness band. It reads the band over Bluetooth, stores the data on your own device and computes sleep, heart rate variability, readiness and load from it. There is no account, no server and no subscription.
 
-Stoop is not affiliated with or endorsed by WHOOP, Inc.
+OpenHoop is not affiliated with or endorsed by WHOOP, Inc.
 
-Stoop is not a copy of the vendor's app. It does not reproduce the vendor's scores. It has its own scores, built from published facts about the protocol and from models fitted on one wearer, and it labels how close each value is expected to be to the vendor's (see "Parity levels").
+OpenHoop is not a copy of the vendor's app. It does not reproduce the vendor's scores. It has its own scores, built from published facts about the protocol and from models fitted on one wearer, and it labels how close each value is expected to be to the vendor's (see "Parity levels").
 
 > **Status: tested only against a simulated band.**
 > The physical bands have not arrived. Every test so far runs against a software band that speaks the same wire protocol. Every Bluetooth path (pairing, reading, history transfer, live heart rate) is untested until real hardware is available. Treat every protocol detail as a documented guess until it appears as verified in `docs/provenance.md`.
 
 ## The firmware 50.43+ data lock
 
-From firmware 50.43 the band withholds history unless it holds a certificate signed by the vendor. Stoop does not and will not bypass this: it never tries to capture, replay or forge that certificate, and the commands involved cannot be built in the code. Live heart rate over the standard Bluetooth heart rate profile still works on a locked band. The public report of this behaviour is https://github.com/OpenStrap/edge/issues/673.
+From firmware 50.43 the band withholds history unless it holds a certificate signed by the vendor. OpenHoop does not and will not bypass this: it never tries to capture, replay or forge that certificate, and the commands involved cannot be built in the code. Live heart rate over the standard Bluetooth heart rate profile still works on a locked band. The public report of this behaviour is https://github.com/OpenStrap/edge/issues/673.
 
-On a locked band Stoop says so and shows no history. The first command to run on a new band is `triage`, which is read-only and reports the firmware version and whether the band releases data.
+On a locked band OpenHoop says so and shows no history. The first command to run on a new band is `triage`, which is read-only and reports the firmware version and whether the band releases data.
 
 ## Quick start
 
@@ -24,13 +24,13 @@ You need Node 22.13 or newer. The project is developed on Node 26.
 ```
 npm install
 npm test
-npm run stoop -- sim --days 3 --db ./stoop-data/demo.db
-npm run stoop -- days --db ./stoop-data/demo.db
+npm run openhoop -- sim --days 3 --db ./openhoop-data/demo.db
+npm run openhoop -- days --db ./openhoop-data/demo.db
 ```
 
 The `sim` command fills a database from the simulated band. The `days` command prints the day records: readiness, load, sleep, HRV and resting heart rate.
 
-Run `npm run stoop -- help` for the other commands: `triage`, `live`, `sync`, `recompute`, `export`, `decode`, `profile`. Commands that use Bluetooth print "Bluetooth path: UNTESTED until day 1" unless `--sim` is given.
+Run `npm run openhoop -- help` for the other commands: `triage`, `live`, `sync`, `recompute`, `export`, `decode`, `profile`. Commands that use Bluetooth print "Bluetooth path: UNTESTED until day 1" unless `--sim` is given.
 
 To run the Android app (it needs the Android SDK and an emulator or a device, and it is a development build, not Expo Go):
 
@@ -51,7 +51,7 @@ A Dutch runbook for the first day with a real band is in [docs/dag-1.md](docs/da
 | `packages/core` | Transport and storage interfaces, session, lock detection, sync engine, database schema, pipeline, export. |
 | `packages/sim` | A simulated band that speaks the real protocol, with fault injection. |
 | `packages/ble-node` | Bluetooth transport for Node on a laptop. Untested until a band is available. |
-| `apps/cli` | The laptop workbench: `npm run stoop`. |
+| `apps/cli` | The laptop workbench: `npm run openhoop`. |
 | `apps/mobile` | The Expo Android app. |
 
 Dependencies point one way: `protocol`, then `analytics`, then `core`, then `sim`, `ble-node`, `cli` and `mobile`.
@@ -77,7 +77,7 @@ When the data does not support a number, the app shows the reason instead of a n
 
 ## Scores
 
-The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to 100). They are Stoop's own models. Their constants come from the open reference project `wearable5.0` and were fitted on one wearer, so they are not the vendor's scores and may differ for you. The constants live in a `Calibration` object so they can be refitted without changing code. The first three nights are labelled "calibrating".
+The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to 100). They are OpenHoop's own models. Their constants come from the open reference project `wearable5.0` and were fitted on one wearer, so they are not the vendor's scores and may differ for you. The constants live in a `Calibration` object so they can be refitted without changing code. The first three nights are labelled "calibrating".
 
 ## Privacy
 
@@ -88,7 +88,7 @@ The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to
 
 ## Not a medical device
 
-Stoop is not a medical device. It does not diagnose, treat or monitor any condition, and it makes no rhythm classification and no blood pressure value. Its numbers are estimates from a consumer sensor and from models that have not been validated for clinical use. Do not use them for medical decisions.
+OpenHoop is not a medical device. It does not diagnose, treat or monitor any condition, and it makes no rhythm classification and no blood pressure value. Its numbers are estimates from a consumer sensor and from models that have not been validated for clinical use. Do not use them for medical decisions.
 
 ## More documents
 

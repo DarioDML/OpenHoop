@@ -1,4 +1,4 @@
-import type { BandModel, DeviceRow, DiscoveredDevice } from '@stoop/core';
+import type { BandModel, DeviceRow, DiscoveredDevice } from '@openhoop/core';
 import { CliError } from './args';
 
 function matches(selector: string, id: string, name: string | null): boolean {
@@ -27,7 +27,7 @@ export function chooseStored(devices: readonly DeviceRow[], selector: string | u
   }
   const [only, ...rest] = devices;
   if (only === undefined) {
-    throw new CliError('the database has no device yet. Run `stoop sim --days 3`, or `stoop sync` with a band, first.');
+    throw new CliError('the database has no device yet. Run `openhoop sim --days 3`, or `openhoop sync` with a band, first.');
   }
   if (rest.length > 0) {
     throw new CliError(`the database has several devices, pick one with --device:\n${devices.map(describeStored).join('\n')}`);

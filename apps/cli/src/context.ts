@@ -1,16 +1,16 @@
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import type { Profile } from '@stoop/analytics';
-import { openStore } from '@stoop/core';
-import type { Store, Transport } from '@stoop/core';
-import { openNodeDriver } from '@stoop/core/node';
-import { NobleTransport } from '@stoop/ble-node';
-import { parseFirmware } from '@stoop/protocol';
-import { SimBand } from '@stoop/sim';
+import type { Profile } from '@openhoop/analytics';
+import { openStore } from '@openhoop/core';
+import type { Store, Transport } from '@openhoop/core';
+import { openNodeDriver } from '@openhoop/core/node';
+import { NobleTransport } from '@openhoop/ble-node';
+import { parseFirmware } from '@openhoop/protocol';
+import { SimBand } from '@openhoop/sim';
 import { UsageError } from './args';
 import type { ParsedArgs } from './args';
 
-export const DEFAULT_DB_PATH = './stoop-data/stoop.db';
+export const DEFAULT_DB_PATH = './openhoop-data/openhoop.db';
 export const BLUETOOTH_NOTICE = 'Bluetooth path: UNTESTED until day 1';
 const PROFILE_KEY = 'profile';
 const MAX_SEED = 2_147_483_647;

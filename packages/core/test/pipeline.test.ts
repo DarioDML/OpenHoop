@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Profile } from '@stoop/analytics';
+import type { Profile } from '@openhoop/analytics';
 import { bindStore, dayKey, deleteDataBefore, newestFrameTime, openStore, rebuildFromRaw, recomputeDays } from '../src/index';
 import type { DayRecord, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';

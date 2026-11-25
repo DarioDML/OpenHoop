@@ -1,4 +1,4 @@
-import type { Profile } from '@stoop/analytics';
+import type { Profile } from '@openhoop/analytics';
 import type { Command, CommandResult } from '../command';
 import type { Context } from '../context';
 

@@ -1,5 +1,5 @@
-import { groupNights, nightlyHrv, nightlySpo2, respiratoryRate, sleepPeriods } from '@stoop/analytics';
-import type { Sample } from '@stoop/analytics';
+import { groupNights, nightlyHrv, nightlySpo2, respiratoryRate, sleepPeriods } from '@openhoop/analytics';
+import type { Sample } from '@openhoop/analytics';
 import { describe, expect, it } from 'vitest';
 import { simulateSecond } from '../src/index';
 

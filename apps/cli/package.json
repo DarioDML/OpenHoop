@@ -1,9 +1,9 @@
 {
-  "name": "@stoop/cli",
+  "name": "@openhoop/cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "GPL-3.0-only",
   "exports": { ".": "./src/main.ts" },
-  "dependencies": { "@stoop/protocol": "*", "@stoop/analytics": "*", "@stoop/core": "*", "@stoop/sim": "*", "@stoop/ble-node": "*" }
+  "dependencies": { "@openhoop/protocol": "*", "@openhoop/analytics": "*", "@openhoop/core": "*", "@openhoop/sim": "*", "@openhoop/ble-node": "*" }
 }

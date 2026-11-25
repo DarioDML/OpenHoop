@@ -14,7 +14,7 @@ import {
   syncAndRecompute,
 } from '../flows';
 import { formatIso } from '../format';
-import type { DeviceRow } from '@stoop/core';
+import type { DeviceRow } from '@openhoop/core';
 
 const SCAN_SECONDS = 8;
 
@@ -23,7 +23,7 @@ function refusal(): CliError {
     [
       'Refusing to sync: this device has no owner-since date.',
       'A band can still hold history from its previous owner. Records from before that date are not yours:',
-      'Stoop acknowledges them to the band but discards them, and never stores them.',
+      'OpenHoop acknowledges them to the band but discards them, and never stores them.',
       'Run again with --owner-since <date you got the band>, for example: sync --owner-since 2027-01-31',
     ].join('\n'),
   );

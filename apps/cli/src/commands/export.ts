@@ -1,7 +1,7 @@
 import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { exportCsv } from '@stoop/core';
-import type { ExportTable } from '@stoop/core';
+import { exportCsv } from '@openhoop/core';
+import type { ExportTable } from '@openhoop/core';
 import { CliError, UsageError } from '../args';
 import type { Command, CommandResult } from '../command';
 import type { Context } from '../context';
@@ -16,7 +16,7 @@ const TABLES: readonly ExportTable[] = [
   'console_log',
   'raw_chunks',
 ];
-const DATABASE_NAME = 'stoop.db';
+const DATABASE_NAME = 'openhoop.db';
 
 async function run(ctx: Context): Promise<CommandResult> {
   const dirText = ctx.args.string('dir');

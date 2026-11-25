@@ -1,5 +1,5 @@
-import { Command, isDataLockFirmware, toHex } from '@stoop/protocol';
-import type { DataRange, Packet } from '@stoop/protocol';
+import { Command, isDataLockFirmware, toHex } from '@openhoop/protocol';
+import type { DataRange, Packet } from '@openhoop/protocol';
 import { sampleFromPacket } from './mapping';
 import type { Session } from './session';
 import { CommandFailedError, DisconnectedError, LINK_QUIET_MAX_MS, LINK_QUIET_MS } from './session';

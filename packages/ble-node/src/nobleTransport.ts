@@ -6,10 +6,10 @@
  * and the native @stoprocent/noble module is never loaded by the test suite. What is checked offline
  * is only the pure part in matching.ts. Everything below (scan filtering, GATT discovery, notification
  * subscription, Windows pairing) is written against the library's documented API and must be
- * confirmed on the first real connection, for example with `stoop triage`.
+ * confirmed on the first real connection, for example with `openhoop triage`.
  */
-import type { BondResult, DiscoveredDevice, GattService, Transport } from '@stoop/core';
-import { GATT } from '@stoop/protocol';
+import type { BondResult, DiscoveredDevice, GattService, Transport } from '@openhoop/core';
+import { GATT } from '@openhoop/protocol';
 import type { Characteristic, Noble, Peripheral } from '@stoprocent/noble';
 import { interpretPairingError, isBandAdvertisement, normalizeUuid } from './matching';
 

@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ConfirmationRequiredError, ForbiddenCommandError, GATT, encodeBiometric, toHex, wrapFrame } from '@stoop/protocol';
-import type { Packet } from '@stoop/protocol';
-import type * as Protocol from '@stoop/protocol';
+import { ConfirmationRequiredError, ForbiddenCommandError, GATT, encodeBiometric, toHex, wrapFrame } from '@openhoop/protocol';
+import type { Packet } from '@openhoop/protocol';
+import type * as Protocol from '@openhoop/protocol';
 import { CommandFailedError, CommandTimeoutError, DisconnectedError, Session, readDeviceInformation } from '../src/index';
 import { FakeTransport, VirtualClock, reply, scriptBand } from './fakeTransport';
 
 const UNDECODABLE_TYPE = 0x77;
 
-vi.mock('@stoop/protocol', async (importOriginal) => {
+vi.mock('@openhoop/protocol', async (importOriginal) => {
   const actual = await importOriginal<typeof Protocol>();
   return {
     ...actual,

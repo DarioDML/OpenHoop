@@ -1,4 +1,4 @@
-import type { Packet } from '@stoop/protocol';
+import type { Packet } from '@openhoop/protocol';
 import type { SampleRow } from './store/types';
 
 export function sampleFromPacket(deviceId: number, packet: Packet, chunkId: number | null = null): SampleRow | null {

@@ -7,8 +7,8 @@ import {
   syncHistory,
   type SampleRow,
   type SqlDriver,
-} from '@stoop/core';
-import { SimBand } from '@stoop/sim';
+} from '@openhoop/core';
+import { SimBand } from '@openhoop/sim';
 import { getRandomBytes } from 'expo-crypto';
 import { Directory, File } from 'expo-file-system';
 import { defaultDatabaseDirectory, deleteDatabaseAsync } from 'expo-sqlite';

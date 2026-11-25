@@ -1,4 +1,4 @@
-import { MAX_CLOCK_OFFSET_S } from '@stoop/core';
+import { MAX_CLOCK_OFFSET_S } from '@openhoop/core';
 import type { Command, CommandResult } from '../command';
 import type { Context } from '../context';
 
@@ -10,7 +10,7 @@ const GLOBAL_HELP = [
   '  --sim-days <n>     days of history on the simulated band (0-30, default 1)',
   '  --sim-bond-refused simulated band refuses to bond',
   '  --sim-clock-offset <s> simulated band clock runs this many seconds ahead (negative: behind)',
-  '  --db <path>        database file (default ./stoop-data/stoop.db)',
+  '  --db <path>        database file (default ./openhoop-data/openhoop.db)',
   '  --device <x>       pick a device by id or name fragment',
   '  --json             print exactly one JSON document on stdout; progress goes to stderr',
 ];
@@ -18,9 +18,9 @@ const GLOBAL_HELP = [
 export function helpLines(commands: readonly Command[]): string[] {
   const rows = commands.flatMap((c) => c.usage.map((u) => `  ${u}`));
   return [
-    'stoop: a local workbench for a WHOOP 5.0 / MG band',
+    'openhoop: a local workbench for a WHOOP 5.0 / MG band',
     '',
-    'Usage: npm run stoop -- <command> [options]',
+    'Usage: npm run openhoop -- <command> [options]',
     '',
     'Commands:',
     ...rows,
@@ -37,7 +37,7 @@ export function helpLines(commands: readonly Command[]): string[] {
     `sync stops without reading any history when the band clock is unset or more than ${MAX_CLOCK_OFFSET_S} s off.`,
     '',
     'Commands that use Bluetooth print "Bluetooth path: UNTESTED until day 1" unless --sim is given.',
-    'Stoop never tries to get around the firmware 50.43+ data lock. `triage` is read-only.',
+    'OpenHoop never tries to get around the firmware 50.43+ data lock. `triage` is read-only.',
   ];
 }
 

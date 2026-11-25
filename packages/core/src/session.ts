@@ -1,5 +1,5 @@
-import { Command, GATT, Reassembler, buildCommand, decodeFrame, historyAck } from '@stoop/protocol';
-import type { CommandGrant, DataRange, HelloInfo, Packet } from '@stoop/protocol';
+import { Command, GATT, Reassembler, buildCommand, decodeFrame, historyAck } from '@openhoop/protocol';
+import type { CommandGrant, DataRange, HelloInfo, Packet } from '@openhoop/protocol';
 import type { Transport } from './transport';
 
 export interface Clock {

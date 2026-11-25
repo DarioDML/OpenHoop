@@ -1,5 +1,5 @@
 {
-  "name": "@stoop/core",
+  "name": "@openhoop/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",
-    "@stoop/analytics": "*",
-    "@stoop/protocol": "*",
+    "@openhoop/analytics": "*",
+    "@openhoop/protocol": "*",
     "fflate": "^0.8.3"
   }
 }

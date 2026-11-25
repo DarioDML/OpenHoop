@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { GATT } from '@stoop/protocol';
+import { GATT } from '@openhoop/protocol';
 import { openStore, recordHeartRate } from '../src/index';
 import type { SampleRow, Store } from '../src/index';
 import { openNodeDriver } from '../src/node/index';

@@ -1,4 +1,4 @@
-import type { BandState } from '@stoop/protocol';
+import type { BandState } from '@openhoop/protocol';
 
 export interface SimSecond {
   heartRate: number;

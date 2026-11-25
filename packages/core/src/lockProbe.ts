@@ -1,5 +1,5 @@
-import { Command, isDataLockFirmware } from '@stoop/protocol';
-import type { FirmwareVersion, Packet } from '@stoop/protocol';
+import { Command, isDataLockFirmware } from '@openhoop/protocol';
+import type { FirmwareVersion, Packet } from '@openhoop/protocol';
 import type { Session } from './session';
 import { CommandFailedError, CommandTimeoutError, LINK_QUIET_MAX_MS, LINK_QUIET_MS } from './session';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GATT } from '@stoop/protocol';
+import { GATT } from '@openhoop/protocol';
 import { interpretPairingError, isBandAdvertisement, normalizeUuid, sameUuid } from '../src/matching';
 
 describe('normalizeUuid', () => {

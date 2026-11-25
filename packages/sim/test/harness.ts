@@ -1,5 +1,5 @@
-import type { Packet } from '@stoop/protocol';
-import { Command, GATT, Reassembler, buildCommand, decodeFrame, historyAck } from '@stoop/protocol';
+import type { Packet } from '@openhoop/protocol';
+import { Command, GATT, Reassembler, buildCommand, decodeFrame, historyAck } from '@openhoop/protocol';
 import { SimBand } from '../src/index';
 import type { SimOptions } from '../src/index';
 

@@ -1,4 +1,4 @@
-import type { DayRecord, Derived, SleepPeriodRecord, WorkoutRecord } from '@stoop/core';
+import type { DayRecord, Derived, SleepPeriodRecord, WorkoutRecord } from '@openhoop/core';
 
 import type { DeviceStatus, DiscoveredBand, LockState, Profile, Settings } from './types';
 

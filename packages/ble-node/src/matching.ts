@@ -1,5 +1,5 @@
-import { GATT } from '@stoop/protocol';
-import type { BondResult } from '@stoop/core';
+import { GATT } from '@openhoop/protocol';
+import type { BondResult } from '@openhoop/core';
 
 const BASE_SUFFIX = '-0000-1000-8000-00805f9b34fb';
 const HEX = /^[0-9a-f]+$/;

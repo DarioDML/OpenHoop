@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Stoop",
-    "slug": "stoop",
+    "name": "OpenHoop",
+    "slug": "openhoop",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "stoop",
+    "scheme": "openhoop",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "app.stoop.mobile",
+      "package": "app.openhoop.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#0E1116",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

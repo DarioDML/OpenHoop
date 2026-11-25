@@ -1,9 +1,9 @@
 {
-  "name": "@stoop/sim",
+  "name": "@openhoop/sim",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
   "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@stoop/protocol": "*", "@stoop/core": "*" }
+  "dependencies": { "@openhoop/protocol": "*", "@openhoop/core": "*" }
 }
