@@ -1,5 +1,6 @@
 {
   "ios": {
-    "NSBluetoothAlwaysUsageDescription": "OpenHoop uses Bluetooth to find your band and read its data. The data stays on your phone."
+    "NSBluetoothAlwaysUsageDescription": "OpenHoop uses Bluetooth to find your band and read its data. The data stays on your phone.",
+    "NSLocationWhenInUseUsageDescription": "OpenHoop uses your location only while you record an activity with a route, to draw the route and work out distance and pace. The route stays on your phone."
   }
 }

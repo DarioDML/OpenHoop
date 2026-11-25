@@ -174,7 +174,8 @@ export type ExportTable =
   | 'lab_results'
   | 'coach_conversations'
   | 'coach_messages'
-  | 'coach_memory';
+  | 'coach_memory'
+  | 'route_points';
 
 export interface Store {
   driver: SqlDriver;

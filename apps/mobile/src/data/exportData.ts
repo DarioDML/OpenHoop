@@ -24,6 +24,7 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'coach_conversations',
   'coach_messages',
   'coach_memory',
+  'route_points',
 ];
 
 const PLAINTEXT_NAME = 'openhoop.db';

@@ -87,6 +87,11 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, text, source, created_at, updated_at',
     order: 'id',
   },
+  route_points: {
+    columns: ['activity_id', 'seq', 'segment', 't_ms', 'lat', 'lon', 'alt_m', 'accuracy_m'],
+    select: 'activity_id, seq, segment, t_ms, lat, lon, alt_m, accuracy_m',
+    order: 'activity_id, seq',
+  },
 };
 
 function cell(value: SqlValue | undefined): string {

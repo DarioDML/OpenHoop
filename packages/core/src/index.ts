@@ -15,3 +15,4 @@ export * from './sleepEdits';
 export * from './labResults';
 export * from './activities';
 export * from './coach';
+export * from './routes';
