@@ -255,6 +255,10 @@ async function dayWindow(ctx: Context, index: number): Promise<{ start: number; 
   return { start, end };
 }
 
+function unmeasuredAsMissing<T>(outcome: Outcome<T>, night: Night): Outcome<T> {
+  return !outcome.ok && night.periods.length === 0 ? { ok: false, reason: 'missing-signal', algo: outcome.algo } : outcome;
+}
+
 function derive(outcome: Outcome<number>): Derived {
   return outcome.ok
     ? { value: outcome.value, reason: null, coverage: outcome.coverage, algo: outcome.algo }
@@ -404,15 +408,15 @@ async function computeDay(
     readinessDerived = missing('no-sleep', ALGO.readiness);
   } else {
     const measured = measuredNight(main);
-    const hrvOutcome = nightlyHrv(samples, measured);
-    const rhrOutcome = nightlyRestingHr(samples, measured);
+    const hrvOutcome = unmeasuredAsMissing(nightlyHrv(samples, measured), measured);
+    const rhrOutcome = unmeasuredAsMissing(nightlyRestingHr(samples, measured), measured);
     hrv = derive(hrvOutcome);
     restingHrDerived = derive(rhrOutcome);
-    respiratory = derive(respiratoryRate(samples, measured));
-    spo2 = derive(nightlySpo2(samples, measured));
+    respiratory = derive(unmeasuredAsMissing(respiratoryRate(samples, measured), measured));
+    spo2 = derive(unmeasuredAsMissing(nightlySpo2(samples, measured), measured));
     if (rhrOutcome.ok) nightRestingHr = rhrOutcome.value;
 
-    const skin = nightlySkinTemp(samples, measured, skinBaseline);
+    const skin = unmeasuredAsMissing(nightlySkinTemp(samples, measured, skinBaseline), measured);
     if (skin.ok) {
       skinTemp = { value: skin.value.meanC, reason: null, coverage: skin.coverage, algo: skin.algo };
       skinDeviation =

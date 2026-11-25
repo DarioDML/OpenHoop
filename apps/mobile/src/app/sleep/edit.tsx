@@ -36,8 +36,8 @@ export default function EditSleepScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
   const requested = singleParam(params.day);
-  const initial = requested === null ? days.length - 1 : isDayString(requested) ? indexOfDay(days, requested) : -1;
-  const [index, setIndex] = useState(initial);
+  const [selected, setSelected] = useState<string | null>(requested === null ? (days[days.length - 1]?.day ?? null) : isDayString(requested) ? requested : null);
+  const index = selected === null ? -1 : indexOfDay(days, selected);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [startText, setStartText] = useState('');
   const [endText, setEndText] = useState('');
@@ -69,7 +69,8 @@ export default function EditSleepScreen() {
   };
 
   const moveDay = (delta: number): void => {
-    setIndex((current) => Math.min(days.length - 1, Math.max(0, current + delta)));
+    const next = days[Math.min(days.length - 1, Math.max(0, index + delta))];
+    if (next !== undefined) setSelected(next.day);
     setEditing(null);
     setProblem(null);
     setStatus(null);

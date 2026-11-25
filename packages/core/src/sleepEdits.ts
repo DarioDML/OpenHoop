@@ -133,7 +133,7 @@ function editedPeriod(edit: SleepEdit, absorbed: readonly SleepPeriod[], rows: r
     hrMean: whole.hrMean,
     source: sleepEditSource(edit),
     editId: edit.id,
-    measured: measured.length > 0 ? measured.sort((a, b) => a.onset - b.onset) : [periodOf(rows, edit.onset, edit.offset)],
+    measured: measured.sort((a, b) => a.onset - b.onset),
   };
 }
 

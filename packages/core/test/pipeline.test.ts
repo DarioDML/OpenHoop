@@ -395,6 +395,24 @@ describe('pipeline', () => {
       expect(edited[1]?.sleep.periods.every((p) => p.source === 'detected')).toBe(true);
     });
 
+    it('a night moved away from all measured sleep keeps its times but gives no night values', async () => {
+      const rows = simulateDays(deviceId, { days: 3 });
+      await store.insertSamples(rows);
+      const original = await recompute(rows);
+      const night = nightOf(original[2]);
+      const onset = localMidnight(2) + 8 * HOUR_S;
+      await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset: onset + 6 * HOUR_S, createdAt: 1 });
+
+      const edited = await recomputeAfterEdit(onset);
+      expect(edited[2]?.start).toBe(onset);
+      expect(edited[2]?.sleep.asleepS).toBe(6 * HOUR_S);
+      expect(edited[2]?.sleep.score.reason).toBeNull();
+      for (const value of [edited[2]?.hrv, edited[2]?.restingHr, edited[2]?.respiratoryRate, edited[2]?.spo2, edited[2]?.skinTempC, edited[2]?.readiness]) {
+        expect(value).toMatchObject({ value: null, reason: 'missing-signal' });
+      }
+      expect(edited[1]?.sleep.periods.map((p) => p.source)).toEqual(['detected']);
+    });
+
     it('a nap added by hand right after waking stays a nap and lowers the next night need', async () => {
       const rows = simulateDays(deviceId, { days: 3 });
       await store.insertSamples(rows);

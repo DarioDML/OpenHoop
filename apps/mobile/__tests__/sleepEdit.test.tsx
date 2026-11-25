@@ -115,6 +115,13 @@ describe('sleepEditForm', () => {
       { onset: MIDNIGHT + 20 * HOUR_S, offset: MIDNIGHT + 21 * HOUR_S },
     ]);
     expect(otherSleepSpans([plainDay], edits, { id: 2, replaces: null })).toHaveLength(2);
+
+    const napInNight: SleepEditRow = { id: 5, deviceId: 1, targetOnset: null, targetOffset: null, onset: MIDNIGHT + HOUR_S, offset: MIDNIGHT + 2 * HOUR_S, createdAt: 1 };
+    const withNap = withPeriods(base, [nightPeriod, period({ onset: napInNight.onset, offset: napInNight.offset, nap: true, source: 'manual', editId: 5 })]);
+    expect(otherSleepSpans([withNap], [napInNight], { id: null, replaces: { onset: night.onset, offset: night.offset } })).toEqual([
+      { onset: napInNight.onset, offset: napInNight.offset },
+      { onset: napInNight.onset, offset: napInNight.offset },
+    ]);
   });
 
   it('recomputes from a day before the earliest affected time', () => {

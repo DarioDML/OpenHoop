@@ -115,17 +115,17 @@ function overlaps(a: SleepSpan, b: SleepSpan): boolean {
 }
 
 export function otherSleepSpans(days: readonly DayRecord[], edits: readonly SleepEditRow[], request: Pick<SleepEditRequest, 'id' | 'replaces'>): SleepSpan[] {
-  const replaced = (span: SleepSpan): boolean => request.replaces !== null && overlaps(span, request.replaces);
+  const replaced = (span: SleepSpan, manual: boolean): boolean => !manual && request.replaces !== null && overlaps(span, request.replaces);
   const out: SleepSpan[] = [];
   for (const day of days) {
     for (const p of day.sleep.periods) {
       const span = { onset: p.onset, offset: exclusiveEnd(p) };
-      if ((request.id !== null && p.editId === request.id) || replaced(span)) continue;
+      if ((request.id !== null && p.editId === request.id) || replaced(span, p.source === 'manual')) continue;
       out.push(span);
     }
   }
   for (const edit of edits) {
-    if (edit.id === request.id || replaced(edit)) continue;
+    if (edit.id === request.id || replaced(edit, edit.targetOnset === null)) continue;
     out.push({ onset: edit.onset, offset: edit.offset });
   }
   return out;

@@ -63,18 +63,18 @@ describe('applySleepEdits', () => {
     expect(merged.measured).toHaveLength(2);
   });
 
-  it('a correction moved away from its target still replaces the target', () => {
+  it('a correction moved away from its target still replaces the target and has no measured sleep', () => {
     const correction = edit({ targetOnset: main.onset, targetOffset: main.offset, onset: T0 + 9 * HOUR_S, offset: T0 + 9.5 * HOUR_S });
     const merged = only(applySleepEdits(detected, [correction], night));
     expect(merged).toMatchObject({ source: 'edited', onset: correction.onset, asleepS: 30 * 60 });
-    expect(only(merged.measured)).toMatchObject({ onset: correction.onset, offset: correction.offset - 1 });
+    expect(merged.measured).toEqual([]);
   });
 
   it('a manual nap counts its whole span as asleep and sits next to detected sleep', () => {
     const nap = edit({ id: 3, onset: T0 + 8.5 * HOUR_S, offset: T0 + 9 * HOUR_S });
     const merged = applySleepEdits(detected, [nap], night);
     expect(merged.map((p) => p.source)).toEqual(['detected', 'manual']);
-    expect(merged[1]).toMatchObject({ editId: 3, asleepS: 30 * 60, inBedS: 30 * 60 });
+    expect(merged[1]).toMatchObject({ editId: 3, asleepS: 30 * 60, inBedS: 30 * 60, measured: [] });
     expect(merged[1]?.hrMean).not.toBeNull();
   });
 
