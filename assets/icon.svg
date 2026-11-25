@@ -1,4 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#2563eb"/>
-  <text x="32" y="32" dy="0.35em" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="32" font-weight="600" fill="#ffffff">S</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A353C"/><stop offset="1" stop-color="#0D1114"/></linearGradient>
+    <linearGradient id="seg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A897FF"/><stop offset="1" stop-color="#3FB0FF"/></linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="22.4" fill="url(#bg)"/>
+  <circle cx="50" cy="50" r="28" fill="none" stroke="url(#seg)" stroke-width="11" stroke-dasharray="15.99 6 15.99 6 15.99 6 15.99 6 15.99 6 15.99 6 15.99 27.99" transform="rotate(-87 50 50)"/>
 </svg>

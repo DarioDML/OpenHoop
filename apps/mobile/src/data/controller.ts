@@ -27,6 +27,7 @@ import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/
 import { openAppStore, type AppStore } from './appStore';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
+import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
   AppData,
@@ -34,6 +35,7 @@ import type {
   DataSource,
   DeviceStatus,
   DiscoveredBand,
+  HeartRatePoint,
   LiveState,
   LockState,
   Notice,
@@ -65,6 +67,7 @@ export interface Snapshot {
   live: LiveState;
   profile: Profile;
   settings: Settings;
+  userData: UserData;
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
 }
@@ -122,6 +125,7 @@ export class AppController {
   private backlogPages: number | null = null;
   private lastSyncAt: number | null = null;
   private chain: Promise<unknown> = Promise.resolve();
+  private userDataChain: Promise<void> = Promise.resolve();
   private syncRun: Promise<void> | null = null;
   private liveAbort: AbortController | null = null;
   private liveRun: Promise<void> | null = null;
@@ -138,6 +142,7 @@ export class AppController {
       live: IDLE_LIVE,
       profile: { birthYear: null, maxHeartRate: null },
       settings: { language, dataSource: 'demo', ownerSince: null },
+      userData: defaultUserData(),
       syncProgress: null,
       notice: null,
     };
@@ -224,7 +229,10 @@ export class AppController {
       await store.getSetting(SETTING_KEYS.maxHeartRate),
       new Date().getFullYear(),
     );
-    this.patch({ settings: { ...this.snapshot.settings, language, dataSource }, profile });
+    const rawUserData = await store.getSetting(USER_DATA_KEY);
+    const userData = parseUserData(rawUserData);
+    if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
+    this.patch({ settings: { ...this.snapshot.settings, language, dataSource }, profile, userData });
     await this.loadActiveDevice();
     this.patch({ ready: true });
     if (dataSource === 'demo') void this.sync();
@@ -574,18 +582,20 @@ export class AppController {
 
   updateProfile = async (patch: Partial<Profile>): Promise<void> => {
     const { store } = this.requireApp();
-    const profile = { ...this.snapshot.profile, ...patch };
+    const before = this.snapshot.profile;
+    const profile = { ...before, ...patch };
     await store.setSetting(SETTING_KEYS.birthYear, serializeOptionalInteger(profile.birthYear));
     await store.setSetting(SETTING_KEYS.maxHeartRate, serializeOptionalInteger(profile.maxHeartRate));
     this.patch({ profile });
     const deviceId = this.deviceRow?.id;
-    if (deviceId === undefined) return;
-    await this.exclusive(async () => {
+    const changed = profile.birthYear !== before.birthYear || profile.maxHeartRate !== before.maxHeartRate;
+    if (deviceId === undefined || !changed) return;
+    void this.exclusive(async () => {
       this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
       try {
         await this.recompute(deviceId, null);
       } catch (error) {
-        throw this.fail(error);
+        this.fail(error);
       } finally {
         this.patch({ syncProgress: null });
       }
@@ -661,6 +671,39 @@ export class AppController {
     }
   }
 
+  updateUserData = (patch: Partial<UserData>): Promise<boolean> => {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { store } = this.requireApp();
+        const next = parseUserData(serializeUserData({ ...this.snapshot.userData, ...patch }));
+        await store.setSetting(USER_DATA_KEY, serializeUserData(next));
+        this.patch({ userData: next });
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  };
+
+  heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
+    const row = this.deviceRow;
+    if (this.app === null || row === null || toS <= fromS) return [];
+    const samples = await this.app.store.samplesBetween(row.id, fromS, toS);
+    const buckets = new Map<number, { sum: number; count: number }>();
+    for (const sample of samples) {
+      if (sample.hr === null || sample.hr <= 0) continue;
+      const key = Math.floor(sample.t / bucketS) * bucketS;
+      const bucket = buckets.get(key) ?? { sum: 0, count: 0 };
+      bucket.sum += sample.hr;
+      bucket.count += 1;
+      buckets.set(key, bucket);
+    }
+    return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([t, b]) => ({ t, hr: b.sum / b.count }));
+  };
+
   exportData = async (): Promise<void> => {
     const app = this.requireApp();
     try {
@@ -682,6 +725,8 @@ export class AppController {
       exportData: this.exportData,
       updateProfile: this.updateProfile,
       updateSettings: this.updateSettings,
+      updateUserData: this.updateUserData,
+      heartRateBetween: this.heartRateBetween,
       clearNotice: this.clearNotice,
     };
   }

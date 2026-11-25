@@ -1,37 +1,53 @@
-import { Pressable, TextInput, View, type TextInputProps } from 'react-native';
+import { Pressable, Switch, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 
 import { AppText } from './AppText';
-import { radius, spacing, useTheme } from './theme';
+import { Icon, type IconName } from './Icon';
+import { fonts, radius, spacing, useTheme } from './theme';
 
 interface ButtonProps {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'danger';
   disabled?: boolean;
+  icon?: IconName;
+  style?: StyleProp<ViewStyle>;
   testID?: string;
+  accessibilityLabel?: string;
 }
 
-export function Button({ label, onPress, variant = 'primary', disabled = false, testID }: ButtonProps) {
+export function Button({ label, onPress, variant = 'primary', disabled = false, icon, style, testID, accessibilityLabel }: ButtonProps) {
   const { colors } = useTheme();
-  const background = variant === 'primary' ? colors.accent : variant === 'danger' ? colors.negative : colors.surfaceAlt;
-  const foreground = variant === 'secondary' ? colors.text : variant === 'danger' ? '#FFFFFF' : colors.accentOn;
+  const background =
+    variant === 'primary' ? colors.primary : variant === 'danger' ? colors.negativeSoft : 'transparent';
+  const foreground =
+    variant === 'primary' ? colors.primaryOn : variant === 'tertiary' ? colors.link : variant === 'danger' ? colors.negative : colors.text;
+  const border = variant === 'secondary' ? colors.text : variant === 'danger' ? colors.negative : 'transparent';
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => ({
-        backgroundColor: background,
-        opacity: disabled ? 0.4 : pressed ? 0.85 : 1,
-        borderRadius: radius.md,
-        minHeight: 48,
-        paddingHorizontal: spacing.lg,
-        alignItems: 'center',
-        justifyContent: 'center',
-      })}>
-      <AppText variant="bodyStrong" color={foreground}>
+      style={({ pressed }) => [
+        {
+          backgroundColor: background,
+          borderColor: border,
+          borderWidth: variant === 'secondary' || variant === 'danger' ? 2 : 0,
+          opacity: disabled ? 0.4 : pressed ? 0.8 : 1,
+          borderRadius: radius.pill,
+          minHeight: 56,
+          paddingHorizontal: variant === 'tertiary' ? spacing.md : spacing.xl,
+          flexDirection: 'row',
+          gap: spacing.sm,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        style,
+      ]}>
+      {icon ? <Icon name={icon} color={foreground} size={18} strokeWidth={2} /> : null}
+      <AppText variant="capLarge" color={foreground}>
         {label}
       </AppText>
     </Pressable>
@@ -42,14 +58,16 @@ interface SegmentedProps<T extends string> {
   options: ReadonlyArray<{ value: T; label: string }>;
   value: T;
   onChange: (value: T) => void;
+  testID?: string;
 }
 
-export function Segmented<T extends string>({ options, value, onChange }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ options, value, onChange, testID }: SegmentedProps<T>) {
   const { colors } = useTheme();
   return (
     <View
       accessibilityRole="tablist"
-      style={{ flexDirection: 'row', backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 3 }}>
+      testID={testID}
+      style={{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.pill, padding: 4, gap: 4 }}>
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -60,15 +78,13 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
             onPress={() => onChange(option.value)}
             style={{
               flex: 1,
-              minHeight: 40,
+              minHeight: 36,
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: radius.md - 3,
-              backgroundColor: selected ? colors.surface : 'transparent',
-              borderWidth: selected ? 1 : 0,
-              borderColor: colors.border,
+              borderRadius: radius.pill,
+              backgroundColor: selected ? colors.primary : 'transparent',
             }}>
-            <AppText variant="label" color={selected ? colors.text : colors.textMuted} style={{ fontWeight: selected ? '700' : '500' }}>
+            <AppText variant="label" color={selected ? colors.primaryOn : colors.textMuted} style={{ fontFamily: fonts.semibold, fontWeight: '600' }}>
               {option.label}
             </AppText>
           </Pressable>
@@ -81,38 +97,72 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
 interface FieldProps extends TextInputProps {
   label: string;
   hint?: string;
+  error?: boolean;
+  suffix?: string;
 }
 
-export function Field({ label, hint, style, ...rest }: FieldProps) {
+export function Field({ label, hint, error = false, suffix, style, ...rest }: FieldProps) {
   const { colors } = useTheme();
   return (
     <View style={{ gap: 6 }}>
-      <AppText variant="label" muted>
+      <AppText variant="capSmall" muted>
         {label}
       </AppText>
-      <TextInput
-        {...rest}
-        accessibilityLabel={label}
-        placeholderTextColor={colors.textMuted}
-        style={[
-          {
-            minHeight: 48,
-            borderRadius: radius.md,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.surfaceAlt,
-            color: colors.text,
-            paddingHorizontal: spacing.md,
-            fontSize: 16,
-          },
-          style,
-        ]}
-      />
+      <View style={{ justifyContent: 'center' }}>
+        <TextInput
+          {...rest}
+          accessibilityLabel={label}
+          placeholderTextColor={colors.textFaint}
+          style={[
+            {
+              minHeight: 52,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: error ? colors.negative : colors.borderStrong,
+              backgroundColor: colors.surfaceAlt,
+              color: colors.text,
+              paddingHorizontal: 14,
+              paddingRight: suffix ? 56 : 14,
+              fontSize: 16,
+              fontFamily: fonts.regular,
+            },
+            style,
+          ]}
+        />
+        {suffix ? (
+          <AppText variant="label" muted style={{ position: 'absolute', right: 14 }}>
+            {suffix}
+          </AppText>
+        ) : null}
+      </View>
       {hint ? (
-        <AppText variant="caption" muted>
+        <AppText variant="caption" color={error ? colors.negative : colors.textMuted}>
           {hint}
         </AppText>
       ) : null}
     </View>
+  );
+}
+
+interface ToggleProps {
+  value: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+  disabled?: boolean;
+  testID?: string;
+}
+
+export function Toggle({ value, onChange, label, disabled = false, testID }: ToggleProps) {
+  const { colors } = useTheme();
+  return (
+    <Switch
+      testID={testID}
+      accessibilityLabel={label}
+      value={value}
+      disabled={disabled}
+      onValueChange={onChange}
+      trackColor={{ false: colors.surface3, true: colors.positive }}
+      thumbColor={value ? colors.primaryOn : colors.textMuted}
+    />
   );
 }

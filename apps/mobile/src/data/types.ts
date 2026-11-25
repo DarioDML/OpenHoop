@@ -2,6 +2,8 @@ import type { BandModel, DayRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 
+import type { UserData } from './userData';
+
 export type Language = 'nl' | 'en';
 export type DataSource = 'demo' | 'band';
 export type LockState = 'open' | 'locked' | 'no-data' | 'unknown';
@@ -57,6 +59,11 @@ export interface Notice {
   params?: TranslationParams;
 }
 
+export interface HeartRatePoint {
+  t: number;
+  hr: number;
+}
+
 export interface AppData {
   ready: boolean;
   days: DayRecord[];
@@ -64,6 +71,7 @@ export interface AppData {
   live: LiveState;
   profile: Profile;
   settings: Settings;
+  userData: UserData;
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   scan(): Promise<DiscoveredBand[]>;
@@ -74,6 +82,8 @@ export interface AppData {
   exportData(): Promise<void>;
   updateProfile(patch: Partial<Profile>): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
+  updateUserData(patch: Partial<UserData>): Promise<boolean>;
+  heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
   clearNotice(): void;
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { AppText } from './AppText';
 import { useTheme } from './theme';
@@ -13,6 +13,8 @@ interface Props {
   startLabel?: string;
   endLabel?: string;
   minSpan?: number;
+  color?: string;
+  band?: { low: number; high: number } | null;
   testID?: string;
 }
 
@@ -20,7 +22,7 @@ const AXIS_WIDTH = 40;
 const PAD_Y = 8;
 const PAD_X = 6;
 
-export function LineChart({ data, height = 120, formatTick, emptyLabel, startLabel, endLabel, minSpan = 1, testID }: Props) {
+export function LineChart({ data, height = 120, formatTick, emptyLabel, startLabel, endLabel, minSpan = 1, color, band = null, testID }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const values = data.filter((v): v is number => v !== null);
@@ -37,8 +39,9 @@ export function LineChart({ data, height = 120, formatTick, emptyLabel, startLab
     );
   }
 
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
+  const lineColor = color ?? colors.accent;
+  const lo = Math.min(...values, ...(band ? [band.low] : []));
+  const hi = Math.max(...values, ...(band ? [band.high] : []));
   const pad = Math.max((hi - lo) * 0.15, (minSpan - (hi - lo)) / 2, 0);
   const min = lo - pad;
   const max = hi + pad;
@@ -79,14 +82,17 @@ export function LineChart({ data, height = 120, formatTick, emptyLabel, startLab
               {[0, 0.5, 1].map((f) => (
                 <Line key={f} x1={0} x2={width} y1={PAD_Y + plotH * f} y2={PAD_Y + plotH * f} stroke={colors.grid} strokeWidth={1} />
               ))}
+              {band ? (
+                <Rect x={0} y={y(band.high)} width={width} height={Math.max(2, y(band.low) - y(band.high))} fill={lineColor} opacity={0.14} />
+              ) : null}
               {segments.map((d) => (
-                <Path key={d} d={d} stroke={colors.accent} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+                <Path key={d} d={d} stroke={lineColor} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
               ))}
               {data.length <= 40
                 ? data.map((v, i) =>
-                    v === null ? null : <Circle key={i} cx={x(i)} cy={y(v)} r={i === lastIndex ? 4.5 : 2} fill={colors.accent} />,
+                    v === null ? null : <Circle key={i} cx={x(i)} cy={y(v)} r={i === lastIndex ? 4.5 : 2} fill={lineColor} />,
                   )
-                : lastValue !== null && <Circle cx={x(lastIndex)} cy={y(lastValue)} r={4.5} fill={colors.accent} />}
+                : lastValue !== null && <Circle cx={x(lastIndex)} cy={y(lastValue)} r={4.5} fill={lineColor} />}
             </Svg>
           ) : null}
         </View>
