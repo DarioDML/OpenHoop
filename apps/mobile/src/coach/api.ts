@@ -116,9 +116,17 @@ function isAbort(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
 
-export async function requestCoachReply(send: GatedFetch, request: CoachRequest, timeoutMs = REQUEST_TIMEOUT_MS): Promise<CoachApiResult> {
+export interface RequestOptions {
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
+export async function requestCoachReply(send: GatedFetch, request: CoachRequest, options: RequestOptions = {}): Promise<CoachApiResult> {
   const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), timeoutMs);
+  const stop = (): void => abort.abort();
+  const timer = setTimeout(stop, options.timeoutMs ?? REQUEST_TIMEOUT_MS);
+  options.signal?.addEventListener('abort', stop);
+  if (options.signal?.aborted === true) stop();
   try {
     const response = await send('coach', MESSAGES_URL, {
       method: 'POST',
@@ -134,5 +142,6 @@ export async function requestCoachReply(send: GatedFetch, request: CoachRequest,
     return { ok: false, error: 'network' };
   } finally {
     clearTimeout(timer);
+    options.signal?.removeEventListener('abort', stop);
   }
 }

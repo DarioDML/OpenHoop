@@ -158,6 +158,51 @@ describe('coach controller', () => {
     expect(controller.getState()).toMatchObject({ hasKey: false, conversations: [], memory: [] });
   });
 
+  function deferredSender() {
+    let release: (response: Response) => void = () => undefined;
+    const send = jest.fn<ReturnType<GatedFetch>, Parameters<GatedFetch>>(
+      (_feature, _url, init) =>
+        new Promise<Response>((resolve, reject) => {
+          release = resolve;
+          init.signal?.addEventListener('abort', () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          });
+        }),
+    );
+    return { send, release: (response: Response) => release(response) };
+  }
+
+  it.each([
+    ['a new conversation is opened', (c: ReturnType<typeof makeController>['controller']) => c.open(null)],
+    ['all coach data is deleted', (c: ReturnType<typeof makeController>['controller']) => c.deleteAll()],
+    ['the key is removed', (c: ReturnType<typeof makeController>['controller']) => c.removeKey()],
+  ])('drops an in-flight reply when %s', async (_label, interrupt) => {
+    const { send, release } = deferredSender();
+    const { controller, repo } = makeController({ send });
+    const sending = controller.send('Hi', context());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await interrupt(controller);
+    release(jsonResponse(200, replyBody({ chips: [], text: 'Late.', remember: 'late note' })));
+    expect(await sending).toBe(false);
+    expect(repo.written).toEqual([]);
+    expect(controller.getState()).toMatchObject({ sending: false, messages: [], activeId: null });
+  });
+
+  it('drops a reply that arrives after the network was switched off', async () => {
+    let allowed = true;
+    const { send, release } = deferredSender();
+    const { controller, repo } = makeController({ send, allowed: () => allowed });
+    const sending = controller.send('Hi', context());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    allowed = false;
+    release(jsonResponse(200, replyBody({ chips: [], text: 'Late.' })));
+    expect(await sending).toBe(false);
+    expect(repo.written).toEqual([]);
+    expect(controller.getState().error).toBe('network-off');
+  });
+
   it('keeps only recent history and starts it with a user turn', () => {
     const messages = Array.from({ length: HISTORY_MESSAGES + 1 }, (_, i) => ({
       id: i,

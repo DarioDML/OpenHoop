@@ -99,7 +99,7 @@ describe('coach request', () => {
           reject(error);
         });
       });
-    expect(await requestCoachReply(hang, request, 5)).toEqual({ ok: false, error: 'timeout' });
+    expect(await requestCoachReply(hang, request, { timeoutMs: 5 })).toEqual({ ok: false, error: 'timeout' });
   });
 
   it('posts to the Messages URL through the gate', async () => {

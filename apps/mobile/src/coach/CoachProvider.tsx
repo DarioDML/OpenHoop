@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 
 import { openAppStore } from '@/data/appStore';
-import { netFetch } from '@/net';
+import { currentNetworkPrefs, netFetch } from '@/net';
+import { featureEnabled } from '@/net/features';
 
 import { CoachContext } from './CoachContext';
 import { CoachController } from './controller';
@@ -16,6 +17,7 @@ export function CoachProvider({ children }: { children: ReactNode }) {
         keys: secureKeyStore,
         send: netFetch,
         now: () => Math.floor(Date.now() / 1000),
+        allowed: () => featureEnabled(currentNetworkPrefs(), 'coach'),
       }),
     [],
   );

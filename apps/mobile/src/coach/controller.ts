@@ -32,6 +32,7 @@ export interface CoachDeps {
   keys: KeyStore;
   send: GatedFetch;
   now: () => number;
+  allowed: () => boolean;
 }
 
 export interface SendContext {
@@ -69,6 +70,7 @@ export class CoachController {
     error: null,
   };
   private readonly listeners = new Set<() => void>();
+  private inflight: AbortController | null = null;
 
   constructor(private readonly deps: CoachDeps) {}
 
@@ -107,7 +109,13 @@ export class CoachController {
     this.patch({ ready: true });
   };
 
+  private cancelInflight(): void {
+    this.inflight?.abort();
+    this.inflight = null;
+  }
+
   open = async (conversationId: number | null): Promise<void> => {
+    this.cancelInflight();
     if (conversationId === null) {
       this.patch({ activeId: null, messages: [], error: null });
       return;
@@ -129,19 +137,28 @@ export class CoachController {
       this.patch({ error: 'network-off' });
       return false;
     }
+    const targetId = this.state.activeId;
+    const turns: CoachTurn[] = [...historyTurns(this.state.messages), { role: 'user', content: text }];
+    const abort = new AbortController();
+    this.inflight = abort;
     this.patch({ sending: true, error: null });
     try {
       const apiKey = await this.deps.keys.load();
+      if (abort.signal.aborted) return false;
       if (apiKey === null) {
         this.patch({ hasKey: false, error: 'no-key' });
         return false;
       }
-      const result = await requestCoachReply(this.deps.send, {
-        apiKey,
-        model: ctx.prefs.model,
-        system: promptFor(ctx, this.state.memory),
-        turns: [...historyTurns(this.state.messages), { role: 'user', content: text }],
-      });
+      const result = await requestCoachReply(
+        this.deps.send,
+        { apiKey, model: ctx.prefs.model, system: promptFor(ctx, this.state.memory), turns },
+        { signal: abort.signal },
+      );
+      if (abort.signal.aborted) return false;
+      if (!this.deps.allowed()) {
+        this.patch({ error: 'network-off' });
+        return false;
+      }
       if (!result.ok) {
         this.patch({ error: result.error });
         return false;
@@ -154,7 +171,7 @@ export class CoachController {
       return await this.guard(async () => {
         const now = this.deps.now();
         const id = await this.deps.repo.appendExchange(
-          this.state.activeId,
+          targetId,
           text,
           [
             { role: 'user', text, chips: '[]' },
@@ -168,16 +185,18 @@ export class CoachController {
           this.deps.repo.conversations(),
           this.deps.repo.memory(),
         ]);
-        this.patch({ activeId: id, messages, conversations, memory });
+        this.patch(abort.signal.aborted ? { conversations, memory } : { activeId: id, messages, conversations, memory });
         return true;
       }, false);
     } finally {
+      if (this.inflight === abort) this.inflight = null;
       this.patch({ sending: false });
     }
   };
 
   deleteConversation = async (conversationId: number): Promise<boolean> =>
     this.guard(async () => {
+      if (this.state.activeId === conversationId) this.cancelInflight();
       const deleted = await this.deps.repo.deleteConversation(conversationId);
       const conversations = await this.deps.repo.conversations();
       const closing = this.state.activeId === conversationId;
@@ -219,6 +238,7 @@ export class CoachController {
 
   removeKey = async (): Promise<boolean> =>
     this.guard(async () => {
+      this.cancelInflight();
       await this.deps.keys.remove();
       this.patch({ hasKey: false });
       return true;
@@ -226,6 +246,7 @@ export class CoachController {
 
   deleteAll = async (): Promise<boolean> =>
     this.guard(async () => {
+      this.cancelInflight();
       await this.deps.keys.remove();
       await this.deps.repo.deleteAll();
       this.patch({ hasKey: false, conversations: [], memory: [], activeId: null, messages: [], error: null });

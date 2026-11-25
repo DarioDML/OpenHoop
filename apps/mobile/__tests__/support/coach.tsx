@@ -114,11 +114,11 @@ export function replyBody(reply: { chips: Array<{ metric: string; day: string }>
   return messageBody(JSON.stringify({ remember: null, ...reply }));
 }
 
-export function makeController(options: { key?: string | null; send?: GatedFetch; repo?: MemoryRepo } = {}) {
+export function makeController(options: { key?: string | null; send?: GatedFetch; repo?: MemoryRepo; allowed?: () => boolean } = {}) {
   const repo = options.repo ?? memoryRepo();
   const keys = fakeKeys(options.key === undefined ? TEST_KEY : options.key);
   const send = options.send ?? jest.fn<Promise<Response>, Parameters<GatedFetch>>(async () => jsonResponse(500, {}));
-  const controller = new CoachController({ repo, keys, send, now: () => 1_000 });
+  const controller = new CoachController({ repo, keys, send, now: () => 1_000, allowed: options.allowed ?? (() => true) });
   return { controller, repo, keys, send };
 }
 
