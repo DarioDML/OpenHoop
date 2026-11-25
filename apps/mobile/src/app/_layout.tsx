@@ -1,13 +1,17 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, router, type Theme } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 
+import { CoachProvider } from '@/coach/CoachProvider';
 import { LiveProvider } from '@/data/LiveProvider';
+import { expoNotifier } from '@/data/notifier';
 import { useAppFonts } from '@/ui/fonts';
 import { darkColors, useTheme } from '@/ui/theme';
 
 function RootStack() {
   const { colors, dark } = useTheme();
+  useEffect(() => expoNotifier.onOpened(() => router.push('/home/notifications')), []);
   const base = dark ? DarkTheme : DefaultTheme;
   const navTheme: Theme = {
     ...base,
@@ -36,7 +40,9 @@ export default function RootLayout() {
   if (!fontsReady) return <View style={{ flex: 1, backgroundColor: darkColors.background }} />;
   return (
     <LiveProvider>
-      <RootStack />
+      <CoachProvider>
+        <RootStack />
+      </CoachProvider>
     </LiveProvider>
   );
 }

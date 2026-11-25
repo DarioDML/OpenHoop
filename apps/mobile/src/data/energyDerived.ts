@@ -1,5 +1,5 @@
-import { ENERGY_AGE_RANGE, dailyEnergy, parseActiveMinutes } from '@openhoop/analytics';
-import type { BodyProfile, EnergyEstimate } from '@openhoop/analytics';
+import { ENERGY_AGE_RANGE, dailyEnergy, parseActiveMinutes, windowEnergy } from '@openhoop/analytics';
+import type { ActiveMinutes, BodyProfile, EnergyEstimate } from '@openhoop/analytics';
 import type { DayRecord } from '@openhoop/core';
 
 import type { Profile } from './types';
@@ -31,6 +31,14 @@ export function caloriesForDay(day: DayRecord, userData: UserData, profile: Prof
   const body = year === null ? null : bodyProfileFor(userData, profile, year);
   const minutes = parseActiveMinutes(day.activeMinutes);
   const outcome = dailyEnergy(minutes, body);
+  const thresholdBpm = minutes?.thresholdBpm ?? null;
+  if (!outcome.ok) return { estimate: null, reason: outcome.reason, coverage: null, thresholdBpm };
+  return { estimate: outcome.value, reason: null, coverage: outcome.coverage, thresholdBpm };
+}
+
+export function caloriesForActivity(minutes: ActiveMinutes | null, start: number, userData: UserData, profile: Profile): CaloriesView {
+  const body = bodyProfileFor(userData, profile, new Date(start * 1000).getUTCFullYear());
+  const outcome = windowEnergy(minutes, body);
   const thresholdBpm = minutes?.thresholdBpm ?? null;
   if (!outcome.ok) return { estimate: null, reason: outcome.reason, coverage: null, thresholdBpm };
   return { estimate: outcome.value, reason: null, coverage: outcome.coverage, thresholdBpm };

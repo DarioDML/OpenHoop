@@ -191,9 +191,9 @@ describe('Home sub-screens', () => {
     expect(screen.getByTestId('line-readiness')).toBeTruthy();
   });
 
-  it('marks notifications and widgets as not built', async () => {
+  it('marks widgets as not built and no longer notifications', async () => {
     await render(withAppData(<NotificationsScreen />));
-    expect(screen.getByTestId('not-built-notifications')).toBeTruthy();
+    expect(screen.queryByTestId('not-built-notifications')).toBeNull();
     await render(withAppData(<WidgetsScreen />));
     expect(screen.getByTestId('not-built-widgets')).toBeTruthy();
     expect(screen.getByTestId('widget-lock-value')).toBeTruthy();

@@ -12,3 +12,6 @@ export * from './config';
 export * from './pipeline';
 export * from './bodyMeasurements';
 export * from './sleepEdits';
+export * from './labResults';
+export * from './activities';
+export * from './coach';

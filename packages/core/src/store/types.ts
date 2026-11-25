@@ -167,10 +167,15 @@ export type ExportTable =
   | 'sleeps'
   | 'sleep_edits'
   | 'workouts'
+  | 'activities'
   | 'events'
   | 'console_log'
   | 'raw_chunks'
-  | 'body_measurements';
+  | 'body_measurements'
+  | 'lab_results'
+  | 'coach_conversations'
+  | 'coach_messages'
+  | 'coach_memory';
 
 export interface Store {
   driver: SqlDriver;

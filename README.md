@@ -75,13 +75,15 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | --- | --- |
 | A | SpO2, skin temperature |
 | A/B | HRV, resting heart rate |
-| B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones |
-| C | Sleep consistency, automatic workouts, calories (estimate), stress (estimate) |
-| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
+| B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
+| C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate) |
+| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat, lab results with the reference range you copied from your own report) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
 
 You can correct the start and end of a detected sleep and add a nap by hand. A correction is stored next to the detected sleep, which is kept, so it can be restored. Sleep need, debt, Sleep score and Readiness are recomputed from your times, keep their level, and the sleep is labelled "edited" or "added by hand". HRV, resting heart rate and the other night values still come only from what the band measured while you slept.
+
+An activity's Load uses the same minute formula as the day's Load, over the heart rate the band recorded during the activity (pauses left out). The day's Load already counts every minute of heart rate once, so adding an activity never counts the same minutes twice, also when it overlaps a detected workout. Editing or deleting a detected workout is stored next to it; the detected record is kept.
 
 ## Scores
 
@@ -99,10 +101,14 @@ The baseline is the windows of up to 14 earlier days, at least 3 days with an ho
 
 ## Privacy
 
-- No account, no server, no network access and no telemetry.
+- No account, no OpenHoop server and no telemetry.
+- No network access by default. Every request goes through one gate in the app that refuses it unless you switch on "Network features" and the specific feature under Privacy, and the address is https on that feature's fixed host. Both switches start off.
+- Opt-in network features and what leaves the phone:
+  - **Coach** sends your question, the current conversation, a summary of the last 7 days of Readiness, Sleep score, Load, HRV and resting heart rate (with their levels) and your coach memory notes to Anthropic (`api.anthropic.com`), using your own API key. No name, band identifiers or raw readings are sent. Coach settings show the exact text. The key stays in the device's secure storage and is never written to the database or the export. Anthropic's own terms apply to what you send.
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
-- Export gives you the whole database and one CSV file per table.
+- Export gives you the whole database and one CSV file per table, including coach conversations and memory notes, plus `notifications.json` with your notification settings and inbox.
+- Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
 
 ## Not a medical device
 
