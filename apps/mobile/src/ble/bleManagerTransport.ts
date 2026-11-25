@@ -3,7 +3,9 @@
  *
  * This Transport has never run against a physical band: the owner's WHOOP 5.0 / MG bands have not
  * arrived and the Android emulator has no Bluetooth radio. Everything below follows the documented
- * behaviour of react-native-ble-manager 13 and the Android Bluetooth stack. Open points to verify on
+ * behaviour of react-native-ble-manager 13 and the Android and iOS Bluetooth stacks. iOS pairs on demand
+ * when an encrypted characteristic is first used, so bond() leaves it to the system there and the write
+ * length comes from CoreBluetooth instead of an MTU request. Open points to verify on
  * day 1: which advertisement fields the band exposes (scan accepts the custom service UUID or a name
  * starting with WHOOP), whether the library reports characteristic UUIDs in long or short form
  * (both are normalised), the MTU the band accepts, and whether createBond succeeds without a PIN.
@@ -26,6 +28,8 @@ import {
 const REQUESTED_MTU = 247;
 const DEFAULT_MTU = 23;
 const ANDROID_12 = 31;
+const ATT_HEADER = 3;
+const STATE_SETTLE_MS = 3000;
 
 type Listener = (data: Uint8Array) => void;
 
@@ -53,6 +57,36 @@ async function requestAndroidPermissions(): Promise<void> {
   }
 }
 
+async function negotiatedMtu(id: string): Promise<number> {
+  try {
+    if (Platform.OS === 'android') return await BleManager.requestMTU(id, REQUESTED_MTU);
+    return (await BleManager.getMaximumWriteValueLengthForWithResponse(id)) + ATT_HEADER;
+  } catch {
+    return DEFAULT_MTU;
+  }
+}
+
+function isSettling(state: BleState): boolean {
+  return state === BleState.Unknown || state === BleState.Resetting;
+}
+
+async function settledState(): Promise<BleState> {
+  const initial = await BleManager.checkState();
+  if (!isSettling(initial)) return initial;
+  return new Promise<BleState>((resolve) => {
+    const timer = setTimeout(() => {
+      subscription.remove();
+      resolve(initial);
+    }, STATE_SETTLE_MS);
+    const subscription = BleManager.onDidUpdateState(({ state }) => {
+      if (isSettling(state)) return;
+      clearTimeout(timer);
+      subscription.remove();
+      resolve(state);
+    });
+  });
+}
+
 export class BleManagerTransport implements Transport {
   private peripheralId: string | null = null;
   private mtu = DEFAULT_MTU;
@@ -73,11 +107,12 @@ export class BleManagerTransport implements Transport {
     }
     let state: BleState;
     try {
-      state = await BleManager.checkState();
+      state = await settledState();
     } catch (error) {
       throw new BleError('unavailable', describeBleRejection(error));
     }
     if (state === BleState.Unsupported) throw new BleError('unavailable', state);
+    if (state === BleState.Unauthorized) throw new BleError('permission', state);
     if (state !== BleState.On) throw new BleError('off', state);
     this.attachEvents();
   }
@@ -120,11 +155,8 @@ export class BleManagerTransport implements Transport {
       this.peripheralId = null;
       throw new BleError('connect', describeBleRejection(error));
     }
-    try {
-      this.mtu = await BleManager.requestMTU(id, REQUESTED_MTU);
-    } catch {
-      this.mtu = DEFAULT_MTU;
-    }
+    this.mtu = await negotiatedMtu(id);
+    if (Platform.OS !== 'android') return;
     try {
       await BleManager.requestConnectionPriority(id, ConnectionPriority.high);
     } catch {
@@ -201,6 +233,7 @@ export class BleManagerTransport implements Transport {
 
   async bond(): Promise<BondResult> {
     const id = this.requireId();
+    if (Platform.OS !== 'android') return 'unsupported';
     try {
       const bonded = await BleManager.getBondedPeripherals();
       if (bonded.some((peripheral) => peripheral.id === id)) return 'already-bonded';
