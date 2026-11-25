@@ -1,4 +1,4 @@
-import { CommandFailedError, CommandTimeoutError, DisconnectedError } from '@stoop/core';
+import { CommandFailedError, CommandTimeoutError, DisconnectedError, OwnerSinceRequiredError } from '@stoop/core';
 
 import { BleError } from '@/ble/errors';
 import {
@@ -26,6 +26,7 @@ jest.mock('@stoop/core', () => ({
   DisconnectedError: class DisconnectedError extends Error {},
   CommandTimeoutError: class CommandTimeoutError extends Error {},
   CommandFailedError: class CommandFailedError extends Error {},
+  OwnerSinceRequiredError: class OwnerSinceRequiredError extends Error {},
 }));
 
 describe('settings serialisation', () => {
@@ -63,6 +64,7 @@ describe('error to message mapping', () => {
     expect(toAppError(new DisconnectedError()).key).toBe('error.disconnected');
     expect(toAppError(new CommandTimeoutError(1)).key).toBe('error.timeout');
     expect(toAppError(new CommandFailedError(1, 3)).key).toBe('error.commandFailed');
+    expect(toAppError(new OwnerSinceRequiredError(1)).key).toBe('error.ownerSinceMissing');
     const own = new AppError('error.noBandPaired');
     expect(toAppError(own)).toBe(own);
     expect(toAppError('boom').key).toBe('error.unknown');

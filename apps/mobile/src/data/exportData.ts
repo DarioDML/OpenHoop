@@ -22,9 +22,17 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
 const PLAINTEXT_NAME = 'stoop.db';
 const ZIP_NAME = 'stoop-export.zip';
 
-function clearOldExports(): void {
+export function removeLeftoverExports(): void {
   for (const entry of new Directory(Paths.cache).list()) {
     if (entry instanceof Directory && isExportFolder(entry.name)) entry.delete();
+  }
+}
+
+function removeFolder(folder: Directory): void {
+  try {
+    if (folder.exists) folder.delete();
+  } catch {
+    // removeLeftoverExports deletes it on the next start
   }
 }
 
@@ -46,7 +54,6 @@ async function writePlaintextCopy(app: AppStore, target: File): Promise<boolean>
 }
 
 export interface ExportSummary {
-  folder: string;
   databaseIncluded: boolean;
   tables: number;
 }
@@ -56,23 +63,27 @@ export async function exportAll(
   csvFor: (store: Store, table: ExportTable) => Promise<string>,
 ): Promise<ExportSummary> {
   if (!(await isAvailableAsync())) throw new AppError('error.shareUnavailable');
-  clearOldExports();
+  removeLeftoverExports();
   const folder = new Directory(Paths.cache, exportFolderName(new Date()));
   folder.create({ intermediates: true, overwrite: true });
+  try {
+    const archive: Zippable = {};
+    for (const table of EXPORT_TABLES) {
+      archive[`${table}.csv`] = [strToU8(await csvFor(app.store, table)), { level: 1 }];
+    }
 
-  const archive: Zippable = {};
-  for (const table of EXPORT_TABLES) {
-    const csv = await csvFor(app.store, table);
-    new File(folder, `${table}.csv`).write(csv);
-    archive[`${table}.csv`] = [strToU8(csv), { level: 1 }];
+    const plaintext = new File(folder, PLAINTEXT_NAME);
+    const databaseIncluded = await writePlaintextCopy(app, plaintext);
+    if (databaseIncluded) {
+      archive[PLAINTEXT_NAME] = [await plaintext.bytes(), { level: 0 }];
+      plaintext.delete();
+    }
+
+    const zip = new File(folder, ZIP_NAME);
+    zip.write(zipSync(archive));
+    await shareAsync(zip.uri, { mimeType: 'application/zip', dialogTitle: 'Stoop' });
+    return { databaseIncluded, tables: EXPORT_TABLES.length };
+  } finally {
+    removeFolder(folder);
   }
-
-  const plaintext = new File(folder, PLAINTEXT_NAME);
-  const databaseIncluded = await writePlaintextCopy(app, plaintext);
-  if (databaseIncluded) archive[PLAINTEXT_NAME] = [await plaintext.bytes(), { level: 0 }];
-
-  const zip = new File(folder, ZIP_NAME);
-  zip.write(zipSync(archive));
-  await shareAsync(zip.uri, { mimeType: 'application/zip', dialogTitle: 'Stoop' });
-  return { folder: folder.uri, databaseIncluded, tables: EXPORT_TABLES.length };
 }

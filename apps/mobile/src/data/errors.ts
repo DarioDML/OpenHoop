@@ -1,4 +1,4 @@
-import { CommandFailedError, CommandTimeoutError, DisconnectedError } from '@stoop/core';
+import { CommandFailedError, CommandTimeoutError, DisconnectedError, OwnerSinceRequiredError } from '@stoop/core';
 
 import { BleError } from '@/ble/errors';
 import type { TranslationKey, TranslationParams } from '@/i18n';
@@ -32,6 +32,7 @@ export function toAppError(error: unknown): AppError {
         return new AppError('error.connectFailed');
     }
   }
+  if (error instanceof OwnerSinceRequiredError) return new AppError('error.ownerSinceMissing');
   if (error instanceof DisconnectedError) return new AppError('error.disconnected');
   if (error instanceof CommandTimeoutError) return new AppError('error.timeout');
   if (error instanceof CommandFailedError) return new AppError('error.commandFailed');

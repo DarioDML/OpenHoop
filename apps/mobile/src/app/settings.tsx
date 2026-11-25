@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import type { DataSource, Language, ParityLevel } from '@/data/types';
@@ -59,8 +59,23 @@ export default function SettingsScreen() {
       setOwnerState('invalid');
       return;
     }
-    await updateSettings({ ownerSince });
-    setOwnerState('saved');
+    const commit = async (): Promise<void> => {
+      try {
+        await updateSettings({ ownerSince });
+        setOwnerState('saved');
+      } catch {
+        setOwnerState('idle');
+      }
+    };
+    const movesLater = settings.ownerSince === null || ownerSince > settings.ownerSince;
+    if (!movesLater) {
+      await commit();
+      return;
+    }
+    Alert.alert(t('settings.ownerLaterTitle'), t('settings.ownerLaterBody', { date: ownerSince }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('settings.ownerLaterConfirm'), style: 'destructive', onPress: () => void commit() },
+    ]);
   };
 
   const runExport = async (): Promise<void> => {

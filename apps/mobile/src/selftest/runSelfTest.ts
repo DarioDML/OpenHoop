@@ -1,4 +1,13 @@
-import { Session, driverContract, openStore, recomputeDays, syncHistory, type SqlDriver } from '@stoop/core';
+import {
+  Session,
+  driverContract,
+  openStore,
+  rebuildFromRaw,
+  recomputeDays,
+  syncHistory,
+  type SampleRow,
+  type SqlDriver,
+} from '@stoop/core';
 import { SimBand } from '@stoop/sim';
 import { getRandomBytes } from 'expo-crypto';
 import { Directory, File } from 'expo-file-system';
@@ -25,6 +34,7 @@ const SIM_SEED = 4242;
 const SIM_HOURS = 6;
 const SQLITE_MAGIC = 'SQLite format 3';
 const HEADER_BYTES = 16;
+const LIVE_DURING_REBUILD = 25;
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -167,6 +177,49 @@ export async function runSelfTest(onResult: (result: CheckResult) => void): Prom
     const stored = await store.listDays(deviceId, '0000-01-01', '9999-12-31');
     if (stored.length !== days.length) throw new Error(`recompute returned ${days.length} days, store holds ${stored.length}`);
     return `${days.length} days from ${sampleCount} samples`;
+  });
+
+  await record('concurrent', 'app', { key: 'selftest.concurrent' }, async () => {
+    if (driver === null) throw new Error('the sync check did not produce a database');
+    const store = await openStore(driver);
+    const live = (offset: number): SampleRow => ({
+      deviceId,
+      t: lastT + 1 + offset,
+      source: 'live',
+      hr: 70,
+      rr: [850],
+      steps: null,
+      skinTempC: null,
+      spo2Raw: null,
+      state: null,
+      motionG: null,
+      chunkId: null,
+    });
+    const opts = {
+      deviceId,
+      from: 0,
+      to: lastT + 1,
+      profile: { maxHr: null, birthYear: 1990, restingHr: null },
+      tzOffsetS: deviceTzOffsetS(new Date()),
+    };
+    const dayKeys = async (): Promise<string> =>
+      (await store.listDays(deviceId, '0000-01-01', '9999-12-31')).map((day) => day.day).join(',');
+    const before = await dayKeys();
+    const inserts: Promise<number>[] = [];
+    const rebuilt = rebuildFromRaw(store, deviceId);
+    for (let i = 0; i < LIVE_DURING_REBUILD; i++) inserts.push(store.insertSamples([live(i)]));
+    const { samples } = await rebuilt;
+    const recomputed = recomputeDays(store, opts);
+    for (let i = LIVE_DURING_REBUILD; i < 2 * LIVE_DURING_REBUILD; i++) inserts.push(store.insertSamples([live(i)]));
+    const days = await recomputed;
+    const inserted = (await Promise.all(inserts)).reduce((sum, n) => sum + n, 0);
+    if (inserted !== 2 * LIVE_DURING_REBUILD) throw new Error(`${inserted} of ${2 * LIVE_DURING_REBUILD} live samples were stored`);
+    if (samples !== sampleCount) throw new Error(`rebuild restored ${samples} of ${sampleCount} samples`);
+    const range = await store.sampleRange(deviceId);
+    if (range?.count !== sampleCount + inserted) throw new Error(`the store holds ${range?.count ?? 0} samples`);
+    const after = await dayKeys();
+    if (after !== before || days.length === 0) throw new Error(`days before ${before}, after ${after}`);
+    return `${inserted} live samples, ${days.length} days intact`;
   });
 
   await record('cleanup', 'app', { key: 'selftest.cleanup' }, async () => {

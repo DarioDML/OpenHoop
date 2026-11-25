@@ -235,5 +235,12 @@
   "selftest.wrongKey": "Een verkeerde sleutel opent de database niet",
   "selftest.cleanup": "Tijdelijke database verwijderen",
   "selftest.duration": "{ms} ms",
-  "today.liveWaiting": "Wacht op R-R-interval"
+  "today.liveWaiting": "Wacht op R-R-interval",
+  "error.ownerSinceMissing": "Stoop weet niet sinds wanneer je deze band draagt en synchroniseert daarom niet. Zo komt er geen data van een vorige eigenaar in je archief. Koppel de band opnieuw via Band › Een band koppelen en vul daar de datum in.",
+  "sync.stop.clock": "De klok van de band staat niet goed: hij is niet ingesteld of loopt meer dan twee minuten voor of achter. Stoop heeft daarom niets opgevraagd en niets van de band verwijderd. Op de laptop-werkbank zit een optie om dit bewust te omzeilen.",
+  "sync.stop.corrupt": "Een blok data kwam steeds beschadigd binnen. Stoop heeft dat blok niet bevestigd, dus het staat nog op de band. Wat daarvoor binnenkwam is bewaard. Probeer het straks opnieuw, met de band dicht bij je telefoon.",
+  "settings.ownerLaterTitle": "Oudere data verwijderen?",
+  "settings.ownerLaterBody": "Je kiest een latere datum. Stoop verwijdert dan alle metingen, gebeurtenissen en logregels van vóór {date} en berekent je dagen opnieuw. Dit is niet ongedaan te maken. Ruwe blokken van de band worden alleen in hun geheel bewaard, dus een blok dat over {date} heen loopt blijft staan en kan nog wat metingen van daarvoor bevatten. Die tellen nergens meer mee.",
+  "settings.ownerLaterConfirm": "Verwijderen",
+  "selftest.concurrent": "Live metingen tijdens het herberekenen"
 }

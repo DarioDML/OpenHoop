@@ -1,5 +1,7 @@
 import {
   Session,
+  bindStore,
+  deleteDataBefore,
   exportCsv,
   probeLock,
   readDeviceInformation,
@@ -10,6 +12,7 @@ import {
   type DayRecord,
   type DeviceRow,
   type SyncProgress,
+  type SyncStop,
   type Transport,
 } from '@stoop/core';
 import { formatFirmware } from '@stoop/protocol';
@@ -18,12 +21,12 @@ import { getLocales } from 'expo-localization';
 
 import { BleManagerTransport } from '@/ble/bleManagerTransport';
 import { BleError } from '@/ble/errors';
-import { detectLanguage, translate } from '@/i18n';
+import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
 
 import { openAppStore, type AppStore } from './appStore';
 import { AppError, toAppError } from './errors';
-import { exportAll } from './exportData';
+import { exportAll, removeLeftoverExports } from './exportData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
   AppData,
@@ -50,6 +53,10 @@ const EARLIEST_DAY = '0000-01-01';
 const LATEST_DAY = '9999-12-31';
 const INCREMENTAL_RECOMPUTE_BACK_S = 2 * DAY_S;
 const MAX_DEMO_BACKLOG_DAYS = 20;
+const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
+  clock: 'sync.stop.clock',
+  corrupt: 'sync.stop.corrupt',
+};
 
 export interface Snapshot {
   ready: boolean;
@@ -198,6 +205,11 @@ export class AppController {
     if (this.started) return;
     this.started = true;
     try {
+      removeLeftoverExports();
+    } catch {
+      // a leftover export is removed again before the next export
+    }
+    try {
       this.app = await openAppStore();
     } catch (error) {
       this.patch({ ready: true });
@@ -299,8 +311,11 @@ export class AppController {
 
   private async openConnection(bleId: string, ownerSinceUnix: number | null): Promise<Connection> {
     const { store } = this.requireApp();
-    this.setConnection('connecting');
     const source = this.snapshot.settings.dataSource;
+    const existing = (await store.listDevices()).find((row) => row.bleId === bleId) ?? null;
+    const ownerSince = ownerSinceUnix ?? existing?.ownerSince ?? null;
+    if (source === 'band' && ownerSince === null) throw new AppError('error.ownerSinceMissing');
+    this.setConnection('connecting');
     const transport = await this.transportFor(source);
     try {
       await transport.connect(bleId);
@@ -308,17 +323,20 @@ export class AppController {
       const info = await readDeviceInformation(transport);
       const session = new Session(transport, { now: () => Date.now() });
       const hello = await session.open();
-      const existing = (await store.listDevices()).find((row) => row.bleId === bleId) ?? null;
       const row = await store.upsertDevice({
         bleId,
         name: source === 'demo' ? 'WHOOP SIM' : (info.model ?? existing?.name ?? null),
         model: toModel(info.model) ?? existing?.model ?? null,
         firmware: formatFirmware(hello.firmware),
         serial: info.serial ?? existing?.serial ?? null,
-        ownerSince: ownerSinceUnix ?? existing?.ownerSince ?? null,
+        ownerSince,
         configSnapshot: existing?.configSnapshot ?? null,
       });
       this.deviceRow = row;
+      if (row.ownerSince !== null) {
+        const ownerSinceIso = unixToIsoDate(row.ownerSince, deviceTzOffsetS(new Date()));
+        this.patch({ settings: { ...this.snapshot.settings, ownerSince: ownerSinceIso } });
+      }
       session.onDisconnect(() => {
         if (this.conn?.session === session) this.conn = null;
         this.connection = 'disconnected';
@@ -395,6 +413,7 @@ export class AppController {
     const { store } = this.requireApp();
     try {
       this.patch({ notice: null, syncProgress: this.progressView('connecting', 0, null, 0, 0) });
+      await this.requireOwnerSince();
       const conn = await this.ensureConnection();
       const deviceId = conn.deviceId;
       const before = await store.getSyncState(deviceId);
@@ -430,6 +449,8 @@ export class AppController {
       if (__DEV__) console.log(`stoop sync timings: ${JSON.stringify(this.lastTimings)}`);
       if (conn.session.isConnected) this.battery = await conn.session.battery().catch(() => this.battery);
       if (result.stoppedBy === 'disconnect') throw new AppError('error.disconnected');
+      const stopNotice = STOP_NOTICES[result.stoppedBy];
+      if (stopNotice !== undefined) throw new AppError(stopNotice);
     } catch (error) {
       throw this.fail(error);
     } finally {
@@ -437,6 +458,14 @@ export class AppController {
       this.patch({ syncProgress: null });
       this.patchDevice();
     }
+  }
+
+  private async requireOwnerSince(): Promise<void> {
+    if (this.snapshot.settings.dataSource !== 'band') return;
+    const bleId = await this.activeBleId();
+    if (bleId === null) return;
+    const row = (await this.requireApp().store.listDevices()).find((device) => device.bleId === bleId) ?? null;
+    if (row !== null && row.ownerSince === null) throw new AppError('error.ownerSinceMissing');
   }
 
   private onTransferProgress(progress: SyncProgress, backlogRecords: number | null): void {
@@ -482,8 +511,8 @@ export class AppController {
       await this.stopLiveInternal();
       await this.dropConnection();
       try {
-        if (this.snapshot.settings.dataSource === 'band') await store.setSetting(SETTING_KEYS.bandBleId, bandId);
         const conn = await this.openConnection(bandId, ownerSinceUnix);
+        if (this.snapshot.settings.dataSource === 'band') await store.setSetting(SETTING_KEYS.bandBleId, bandId);
         await this.loadActiveDevice();
         await this.probe(conn);
       } catch (error) {
@@ -587,8 +616,26 @@ export class AppController {
       return;
     }
     const { store } = this.requireApp();
-    this.deviceRow = await store.upsertDevice({ ...row, ownerSince: unix });
-    this.patch({ settings: { ...this.snapshot.settings, ownerSince: iso } });
+    const later = row.ownerSince === null || unix > row.ownerSince;
+    await this.exclusive(async () => {
+      try {
+        this.deviceRow = await store.driver.transaction(async (tx) => {
+          const inner = bindStore(tx);
+          const updated = await inner.upsertDevice({ ...row, ownerSince: unix });
+          if (later) await deleteDataBefore(inner, row.id, unix);
+          return updated;
+        });
+        this.patch({ settings: { ...this.snapshot.settings, ownerSince: iso } });
+        if (later) {
+          this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
+          await this.recompute(row.id, null);
+        }
+      } catch (error) {
+        throw this.fail(error);
+      } finally {
+        this.patch({ syncProgress: null });
+      }
+    });
   }
 
   private async switchSource(source: DataSource): Promise<void> {
