@@ -1,0 +1,6 @@
+Stoop is licensed per directory.
+
+packages/*   Apache License 2.0. See LICENSE-APACHE.
+apps/*       GNU General Public License version 3 only. See LICENSE-GPL.
+
+Third-party material keeps its own licence, as listed in THIRD_PARTY_NOTICES.md.
