@@ -6,16 +6,21 @@ import { useT } from '@/i18n/useT';
 import { isValidIsoDate } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Button, Field } from '@/ui/controls';
+import { Button, Field, Toggle } from '@/ui/controls';
 import { Icon, type IconName } from '@/ui/Icon';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
 import { ExportCard } from '@/ui/manage/ExportCard';
 import { SettingsPage } from '@/ui/manage/SettingsPage';
 import { tile } from '@/ui/manage/tiles';
 import type { TranslationKey } from '@/i18n';
+import { NETWORK_FEATURES, type NetworkFeature } from '@/net/features';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
 type SaveState = 'idle' | 'saved' | 'invalid';
+
+const FEATURE_TEXT: Record<NetworkFeature, { title: TranslationKey; sends: TranslationKey; to: TranslationKey }> = {
+  coach: { title: 'network.coach.title', sends: 'network.coach.sends', to: 'network.coach.to' },
+};
 
 const PROMISES: ReadonlyArray<{ icon: IconName; key: TranslationKey }> = [
   { icon: 'shield', key: 'privacy.promiseLocal' },
@@ -26,7 +31,8 @@ const PROMISES: ReadonlyArray<{ icon: IconName; key: TranslationKey }> = [
 export default function PrivacyScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const { settings, updateSettings } = useAppData();
+  const { settings, updateSettings, userData, updateUserData } = useAppData();
+  const network = userData.network;
   const [ownerSince, setOwnerSince] = useState(settings.ownerSince ?? '');
   const [ownerState, setOwnerState] = useState<SaveState>('idle');
 
@@ -70,6 +76,51 @@ export default function PrivacyScreen() {
             <AppText variant="body" style={{ flex: 1 }}>
               {t(promise.key)}
             </AppText>
+          </View>
+        ))}
+      </Card>
+
+      <CapHeader title={t('network.title')} />
+      <Card style={{ gap: spacing.lg }} testID="network-settings">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <AppText variant="bodyStrong">{t('network.global')}</AppText>
+            <AppText variant="label" muted>
+              {t('network.globalBody')}
+            </AppText>
+          </View>
+          <Toggle
+            label={t('network.global')}
+            value={network.enabled}
+            onChange={(enabled) => void updateUserData({ network: { ...network, enabled } })}
+            testID="network-global-toggle"
+          />
+        </View>
+        {NETWORK_FEATURES.map((feature) => (
+          <View key={feature} style={{ gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <AppText variant="bodyStrong" style={{ flex: 1 }}>
+                {t(FEATURE_TEXT[feature].title)}
+              </AppText>
+              <Toggle
+                label={t(FEATURE_TEXT[feature].title)}
+                value={network.enabled && network.features[feature]}
+                disabled={!network.enabled}
+                onChange={(on) => void updateUserData({ network: { ...network, features: { ...network.features, [feature]: on } } })}
+                testID={`network-feature-${feature}`}
+              />
+            </View>
+            <AppText variant="label" muted>
+              {t(FEATURE_TEXT[feature].sends)}
+            </AppText>
+            <AppText variant="label" muted>
+              {t(FEATURE_TEXT[feature].to)}
+            </AppText>
+            {network.enabled ? null : (
+              <AppText variant="caption" muted>
+                {t('network.featureOff')}
+              </AppText>
+            )}
           </View>
         ))}
       </Card>

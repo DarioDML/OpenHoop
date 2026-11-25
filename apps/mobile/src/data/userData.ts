@@ -1,3 +1,6 @@
+import { type CoachPrefs, defaultCoachPrefs, parseCoachPrefs } from '@/coach/prefs';
+import { isRecord, type Json } from '@/lib/json';
+import { defaultNetworkPrefs, type NetworkPrefs, parseNetworkPrefs } from '@/net/features';
 import { parseIsoDate } from '@/lib/dates';
 import { isValidTimeZone } from '@/lib/timeZones';
 
@@ -57,6 +60,8 @@ export interface UserData {
   journalQuestions: string[] | null;
   journal: Record<string, Record<string, JournalAnswer>>;
   weeklyPlan: { loadDays: number; sleepNights: number } | null;
+  network: NetworkPrefs;
+  coach: CoachPrefs;
   jetLagPlan: SavedJetLagPlan | null;
 }
 
@@ -80,14 +85,10 @@ export function defaultUserData(): UserData {
     journalQuestions: null,
     journal: {},
     weeklyPlan: null,
+    network: defaultNetworkPrefs(),
+    coach: defaultCoachPrefs(),
     jetLagPlan: null,
   };
-}
-
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
-
-function isRecord(value: Json | undefined): value is { [key: string]: Json } {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function numberIn(value: Json | undefined, min: number, max: number): number | null {
@@ -212,6 +213,8 @@ export function parseUserData(raw: string | null): UserData {
     journalQuestions: Array.isArray(parsed.journalQuestions) ? stringList(parsed.journalQuestions, 40, 40).filter((id) => ID.test(id)) : null,
     journal: parseJournal(parsed.journal),
     weeklyPlan: loadDays !== null && sleepNights !== null ? { loadDays, sleepNights } : null,
+    network: parseNetworkPrefs(parsed.network),
+    coach: parseCoachPrefs(parsed.coach),
     jetLagPlan: parseJetLagPlan(parsed.jetLagPlan),
   };
 }

@@ -1,15 +1,20 @@
+import { router } from 'expo-router';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import type { MetricKey } from '@/data/derived';
 import { MIN_DAYS_PER_SIDE, compareBehaviour, type BehaviourComparison } from '@/data/healthDerived';
+import { sortNotesNewestFirst } from '@/data/journalNotes';
 import { activeQuestions } from '@/data/journalQuestions';
 import { formatNumber, formatSigned } from '@/lib/format';
 import { useT } from '@/i18n/useT';
 import type { TranslationKey } from '@/i18n';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
+import { Button } from '@/ui/controls';
 import { HealthPage } from '@/ui/health/HealthPage';
+import { JournalNoteCard } from '@/ui/health/JournalNoteCard';
+import { Section } from '@/ui/Section';
 import { StateCard } from '@/ui/StateCard';
 import { spacing } from '@/ui/theme';
 
@@ -24,10 +29,13 @@ const TARGETS: readonly Target[] = [
   { key: 'hrv', labelKey: 'metric.hrv', decimals: 0 },
 ];
 
+const RECENT_NOTES = 3;
+
 export default function JournalInsightsScreen() {
   const { t, language } = useT();
-  const { days, userData } = useAppData();
+  const { days, userData, journalNotes } = useAppData();
   const questions = activeQuestions(userData.journalQuestions);
+  const recentNotes = sortNotesNewestFirst(journalNotes).slice(0, RECENT_NOTES);
   const answeredAny = Object.values(userData.journal).some((answers) => Object.keys(answers).length > 0);
 
   const renderTarget = (questionId: string, target: Target) => {
@@ -84,6 +92,16 @@ export default function JournalInsightsScreen() {
           </Card>
         ))
       )}
+      <Section title={t('journal.insights.notesTitle')}>
+        {recentNotes.length === 0 ? (
+          <AppText variant="body" muted testID="insights-notes-empty">
+            {t('journal.insights.notesEmpty')}
+          </AppText>
+        ) : (
+          recentNotes.map((note) => <JournalNoteCard key={note.id} note={note} />)
+        )}
+        <Button label={t('journal.insights.notesAll')} variant="secondary" onPress={() => router.push('/journal/log')} testID="insights-notes-all" />
+      </Section>
       <AppText variant="caption" muted>
         {t('journal.insights.footnote')}
       </AppText>
