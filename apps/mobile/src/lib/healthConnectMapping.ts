@@ -184,7 +184,7 @@ export function skinTemperatureRecords(days: readonly DayRecord[], window: Expor
   for (const day of days) {
     const sleep = mainSleep(day);
     const delta = day.skinTempDeviationC.value;
-    if (sleep === null || sleep.onset < window.fromS || sleep.offset > window.nowS || !inRange(delta, -30, 30)) continue;
+    if (sleep === null || sleep.offset <= window.fromS || sleep.offset > window.nowS || !inRange(delta, -30, 30)) continue;
     const absolute = day.skinTempC.value;
     const baseline = absolute === null ? null : absolute - delta;
     out.push({
@@ -205,7 +205,7 @@ export function sleepSessionRecords(days: readonly DayRecord[], window: ExportWi
   const seen = new Set<number>();
   for (const day of days) {
     for (const period of day.sleep.periods) {
-      if (period.onset < window.fromS || period.offset > window.nowS || period.offset <= period.onset || seen.has(period.onset)) continue;
+      if (period.offset <= window.fromS || period.offset > window.nowS || period.offset <= period.onset || seen.has(period.onset)) continue;
       seen.add(period.onset);
       out.push({
         recordType: 'SleepSession',
@@ -228,7 +228,7 @@ export function exerciseSessionRecords(days: readonly DayRecord[], window: Expor
   const seen = new Set<number>();
   for (const day of days) {
     for (const workout of day.workouts) {
-      if (workout.start < window.fromS || workout.end > window.nowS || workout.end <= workout.start || seen.has(workout.start)) continue;
+      if (workout.end <= window.fromS || workout.end > window.nowS || workout.end <= workout.start || seen.has(workout.start)) continue;
       seen.add(workout.start);
       out.push({
         recordType: 'ExerciseSession',
@@ -245,7 +245,7 @@ export function exerciseSessionRecords(days: readonly DayRecord[], window: Expor
 export function heartRateRecords(minutes: readonly HeartRateMinute[], window: ExportWindow): HeartRateRecord[] {
   const hours = new Map<number, HeartRateMinute[]>();
   for (const point of minutes) {
-    if (point.t < window.fromS || point.t > window.nowS) continue;
+    if (point.t < window.fromS || point.t >= window.nowS) continue;
     const bpm = Math.round(point.hr);
     if (!inRange(bpm, 1, 300)) continue;
     const hour = Math.floor(point.t / HOUR_S) * HOUR_S;
@@ -261,7 +261,7 @@ export function heartRateRecords(minutes: readonly HeartRateMinute[], window: Ex
       return {
         recordType: 'HeartRate',
         startTime: isoTime(hour),
-        endTime: isoTime(Math.min(last + 1, window.nowS)),
+        endTime: isoTime(last + 1),
         samples: sorted.map((p) => ({ time: isoTime(p.t), beatsPerMinute: p.hr })),
         metadata: metadata('hr', hour, window.version),
       };
@@ -353,6 +353,8 @@ export interface BodyImportPlan {
 
 const ROUND_KG = 100;
 const ROUND_PCT = 10;
+const BODY_FAT_MIN_PCT = 2;
+const BODY_FAT_MAX_PCT = 70;
 
 export function planBodyImport(
   weights: readonly unknown[],
@@ -363,7 +365,9 @@ export function planBodyImport(
   const isForeign = (reading: Reading): boolean => reading.origin !== ownPackage;
   const dayOf = (reading: Reading): string => unixToIsoDate(reading.t, reading.tzOffsetS ?? tzOffsetAt(reading.t));
   const parsedWeights = weights.map(parseWeightReading).filter((r): r is WeightReading => r !== null && isForeign(r));
-  const parsedFats = fats.map(parseBodyFatReading).filter((r): r is FatReading => r !== null && isForeign(r));
+  const parsedFats = fats
+    .map(parseBodyFatReading)
+    .filter((r): r is FatReading => r !== null && isForeign(r) && r.pct >= BODY_FAT_MIN_PCT && r.pct <= BODY_FAT_MAX_PCT);
   const fatFor = new Map<string, FatReading>();
   let unmatched = 0;
   for (const fat of parsedFats) {

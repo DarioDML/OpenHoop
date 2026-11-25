@@ -779,11 +779,11 @@ export class AppController {
     }
   }
 
-  private importBodyEntries(entries: ImportedBodyMeasurement[]): Promise<BodyImportResult> {
+  private importBodyEntries(entries: ImportedBodyMeasurement[], withBodyFat: boolean): Promise<BodyImportResult> {
     const run = this.userDataChain.then(async () => {
       const { driver } = this.requireApp();
       const before = this.snapshot.bodyMeasurements;
-      const result = await importBodyMeasurements(driver, entries, nowSeconds());
+      const result = await importBodyMeasurements(driver, entries, nowSeconds(), { bodyFat: withBodyFat });
       if (result.saved > 0) await this.applyBodyChange(before);
       return result;
     });
@@ -1059,7 +1059,7 @@ export class AppController {
           days: this.snapshot.days,
           exportAllowed: this.snapshot.settings.dataSource === 'band' && this.deviceRow !== null,
           heartRate: (fromS, toS) => this.heartRateBetween(fromS, toS, 60),
-          importBody: (entries) => this.importBodyEntries(entries),
+          importBody: (entries, withBodyFat) => this.importBodyEntries(entries, withBodyFat),
           ownPackage: OPENHOOP_PACKAGE,
           nowS: nowSeconds(),
           version: Date.now(),
@@ -1072,6 +1072,8 @@ export class AppController {
           lastSync: outcome.report,
         });
         await this.readGranted();
+      } catch {
+        this.fail(new AppError('error.healthConnectSync'));
       } finally {
         this.patchHealthConnect({ syncing: false });
       }

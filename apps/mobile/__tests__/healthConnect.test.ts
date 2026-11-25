@@ -111,6 +111,14 @@ describe('Health Connect mapping', () => {
     expect(records[0]?.stages).toBeUndefined();
   });
 
+  it('rewrites sessions that started before the window but end inside it, so a range delete never loses them', () => {
+    const straddling = period(WINDOW.fromS - 3_600, WINDOW.fromS + 3_600);
+    expect(sleepSessionRecords([makeDay({}, [straddling])], WINDOW)).toHaveLength(1);
+    expect(sleepSessionRecords([makeDay({}, [period(WINDOW.fromS - 7_200, WINDOW.fromS)])], WINDOW)).toEqual([]);
+    const workout: WorkoutRecord = { start: WINDOW.fromS - 600, end: WINDOW.fromS + 600, zoneSeconds: [], avgHr: 120, maxHr: 150, source: 'auto', label: null };
+    expect(exerciseSessionRecords([makeDay({}, [], [workout])], WINDOW)).toHaveLength(1);
+  });
+
   it('maps detected and logged workouts to exercise sessions with a known type or "other"', () => {
     const workouts: WorkoutRecord[] = [
       { start: NOW_S - 7_200, end: NOW_S - 3_600, zoneSeconds: [], avgHr: 120, maxHr: 150, source: 'auto', label: null },
@@ -179,6 +187,11 @@ describe('Health Connect body import plan', () => {
       { day: '2026-11-21', weightKg: 80.1, bodyFatPct: null, externalId: 'w2', origin: 'com.other' },
     ]);
     expect(plan.bodyFatUnmatched).toBe(0);
+  });
+
+  it('keeps a valid weight when its body fat reading is out of range', () => {
+    const plan = planBodyImport([weight('w1', '2026-11-20T08:00:00Z', 80)], [fat('f1', '2026-11-20T08:00:00Z', 95)], 'x', tz);
+    expect(plan.entries).toEqual([{ day: '2026-11-20', weightKg: 80, bodyFatPct: null, externalId: 'w1', origin: 'com.scale' }]);
   });
 
   it('uses the zone offset stored with the record when there is one', () => {
@@ -373,14 +386,17 @@ describe('Health Connect sync', () => {
       },
     );
     const stored: ImportedBodyMeasurement[][] = [];
+    const withFat: boolean[] = [];
     const outcome = await runHealthConnectSync(
       context(api, state, {
-        importBody: async (entries) => {
+        importBody: async (entries, withBodyFat) => {
           stored.push(entries);
+          withFat.push(withBodyFat);
           return { saved: entries.length, skipped: 0 };
         },
       }),
     );
+    expect(withFat).toEqual([true]);
     expect(api.reads.map((r) => [r.type, r.fromS])).toEqual([
       ['Weight', NOW_S - FIRST_IMPORT_DAYS * DAY_S],
       ['BodyFat', NOW_S - FIRST_IMPORT_DAYS * DAY_S],
@@ -404,6 +420,24 @@ describe('Health Connect sync', () => {
 
     const readFails = await runHealthConnectSync(context(fakeApi([{ accessType: 'read', recordType: 'Weight' }], { failRead: 'Weight' }), state));
     expect(readFails.report.results).toEqual({ weight: { status: 'error', step: 'read' }, bodyFat: { status: 'denied' } });
+
+    const withFat: boolean[] = [];
+    const fatFails = await runHealthConnectSync(
+      context(
+        fakeApi(
+          [
+            { accessType: 'read', recordType: 'Weight' },
+            { accessType: 'read', recordType: 'BodyFat' },
+          ],
+          { failRead: 'BodyFat' },
+        ),
+        state,
+        { importBody: async (entries, withBodyFat) => (withFat.push(withBodyFat), { saved: entries.length, skipped: 0 }) },
+      ),
+    );
+    expect(withFat).toEqual([false]);
+    expect(fatFails.report.results).toEqual({ weight: { status: 'ok', count: 0 }, bodyFat: { status: 'error', step: 'read' } });
+    expect(fatFails.lastImportS).toBe(NOW_S - DAY_S);
 
     const storeFails = await runHealthConnectSync(
       context(fakeApi([{ accessType: 'read', recordType: 'Weight' }]), state, {

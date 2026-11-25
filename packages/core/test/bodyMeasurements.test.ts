@@ -11,6 +11,8 @@ import {
 import type { SqlDriver } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 
+const FAT = { bodyFat: true };
+
 describe('body measurements', () => {
   let driver: SqlDriver;
 
@@ -57,7 +59,7 @@ describe('body measurements', () => {
     await insertBodyMeasurement(driver, { day: '2026-11-20', weightKg: 80.5, bodyFatPct: null }, 10);
     await insertBodyMeasurement(driver, { day: '2026-11-19', weightKg: 81, bodyFatPct: 19.2 }, 11);
     expect(await exportCsv(store, 'body_measurements')).toBe(`${header}2,2026-11-19,81,19.2,11,manual,,,\r\n1,2026-11-20,80.5,,10,manual,,,\r\n`);
-    await importBodyMeasurements(driver, [{ day: '2026-11-21', weightKg: 79, bodyFatPct: null, externalId: 'hc-1', origin: 'com.scale' }], 12);
+    await importBodyMeasurements(driver, [{ day: '2026-11-21', weightKg: 79, bodyFatPct: null, externalId: 'hc-1', origin: 'com.scale' }], 12, FAT);
     expect(await exportCsv(store, 'body_measurements')).toContain('3,2026-11-21,79,,12,health_connect,com.scale,hc-1,\r\n');
   });
 });
@@ -78,11 +80,11 @@ describe('imported body measurements', () => {
   });
 
   it('stores imports with their source and updates them in place on a later import', async () => {
-    expect(await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a'), scale('2026-11-21', 79.5, 'b', 18)], 10)).toEqual({
+    expect(await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a'), scale('2026-11-21', 79.5, 'b', 18)], 10, FAT)).toEqual({
       saved: 2,
       skipped: 0,
     });
-    expect(await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a'), scale('2026-11-21', 79.4, 'b', 18)], 11)).toEqual({
+    expect(await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a'), scale('2026-11-21', 79.4, 'b', 18)], 11, FAT)).toEqual({
       saved: 1,
       skipped: 1,
     });
@@ -101,11 +103,11 @@ describe('imported body measurements', () => {
 
   it('never overwrites or competes with a manual entry', async () => {
     await insertBodyMeasurement(driver, { day: '2026-11-20', weightKg: 81, bodyFatPct: null }, 5);
-    expect(await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a')], 10)).toEqual({ saved: 0, skipped: 1 });
-    expect((await importBodyMeasurements(driver, [scale('2026-11-21', 80, 'b')], 10)).saved).toBe(1);
+    expect(await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a')], 10, FAT)).toEqual({ saved: 0, skipped: 1 });
+    expect((await importBodyMeasurements(driver, [scale('2026-11-21', 80, 'b')], 10, FAT)).saved).toBe(1);
     const importedId = (await listBodyMeasurements(driver)).find((m) => m.source === 'health_connect')?.id ?? -1;
     expect(await updateBodyMeasurement(driver, importedId, { day: '2026-11-21', weightKg: 78, bodyFatPct: null })).toBe(true);
-    await importBodyMeasurements(driver, [scale('2026-11-21', 80, 'b')], 11);
+    await importBodyMeasurements(driver, [scale('2026-11-21', 80, 'b')], 11, FAT);
     expect((await listBodyMeasurements(driver)).map((m) => [m.day, m.weightKg, m.source])).toEqual([
       ['2026-11-20', 81, 'manual'],
       ['2026-11-21', 78, 'manual'],
@@ -113,12 +115,23 @@ describe('imported body measurements', () => {
   });
 
   it('does not bring back an import the user deleted', async () => {
-    await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a')], 10);
+    await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a')], 10, FAT);
     const [entry] = await listBodyMeasurements(driver);
     expect(await deleteBodyMeasurement(driver, entry?.id ?? -1, 12)).toBe(true);
     expect(await deleteBodyMeasurement(driver, entry?.id ?? -1, 13)).toBe(false);
-    expect(await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a')], 14)).toEqual({ saved: 0, skipped: 1 });
+    expect(await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a')], 14, FAT)).toEqual({ saved: 0, skipped: 1 });
     expect(await listBodyMeasurements(driver)).toEqual([]);
+  });
+
+  it('leaves stored body fat alone when this import did not read body fat', async () => {
+    await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a', 20)], 10, FAT);
+    expect(await importBodyMeasurements(driver, [scale('2026-11-20', 80, 'a')], 11, { bodyFat: false })).toEqual({ saved: 0, skipped: 1 });
+    expect((await importBodyMeasurements(driver, [scale('2026-11-20', 79.8, 'a')], 12, { bodyFat: false })).saved).toBe(1);
+    expect(await importBodyMeasurements(driver, [scale('2026-11-21', 79, 'b', 19)], 13, { bodyFat: false })).toEqual({ saved: 1, skipped: 0 });
+    expect((await listBodyMeasurements(driver)).map((m) => [m.weightKg, m.bodyFatPct])).toEqual([
+      [79.8, 20],
+      [79, null],
+    ]);
   });
 
   it('skips values the log cannot hold instead of failing the whole import', async () => {
@@ -132,6 +145,7 @@ describe('imported body measurements', () => {
         scale('2026-11-22', 80, 'd'),
       ],
       10,
+      FAT,
     );
     expect(result).toEqual({ saved: 1, skipped: 4 });
   });

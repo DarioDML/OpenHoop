@@ -29,7 +29,7 @@ export interface HcSyncContext {
   days: readonly DayRecord[];
   exportAllowed: boolean;
   heartRate(fromS: number, toS: number): Promise<HeartRateMinute[]>;
-  importBody(entries: ImportedBodyMeasurement[]): Promise<BodyImportResult>;
+  importBody(entries: ImportedBodyMeasurement[], withBodyFat: boolean): Promise<BodyImportResult>;
   ownPackage: string;
   nowS: number;
   version: number;
@@ -112,7 +112,7 @@ async function importBody(ctx: HcSyncContext, granted: ReadonlySet<string>): Pro
   }
   const plan = planBodyImport(weights, fats, ctx.ownPackage, ctx.tzOffsetAt);
   try {
-    const stored = await ctx.importBody(plan.entries);
+    const stored = await ctx.importBody(plan.entries, readFat && !fatFailed);
     results.weight = { status: 'ok', count: stored.saved };
     if (readFat && !fatFailed) results.bodyFat = { status: 'ok', count: plan.entries.filter((e) => e.bodyFatPct !== null).length };
   } catch {

@@ -79,47 +79,52 @@ export async function deleteBodyMeasurement(driver: SqlDriver, id: number, nowS:
   });
 }
 
-function isStorable(entry: ImportedBodyMeasurement): boolean {
+function isStorable(entry: ImportedBodyMeasurement, withBodyFat: boolean): boolean {
   if (!ISO_DAY.test(entry.day) || entry.externalId === '') return false;
   if (!Number.isFinite(entry.weightKg) || entry.weightKg < BODY_WEIGHT_RANGE_KG.min || entry.weightKg > BODY_WEIGHT_RANGE_KG.max) return false;
-  if (entry.bodyFatPct === null) return true;
+  if (!withBodyFat || entry.bodyFatPct === null) return true;
   return Number.isFinite(entry.bodyFatPct) && entry.bodyFatPct >= BODY_FAT_RANGE_PCT.min && entry.bodyFatPct <= BODY_FAT_RANGE_PCT.max;
 }
 
-const IMPORT_SQL = `
+function importSql(withBodyFat: boolean): string {
+  const fat = withBodyFat ? 'excluded.body_fat_pct' : 'body_measurements.body_fat_pct';
+  return `
 INSERT INTO body_measurements (day, weight_kg, body_fat_pct, created_at, source, external_id, origin)
 SELECT ?, ?, ?, ?, 'health_connect', ?, ?
 WHERE NOT EXISTS (SELECT 1 FROM body_measurements WHERE day = ? AND source = 'manual' AND deleted_at IS NULL)
 ON CONFLICT (external_id) DO UPDATE SET
   day = excluded.day,
   weight_kg = excluded.weight_kg,
-  body_fat_pct = excluded.body_fat_pct,
+  body_fat_pct = ${fat},
   origin = excluded.origin
 WHERE body_measurements.source = 'health_connect'
   AND body_measurements.deleted_at IS NULL
   AND (body_measurements.day IS NOT excluded.day
     OR body_measurements.weight_kg IS NOT excluded.weight_kg
-    OR body_measurements.body_fat_pct IS NOT excluded.body_fat_pct
+    OR body_measurements.body_fat_pct IS NOT ${fat}
     OR body_measurements.origin IS NOT excluded.origin)
 `;
+}
 
 export async function importBodyMeasurements(
   driver: SqlDriver,
   entries: readonly ImportedBodyMeasurement[],
   nowS: number,
+  options: { bodyFat: boolean },
 ): Promise<BodyImportResult> {
+  const sql = importSql(options.bodyFat);
   return driver.transaction(async (tx) => {
     let saved = 0;
     let skipped = 0;
     for (const entry of entries) {
-      if (!isStorable(entry)) {
+      if (!isStorable(entry, options.bodyFat)) {
         skipped++;
         continue;
       }
-      const result = await tx.run(IMPORT_SQL, [
+      const result = await tx.run(sql, [
         entry.day,
         entry.weightKg,
-        entry.bodyFatPct,
+        options.bodyFat ? entry.bodyFatPct : null,
         nowS,
         entry.externalId,
         entry.origin,

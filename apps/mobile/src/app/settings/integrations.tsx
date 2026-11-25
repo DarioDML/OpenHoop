@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
 import { HC_EXPORT_TYPES, HC_IMPORT_TYPES } from '@/lib/healthConnectMapping';
@@ -12,7 +14,10 @@ import { useTheme } from '@/ui/theme';
 export default function IntegrationsScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const { healthConnect } = useAppData();
+  const { healthConnect, refreshHealthConnect } = useAppData();
+  useEffect(() => {
+    void refreshHealthConnect();
+  }, [refreshHealthConnect]);
   const { state, availability } = healthConnect;
   const notBuilt = <Chip label={t('appSettings.integrations.notBuilt')} tone="pink" small />;
   const on = HC_EXPORT_TYPES.some((type) => state.export[type]) || HC_IMPORT_TYPES.some((type) => state.import[type]);

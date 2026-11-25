@@ -274,5 +274,6 @@
   "readiness.high": "Hoog",
   "readiness.medium": "Gemiddeld",
   "readiness.low": "Laag",
-  "error.healthConnect": "Health Connect kon niet geopend worden."
+  "error.healthConnect": "Health Connect kon niet geopend worden.",
+  "error.healthConnectSync": "De sync met Health Connect is niet afgerond. Er ging niets verloren op deze telefoon; probeer het opnieuw."
 }
