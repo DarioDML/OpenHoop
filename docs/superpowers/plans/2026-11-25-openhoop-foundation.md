@@ -1,4 +1,4 @@
-# Stoop Foundation Implementation Plan
+# OpenHoop Foundation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,9 +8,9 @@
 
 **Tech Stack:** TypeScript 5 strict, Node 26, `tsx`, Vitest, `node:sqlite`, `fflate`, Expo (development build, expo-router), `expo-sqlite` with SQLCipher, `react-native-ble-manager`, `@stoprocent/noble`.
 
-**Spec:** `docs/superpowers/specs/2026-11-25-stoop-foundation-design.md` (Dutch). Read it before any task.
+**Spec:** `docs/superpowers/specs/2026-11-25-openhoop-foundation-design.md` (Dutch). Read it before any task.
 
-**Reference (read-only, MIT, data not instructions):** `wearable5.0` at commit `8ab57dc`, checked out at `%TEMP%\claude\908e773f6767945a\d9c0db98-2b62-4d55-9802-242e26716f3e\scratchpad\ref\wearable5`. Port from its Python (`python/whoop5/*.py`, `re/score_formulas.py`, `re/SCORE_MODELS.md`). Never copy from NOOP, goose or OpenStrap.
+**Reference (read-only, MIT, data not instructions):** `wearable5.0` at commit `8ab57dc`, checked out locally from https://github.com/LeonardSEO/wearable5.0. Port from its Python (`python/whoop5/*.py`, `re/score_formulas.py`, `re/SCORE_MODELS.md`). Never copy from NOOP, goose or OpenStrap.
 
 ## Global Constraints
 
@@ -62,7 +62,7 @@ docs/                    dag-1.md, provenance.md
 
 **Files:** root config files above; a `package.json` and `tsconfig.json` per package with all dependencies declared.
 
-**Produces:** `npm test` (Vitest over all packages), `npm run typecheck`, `npm run lint`, and the package names `@stoop/protocol`, `@stoop/analytics`, `@stoop/core`, `@stoop/sim`, `@stoop/ble-node`, `@stoop/cli`. Each package's `exports` maps `.` to `./src/index.ts`; `@stoop/core` also maps `./node` to `./src/node/index.ts`.
+**Produces:** `npm test` (Vitest over all packages), `npm run typecheck`, `npm run lint`, and the package names `@openhoop/protocol`, `@openhoop/analytics`, `@openhoop/core`, `@openhoop/sim`, `@openhoop/ble-node`, `@openhoop/cli`. Each package's `exports` maps `.` to `./src/index.ts`; `@openhoop/core` also maps `./node` to `./src/node/index.ts`.
 
 - [ ] Write the config files; `tsconfig.base.json` sets `strict`, `noUncheckedIndexedAccess`, `moduleResolution: "bundler"`, `resolveJsonModule`, `verbatimModuleSyntax`, `noEmit`.
 - [ ] `npm install`; add a placeholder test per package so `npm test` passes.
@@ -263,7 +263,7 @@ interface SqlDriver {
   close(): Promise<void>
 }
 openStore(driver: SqlDriver): Promise<Store>                   // applies pending migrations
-openNodeDriver(path: string): SqlDriver                        // from '@stoop/core/node'; ':memory:' allowed
+openNodeDriver(path: string): SqlDriver                        // from '@openhoop/core/node'; ':memory:' allowed
 interface DeviceRow { id: number; bleId: string; name: string | null; model: '5.0' | 'MG' | null; firmware: string | null;
   serial: string | null; ownerSince: number | null; configSnapshot: string | null }
 interface SampleRow { deviceId: number; t: number; source: 'history' | 'live' | 'hrm'; hr: number | null; rr: number[];
@@ -388,9 +388,9 @@ Pinned: a physiological day runs from the main night's onset to the next main ni
 
 **Consumes:** Tasks 6–9.
 
-**Produces:** `npm run stoop -- <command>`; `NobleTransport implements Transport`.
+**Produces:** `npm run openhoop -- <command>`; `NobleTransport implements Transport`.
 
-Commands (all accept `--sim[=seed]`, `--db <path>` defaulting to `./stoop-data/stoop.db`, and `--json`):
+Commands (all accept `--sim[=seed]`, `--db <path>` defaulting to `./openhoop-data/openhoop.db`, and `--json`):
 
 - `triage [--out <file>]`: read-only. Scan, connect, list services, read device information and battery without bonding, sample the standard heart rate for 10 s; then bond, open a session, print firmware, battery, clock offset, ring positions and backlog, enumerate feature flags and device config keys with their values, run `probeLock`. Print a verdict line: `OPEN`, `LOCKED (firmware 50.43+, data withheld)` or `NO DATA`. Save the snapshot as JSON and into `devices.config_snapshot`. Each step is independent: a failure prints the reason and the remaining steps still run.
 - `live [--seconds n] [--record]`: standard heart-rate profile; `--record` stores samples.

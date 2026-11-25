@@ -1,4 +1,4 @@
-const EXPORT_PREFIX = 'stoop-export-';
+const EXPORT_PREFIX = 'openhoop-export-';
 
 export function exportFolderName(now: Date): string {
   return `${EXPORT_PREFIX}${now.getTime()}`;

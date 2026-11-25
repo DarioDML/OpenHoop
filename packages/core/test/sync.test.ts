@@ -7,7 +7,7 @@ import {
   encodeMetadata,
   encodeUnknownRecord,
   toHex,
-} from '@stoop/protocol';
+} from '@openhoop/protocol';
 import {
   MAX_CLOCK_OFFSET_S,
   MAX_DAMAGED_ATTEMPTS,

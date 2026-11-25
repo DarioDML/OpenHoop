@@ -1,4 +1,4 @@
-import type { DayRecord, Derived } from '@stoop/core';
+import type { DayRecord, Derived } from '@openhoop/core';
 import type { Command, CommandResult } from '../command';
 import type { Context } from '../context';
 import { chooseStored } from '../devices';

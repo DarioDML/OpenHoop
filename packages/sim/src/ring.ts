@@ -1,4 +1,4 @@
-import { encodeBatteryEvent, encodeBiometric, encodeConsole, encodeMetadata } from '@stoop/protocol';
+import { encodeBatteryEvent, encodeBiometric, encodeConsole, encodeMetadata } from '@openhoop/protocol';
 import { simulateSecond } from './physiology';
 
 export const PAGE_RECORDS = 14;

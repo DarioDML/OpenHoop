@@ -1,4 +1,4 @@
-import { CommandFailedError, CommandTimeoutError, DisconnectedError, OwnerSinceRequiredError } from '@stoop/core';
+import { CommandFailedError, CommandTimeoutError, DisconnectedError, OwnerSinceRequiredError } from '@openhoop/core';
 
 import { BleError } from '@/ble/errors';
 import {
@@ -22,7 +22,7 @@ import {
 import { isoDaysAgo, ownerSinceToUnix, parseIsoDate, unixToIsoDate } from '@/lib/dates';
 import { exportFolderName, isExportFolder, isSafeSqlPath, toFileUri, uriToPath } from '@/lib/paths';
 
-jest.mock('@stoop/core', () => ({
+jest.mock('@openhoop/core', () => ({
   DisconnectedError: class DisconnectedError extends Error {},
   CommandTimeoutError: class CommandTimeoutError extends Error {},
   CommandFailedError: class CommandFailedError extends Error {},
@@ -140,7 +140,7 @@ describe('owner-since date handling', () => {
 describe('export path helpers', () => {
   it('builds recognisable folder names', () => {
     const name = exportFolderName(new Date(5));
-    expect(name).toBe('stoop-export-5');
+    expect(name).toBe('openhoop-export-5');
     expect(isExportFolder(name)).toBe(true);
     expect(isExportFolder('other')).toBe(false);
   });

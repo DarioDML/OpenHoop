@@ -1,4 +1,4 @@
-import { Command, GATT, buildCommand, concat, decodeFrame, fromHex, wrapFrame } from '@stoop/protocol';
+import { Command, GATT, buildCommand, concat, decodeFrame, fromHex, wrapFrame } from '@openhoop/protocol';
 import { describe, expect, it } from 'vitest';
 import { SimBand } from '../src/index';
 import { NOW, TestClient, isRecord, options, sleep } from './harness';

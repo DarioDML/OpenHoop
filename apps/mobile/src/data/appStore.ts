@@ -1,12 +1,12 @@
-import { openStore, type Store } from '@stoop/core';
+import { openStore, type Store } from '@openhoop/core';
 import { getRandomBytes } from 'expo-crypto';
 import { getItemAsync, setItemAsync } from 'expo-secure-store';
 
 import { openExpoDriver, type ExpoDriver } from './expoSqliteDriver';
 import { keyToHex, parseKeyHex } from './keyHex';
 
-const DATABASE_NAME = 'stoop.db';
-const KEY_ITEM = 'stoop.database.key';
+const DATABASE_NAME = 'openhoop.db';
+const KEY_ITEM = 'openhoop.database.key';
 const KEY_BYTES = 32;
 
 export interface AppStore {

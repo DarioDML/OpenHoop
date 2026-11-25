@@ -38,7 +38,7 @@ describe('node driver', () => {
   });
 
   it('enables foreign keys, WAL and full sync on a file database and persists data', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'stoop-core-'));
+    const dir = mkdtempSync(join(tmpdir(), 'openhoop-core-'));
     const path = join(dir, 'db.sqlite');
     try {
       const store = await openStore(openStrictDriver(path));

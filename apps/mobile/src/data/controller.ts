@@ -14,9 +14,9 @@ import {
   type SyncProgress,
   type SyncStop,
   type Transport,
-} from '@stoop/core';
-import { formatFirmware } from '@stoop/protocol';
-import { SimBand } from '@stoop/sim';
+} from '@openhoop/core';
+import { formatFirmware } from '@openhoop/protocol';
+import { SimBand } from '@openhoop/sim';
 import { getLocales } from 'expo-localization';
 
 import { BleManagerTransport } from '@/ble/bleManagerTransport';
@@ -446,7 +446,7 @@ export class AppController {
       const after = await store.getSyncState(deviceId);
       this.lastSyncAt = after?.lastSyncAt ?? this.lastSyncAt;
       this.lastTimings = { transferMs, computeMs, samples: result.samples, chunks: result.chunks };
-      if (__DEV__) console.log(`stoop sync timings: ${JSON.stringify(this.lastTimings)}`);
+      if (__DEV__) console.log(`openhoop sync timings: ${JSON.stringify(this.lastTimings)}`);
       if (conn.session.isConnected) this.battery = await conn.session.battery().catch(() => this.battery);
       if (result.stoppedBy === 'disconnect') throw new AppError('error.disconnected');
       const stopNotice = STOP_NOTICES[result.stoppedBy];

@@ -1,5 +1,5 @@
-import { recordHeartRate } from '@stoop/core';
-import { GATT, parseHeartRateMeasurement } from '@stoop/protocol';
+import { recordHeartRate } from '@openhoop/core';
+import { GATT, parseHeartRateMeasurement } from '@openhoop/protocol';
 import type { Command, CommandResult } from '../command';
 import type { Context } from '../context';
 import { modelFromText } from '../devices';

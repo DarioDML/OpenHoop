@@ -1,4 +1,4 @@
-import { decodeFrame, encodeBiometric } from '@stoop/protocol';
+import { decodeFrame, encodeBiometric } from '@openhoop/protocol';
 import { sampleFromPacket } from '../src/mapping';
 import type { SampleRow } from '../src/store/types';
 

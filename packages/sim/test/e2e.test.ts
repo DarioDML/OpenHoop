@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Profile } from '@stoop/analytics';
-import { decodeFrame } from '@stoop/protocol';
+import type { Profile } from '@openhoop/analytics';
+import { decodeFrame } from '@openhoop/protocol';
 import {
   MAX_DAMAGED_ATTEMPTS,
   Session,
@@ -10,9 +10,9 @@ import {
   recomputeDays,
   recordHeartRate,
   syncHistory,
-} from '@stoop/core';
-import type { Clock, DayRecord, SampleRow, Store, SyncResult } from '@stoop/core';
-import { openNodeDriver } from '@stoop/core/node';
+} from '@openhoop/core';
+import type { Clock, DayRecord, SampleRow, Store, SyncResult } from '@openhoop/core';
+import { openNodeDriver } from '@openhoop/core/node';
 import { SimBand } from '../src/index';
 import type { SimOptions } from '../src/index';
 

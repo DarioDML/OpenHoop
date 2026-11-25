@@ -1,4 +1,4 @@
-import { rebuildFromRaw, recomputeDays } from '@stoop/core';
+import { rebuildFromRaw, recomputeDays } from '@openhoop/core';
 import type { Command, CommandResult } from '../command';
 import type { Context } from '../context';
 import { localDateEndToUnix, localDateToUnix } from '../dates';

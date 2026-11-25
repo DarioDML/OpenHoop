@@ -8,8 +8,8 @@
  * starting with WHOOP), whether the library reports characteristic UUIDs in long or short form
  * (both are normalised), the MTU the band accepts, and whether createBond succeeds without a PIN.
  */
-import type { BondResult, DiscoveredDevice, GattService, Transport } from '@stoop/core';
-import { GATT } from '@stoop/protocol';
+import type { BondResult, DiscoveredDevice, GattService, Transport } from '@openhoop/core';
+import { GATT } from '@openhoop/protocol';
 import { PermissionsAndroid, Platform, type EventSubscription, type Permission } from 'react-native';
 import BleManager, { BleScanMode, BleState, ConnectionPriority, type Peripheral } from 'react-native-ble-manager';
 

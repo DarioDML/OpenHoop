@@ -1,7 +1,7 @@
-import type { BondResult, DeviceRow, DiscoveredDevice, Store, SyncOptions, SyncResult, Transport } from '@stoop/core';
-import { MAX_CLOCK_OFFSET_S, Session, recomputeDays, syncHistory } from '@stoop/core';
-import type { HelloInfo } from '@stoop/protocol';
-import { formatFirmware } from '@stoop/protocol';
+import type { BondResult, DeviceRow, DiscoveredDevice, Store, SyncOptions, SyncResult, Transport } from '@openhoop/core';
+import { MAX_CLOCK_OFFSET_S, Session, recomputeDays, syncHistory } from '@openhoop/core';
+import type { HelloInfo } from '@openhoop/protocol';
+import { formatFirmware } from '@openhoop/protocol';
 import type { Context } from './context';
 import { chooseScanned, describeFound } from './devices';
 import { formatIso } from './format';
@@ -73,10 +73,10 @@ export function clockRefusalLines(offsetS: number | null): string[] {
   return [
     `Sync stopped: the band's clock ${state}.`,
     'No history was read from the band and nothing was removed from it; its history is still there.',
-    'Stoop uses the band clock to tell your records from those of a previous owner, so a wrong clock could make it throw away your own nights.',
+    'OpenHoop uses the band clock to tell your records from those of a previous owner, so a wrong clock could make it throw away your own nights.',
     'Options:',
     '  - run sync again with --ignore-clock: every record is stored, including any from before you owned the band;',
-    '  - or wait until Stoop can set the band clock in a verified way, then sync normally.',
+    '  - or wait until OpenHoop can set the band clock in a verified way, then sync normally.',
   ];
 }
 

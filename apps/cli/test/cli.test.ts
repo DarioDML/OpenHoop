@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openStore } from '@stoop/core';
-import { openNodeDriver } from '@stoop/core/node';
+import { openStore } from '@openhoop/core';
+import { openNodeDriver } from '@openhoop/core/node';
 
 const ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const MAIN = join(ROOT, 'apps', 'cli', 'src', 'main.ts');
@@ -44,7 +44,7 @@ function asRecord(value: unknown): Record<string, unknown> {
 let dir: string;
 
 beforeAll(() => {
-  dir = mkdtempSync(join(tmpdir(), 'stoop-cli-'));
+  dir = mkdtempSync(join(tmpdir(), 'openhoop-cli-'));
 });
 
 afterAll(() => {
@@ -207,7 +207,7 @@ describe('a simulated database', () => {
     const run = await cli('export', '--dir', target, '--db', db(), '--json');
     expect(run.code, run.stderr).toBe(0);
     for (const name of [
-      'stoop.db',
+      'openhoop.db',
       'devices.csv',
       'samples_1hz.csv',
       'daily_metrics.csv',
@@ -222,7 +222,7 @@ describe('a simulated database', () => {
     const metrics = readFileSync(join(target, 'daily_metrics.csv'), 'utf8').trim().split('\r\n');
     expect(metrics[0]).toBe('device_id,day,readiness,load,sleep_score,record');
     expect(metrics.length).toBeGreaterThanOrEqual(4);
-    const copy = await openStore(openNodeDriver(join(target, 'stoop.db')));
+    const copy = await openStore(openNodeDriver(join(target, 'openhoop.db')));
     expect((await copy.listDevices()).length).toBe(1);
     await copy.driver.close();
   });

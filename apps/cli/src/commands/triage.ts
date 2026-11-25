@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import type { ConfigKey, DiscoveredDevice, GattService, Transport } from '@stoop/core';
-import { MAX_CLOCK_OFFSET_S, clockTrusted, probeLock, readDeviceInformation, readKeys } from '@stoop/core';
-import type { Session } from '@stoop/core';
-import { GATT, formatFirmware, isDataLockFirmware, parseFirmware, parseHeartRateMeasurement } from '@stoop/protocol';
+import type { ConfigKey, DiscoveredDevice, GattService, Transport } from '@openhoop/core';
+import { MAX_CLOCK_OFFSET_S, clockTrusted, probeLock, readDeviceInformation, readKeys } from '@openhoop/core';
+import type { Session } from '@openhoop/core';
+import { GATT, formatFirmware, isDataLockFirmware, parseFirmware, parseHeartRateMeasurement } from '@openhoop/protocol';
 import { UsageError } from '../args';
 import type { Command, CommandResult } from '../command';
 import type { Context } from '../context';
@@ -177,13 +177,13 @@ export function buildVerdict(state: 'open' | 'locked' | 'no-data', clock: string
   const withClock = (line: string): string => (clock === null ? line : `${line} ${clock}`);
   if (state === 'open') {
     const explanation = 'The band sent history or live data when asked, so its data is readable.';
-    const nextCommand = 'npm run stoop -- sync --owner-since <YYYY-MM-DD the band became yours>';
+    const nextCommand = 'npm run openhoop -- sync --owner-since <YYYY-MM-DD the band became yours>';
     return { label: 'OPEN', line: withClock(`OPEN: ${explanation} Next: ${nextCommand}`), explanation, nextCommand, clock };
   }
   if (state === 'locked') {
     const explanation =
-      'The band was asked for its backlog and sent nothing, which is how firmware 50.43 and later behaves without a vendor-signed certificate; Stoop does not try to get around that.';
-    const nextCommand = 'npm run stoop -- live --record';
+      'The band was asked for its backlog and sent nothing, which is how firmware 50.43 and later behaves without a vendor-signed certificate; OpenHoop does not try to get around that.';
+    const nextCommand = 'npm run openhoop -- live --record';
     return {
       label: 'LOCKED',
       line: withClock(`LOCKED (firmware 50.43+, data withheld): ${explanation} Next: ${nextCommand}`),
@@ -194,7 +194,7 @@ export function buildVerdict(state: 'open' | 'locked' | 'no-data', clock: string
   }
   const explanation =
     'The band answered but sent no data within the wait: it may have no backlog and not be worn, or its firmware is older than 50.43 and it is probably not locked.';
-  const nextCommand = 'wear the band for a few minutes, then run: npm run stoop -- triage';
+  const nextCommand = 'wear the band for a few minutes, then run: npm run openhoop -- triage';
   return { label: 'NO DATA', line: withClock(`NO DATA: ${explanation} Next: ${nextCommand}`), explanation, nextCommand, clock };
 }
 
@@ -203,7 +203,7 @@ function outputPath(requested: string | undefined, now: Date): string {
     if (requested.length === 0 || requested.includes('\0')) throw new UsageError('--out needs a file path');
     return resolve(requested);
   }
-  return resolve('stoop-data', `triage-${timestampForFile(now)}.json`);
+  return resolve('openhoop-data', `triage-${timestampForFile(now)}.json`);
 }
 
 async function run(ctx: Context): Promise<CommandResult> {
@@ -240,7 +240,7 @@ async function run(ctx: Context): Promise<CommandResult> {
   };
   const steps = snapshot.steps;
 
-  ctx.log('Stoop triage: read-only. Nothing is written to the band and no history is acknowledged.');
+  ctx.log('OpenHoop triage: read-only. Nothing is written to the band and no history is acknowledged.');
 
   steps.scan = await attempt(ctx, '[1/7] Scan for bands', async () => {
     snapshot.found = await scanForBands(ctx, transport, scanSeconds);
@@ -380,7 +380,7 @@ async function run(ctx: Context): Promise<CommandResult> {
   if (snapshot.verdict !== null) ctx.log(snapshot.verdict.line);
   else ctx.log('NO VERDICT: the lock probe did not run (see the failed steps above), so the band was not classified. Next: fix the first failed step and run triage again.');
   for (const warning of snapshot.warnings) ctx.log(`WARNING: ${warning}`);
-  ctx.log('REMINDER: never connect this band to the official WHOOP app; it may update the firmware, and a later firmware can withhold the data; Stoop cannot undo that.');
+  ctx.log('REMINDER: never connect this band to the official WHOOP app; it may update the firmware, and a later firmware can withhold the data; OpenHoop cannot undo that.');
   ctx.log(`Snapshot saved to ${target} and to the device row in ${ctx.dbPath}`);
   if (handle.sim !== null) {
     ctx.log(`Simulator counters: forbidden ${snapshot.simulator?.forbiddenReceived ?? 0}, write ${snapshot.simulator?.writesReceived ?? 0}, dangerous ${snapshot.simulator?.dangerousReceived ?? 0}`);

@@ -11,7 +11,7 @@ const portable = {
 };
 
 export default tseslint.config(
-  { ignores: ['**/node_modules/**', 'apps/mobile/**', '**/dist/**', 'stoop-data/**'] },
+  { ignores: ['**/node_modules/**', 'apps/mobile/**', '**/dist/**', 'openhoop-data/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

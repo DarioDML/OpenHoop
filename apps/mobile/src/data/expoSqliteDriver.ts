@@ -1,4 +1,4 @@
-import { createSerialDriver, type SqlDriver, type SqlValue } from '@stoop/core';
+import { createSerialDriver, type SqlDriver, type SqlValue } from '@openhoop/core';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 import { keyPragma } from './keyHex';

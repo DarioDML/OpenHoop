@@ -1,5 +1,5 @@
 {
-  "name": "@stoop/ble-node",
+  "name": "@openhoop/ble-node",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,8 +8,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@stoop/core": "*",
-    "@stoop/protocol": "*",
+    "@openhoop/core": "*",
+    "@openhoop/protocol": "*",
     "@stoprocent/noble": "^2.8.0"
   }
 }

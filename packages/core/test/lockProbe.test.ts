@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GATT, encodeBiometric, encodeRealtimeHr } from '@stoop/protocol';
+import { GATT, encodeBiometric, encodeRealtimeHr } from '@openhoop/protocol';
 import { LINK_QUIET_MAX_MS, LINK_QUIET_MS, Session, probeLock } from '../src/index';
 import type { BandScript, Emit, Outgoing } from './fakeTransport';
 import { FakeTransport, VirtualClock, reply, scriptBand } from './fakeTransport';

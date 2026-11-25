@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import type { DayRecord } from '@stoop/core';
+import type { DayRecord } from '@openhoop/core';
 
 import { useAppData } from '@/data/context';
 import type { ParityLevel } from '@/data/types';

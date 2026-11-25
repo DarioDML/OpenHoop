@@ -1,4 +1,4 @@
-import type { ExportTable, Store } from '@stoop/core';
+import type { ExportTable, Store } from '@openhoop/core';
 import { Directory, File, Paths } from 'expo-file-system';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import { strToU8, zipSync, type Zippable } from 'fflate';
@@ -19,8 +19,8 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'raw_chunks',
 ];
 
-const PLAINTEXT_NAME = 'stoop.db';
-const ZIP_NAME = 'stoop-export.zip';
+const PLAINTEXT_NAME = 'openhoop.db';
+const ZIP_NAME = 'openhoop-export.zip';
 
 export function removeLeftoverExports(): void {
   for (const entry of new Directory(Paths.cache).list()) {
@@ -81,7 +81,7 @@ export async function exportAll(
 
     const zip = new File(folder, ZIP_NAME);
     zip.write(zipSync(archive));
-    await shareAsync(zip.uri, { mimeType: 'application/zip', dialogTitle: 'Stoop' });
+    await shareAsync(zip.uri, { mimeType: 'application/zip', dialogTitle: 'OpenHoop' });
     return { databaseIncluded, tables: EXPORT_TABLES.length };
   } finally {
     removeFolder(folder);

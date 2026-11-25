@@ -29,7 +29,7 @@ async function run(ctx: Context): Promise<CommandResult> {
   try {
     const report = await syncAndRecompute(ctx, store, session, device.id, interrupt.signal);
     const range = await store.sampleRange(device.id);
-    ctx.log(`Database now holds ${range?.count ?? 0} samples. Next: npm run stoop -- days --db "${ctx.dbPath}"`);
+    ctx.log(`Database now holds ${range?.count ?? 0} samples. Next: npm run openhoop -- days --db "${ctx.dbPath}"`);
     return {
       json: { device: { id: device.id, bleId: device.bleId }, seed, days, samplesInDatabase: range?.count ?? 0, ...report },
       exitCode: report.sync.stoppedBy === 'complete' ? 0 : 1,

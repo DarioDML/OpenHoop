@@ -4,7 +4,7 @@ This is an explanation of how the project approaches the law. It is not legal ad
 
 ## Purpose
 
-Stoop exists to let the owner of a WHOOP 5.0 / MG band read the data from that band on hardware and software they control. Its purpose is interoperability: making an independent program work with a device the user owns.
+OpenHoop exists to let the owner of a WHOOP 5.0 / MG band read the data from that band on hardware and software they control. Its purpose is interoperability: making an independent program work with a device the user owns.
 
 ## Basis in EU law
 
@@ -28,18 +28,18 @@ These points support the approach. They do not guarantee that every step taken i
 
 ## Trademarks
 
-WHOOP is a trademark of its owner. Stoop uses the name only to say which hardware it works with ("WHOOP 5.0 / MG band"). Stoop is not affiliated with, endorsed by or sponsored by WHOOP, Inc. The score names used in Stoop (Readiness, Load, Sleep score) are its own.
+WHOOP is a trademark of its owner. OpenHoop uses the name only to say which hardware it works with ("WHOOP 5.0 / MG band"). OpenHoop is not affiliated with, endorsed by or sponsored by WHOOP, Inc. The score names used in OpenHoop (Readiness, Load, Sleep score) are its own.
 
 ## Patents
 
-Patents have not been assessed. This is an open question that must be looked at before any public 1.0 release. The repository is private for now, and making it public is a separate, later decision.
+Patents have not been assessed. This is an open question that must be looked at before any public 1.0 release. The repository is public; that does not make the project a released product.
 
 ## Provenance policy
 
 - Every protocol fact the code relies on has a recorded source in [docs/provenance.md](docs/provenance.md), together with the evidence tier the source states and whether it has been verified on the author's own hardware.
 - Code is ported only from `wearable5.0`, which is MIT-licensed. The credit and licence text are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - Projects under non-commercial or AGPL licences are used as a source of facts only (for example byte offsets or behaviour). Their code is never copied.
-- Some of the facts in the reference project were recorded by it from analysis of the vendor's app, for interoperability. Stoop takes the facts and not the code or assets.
+- Some of the facts in the reference project were recorded by it from analysis of the vendor's app, for interoperability. OpenHoop takes the facts and not the code or assets.
 
 ## Concerns
 

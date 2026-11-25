@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GATT, concat, toHex } from '@stoop/protocol';
+import { GATT, concat, toHex } from '@openhoop/protocol';
 import { DisconnectedError, Session, readKeys } from '../src/index';
 import { FakeTransport, VirtualClock, reply, scriptBand } from './fakeTransport';
 

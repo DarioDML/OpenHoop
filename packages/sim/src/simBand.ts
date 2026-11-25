@@ -1,4 +1,4 @@
-import type { BondResult, DiscoveredDevice, GattService, Transport } from '@stoop/core';
+import type { BondResult, DiscoveredDevice, GattService, Transport } from '@openhoop/core';
 import {
   Command,
   GATT,
@@ -12,8 +12,8 @@ import {
   encodeRealtimeHr,
   parseFirmware,
   toHex,
-} from '@stoop/protocol';
-import type { FirmwareVersion } from '@stoop/protocol';
+} from '@openhoop/protocol';
+import type { FirmwareVersion } from '@openhoop/protocol';
 import { simulateSecond } from './physiology';
 import { DEFAULT_PAGES_PER_CHUNK, HistoryRing, PAGE_RECORDS, RING_PAGES, batteryPercentAt } from './ring';
 

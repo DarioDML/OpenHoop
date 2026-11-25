@@ -1,4 +1,4 @@
-import type { BandModel, DayRecord } from '@stoop/core';
+import type { BandModel, DayRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 

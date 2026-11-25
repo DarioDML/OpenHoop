@@ -19,7 +19,7 @@ Noteer de datum en het uur waarop je hem voor het eerst omdoet. Dat is je "eigen
 ## Stap 2: live hartslag, zonder koppelen
 
 ```
-npm run stoop -- live --seconds 30
+npm run openhoop -- live --seconds 30
 ```
 
 Dit gebruikt het standaard hartslagprofiel en heeft geen koppeling nodig. Het werkt ook op een vergrendelde band.
@@ -30,10 +30,10 @@ Dit gebruikt het standaard hartslagprofiel en heeft geen koppeling nodig. Het we
 ## Stap 3: triage
 
 ```
-npm run stoop -- triage
+npm run openhoop -- triage
 ```
 
-Triage leest alleen. Het stuurt geen enkel commando dat iets op de band verandert, en het haalt geen geschiedenis van de band. Het bewaart een momentopname in `stoop-data/`.
+Triage leest alleen. Het stuurt geen enkel commando dat iets op de band verandert, en het haalt geen geschiedenis van de band. Het bewaart een momentopname in `openhoop-data/`.
 
 De stappen die je ziet voorbijkomen:
 
@@ -53,7 +53,7 @@ De stappen die je ziet voorbijkomen:
 | --- | --- | --- |
 | `OPEN` | De band geeft zijn data vrij | Stap 4 |
 | `OPEN`, met een waarschuwing over firmware 50.43 of hoger | De band heeft nog een geldig certificaat van een eerder lidmaatschap. Dat verloopt, uiterlijk 45 dagen na de laatste vernieuwing | Stap 4, en synchroniseer dagelijks zolang het kan |
-| `LOCKED` | De firmware houdt de geschiedenis achter. Stoop omzeilt dat niet | Stap 6 |
+| `LOCKED` | De firmware houdt de geschiedenis achter. OpenHoop omzeilt dat niet | Stap 6 |
 | `NO DATA` | Er kwam niets, maar de firmware is ouder dan 50.43. Meestal is de band te kort gedragen | Draag de band een uur en draai triage opnieuw |
 
 Meldt triage dat de klok van de band niet ingesteld is of meer dan 2 minuten afwijkt, lees dan eerst "Als de klok niet klopt" hieronder.
@@ -61,7 +61,7 @@ Meldt triage dat de klok van de band niet ingesteld is of meer dan 2 minuten afw
 ## Stap 4: eerste synchronisatie
 
 ```
-npm run stoop -- sync --owner-since 2026-12-01T18:30:00+01:00
+npm run openhoop -- sync --owner-since 2026-12-01T18:30:00+01:00
 ```
 
 Vul het moment uit stap 1 in, als datum (`2026-12-01`) of als datum en uur met tijdzone. Alles van vóór dat moment is van de vorige eigenaar: het wordt van de band gehaald en niet bewaard.
@@ -71,7 +71,7 @@ Een volle band bevat ongeveer drie weken. Op basis van metingen van anderen duur
 Daarna:
 
 ```
-npm run stoop -- days --last 7
+npm run openhoop -- days --last 7
 ```
 
 De eerste drie nachten staat er een sterretje bij Paraatheid: het model kalibreert nog.
@@ -87,11 +87,11 @@ De eerste drie nachten staat er een sterretje bij Paraatheid: het model kalibree
 
 ### Als de klok niet klopt
 
-Na een volledig lege batterij begint de klok van de band opnieuw. De tijdstempels van nieuwe records zijn dan fout, en Stoop kan niet meer zien wat van vóór jouw eigenaarschap is. Daarom weigert `sync`.
+Na een volledig lege batterij begint de klok van de band opnieuw. De tijdstempels van nieuwe records zijn dan fout, en OpenHoop kan niet meer zien wat van vóór jouw eigenaarschap is. Daarom weigert `sync`.
 
 Twee uitwegen:
 
-- `npm run stoop -- sync --owner-since <datum> --ignore-clock` bewaart alles, zonder filter. Er kan dan data van de vorige eigenaar tussen zitten, en de dagen krijgen de vlag `clock-offset`.
+- `npm run openhoop -- sync --owner-since <datum> --ignore-clock` bewaart alles, zonder filter. Er kan dan data van de vorige eigenaar tussen zitten, en de dagen krijgen de vlag `clock-offset`.
 - De klok zetten. Dat is een schrijfcommando waarvan de exacte vorm nog niet op een band bevestigd is. Het staat op de lijst hieronder en is nog niet gebouwd.
 
 ## Stap 5: de app
@@ -113,12 +113,12 @@ De database van de laptop en die van de telefoon staan los van elkaar.
 Dan blijft de hartslagband-modus over: hartslag en R-R via het standaardprofiel, live opgenomen.
 
 ```
-npm run stoop -- live --record
+npm run openhoop -- live --record
 ```
 
-Dit neemt elke seconde hartslag en R-R op zolang het loopt, met de laptop binnen bereik. Daarna `npm run stoop -- recompute` en `days`.
+Dit neemt elke seconde hartslag en R-R op zolang het loopt, met de laptop binnen bereik. Daarna `npm run openhoop -- recompute` en `days`.
 
-Wat je vandaag in deze modus krijgt: hartslag, Belasting en tijd per zone. Wat nog ontbreekt: HRV, rusthartslag, ademhaling, slaap en Paraatheid. Die rekenen over een slaapperiode, en Stoop leidt de slaap nu af uit de toestand die de band zelf meldt. Die toestand zit in de geschiedenis die een vergrendelde band achterhoudt. De R-R-intervallen van de nacht staan wel in de database; een slaapdetectie uit hartslag alleen moet nog gebouwd worden en kan dan met terugwerkende kracht over die nachten lopen. Stappen, huidtemperatuur en SpO2 komen in deze modus nooit.
+Wat je vandaag in deze modus krijgt: hartslag, Belasting en tijd per zone. Wat nog ontbreekt: HRV, rusthartslag, ademhaling, slaap en Paraatheid. Die rekenen over een slaapperiode, en OpenHoop leidt de slaap nu af uit de toestand die de band zelf meldt. Die toestand zit in de geschiedenis die een vergrendelde band achterhoudt. De R-R-intervallen van de nacht staan wel in de database; een slaapdetectie uit hartslag alleen moet nog gebouwd worden en kan dan met terugwerkende kracht over die nachten lopen. Stappen, huidtemperatuur en SpO2 komen in deze modus nooit.
 
 Staat één van de twee bands open en de andere op slot, gebruik dan de open band voor dagelijks gebruik.
 
@@ -146,7 +146,7 @@ Vul in wat je ziet. Dit zijn de plekken waar de code een aanname maakt die allee
 | 12 | Lukt koppelen op de Android-telefoon? | |
 | 13 | Batterijduur met dagelijkse sync | |
 
-Loopt er iets vast, bewaar dan de uitvoer van het commando en het bestand `stoop-data/triage-*.json`. Daarmee is de oorzaak meestal te vinden.
+Loopt er iets vast, bewaar dan de uitvoer van het commando en het bestand `openhoop-data/triage-*.json`. Daarmee is de oorzaak meestal te vinden.
 
 ## Wat je beter niet doet
 

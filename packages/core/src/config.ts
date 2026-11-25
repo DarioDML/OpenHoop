@@ -1,4 +1,4 @@
-import { Command, concat, toHex } from '@stoop/protocol';
+import { Command, concat, toHex } from '@openhoop/protocol';
 import { printableAscii } from './deviceInfo';
 import type { Session } from './session';
 import { DisconnectedError } from './session';
