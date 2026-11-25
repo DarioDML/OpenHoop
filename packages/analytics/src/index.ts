@@ -14,7 +14,6 @@ export type { Calibration, Profile } from './calibration';
 export { debtMs, sleepConsistency, sleepNeedMs, sleepScore, strainNeedMs } from './sleepNeed';
 export { readiness } from './readiness';
 export type { ReadinessNight, ReadinessResult } from './readiness';
-export { dayLoad } from './load';
 export { zoneSeconds } from './zones';
 export type { ZoneSeconds } from './zones';
 export { detectWorkouts } from './workouts';
@@ -31,3 +30,22 @@ export {
   restingKcalPerDay,
 } from './energy';
 export type { ActiveHrBin, ActiveMinutes, BodyProfile, EnergyEstimate, EnergySex } from './energy';
+export { dayLoad, loadFromSum, loadSum, sumFromLoad } from './load';
+export {
+  ACTIVITY_MIN_COVERAGE,
+  SAME_SESSION_FRACTION,
+  activeSegments,
+  activityLoad,
+  activityMetrics,
+  clipIntervals,
+  coveredFraction,
+  minuteMeans,
+  normalizeIntervals,
+  overlapSeconds,
+  projectDayLoad,
+  sameSession,
+  subtractIntervals,
+  totalSeconds,
+} from './activity';
+export type { ActivityMetrics, HrPoint, Interval } from './activity';
+export { zoneIndex } from './zones';

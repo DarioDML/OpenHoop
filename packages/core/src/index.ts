@@ -12,3 +12,4 @@ export * from './config';
 export * from './pipeline';
 export * from './bodyMeasurements';
 export * from './sleepEdits';
+export * from './activities';
