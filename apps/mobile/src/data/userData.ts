@@ -1,3 +1,7 @@
+import { defaultCoachPrefs, parseCoachPrefs, type CoachPrefs } from '@/coach/prefs';
+import { isRecord, type Json } from '@/lib/json';
+import { defaultNetworkPrefs, parseNetworkPrefs, type NetworkPrefs } from '@/net/features';
+
 export const USER_DATA_KEY = 'user.data';
 
 export type Sex = 'female' | 'male' | 'other';
@@ -37,6 +41,8 @@ export interface UserData {
   journalQuestions: string[] | null;
   journal: Record<string, Record<string, JournalAnswer>>;
   weeklyPlan: { loadDays: number; sleepNights: number } | null;
+  network: NetworkPrefs;
+  coach: CoachPrefs;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -59,13 +65,9 @@ export function defaultUserData(): UserData {
     journalQuestions: null,
     journal: {},
     weeklyPlan: null,
+    network: defaultNetworkPrefs(),
+    coach: defaultCoachPrefs(),
   };
-}
-
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
-
-function isRecord(value: Json | undefined): value is { [key: string]: Json } {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function numberIn(value: Json | undefined, min: number, max: number): number | null {
@@ -164,6 +166,8 @@ export function parseUserData(raw: string | null): UserData {
     journalQuestions: Array.isArray(parsed.journalQuestions) ? stringList(parsed.journalQuestions, 40, 40).filter((id) => ID.test(id)) : null,
     journal: parseJournal(parsed.journal),
     weeklyPlan: loadDays !== null && sleepNights !== null ? { loadDays, sleepNights } : null,
+    network: parseNetworkPrefs(parsed.network),
+    coach: parseCoachPrefs(parsed.coach),
   };
 }
 

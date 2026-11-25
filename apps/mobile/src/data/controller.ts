@@ -33,6 +33,8 @@ import { BleManagerTransport } from '@/ble/bleManagerTransport';
 import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
+import { setNetworkPrefs } from '@/net';
+import { strictestPrefs } from '@/net/features';
 
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
@@ -249,6 +251,7 @@ export class AppController {
     const rawUserData = await store.getSetting(USER_DATA_KEY);
     const userData = parseUserData(rawUserData);
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
+    setNetworkPrefs(userData.network);
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
     this.patch({ settings: { ...this.snapshot.settings, language, dataSource }, profile, userData, bodyMeasurements });
     await this.loadActiveDevice();
@@ -692,13 +695,17 @@ export class AppController {
 
   updateUserData = (patch: Partial<UserData>): Promise<boolean> => {
     const run = this.userDataChain.then(async () => {
+      const network = this.snapshot.userData.network;
       try {
         const { store } = this.requireApp();
         const next = parseUserData(serializeUserData({ ...this.snapshot.userData, ...patch }));
+        setNetworkPrefs(strictestPrefs(network, next.network));
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
+        setNetworkPrefs(next.network);
         this.patch({ userData: next });
         return true;
       } catch (error) {
+        setNetworkPrefs(network);
         this.fail(error);
         return false;
       }
