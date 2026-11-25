@@ -2,10 +2,27 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { AppDataContext } from '@/data/context';
 import { createFixtureDays, createFixtureDevice, createFixtureSettings } from '@/data/fixtureSource';
-import type { AppData, Language } from '@/data/types';
+import type { AppData, Language, StrengthActions } from '@/data/types';
+import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 
 export const FIXTURE_NOW = new Date('2026-11-25T12:00:00Z');
+
+export function fixtureStrengthActions(): StrengthActions {
+  return {
+    saveExercise: async () => true,
+    removeExercise: async () => true,
+    saveTemplate: async () => 1,
+    removeTemplate: async () => true,
+    startSession: async () => 1,
+    addSessionExercise: async () => true,
+    removeSessionExercise: async () => true,
+    logSet: async () => true,
+    removeSet: async () => true,
+    finishSession: async () => true,
+    removeSession: async () => true,
+  };
+}
 
 export function fixtureAppData(language: Language = 'en', overrides: Partial<AppData> = {}): AppData {
   const noop = async (): Promise<void> => undefined;
@@ -24,10 +41,16 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     userData: { ...defaultUserData(), onboardingDone: true },
     bodyMeasurements: [],
     labResults: [],
+    cycle: { periods: [], symptoms: [], pregnancy: null },
+    strength: { customExercises: [], templates: [], sessions: [] },
+    strengthActions: fixtureStrengthActions(),
+    journalNotes: [],
+    vendorData: { cycles: [], sleeps: [], workouts: [], journal: [] },
     scan: async () => [],
     pair: noop,
     sync: noop,
     startLive: noop,
+    readBandConfig: noop,
     stopLive: noop,
     exportData: noop,
     updateProfile: noop,
@@ -37,6 +60,17 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     removeBodyMeasurement: async () => true,
     saveLabResult: async () => true,
     removeLabResult: async () => true,
+    savePeriod: async () => true,
+    removePeriod: async () => true,
+    saveSymptom: async () => true,
+    removeSymptom: async () => true,
+    savePregnancy: async () => true,
+    removePregnancy: async () => true,
+    removeAllCycleData: async () => true,
+    saveJournalNote: async () => true,
+    removeJournalNote: async () => true,
+    importVendorFiles: async () => null,
+    removeVendorData: async () => true,
     heartRateBetween: async () => [],
     inbox: [],
     notificationPermission: 'undetermined',
@@ -48,6 +82,14 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     clearInbox: noop,
     saveSleepEdit: async () => 'saved',
     deleteSleepEdit: async () => true,
+    healthConnect: { availability: 'available', granted: [], state: defaultHealthConnectState(), syncing: false },
+    refreshHealthConnect: noop,
+    setHealthConnectType: async () => true,
+    setHealthConnectAfterSync: noop,
+    requestHealthConnectAccess: noop,
+    syncHealthConnect: noop,
+    openHealthConnectSettings: () => undefined,
+    installHealthConnect: noop,
     activities: [],
     pendingDelete: null,
     saveActivity: async () => 1,

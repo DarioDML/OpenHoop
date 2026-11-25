@@ -5,19 +5,47 @@ import {
   bindStore,
   checkActivityInput,
   computeActivityMetrics,
+  addStrengthSessionExercise,
+  addStrengthSet,
+  deleteCustomExercise,
+  deleteStrengthSession,
+  deleteStrengthSet,
+  deleteStrengthTemplate,
+  emptyStrengthData,
+  finishStrengthSession,
+  insertCustomExercise,
+  listStrengthData,
+  removeStrengthSessionExercise,
+  saveStrengthTemplate,
+  startStrengthSession,
   deleteBodyMeasurement,
+  deleteJournalNote,
   deleteDataBefore,
   deleteLabResult,
   exportCsv,
+  importBodyMeasurements,
+  emptyVendorData,
   insertBodyMeasurement,
+  insertJournalNote,
   insertLabResult,
   listBodyMeasurements,
+  listJournalNotes,
   listLabResults,
   loadReference,
+  listVendorData,
+  clearPregnancy,
+  deleteAllCycleData,
+  deletePeriod,
+  deleteSymptom,
+  emptyCycleData,
+  insertPeriod,
+  loadCycleData,
   probeLock,
   readDeviceInformation,
+  readKeys,
   recomputeDays,
   recordHeartRate,
+  setPregnancy,
   syncHistory,
   validateSleepEdit,
   EDITED_SLEEP_MAX_S,
@@ -28,14 +56,32 @@ import {
   type ActivityMetricsRecord,
   type ActivityRow,
   type ActivityStore,
+  upsertVendorData,
+  clearVendorData,
+  updatePeriod,
+  upsertSymptom,
+  updateJournalNote,
   type BandModel,
+  type BodyImportResult,
   type BodyMeasurement,
   type BodyMeasurementInput,
+  type JournalNote,
+  type JournalNoteInput,
+  type CycleData,
+  type CustomExerciseInput,
+  type PlannedExercise,
+  type StrengthData,
+  type StrengthSetInput,
+  type StrengthTemplateInput,
   type DayRecord,
   type DeviceRow,
+  type ImportedBodyMeasurement,
   type LabResult,
   type LabResultInput,
+  type PeriodInput,
   type SleepEditRow,
+  type VendorData,
+  type SymptomInput,
   type SyncProgress,
   type SyncStop,
   type Transport,
@@ -44,20 +90,35 @@ import { formatFirmware } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
 import { getLocales } from 'expo-localization';
 
+import { dayEntries } from './activities';
 import { BleManagerTransport } from '@/ble/bleManagerTransport';
 import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
+import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
 import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 import { buildWidgetFile } from '@/lib/widgetSnapshot';
 import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
+import { setNetworkPrefs } from '@/net';
+import { strictestPrefs } from '@/net/features';
 
+import { buildSnapshot, serializeSnapshot } from './bandConfig';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
 import { addDays } from './derived';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
+import { OPENHOOP_PACKAGE, nativeHealthConnect, type HealthConnectApi } from './healthConnectApi';
+import {
+  HEALTH_CONNECT_STATE_KEY,
+  defaultHealthConnectState,
+  parseHealthConnectState,
+  serializeHealthConnectState,
+  type HealthConnectState,
+} from './healthConnectState';
+import { runHealthConnectSync } from './healthConnectSync';
+import { removeLeftoverReports } from './reportFiles';
 import {
   NOTIFICATION_STATE_KEY,
   emptyNotificationState,
@@ -67,6 +128,10 @@ import {
 } from './notificationState';
 import { expoNotifier, type Notifier, type PermissionState } from './notifier';
 import { otherSleepSpans, recomputeFrom, type SleepEditRequest } from './sleepEditForm';
+import { parseVendorSources } from './vendorExport/sources';
+import type { FileReport } from './vendorExport/parse';
+import type { SourceFile } from './vendorExport/sources';
+import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
@@ -77,6 +142,7 @@ import type {
   DeleteTarget,
   DeviceStatus,
   DiscoveredBand,
+  HealthConnectView,
   HeartRatePoint,
   LiveState,
   LockState,
@@ -85,6 +151,7 @@ import type {
   Profile,
   Settings,
   SleepEditOutcome,
+  StrengthActions,
   SyncProgressView,
 } from './types';
 
@@ -118,11 +185,16 @@ export interface Snapshot {
   settings: Settings;
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
+  journalNotes: JournalNote[];
   labResults: LabResult[];
+  vendorData: VendorData;
+  cycle: CycleData;
+  strength: StrengthData;
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
   notificationPermission: PermissionState;
+  healthConnect: HealthConnectView;
   activities: ActivityRow[];
   pendingDelete: PendingDelete | null;
 }
@@ -154,6 +226,7 @@ function emptyDevice(): DeviceStatus {
     backlogPages: null,
     lockState: 'unknown',
     connection: 'disconnected',
+    configSnapshot: null,
   };
 }
 
@@ -193,10 +266,13 @@ export class AppController {
   private notificationState: NotificationState = emptyNotificationState();
   private notificationChain: Promise<void> = Promise.resolve();
   private widgetChain: Promise<void> = Promise.resolve();
+  private healthConnectChain: Promise<void> = Promise.resolve();
+  private healthConnectRun: Promise<void> | null = null;
   lastTimings: SyncTimings | null = null;
 
   constructor(
     private readonly notifier: Notifier = expoNotifier,
+    private readonly healthConnect: HealthConnectApi = nativeHealthConnect,
     private readonly widgets: WidgetBridge = androidWidgetBridge,
   ) {
     const language = detectLanguage(getLocales()[0]?.languageCode);
@@ -210,11 +286,16 @@ export class AppController {
       settings: { language, dataSource: 'demo', ownerSince: null },
       userData: defaultUserData(),
       bodyMeasurements: [],
+      journalNotes: [],
       labResults: [],
+      vendorData: emptyVendorData(),
+      cycle: emptyCycleData(),
+      strength: emptyStrengthData(),
       syncProgress: null,
       notice: null,
       inbox: [],
       notificationPermission: 'undetermined',
+      healthConnect: { availability: 'checking', granted: [], state: defaultHealthConnectState(), syncing: false },
       activities: [],
       pendingDelete: null,
     };
@@ -248,6 +329,7 @@ export class AppController {
         backlogPages: this.backlogPages,
         lockState: this.lockState,
         connection: this.connection,
+        configSnapshot: row?.configSnapshot ?? null,
       },
     });
   }
@@ -283,8 +365,9 @@ export class AppController {
     this.started = true;
     try {
       removeLeftoverExports();
+      removeLeftoverReports();
     } catch {
-      // a leftover export is removed again before the next export
+      // a leftover export or report is removed again before the next one
     }
     try {
       this.app = await openAppStore();
@@ -306,19 +389,31 @@ export class AppController {
     const userData = parseUserData(rawUserData);
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
     this.notificationState = parseNotificationState(await store.getSetting(NOTIFICATION_STATE_KEY));
+    setNetworkPrefs(userData.network);
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
+    const healthConnectState = parseHealthConnectState(await store.getSetting(HEALTH_CONNECT_STATE_KEY));
     const labResults = await listLabResults(this.app.driver);
+    const vendorData = await listVendorData(this.app.driver);
+    const cycle = await loadCycleData(this.app.driver);
+    const strength = await listStrengthData(this.app.driver);
+    const journalNotes = await listJournalNotes(this.app.driver);
     this.patch({
       settings: { ...this.snapshot.settings, language, dataSource },
       profile,
       userData,
       bodyMeasurements,
+      journalNotes,
       labResults,
+      vendorData,
+      cycle,
       inbox: this.notificationState.inbox,
+      healthConnect: { ...this.snapshot.healthConnect, state: healthConnectState },
+      strength,
     });
     await this.loadActiveDevice();
     this.patch({ ready: true });
     void this.refreshNotifications();
+    void this.refreshHealthConnect();
     if (dataSource === 'demo') void this.sync();
   }
 
@@ -519,7 +614,9 @@ export class AppController {
   sync = (): Promise<void> => {
     if (this.syncRun !== null) return this.syncRun;
     const run = this.exclusive(() => this.runSync()).then(
-      () => undefined,
+      () => {
+        if (this.snapshot.healthConnect.state.afterBandSync && this.snapshot.settings.dataSource === 'band') void this.syncHealthConnect();
+      },
       () => undefined,
     ).finally(() => {
       this.syncRun = null;
@@ -693,6 +790,36 @@ export class AppController {
     }
   };
 
+  readBandConfig = async (): Promise<void> => {
+    if (this.syncRun !== null || this.liveAbort !== null) {
+      this.fail(new AppError('error.bandConfigBusy'));
+      return;
+    }
+    try {
+      await this.exclusive(async () => {
+        const conn = await this.ensureConnection();
+        const flags = await readKeys(conn.session, 'featureFlags');
+        const config = await readKeys(conn.session, 'deviceConfig');
+        if (flags.length + config.length === 0) throw new AppError('error.bandConfigEmpty');
+        const snapshot = buildSnapshot(nowSeconds(), this.snapshot.settings.dataSource, flags, config);
+        const row = this.deviceRow;
+        if (row === null) throw new AppError('error.noBandPaired');
+        this.deviceRow = await this.requireApp().store.upsertDevice({
+          bleId: row.bleId,
+          name: row.name,
+          model: row.model,
+          firmware: row.firmware,
+          serial: row.serial,
+          ownerSince: row.ownerSince,
+          configSnapshot: serializeSnapshot(snapshot),
+        });
+        this.patchDevice();
+      });
+    } catch (error) {
+      this.fail(error);
+    }
+  };
+
   stopLive = async (): Promise<void> => {
     await this.stopLiveInternal();
     this.patch({ live: IDLE_LIVE });
@@ -794,15 +921,19 @@ export class AppController {
 
   updateUserData = (patch: Partial<UserData>): Promise<boolean> => {
     const run = this.userDataChain.then(async () => {
+      const network = this.snapshot.userData.network;
       try {
         const { store } = this.requireApp();
         const next = parseUserData(serializeUserData({ ...this.snapshot.userData, ...patch }));
+        setNetworkPrefs(strictestPrefs(network, next.network));
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
+        setNetworkPrefs(next.network);
         this.patch({ userData: next });
         if (patch.notifications !== undefined) void this.refreshNotifications();
         if (patch.widgetValues !== undefined) void this.refreshWidgets();
         return true;
       } catch (error) {
+        setNetworkPrefs(network);
         this.fail(error);
         return false;
       }
@@ -821,6 +952,21 @@ export class AppController {
       await this.requireApp().store.setSetting(USER_DATA_KEY, serializeUserData(next));
       this.patch({ userData: next });
     }
+  }
+
+  private importBodyEntries(entries: ImportedBodyMeasurement[], withBodyFat: boolean): Promise<BodyImportResult> {
+    const run = this.userDataChain.then(async () => {
+      const { driver } = this.requireApp();
+      const before = this.snapshot.bodyMeasurements;
+      const result = await importBodyMeasurements(driver, entries, nowSeconds(), { bodyFat: withBodyFat });
+      if (result.saved > 0) await this.applyBodyChange(before);
+      return result;
+    });
+    this.userDataChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   private runBodyChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
@@ -849,7 +995,7 @@ export class AppController {
       return updateBodyMeasurement(driver, id, input);
     });
 
-  removeBodyMeasurement = (id: number): Promise<boolean> => this.runBodyChange((driver) => deleteBodyMeasurement(driver, id));
+  removeBodyMeasurement = (id: number): Promise<boolean> => this.runBodyChange((driver) => deleteBodyMeasurement(driver, id, nowSeconds()));
 
   private runLabChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
     const run = this.userDataChain.then(async () => {
@@ -867,6 +1013,70 @@ export class AppController {
     return run;
   }
 
+  importVendorFiles = (files: SourceFile[], rejected: FileReport[]): Promise<VendorImportResult | null> => {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const parsed = parseVendorSources(files);
+        const written = await upsertVendorData(driver, parsed.data, nowSeconds());
+        this.patch({ vendorData: await listVendorData(driver) });
+        return summariseImport(parsed, written, rejected);
+      } catch (error) {
+        this.fail(error);
+        return null;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  };
+
+  removeVendorData = (): Promise<boolean> => {
+    const run = this.userDataChain.then(async () => {
+      try {
+        await clearVendorData(this.requireApp().driver);
+        this.patch({ vendorData: emptyVendorData() });
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  };
+
+  private runStrength<T>(task: (driver: AppStore['driver']) => Promise<T>, failed: T): Promise<T> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const result = await task(driver);
+        this.patch({ strength: await listStrengthData(driver) });
+        return result;
+      } catch (error) {
+        this.fail(error);
+        return failed;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
+  private runCycleChange<T>(task: (driver: AppStore['driver']) => Promise<T>, fallback: T): Promise<T> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const result = await task(driver);
+        this.patch({ cycle: await loadCycleData(driver) });
+        return result;
+      } catch (error) {
+        this.fail(error);
+        return fallback;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
   saveLabResult = (id: number | null, input: LabResultInput): Promise<boolean> =>
     this.runLabChange(async (driver) => {
       if (id === null) {
@@ -877,6 +1087,98 @@ export class AppController {
     });
 
   removeLabResult = (id: number): Promise<boolean> => this.runLabChange((driver) => deleteLabResult(driver, id));
+
+  savePeriod = (id: number | null, input: PeriodInput): Promise<boolean> =>
+    this.runCycleChange(async (driver) => {
+      if (id === null) {
+        await insertPeriod(driver, input, nowSeconds());
+        return true;
+      }
+      return updatePeriod(driver, id, input);
+    }, false);
+
+  removePeriod = (id: number): Promise<boolean> => this.runCycleChange((driver) => deletePeriod(driver, id), false);
+
+  saveSymptom = (input: SymptomInput): Promise<boolean> =>
+    this.runCycleChange(async (driver) => {
+      await upsertSymptom(driver, input, nowSeconds());
+      return true;
+    }, false);
+
+  removeSymptom = (id: number): Promise<boolean> => this.runCycleChange((driver) => deleteSymptom(driver, id), false);
+
+  savePregnancy = (dueDay: string): Promise<boolean> =>
+    this.runCycleChange(async (driver) => {
+      await setPregnancy(driver, dueDay, nowSeconds());
+      return true;
+    }, false);
+
+  removePregnancy = (): Promise<boolean> => this.runCycleChange((driver) => clearPregnancy(driver), false);
+
+  removeAllCycleData = (): Promise<boolean> =>
+    this.runCycleChange(async (driver) => {
+      await deleteAllCycleData(driver);
+      return true;
+    }, false);
+
+  private readonly strengthActionSet: StrengthActions = this.strengthActions();
+
+  private strengthActions(): StrengthActions {
+    return {
+      saveExercise: (input: CustomExerciseInput) =>
+        this.runStrength(async (driver) => {
+          await insertCustomExercise(driver, input, nowSeconds());
+          return true;
+        }, false),
+      removeExercise: (id: number) => this.runStrength((driver) => deleteCustomExercise(driver, id), false),
+      saveTemplate: (id: number | null, input: StrengthTemplateInput) =>
+        this.runStrength((driver) => saveStrengthTemplate(driver, id, input, nowSeconds()), null),
+      removeTemplate: (id: number) => this.runStrength((driver) => deleteStrengthTemplate(driver, id), false),
+      startSession: (templateId: number | null, name: string, exercises: PlannedExercise[]) =>
+        this.runStrength(async (driver) => {
+          const open = this.snapshot.strength.sessions.find((session) => session.endedAt === null);
+          if (open !== undefined) return open.id;
+          const now = new Date(Date.now());
+          const day = unixToIsoDate(Math.floor(now.getTime() / 1000), deviceTzOffsetS(now));
+          return startStrengthSession(driver, { templateId, name, day, exercises }, nowSeconds());
+        }, null),
+      addSessionExercise: (sessionId: number, exercise: PlannedExercise) =>
+        this.runStrength((driver) => addStrengthSessionExercise(driver, sessionId, exercise), false),
+      removeSessionExercise: (id: number) => this.runStrength((driver) => removeStrengthSessionExercise(driver, id), false),
+      logSet: (sessionId: number, input: StrengthSetInput) =>
+        this.runStrength(async (driver) => (await addStrengthSet(driver, sessionId, input, nowSeconds())) !== null, false),
+      removeSet: (id: number) => this.runStrength((driver) => deleteStrengthSet(driver, id), false),
+      finishSession: (id: number) => this.runStrength((driver) => finishStrengthSession(driver, id, nowSeconds()), false),
+      removeSession: (id: number) => this.runStrength((driver) => deleteStrengthSession(driver, id), false),
+    };
+  }
+
+  private runNoteChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const done = await task(driver);
+        this.patch({ journalNotes: await listJournalNotes(driver) });
+        return done;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
+  saveJournalNote = (id: number | null, input: JournalNoteInput): Promise<boolean> =>
+    this.runNoteChange(async (driver) => {
+      if (id === null) {
+        await insertJournalNote(driver, input, nowSeconds());
+        return true;
+      }
+      return updateJournalNote(driver, id, input);
+    });
+
+  removeJournalNote = (id: number): Promise<boolean> => this.runNoteChange((driver) => deleteJournalNote(driver, id));
 
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
@@ -1060,6 +1362,123 @@ export class AppController {
       }
     });
 
+  private patchHealthConnect(change: Partial<HealthConnectView>): void {
+    this.patch({ healthConnect: { ...this.snapshot.healthConnect, ...change } });
+  }
+
+  private healthConnectTask<T>(task: () => Promise<T>, fallback: T): Promise<T> {
+    const run = this.healthConnectChain.then(task).catch(() => fallback);
+    this.healthConnectChain = run.then(() => undefined);
+    return run;
+  }
+
+  private async saveHealthConnectState(state: HealthConnectState): Promise<void> {
+    await this.requireApp().store.setSetting(HEALTH_CONNECT_STATE_KEY, serializeHealthConnectState(state));
+    this.patchHealthConnect({ state });
+  }
+
+  private async readGranted(): Promise<void> {
+    try {
+      this.patchHealthConnect({ granted: [...(await this.healthConnect.grantedPermissions())] });
+    } catch {
+      this.patchHealthConnect({ granted: [] });
+    }
+  }
+
+  refreshHealthConnect = (): Promise<void> =>
+    this.healthConnectTask(async () => {
+      let availability: HealthConnectView['availability'];
+      try {
+        availability = await this.healthConnect.availability();
+      } catch {
+        availability = 'not-installed';
+      }
+      this.patchHealthConnect({ availability });
+      if (availability === 'available') await this.readGranted();
+      else this.patchHealthConnect({ granted: [] });
+    }, undefined);
+
+  setHealthConnectType = (type: HcDataType, enabled: boolean): Promise<boolean> =>
+    this.healthConnectTask(async () => {
+      const current = this.snapshot.healthConnect.state;
+      const state: HealthConnectState = isExportType(type)
+        ? { ...current, export: { ...current.export, [type]: enabled } }
+        : { ...current, import: { ...current.import, [type]: enabled } };
+      await this.saveHealthConnectState(state);
+      if (!enabled || this.snapshot.healthConnect.availability !== 'available') return true;
+      const permission = permissionFor(type);
+      const key = permissionKey(permission);
+      if (this.snapshot.healthConnect.granted.includes(key)) return true;
+      const granted = await this.healthConnect.requestPermissions([permission]);
+      this.patchHealthConnect({ granted: [...granted] });
+      return granted.has(key);
+    }, false);
+
+  setHealthConnectAfterSync = (enabled: boolean): Promise<void> =>
+    this.healthConnectTask(async () => {
+      await this.saveHealthConnectState({ ...this.snapshot.healthConnect.state, afterBandSync: enabled });
+    }, undefined);
+
+  requestHealthConnectAccess = (): Promise<void> =>
+    this.healthConnectTask(async () => {
+      if (this.snapshot.healthConnect.availability !== 'available') return;
+      const granted = await this.healthConnect.requestPermissions(wantedPermissions(this.snapshot.healthConnect.state));
+      this.patchHealthConnect({ granted: [...granted] });
+    }, undefined);
+
+  syncHealthConnect = (): Promise<void> => {
+    if (this.healthConnectRun !== null) return this.healthConnectRun;
+    const run = this.healthConnectTask(async () => {
+      if (this.app === null || this.snapshot.healthConnect.availability !== 'available') return;
+      this.patchHealthConnect({ syncing: true });
+      try {
+        const outcome = await runHealthConnectSync({
+          api: this.healthConnect,
+          state: this.snapshot.healthConnect.state,
+          days: this.snapshot.days,
+          exercises: this.snapshot.days.flatMap((day) => dayEntries(this.snapshot.days, day, this.snapshot.activities)),
+          exportAllowed: this.snapshot.settings.dataSource === 'band' && this.deviceRow !== null,
+          heartRate: (fromS, toS) => this.heartRateBetween(fromS, toS, 60),
+          importBody: (entries, withBodyFat) => this.importBodyEntries(entries, withBodyFat),
+          ownPackage: OPENHOOP_PACKAGE,
+          nowS: nowSeconds(),
+          version: Date.now(),
+          tzOffsetAt: (unixS) => deviceTzOffsetS(new Date(unixS * 1000)),
+        });
+        await this.saveHealthConnectState({
+          ...this.snapshot.healthConnect.state,
+          heartRateCursorS: outcome.heartRateCursorS,
+          lastImportS: outcome.lastImportS,
+          lastSync: outcome.report,
+        });
+        await this.readGranted();
+      } catch {
+        this.fail(new AppError('error.healthConnectSync'));
+      } finally {
+        this.patchHealthConnect({ syncing: false });
+      }
+    }, undefined).finally(() => {
+      this.healthConnectRun = null;
+    });
+    this.healthConnectRun = run;
+    return run;
+  };
+
+  openHealthConnectSettings = (): void => {
+    try {
+      this.healthConnect.openSettings();
+    } catch {
+      this.fail(new AppError('error.healthConnect'));
+    }
+  };
+
+  installHealthConnect = async (): Promise<void> => {
+    try {
+      await this.healthConnect.openStore();
+    } catch {
+      this.fail(new AppError('error.healthConnect'));
+    }
+  };
   saveActivity = (draft: ActivityDraft, id?: number): Promise<number | null> =>
     this.exclusive(async () => {
       try {
@@ -1161,7 +1580,12 @@ export class AppController {
   exportData = async (): Promise<void> => {
     const app = this.requireApp();
     try {
-      await this.exclusive(() => exportAll(app, exportCsv, { 'notifications.json': this.notificationsExport() }));
+      await this.exclusive(() =>
+        exportAll(app, exportCsv, {
+          'notifications.json': this.notificationsExport(),
+          'health-connect.json': JSON.stringify(this.snapshot.healthConnect.state, null, 2),
+        }),
+      );
     } catch (error) {
       this.fail(error);
     }
@@ -1176,6 +1600,7 @@ export class AppController {
       pair: this.pair,
       sync: this.sync,
       startLive: this.startLive,
+      readBandConfig: this.readBandConfig,
       stopLive: this.stopLive,
       exportData: this.exportData,
       updateProfile: this.updateProfile,
@@ -1183,8 +1608,20 @@ export class AppController {
       updateUserData: this.updateUserData,
       saveBodyMeasurement: this.saveBodyMeasurement,
       removeBodyMeasurement: this.removeBodyMeasurement,
+      saveJournalNote: this.saveJournalNote,
+      removeJournalNote: this.removeJournalNote,
       saveLabResult: this.saveLabResult,
       removeLabResult: this.removeLabResult,
+      importVendorFiles: this.importVendorFiles,
+      removeVendorData: this.removeVendorData,
+      savePeriod: this.savePeriod,
+      removePeriod: this.removePeriod,
+      saveSymptom: this.saveSymptom,
+      removeSymptom: this.removeSymptom,
+      savePregnancy: this.savePregnancy,
+      removePregnancy: this.removePregnancy,
+      removeAllCycleData: this.removeAllCycleData,
+      strengthActions: this.strengthActionSet,
       heartRateBetween: this.heartRateBetween,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
@@ -1198,6 +1635,13 @@ export class AppController {
       refreshWidgetsAfterPin: this.refreshWidgetsAfterPin,
       markInboxRead: this.markInboxRead,
       clearInbox: this.clearInbox,
+      refreshHealthConnect: this.refreshHealthConnect,
+      setHealthConnectType: this.setHealthConnectType,
+      setHealthConnectAfterSync: this.setHealthConnectAfterSync,
+      requestHealthConnectAccess: this.requestHealthConnectAccess,
+      syncHealthConnect: this.syncHealthConnect,
+      openHealthConnectSettings: this.openHealthConnectSettings,
+      installHealthConnect: this.installHealthConnect,
     };
   }
 }

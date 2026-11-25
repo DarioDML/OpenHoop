@@ -5,7 +5,7 @@ import { computeTrend, parseBodyRange, leanMassKg, newestChanged, newestMeasurem
 const TODAY = '2026-11-25';
 
 function entry(id: number, day: string, weightKg: number, bodyFatPct: number | null = null): BodyMeasurement {
-  return { id, day, weightKg, bodyFatPct, createdAt: id };
+  return { id, day, weightKg, bodyFatPct, createdAt: id, source: 'manual', origin: null };
 }
 
 describe('validateBodyDraft', () => {
