@@ -181,6 +181,17 @@ CREATE INDEX raw_chunks_checksum ON raw_chunks (device_id, sha256);
 `;
 
 const V3 = `
+CREATE TABLE body_measurements (
+  id INTEGER PRIMARY KEY,
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  weight_kg REAL NOT NULL CHECK (weight_kg >= 25 AND weight_kg <= 300),
+  body_fat_pct REAL CHECK (body_fat_pct IS NULL OR (body_fat_pct >= 2 AND body_fat_pct <= 70)),
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX body_measurements_day ON body_measurements (day, id);
+`;
+
+const V4 = `
 ALTER TABLE sleeps ADD COLUMN source TEXT NOT NULL DEFAULT 'detected' CHECK (source IN ('detected', 'edited', 'manual'));
 
 CREATE TABLE sleep_edits (
@@ -197,7 +208,7 @@ CREATE TABLE sleep_edits (
 CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3];
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

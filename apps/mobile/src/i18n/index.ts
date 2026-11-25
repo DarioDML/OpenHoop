@@ -21,7 +21,7 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = { nl, en 
 
 export const allTranslations: Readonly<Record<Language, Readonly<Record<string, string>>>> = { nl, en };
 
-export const KNOWN_REASONS = ['no-data', 'low-coverage', 'no-sleep', 'missing-signal', 'needs-history'] as const;
+export const KNOWN_REASONS = ['no-data', 'low-coverage', 'no-sleep', 'missing-signal', 'needs-history', 'no-profile'] as const;
 export type KnownReason = (typeof KNOWN_REASONS)[number];
 
 export function translate(language: Language, key: TranslationKey, params?: TranslationParams): string {

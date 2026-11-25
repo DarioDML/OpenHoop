@@ -11,7 +11,7 @@ export interface Sample {
   motionG: number | null;
 }
 
-export type Reason = 'no-data' | 'low-coverage' | 'no-sleep' | 'missing-signal' | 'needs-history';
+export type Reason = 'no-data' | 'low-coverage' | 'no-sleep' | 'missing-signal' | 'needs-history' | 'no-profile';
 
 export type Outcome<T> =
   | { ok: true; value: T; coverage: number; algo: string }
@@ -48,6 +48,7 @@ export const ALGO = {
   load: 'load.dse-hrr@1',
   zones: 'zones.hrr@1',
   workouts: 'workouts.hrr50@1',
+  energy: 'energy.keytel-mifflin@1',
 } as const;
 
 export type AlgoId = (typeof ALGO)[keyof typeof ALGO];
