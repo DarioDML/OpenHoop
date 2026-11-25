@@ -60,4 +60,15 @@ describe('journal notes', () => {
     await insertJournalNote(driver, { day: '2026-11-20', body: 'Said "hi", then\nleft', tags: ['sauna', 'nap'] }, 10);
     expect(await exportCsv(store, 'journal_notes')).toBe('id,day,body,tags,created_at\r\n1,2026-11-20,"Said ""hi"", then\nleft","sauna,nap",10\r\n');
   });
+
+  it('neutralises text that a spreadsheet would run as a formula', async () => {
+    const store = await openStore(driver);
+    await insertJournalNote(driver, { day: '2026-11-20', body: '=HYPERLINK("http://x")', tags: [] }, 10);
+    await insertJournalNote(driver, { day: '2026-11-21', body: '@SUM(A1)', tags: [] }, 11);
+    await insertJournalNote(driver, { day: '2026-11-22', body: '-5', tags: [] }, 12);
+    const csv = await exportCsv(store, 'journal_notes');
+    expect(csv).toContain(`"'=HYPERLINK(""http://x"")"`);
+    expect(csv).toContain(`,'@SUM(A1),`);
+    expect(csv).toContain(',-5,');
+  });
 });
