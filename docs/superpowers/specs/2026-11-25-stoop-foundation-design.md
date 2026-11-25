@@ -140,6 +140,37 @@ Bij elke waarde staat het pariteitsniveau (A tot D) en een uitleg wanneer er gee
 
 Bluetooth via `react-native-ble-manager`, omdat die het bonden uitdrukkelijk kan starten en de bondstatus kan lezen. De databasesleutel staat in de beveiligde opslag van het toestel.
 
+## Verduidelijkingen na nalezing
+
+Een verse lezer vond acht plekken waar een bouwer zou moeten gokken. Geen ervan vroeg een beslissing van Dario. De eerste twee zijn beantwoord door de bronnen; de rest zijn mijn keuzes.
+
+**Het firmwareslot op de draad (bron: OpenStrap edge#673).** Een vergrendelde band verbindt, en beantwoordt elk commando met SUCCESS: hello, klok, ringbuffer, batterij, configuratie. Na `SEND_HISTORICAL_DATA` en na `TOGGLE_REALTIME_HR` komt er alleen niets op het datakanaal. De detectie is daarom:
+
+1. Vraag de ringbuffer op. Is de achterstand groter dan 0, vraag dan geschiedenis en wacht 8 s op een eerste dataframe. Breek daarna af zonder te bevestigen.
+2. Is de achterstand 0, zet dan live hartslag aan en wacht 6 s op een pakket 40. Zet daarna weer uit.
+3. Geen data en firmware 50.43 of hoger: `locked`. Geen data en oudere firmware: `no-data`, met de raad om de band te dragen en opnieuw te proberen. Data: `open`.
+
+De detectie geeft de toestand terug samen met wat er gemeten is, zodat een onverwacht geval op dag 1 leesbaar is.
+
+**F1 tot F12 en de niveaus (bron: PRD).** F1 koppelen, F2 live hartslag, F3 geschiedenis synchroniseren, F4 ruw archief, F5 vitals per seconde, F6 slaap, F7 nachtwaarden, F8 paraatheid, F9 belasting en workouts, F10 vandaag en trends, F11 veiligheidsslot, F12 export en back-up. Het niveau ligt vast per waarde en verandert niet per nacht: A betekent dat de band het zelf meet, B een eigen model dat tegen Whoop gekalibreerd is, C een eigen methode met een andere uitkomst, D alleen ruwe data zonder oordeel.
+
+**Schalen en koude start (mijn keuze).** Paraatheid 0 tot 100, Belasting 0 tot 21, Slaapscore 0 tot 100. Paraatheid is de REC-RHR-formule uit wearable5.0 zonder de stressterm. De eerste drie nachten toont de app de score met het label "kalibreert". De standaardwaarden in `Calibration` zijn de constanten van wearable5.0, behalve waar die persoonsgebonden zijn:
+
+- De HRV-baseline start bij de gepubliceerde waarde en krimpt naar het eigen gemiddelde, zoals in de bron.
+- De referentie voor de rusthartslag is het eigen voortschrijdend gemiddelde zodra er vier nachten zijn; tot dan de gepubliceerde waarde.
+- De drempels 94 en 100 slagen per minuut in de belastingsformule worden omgerekend naar hartslagreserve (28 % en 33 %, afgeleid van de rust- en maximumhartslag van de drager uit de bron) en dan toegepast op de reserve van de gebruiker.
+- De maximumhartslag is wat de gebruiker instelt, anders 208 min 0,7 maal de leeftijd.
+
+**Wat "juist" betekent zonder echte data (mijn keuze).** De analyse wordt op drie manieren getest, en geen ervan leunt op de eigen simulator: de bekende uitkomsten uit de bron (bijvoorbeeld een gesynthetiseerde ademhaling van 9, 14 en 18 per minuut die teruggevonden wordt), vergelijking met de Python-functies van wearable5.0 op dezelfde invoer, en eigenschapstests (schaalgrenzen, monotonie). De simulator test alleen de keten, niet de juistheid van een score.
+
+**Slaap uit de bandtoestand (mijn keuze).** Overgenomen zoals in de bron, niveau B. "Geslapen" is het aantal seconden in toestand SLEEP binnen een periode, "in bed" de duur van de periode. De bekende vertraging van ongeveer 14 minuten bij het inslapen wordt niet gecorrigeerd tot ze op eigen data bevestigd is.
+
+**Klassen van commando's (mijn keuze).** De volledige lijst staat in het bouwplan. `HISTORICAL_DATA_RESULT` is `session`, maar alleen de sync-engine mag het sturen, en alleen na een geslaagde transactie.
+
+**Tijd (mijn keuze).** Samples dragen de tijd van de band, in UTC. Bij het begin van elke sessie wordt het verschil tussen de klok van de band en die van het toestel gemeten en bij elk ruw stuk bewaard. Is het verschil groter dan 2 minuten, dan waarschuwt de app en stelt ze voor de klok te zetten (een `write`). Dagen worden afgebakend in de tijdzone van het toestel; de gebruikte offset wordt per dag bewaard.
+
+**Hartslagprofiel terwijl de band elders gebonden is.** Onbekend; staat op de testlijst voor dag 1.
+
 ## Wat pas met de band getest kan worden
 
 Deze onderdelen worden gebouwd maar blijven `ongetest` tot dag 1, en staan zo in het draaiboek:
