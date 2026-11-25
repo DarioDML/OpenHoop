@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 
+import { CoachProvider } from '@/coach/CoachProvider';
 import { LiveProvider } from '@/data/LiveProvider';
 import { useAppFonts } from '@/ui/fonts';
 import { darkColors, useTheme } from '@/ui/theme';
@@ -36,7 +37,9 @@ export default function RootLayout() {
   if (!fontsReady) return <View style={{ flex: 1, backgroundColor: darkColors.background }} />;
   return (
     <LiveProvider>
-      <RootStack />
+      <CoachProvider>
+        <RootStack />
+      </CoachProvider>
     </LiveProvider>
   );
 }
