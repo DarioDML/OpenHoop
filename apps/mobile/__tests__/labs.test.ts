@@ -164,6 +164,12 @@ describe('validateLabDraft', () => {
     expect(validateLabDraft(draft({ note: 'n'.repeat(301) }), TODAY)).toEqual({ ok: false, invalid: ['note'] });
   });
 
+  it('keeps line breaks in a note but rejects other control characters', () => {
+    const multiline = validateLabDraft(draft({ note: 'Fasting\nDrawn at 8am' }), TODAY);
+    expect(multiline.ok && multiline.value.note).toBe('Fasting\nDrawn at 8am');
+    expect(validateLabDraft(draft({ note: 'a\u0000b' }), TODAY)).toEqual({ ok: false, invalid: ['note'] });
+  });
+
   it('collects every invalid field at once', () => {
     const outcome = validateLabDraft(draft({ value: '', day: 'x', refLow: 'y' }), TODAY);
     expect(outcome).toEqual({ ok: false, invalid: ['value', 'day', 'refLow'] });

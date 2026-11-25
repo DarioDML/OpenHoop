@@ -129,8 +129,10 @@ function validDay(day: string, today: string): boolean {
   return parts !== null && parts.y >= MIN_YEAR && day <= today;
 }
 
-function plainText(text: string, maxLength: number): boolean {
-  return text.length >= 1 && text.length <= maxLength && !CONTROL.test(text);
+const NOTE_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+
+function plainText(text: string, maxLength: number, control: RegExp = CONTROL): boolean {
+  return text.length >= 1 && text.length <= maxLength && !control.test(text);
 }
 
 export function emptyLabDraft(today: string, biomarker = ''): LabDraft {
@@ -186,7 +188,7 @@ export function validateLabDraft(draft: LabDraft, today: string): LabValidation 
   if (refLow !== null && refHigh !== null && refLow >= refHigh) invalid.push('refLow', 'refHigh');
 
   const noteText = draft.note.trim();
-  if (noteText !== '' && !plainText(noteText, LAB_LIMITS.noteLength)) invalid.push('note');
+  if (noteText !== '' && !plainText(noteText, LAB_LIMITS.noteLength, NOTE_CONTROL)) invalid.push('note');
 
   if (invalid.length > 0 || value === null) return { ok: false, invalid };
   return {

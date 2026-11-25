@@ -51,6 +51,20 @@ describe('lab results', () => {
     expect(await listLabResults(driver)).toEqual([]);
   });
 
+  it('accepts the largest values the app validator allows', async () => {
+    const largest: LabResultInput = {
+      biomarker: `custom:${'n'.repeat(60)}`,
+      unit: 'u'.repeat(24),
+      value: 1_000_000,
+      day: '2000-01-01',
+      refLow: 0,
+      refHigh: 1_000_000,
+      note: `${'x'.repeat(299)}\n`,
+    };
+    await insertLabResult(driver, largest, 1);
+    expect((await listLabResults(driver))[0]).toMatchObject(largest);
+  });
+
   it('is part of the CSV export', async () => {
     const store = await openStore(driver);
     expect(await exportCsv(store, 'lab_results')).toBe('id,biomarker,unit,value,day,ref_low,ref_high,note,created_at\r\n');

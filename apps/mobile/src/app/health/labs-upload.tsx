@@ -59,6 +59,7 @@ export default function LabsUploadScreen() {
   };
 
   const pick = (biomarker: string): void => {
+    if (biomarker === draft.biomarker) return;
     const units = isBiomarkerId(biomarker) ? BIOMARKER_UNITS[biomarker] : [];
     patch({ biomarker, unit: units[0]?.label ?? '' });
   };
