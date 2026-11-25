@@ -180,7 +180,26 @@ const V2 = `
 CREATE INDEX raw_chunks_checksum ON raw_chunks (device_id, sha256);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2];
+const V3 = `
+ALTER TABLE sleeps ADD COLUMN source TEXT NOT NULL DEFAULT 'detected' CHECK (source IN ('detected', 'edited', 'manual'));
+
+CREATE TABLE sleep_edits (
+  id INTEGER PRIMARY KEY,
+  device_id INTEGER NOT NULL REFERENCES devices(id),
+  kind TEXT NOT NULL CHECK (kind IN ('night', 'nap')),
+  target_onset INTEGER,
+  target_offset INTEGER,
+  onset INTEGER NOT NULL,
+  offset INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  CHECK (offset > onset),
+  CHECK ((target_onset IS NULL) = (target_offset IS NULL)),
+  CHECK (kind = 'nap' OR target_onset IS NOT NULL)
+);
+CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

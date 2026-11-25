@@ -7,6 +7,9 @@ import type {
   EventRow,
   SampleRow,
   SampleSource,
+  SleepEditKind,
+  SleepEditRow,
+  SleepSource,
   SqlDriver,
   SqlValue,
   Store,
@@ -131,10 +134,52 @@ function isDayRecord(value: unknown): value is DayRecord {
   return typeof candidate.deviceId === 'number' && typeof candidate.day === 'string';
 }
 
+function isSleepSource(value: unknown): value is SleepSource {
+  return value === 'detected' || value === 'edited' || value === 'manual';
+}
+
+function withSleepSources(record: DayRecord): DayRecord {
+  const periods = record.sleep.periods.map((p) => {
+    const source: unknown = p.source;
+    const editId: unknown = p.editId;
+    return { ...p, source: isSleepSource(source) ? source : 'detected', editId: typeof editId === 'number' ? editId : null };
+  });
+  return { ...record, sleep: { ...record.sleep, periods } };
+}
+
 function parseDayRecord(text: string): DayRecord {
   const parsed: unknown = JSON.parse(text);
   if (!isDayRecord(parsed)) throw new Error('Stored daily record is malformed');
-  return parsed;
+  return withSleepSources(parsed);
+}
+
+type SleepEditDb = {
+  id: number;
+  device_id: number;
+  kind: string;
+  target_onset: number | null;
+  target_offset: number | null;
+  onset: number;
+  offset: number;
+  created_at: number;
+};
+
+function toSleepEditKind(value: string): SleepEditKind {
+  if (value === 'night' || value === 'nap') return value;
+  throw new Error(`Unknown sleep edit kind in database: ${value}`);
+}
+
+function toSleepEdit(row: SleepEditDb): SleepEditRow {
+  return {
+    id: row.id,
+    deviceId: row.device_id,
+    kind: toSleepEditKind(row.kind),
+    targetOnset: row.target_onset,
+    targetOffset: row.target_offset,
+    onset: row.onset,
+    offset: row.offset,
+    createdAt: row.created_at,
+  };
 }
 
 async function bulkInsert(
@@ -353,9 +398,9 @@ export function bindStore(driver: SqlDriver): Store {
         await tx.run('DELETE FROM workouts WHERE device_id = ? AND day = ?', [day.deviceId, day.day]);
         await bulkInsert(
           tx,
-          'INSERT INTO sleeps (device_id, day, onset, offset, asleep_s, in_bed_s, nap)',
-          7,
-          day.sleep.periods.map((p) => [day.deviceId, day.day, p.onset, p.offset, p.asleepS, p.inBedS, p.nap ? 1 : 0]),
+          'INSERT INTO sleeps (device_id, day, onset, offset, asleep_s, in_bed_s, nap, source)',
+          8,
+          day.sleep.periods.map((p) => [day.deviceId, day.day, p.onset, p.offset, p.asleepS, p.inBedS, p.nap ? 1 : 0, p.source]),
         );
         await bulkInsert(
           tx,
@@ -409,6 +454,34 @@ export function bindStore(driver: SqlDriver): Store {
       await driver.transaction((tx) => clearDerivedRaw(tx, deviceId));
     },
 
+    async listSleepEdits(deviceId) {
+      const rows = await driver.all<SleepEditDb>('SELECT * FROM sleep_edits WHERE device_id = ? ORDER BY onset, id', [deviceId]);
+      return rows.map(toSleepEdit);
+    },
+
+    async saveSleepEdit(edit) {
+      if (edit.id === null) {
+        const result = await driver.run(
+          `INSERT INTO sleep_edits (device_id, kind, target_onset, target_offset, onset, offset, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [edit.deviceId, edit.kind, edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt],
+        );
+        return result.lastInsertRowid;
+      }
+      const result = await driver.run(
+        `UPDATE sleep_edits SET kind = ?, target_onset = ?, target_offset = ?, onset = ?, offset = ?, created_at = ?
+         WHERE id = ? AND device_id = ?`,
+        [edit.kind, edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt, edit.id, edit.deviceId],
+      );
+      if (result.changes === 0) throw new Error(`Sleep edit ${edit.id} does not exist`);
+      return edit.id;
+    },
+
+    async deleteSleepEdit(deviceId, id) {
+      const result = await driver.run('DELETE FROM sleep_edits WHERE id = ? AND device_id = ?', [id, deviceId]);
+      return result.changes > 0;
+    },
+
     async deleteBefore(deviceId, t, newestInChunk) {
       return driver.transaction(async (tx) => {
         const retained = new Set(
@@ -449,6 +522,7 @@ export function bindStore(driver: SqlDriver): Store {
         for (const table of ['optical_bursts', 'imu_blocks', 'ecg_recordings', 'sleep_stages', 'oracle_values']) {
           await tx.run(`DELETE FROM ${table} WHERE device_id = ? AND t < ?`, [deviceId, t]);
         }
+        await tx.run('DELETE FROM sleep_edits WHERE device_id = ? AND onset < ?', [deviceId, t]);
         let chunks = 0;
         for (const id of doomed) chunks += (await tx.run('DELETE FROM raw_chunks WHERE id = ?', [id])).changes;
         await clearDerivedRaw(tx, deviceId);

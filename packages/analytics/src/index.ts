@@ -8,6 +8,7 @@ export { nightlySpo2, spo2Percent, spo2Windows } from './spo2';
 export type { Spo2Window } from './spo2';
 export { nightlySkinTemp } from './temperature';
 export { groupNights, sleepPeriods } from './sleep';
+export { sortedUnique } from './series';
 export { DEFAULT_CALIBRATION, effectiveMaxHr } from './calibration';
 export type { Calibration, Profile } from './calibration';
 export { debtMs, sleepConsistency, sleepNeedMs, sleepScore, strainNeedMs } from './sleepNeed';
