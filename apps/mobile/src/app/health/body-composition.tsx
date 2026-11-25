@@ -6,11 +6,11 @@ import {
   BODY_LIMITS,
   BODY_RANGES,
   computeTrend,
+  parseBodyRange,
   sortMeasurements,
   validateBodyDraft,
   type BodyDraft,
   type BodyField,
-  type BodyRange,
 } from '@/data/bodyComposition';
 import { useAppData } from '@/data/context';
 import { bmi } from '@/data/healthDerived';
@@ -45,12 +45,12 @@ export default function BodyCompositionScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [invalid, setInvalid] = useState<BodyField[]>([]);
   const [saving, setSaving] = useState(false);
-  const [range, setRange] = useState<`${BodyRange}`>('90');
+  const [range, setRange] = useState<string>('90');
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const today = todayIso();
-  const trend = computeTrend(bodyMeasurements, Number(range) as BodyRange, today);
+  const trend = computeTrend(bodyMeasurements, parseBodyRange(range), today);
   const index = trend.latest === null ? null : bmi(userData.heightCm, trend.latest.weightKg);
   const fmt = (value: number, decimals = 1): string => formatNumber(value, decimals, language);
   const newestFirst = sortMeasurements(bodyMeasurements).reverse();

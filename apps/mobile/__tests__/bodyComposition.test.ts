@@ -1,6 +1,6 @@
 import type { BodyMeasurement } from '@openhoop/core';
 
-import { computeTrend, leanMassKg, newestChanged, newestMeasurement, shiftIsoDay, validateBodyDraft } from '@/data/bodyComposition';
+import { computeTrend, parseBodyRange, leanMassKg, newestChanged, newestMeasurement, shiftIsoDay, validateBodyDraft } from '@/data/bodyComposition';
 
 const TODAY = '2026-11-25';
 
@@ -138,5 +138,13 @@ describe('leanMassKg', () => {
   it('subtracts the fat share from the weight', () => {
     expect(leanMassKg(100, 20)).toBe(80);
     expect(leanMassKg(70, 30)).toBeCloseTo(49, 10);
+  });
+});
+
+describe('parseBodyRange', () => {
+  it('accepts the known ranges and falls back to 90 days', () => {
+    expect(parseBodyRange('30')).toBe(30);
+    expect(parseBodyRange('365')).toBe(365);
+    expect(parseBodyRange('7')).toBe(90);
   });
 });

@@ -10,6 +10,10 @@ export const BODY_LIMITS = {
 export const BODY_RANGES = [30, 90, 365] as const;
 export type BodyRange = (typeof BODY_RANGES)[number];
 
+export function parseBodyRange(value: string): BodyRange {
+  return BODY_RANGES.find((range) => `${range}` === value) ?? 90;
+}
+
 export type BodyField = 'day' | 'weight' | 'bodyFat';
 
 export interface BodyDraft {
