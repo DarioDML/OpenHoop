@@ -1,6 +1,10 @@
 import {
+  ActivityInputError,
   Session,
+  bindActivityStore,
   bindStore,
+  checkActivityInput,
+  computeActivityMetrics,
   deleteBodyMeasurement,
   deleteDataBefore,
   deleteLabResult,
@@ -9,6 +13,7 @@ import {
   insertLabResult,
   listBodyMeasurements,
   listLabResults,
+  loadReference,
   probeLock,
   readDeviceInformation,
   recomputeDays,
@@ -19,6 +24,10 @@ import {
   MANUAL_NAP_MAX_S,
   updateBodyMeasurement,
   updateLabResult,
+  type ActivityInput,
+  type ActivityMetricsRecord,
+  type ActivityRow,
+  type ActivityStore,
   type BandModel,
   type BodyMeasurement,
   type BodyMeasurementInput,
@@ -59,15 +68,18 @@ import { otherSleepSpans, recomputeFrom, type SleepEditRequest } from './sleepEd
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
+  ActivityDraft,
   AppData,
   ConnectionState,
   DataSource,
+  DeleteTarget,
   DeviceStatus,
   DiscoveredBand,
   HeartRatePoint,
   LiveState,
   LockState,
   Notice,
+  PendingDelete,
   Profile,
   Settings,
   SleepEditOutcome,
@@ -85,6 +97,8 @@ const EARLIEST_DAY = '0000-01-01';
 const LATEST_DAY = '9999-12-31';
 const INCREMENTAL_RECOMPUTE_BACK_S = 2 * DAY_S;
 const MAX_DEMO_BACKLOG_DAYS = 20;
+export const UNDO_MS = 5_000;
+const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null };
 const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
   clock: 'sync.stop.clock',
   corrupt: 'sync.stop.corrupt',
@@ -105,6 +119,8 @@ export interface Snapshot {
   notice: Notice | null;
   inbox: InboxEntry[];
   notificationPermission: PermissionState;
+  activities: ActivityRow[];
+  pendingDelete: PendingDelete | null;
 }
 
 interface Connection {
@@ -167,6 +183,8 @@ export class AppController {
   private liveAbort: AbortController | null = null;
   private liveRun: Promise<void> | null = null;
   private lastProgressAt = 0;
+  private pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingCreated = false;
   private started = false;
   private notificationState: NotificationState = emptyNotificationState();
   private notificationChain: Promise<void> = Promise.resolve();
@@ -189,6 +207,8 @@ export class AppController {
       notice: null,
       inbox: [],
       notificationPermission: 'undetermined',
+      activities: [],
+      pendingDelete: null,
     };
   }
 
@@ -266,6 +286,7 @@ export class AppController {
       return;
     }
     const { store } = this.app;
+    await this.activityStore().purgeDeleted(null);
     const language = parseLanguage(await store.getSetting(SETTING_KEYS.language)) ?? this.snapshot.settings.language;
     const dataSource = parseDataSource(await store.getSetting(SETTING_KEYS.dataSource));
     const profile = parseProfile(
@@ -331,7 +352,33 @@ export class AppController {
     const row = this.deviceRow;
     const days = row === null ? [] : await store.listDays(row.id, EARLIEST_DAY, LATEST_DAY);
     const sleepEdits = row === null ? [] : await store.listSleepEdits(row.id);
-    this.patch({ days, sleepEdits });
+    const activities = row === null ? [] : await this.activityStore().list(row.id);
+    this.patch({ days, sleepEdits, activities });
+  }
+
+  private activityStore(): ActivityStore {
+    return bindActivityStore(this.requireApp().store.driver);
+  }
+
+  private async loadActivities(): Promise<void> {
+    const activities = this.deviceRow === null ? [] : await this.activityStore().list(this.deviceRow.id);
+    this.patch({ activities });
+  }
+
+  private async metricsFor(deviceId: number, input: ActivityInput, days: readonly DayRecord[]): Promise<ActivityMetricsRecord> {
+    const year = new Date(input.start * 1000).getFullYear();
+    const ref = loadReference(days, this.analyticsProfile(), input.start, year);
+    return computeActivityMetrics(this.requireApp().store, deviceId, { start: input.start, end: input.end }, input.paused, ref);
+  }
+
+  private async refreshActivityMetrics(deviceId: number, from: number | null): Promise<void> {
+    const { store } = this.requireApp();
+    const activities = this.activityStore();
+    const days = await store.listDays(deviceId, EARLIEST_DAY, LATEST_DAY);
+    for (const row of await activities.list(deviceId)) {
+      if (row.deletedAt !== null || (from !== null && row.end < from)) continue;
+      await activities.setMetrics(row.id, await this.metricsFor(deviceId, row, days));
+    }
   }
 
   private analyticsProfile(): { maxHr: number | null; birthYear: number | null; restingHr: number | null } {
@@ -556,6 +603,7 @@ export class AppController {
       profile: this.analyticsProfile(),
       tzOffsetS: deviceTzOffsetS(new Date()),
     });
+    await this.refreshActivityMetrics(deviceId, from);
     await this.refreshDays();
   }
 
@@ -979,6 +1027,104 @@ export class AppController {
       }
     });
 
+  saveActivity = (draft: ActivityDraft, id?: number): Promise<number | null> =>
+    this.exclusive(async () => {
+      try {
+        const device = this.deviceRow;
+        if (device === null) throw new AppError('activity.error.noBand');
+        const input = checkActivityInput({ ...draft, deviceId: device.id });
+        const metrics = await this.metricsFor(device.id, input, this.snapshot.days);
+        const saved = await this.activityStore().save(input, metrics, nowSeconds(), id);
+        if (input.source === 'live') {
+          this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
+          try {
+            await this.recompute(device.id, input.start);
+          } finally {
+            this.patch({ syncProgress: null });
+          }
+        } else {
+          await this.loadActivities();
+        }
+        return saved.id;
+      } catch (error) {
+        this.fail(error instanceof ActivityInputError ? new AppError('activity.error.invalid') : error);
+        return null;
+      }
+    });
+
+  deleteActivity = (target: DeleteTarget): Promise<boolean> =>
+    this.exclusive(async () => {
+      try {
+        await this.finishPendingDelete();
+        const device = this.deviceRow;
+        if (device === null) throw new AppError('activity.error.noBand');
+        const activities = this.activityStore();
+        const now = nowSeconds();
+        let id: number;
+        let created = false;
+        if (target.kind === 'activity') {
+          const row = await activities.get(target.id);
+          if (row === null || row.deviceId !== device.id) throw new AppError('activity.error.missing');
+          id = row.id;
+        } else {
+          const existing = await activities.findDetected(device.id, target.workout.start);
+          if (existing !== null) {
+            id = existing.id;
+          } else {
+            const w = target.workout;
+            const draft: ActivityInput = { deviceId: device.id, source: 'auto', detectedStart: w.start, type: 'other', start: w.start, end: w.end, paused: [], note: null };
+            id = (await activities.save(draft, NO_METRICS, now)).id;
+            created = true;
+          }
+        }
+        await activities.setDeleted(id, now, now);
+        this.pendingCreated = created;
+        this.pendingTimer = setTimeout(() => {
+          void this.exclusive(() => (this.snapshot.pendingDelete?.id === id ? this.finishPendingDelete() : Promise.resolve())).catch((error: unknown) =>
+            this.fail(error),
+          );
+        }, UNDO_MS);
+        this.patch({ pendingDelete: { id, until: Date.now() + UNDO_MS } });
+        await this.loadActivities();
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+
+  undoDelete = (): Promise<void> =>
+    this.exclusive(async () => {
+      const pending = this.snapshot.pendingDelete;
+      if (pending === null) return;
+      this.clearPendingTimer();
+      try {
+        const activities = this.activityStore();
+        if (this.pendingCreated) await activities.remove(pending.id);
+        else await activities.setDeleted(pending.id, null, nowSeconds());
+        await this.loadActivities();
+      } catch (error) {
+        this.fail(error);
+      } finally {
+        this.pendingCreated = false;
+        this.patch({ pendingDelete: null });
+      }
+    });
+
+  private clearPendingTimer(): void {
+    if (this.pendingTimer !== null) clearTimeout(this.pendingTimer);
+    this.pendingTimer = null;
+  }
+
+  private async finishPendingDelete(): Promise<void> {
+    this.clearPendingTimer();
+    if (this.snapshot.pendingDelete === null) return;
+    this.pendingCreated = false;
+    this.patch({ pendingDelete: null });
+    await this.activityStore().purgeDeleted(null);
+    await this.loadActivities();
+  }
+
   exportData = async (): Promise<void> => {
     const app = this.requireApp();
     try {
@@ -1009,6 +1155,9 @@ export class AppController {
       heartRateBetween: this.heartRateBetween,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
+      saveActivity: this.saveActivity,
+      deleteActivity: this.deleteActivity,
+      undoDelete: this.undoDelete,
       clearNotice: this.clearNotice,
       refreshNotifications: this.refreshNotifications,
       setNotificationsEnabled: this.setNotificationsEnabled,

@@ -15,6 +15,7 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'sleeps',
   'sleep_edits',
   'workouts',
+  'activities',
   'events',
   'console_log',
   'raw_chunks',

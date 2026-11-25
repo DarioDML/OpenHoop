@@ -224,7 +224,36 @@ CREATE TABLE lab_results (
 CREATE INDEX lab_results_biomarker_day ON lab_results (biomarker, day, id);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5];
+const V6 = `
+CREATE TABLE activities (
+  id INTEGER PRIMARY KEY,
+  device_id INTEGER NOT NULL REFERENCES devices(id),
+  source TEXT NOT NULL CHECK (source IN ('manual', 'live', 'auto')),
+  detected_start INTEGER,
+  type TEXT NOT NULL,
+  start INTEGER NOT NULL,
+  end INTEGER NOT NULL,
+  paused TEXT NOT NULL DEFAULT '[]',
+  note TEXT,
+  deleted_at INTEGER,
+  active_s INTEGER NOT NULL DEFAULT 0,
+  load REAL,
+  load_reason TEXT,
+  zone_seconds TEXT NOT NULL DEFAULT '[0,0,0,0,0,0]',
+  avg_hr REAL,
+  max_hr REAL,
+  hr_seconds INTEGER NOT NULL DEFAULT 0,
+  active_minutes TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK (end > start),
+  CHECK ((source = 'auto') = (detected_start IS NOT NULL))
+);
+CREATE INDEX activities_device_start ON activities (device_id, start);
+CREATE UNIQUE INDEX activities_detected ON activities (device_id, detected_start) WHERE detected_start IS NOT NULL;
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

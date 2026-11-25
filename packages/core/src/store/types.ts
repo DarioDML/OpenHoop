@@ -166,6 +166,7 @@ export type ExportTable =
   | 'sleeps'
   | 'sleep_edits'
   | 'workouts'
+  | 'activities'
   | 'events'
   | 'console_log'
   | 'raw_chunks'

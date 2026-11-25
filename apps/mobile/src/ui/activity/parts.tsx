@@ -62,43 +62,6 @@ export function ProgressBar({ fraction, color, label }: ProgressBarProps) {
   );
 }
 
-export function workoutTitle(workout: WorkoutRecord, fallback: string): string {
-  return workout.label ?? fallback;
-}
-
-interface WorkoutRowProps {
-  day: DayRecord;
-  index: number;
-}
-
-export function WorkoutRow({ day, index }: WorkoutRowProps) {
-  const { colors } = useTheme();
-  const { t } = useT();
-  const workout = day.workouts[index];
-  if (!workout) return null;
-  return (
-    <Card
-      href={{ pathname: '/activity/details', params: { day: day.day, index: String(index) } }}
-      accessibilityLabel={workoutTitle(workout, t('workout.default'))}
-      testID={`workout-${day.day}-${index}`}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-      <View style={{ width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="pulse" color={colors.accent} size={20} />
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <AppText variant="bodyStrong">{workoutTitle(workout, t('workout.default'))}</AppText>
-        <AppText variant="label" muted numeric>
-          {formatClock(workout.start, day.tzOffsetS)}–{formatClock(workout.end, day.tzOffsetS)} · {formatDuration(t, workout.end - workout.start)}
-        </AppText>
-        <AppText variant="caption" muted numeric>
-          {t('load.workoutStats', { avg: workout.avgHr, max: workout.maxHr })} · {workout.source === 'auto' ? t('workout.auto') : t('workout.manual')}
-        </AppText>
-      </View>
-      <Icon name="chevronRight" color={colors.textMuted} size={18} />
-    </Card>
-  );
-}
-
 interface PlannedScreenProps {
   title: string;
   intro: string;
