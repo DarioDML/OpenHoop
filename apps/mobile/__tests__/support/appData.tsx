@@ -49,6 +49,7 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     pair: noop,
     sync: noop,
     startLive: noop,
+    readBandConfig: noop,
     stopLive: noop,
     exportData: noop,
     updateProfile: noop,

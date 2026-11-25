@@ -247,6 +247,7 @@ export function createFixtureDevice(now: Date = new Date(), lockState: LockState
     backlogPages: 0,
     lockState,
     connection: 'connected',
+    configSnapshot: null,
   };
 }
 
