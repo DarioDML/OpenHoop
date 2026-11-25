@@ -77,7 +77,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
 | C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training) |
-| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat, lab results with the reference range you copied from your own report) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered). OpenHoop ships no reference ranges of its own, for example optical and motion data. Also the values you enter by hand (weight, body fat, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, average cycle and period length, next-period estimate, pregnancy week) |
+| D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat, lab results with the reference range you copied from your own report, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered, average cycle and period length, next-period estimate, pregnancy week). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
 
@@ -118,7 +118,6 @@ The baseline is the windows of up to 14 earlier days, at least 3 days with an ho
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
 - Export gives you the whole database and one CSV file per table, including coach conversations and memory notes, plus `notifications.json` with your notification settings and inbox.
 - Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
-- Export gives you the whole database and one CSV file per table.
 - Cycle, symptom and pregnancy entries are sensitive. They stay in the encrypted database on the phone, are part of the export, and can be deleted one by one or all at once on the cycle screen. The next-period date is a plain average of your own logged cycles. It is not a fertility or ovulation prediction.
 
 ## Not a medical device
