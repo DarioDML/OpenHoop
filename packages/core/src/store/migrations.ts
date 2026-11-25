@@ -307,7 +307,75 @@ CREATE TABLE pregnancy (
 );
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8];
+const V9 = `
+CREATE TABLE strength_exercises (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 40),
+  muscle TEXT NOT NULL CHECK (muscle IN ('chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core')),
+  created_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX strength_exercises_name ON strength_exercises (name COLLATE NOCASE);
+
+CREATE TABLE strength_templates (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 60),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE strength_template_items (
+  id INTEGER PRIMARY KEY,
+  template_id INTEGER NOT NULL REFERENCES strength_templates(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL CHECK (position >= 0),
+  exercise_key TEXT NOT NULL CHECK (length(exercise_key) BETWEEN 1 AND 40),
+  exercise_name TEXT NOT NULL CHECK (length(exercise_name) BETWEEN 1 AND 40),
+  muscle TEXT NOT NULL CHECK (muscle IN ('chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core')),
+  sets INTEGER NOT NULL CHECK (sets BETWEEN 1 AND 20),
+  reps INTEGER NOT NULL CHECK (reps BETWEEN 1 AND 100),
+  weight_kg REAL NOT NULL CHECK (weight_kg >= 0 AND weight_kg <= 1000)
+);
+CREATE INDEX strength_template_items_template ON strength_template_items (template_id, position);
+
+CREATE TABLE strength_sessions (
+  id INTEGER PRIMARY KEY,
+  template_id INTEGER,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 60),
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  started_at INTEGER NOT NULL,
+  ended_at INTEGER,
+  CHECK (ended_at IS NULL OR ended_at >= started_at)
+);
+CREATE INDEX strength_sessions_day ON strength_sessions (day, id);
+
+CREATE TABLE strength_session_exercises (
+  id INTEGER PRIMARY KEY,
+  session_id INTEGER NOT NULL REFERENCES strength_sessions(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL CHECK (position >= 0),
+  exercise_key TEXT NOT NULL CHECK (length(exercise_key) BETWEEN 1 AND 40),
+  exercise_name TEXT NOT NULL CHECK (length(exercise_name) BETWEEN 1 AND 40),
+  muscle TEXT NOT NULL CHECK (muscle IN ('chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core')),
+  sets INTEGER NOT NULL CHECK (sets BETWEEN 1 AND 20),
+  reps INTEGER NOT NULL CHECK (reps BETWEEN 1 AND 100),
+  weight_kg REAL NOT NULL CHECK (weight_kg >= 0 AND weight_kg <= 1000)
+);
+CREATE INDEX strength_session_exercises_session ON strength_session_exercises (session_id, position);
+
+CREATE TABLE strength_sets (
+  id INTEGER PRIMARY KEY,
+  session_id INTEGER NOT NULL REFERENCES strength_sessions(id) ON DELETE CASCADE,
+  exercise_key TEXT NOT NULL CHECK (length(exercise_key) BETWEEN 1 AND 40),
+  exercise_name TEXT NOT NULL CHECK (length(exercise_name) BETWEEN 1 AND 40),
+  muscle TEXT NOT NULL CHECK (muscle IN ('chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core')),
+  reps INTEGER NOT NULL CHECK (reps BETWEEN 1 AND 100),
+  weight_kg REAL NOT NULL CHECK (weight_kg >= 0 AND weight_kg <= 1000),
+  rpe REAL CHECK (rpe IS NULL OR (rpe >= 1 AND rpe <= 10)),
+  done_at INTEGER NOT NULL
+);
+CREATE INDEX strength_sets_session ON strength_sets (session_id, id);
+CREATE INDEX strength_sets_exercise ON strength_sets (exercise_key);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

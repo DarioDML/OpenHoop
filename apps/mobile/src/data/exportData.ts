@@ -27,6 +27,12 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'cycle_periods',
   'symptom_logs',
   'pregnancy',
+  'strength_exercises',
+  'strength_templates',
+  'strength_template_items',
+  'strength_sessions',
+  'strength_session_exercises',
+  'strength_sets',
 ];
 
 const PLAINTEXT_NAME = 'openhoop.db';

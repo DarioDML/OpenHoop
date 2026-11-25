@@ -412,7 +412,7 @@ describe('store', () => {
       { events: [], console: [{ deviceId: device.id, t: 1, sequence: 1, text: 'a,b' }], unknownFrames: 0, syncState: syncState(device.id) },
     );
     await store.saveSleepEdit({ id: null, deviceId: device.id, targetOnset: 100, targetOffset: 28_900, onset: 50, offset: 28_000, createdAt: 9 });
-    const tables = ['devices', 'samples_1hz', 'daily_metrics', 'sleeps', 'sleep_edits', 'workouts', 'events', 'console_log', 'raw_chunks', 'body_measurements', 'lab_results', 'activities', 'cycle_periods', 'symptom_logs', 'pregnancy'] as const;
+    const tables = ['devices', 'samples_1hz', 'daily_metrics', 'sleeps', 'sleep_edits', 'workouts', 'events', 'console_log', 'raw_chunks', 'body_measurements', 'lab_results', 'activities', 'cycle_periods', 'symptom_logs', 'pregnancy', 'strength_exercises', 'strength_templates', 'strength_template_items', 'strength_sessions', 'strength_session_exercises', 'strength_sets'] as const;
     for (const table of tables) {
       const csv = await exportCsv(store, table);
       expect(csv.endsWith('\r\n')).toBe(true);
