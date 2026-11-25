@@ -286,6 +286,7 @@
   "health.report.labs.count": "Resultaten: {count}",
   "health.report.labs.empty": "Geen labwaarden ingevoerd in deze periode.",
   "health.report.labs.enteredNote": "Door jou ingevoerd vanaf je eigen labuitslag. OpenHoop duidt resultaten niet en levert geen referentiewaarden mee.",
+  "health.report.labs.excluded": "Niet meegenomen: {count} resultaat/resultaten in een andere eenheid die niet om te rekenen is",
   "health.report.labs.latest": "Laatste: {value} op {day}",
   "health.report.labs.note": "Jouw notitie: {note}",
   "health.report.metric.calories": "Calorieën (schatting)",

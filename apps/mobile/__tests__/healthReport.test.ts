@@ -165,6 +165,21 @@ describe('buildReport', () => {
     expect(labs[0]?.latest.note).toBe('fasting');
   });
 
+  it('counts only the lab results it could convert and says how many were left out', () => {
+    const model = buildReport(
+      input({
+        labResults: [
+          lab(1, { biomarker: 'custom:Ferritin', unit: 'ug/L', value: 40, day: '2026-11-01' }),
+          lab(2, { biomarker: 'custom:Ferritin', unit: 'ng/mL', value: 50, day: '2026-11-10' }),
+        ],
+      }),
+    );
+    const entry = model.sections.find((s) => s.id === 'labs')?.labs[0];
+    expect(entry?.count).toBe(1);
+    expect(entry?.excluded).toBe(1);
+    expect(html(model)).toContain('Not included: 1 result(s) in another unit');
+  });
+
   it('only includes the name when asked and available', () => {
     expect(buildReport(input({ includeName: false })).name).toBeNull();
     expect(buildReport(input({ includeName: true })).name).toBe('Sam');
@@ -257,6 +272,13 @@ describe('renderReportHtml', () => {
   it('shows the missing body profile reason in Dutch', () => {
     const out = html(buildReport(input({ sections: ['energy'], profile: { birthYear: null, maxHeartRate: null } })), 'nl');
     expect(out).toContain('Lichaamsprofiel onvolledig');
+  });
+
+  it('escapes a label only once in the chart description', () => {
+    const model = buildReport(input({ labResults: [lab(1, { biomarker: 'custom:A & B', unit: 'x' }), lab(2, { biomarker: 'custom:A & B', unit: 'x', day: '2026-11-02' })] }));
+    const out = html(model);
+    expect(out).toContain('aria-label="A &amp; B"');
+    expect(out).not.toContain('&amp;amp;');
   });
 
   it('omits the name unless included and says so for no sections', () => {

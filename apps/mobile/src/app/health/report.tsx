@@ -99,6 +99,11 @@ function PreviewLab({ lab, text }: { lab: ReportLab; text: ReportText }) {
       <AppText variant="caption" muted>
         {t('health.report.labs.count', { count: lab.count })}
       </AppText>
+      {lab.excluded === 0 ? null : (
+        <AppText variant="caption" muted testID={`report-lab-excluded-${lab.group}`}>
+          {t('health.report.labs.excluded', { count: lab.excluded })}
+        </AppText>
+      )}
     </View>
   );
 }

@@ -61,6 +61,7 @@ export interface ReportLab {
   unit: string;
   values: number[];
   count: number;
+  excluded: number;
   average: number;
   min: number;
   max: number;
@@ -271,7 +272,8 @@ function labsFor(results: readonly LabResult[], from: string, to: string): Repor
       ref: parseBiomarkerKey(key),
       unit: history.unit,
       values,
-      count: entries.length,
+      count: values.length,
+      excluded: entries.length - values.length,
       average,
       min: Math.min(...values),
       max: Math.max(...values),

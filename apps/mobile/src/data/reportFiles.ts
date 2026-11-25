@@ -7,14 +7,18 @@ export function removeReportFile(uri: string): void {
     const file = new File(uri);
     if (file.exists) file.delete();
   } catch {
-    // removeLeftoverReports deletes it on the next start
+    return;
   }
 }
 
 export function removeLeftoverReports(): void {
-  const folder = new Directory(Paths.cache, PRINT_FOLDER);
-  if (!folder.exists) return;
-  for (const entry of folder.list()) {
-    if (entry instanceof File && entry.name.endsWith('.pdf')) entry.delete();
+  try {
+    const folder = new Directory(Paths.cache, PRINT_FOLDER);
+    if (!folder.exists) return;
+    for (const entry of folder.list()) {
+      if (entry instanceof File && entry.name.endsWith('.pdf')) removeReportFile(entry.uri);
+    }
+  } catch {
+    return;
   }
 }

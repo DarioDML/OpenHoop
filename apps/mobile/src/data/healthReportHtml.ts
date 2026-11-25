@@ -173,31 +173,34 @@ function levelCell(level: ParityLevel, t: TFunction): string {
 
 function rowHtml(row: ReportRow, text: ReportText): string {
   const { t } = text;
-  const label = escapeHtml(t(row.labelKey));
+  const rawLabel = t(row.labelKey);
+  const label = escapeHtml(rawLabel);
   const coverage = escapeHtml(coverageText(row.coverageDays, row.totalDays, t));
   if (row.average === null || row.reason !== null) {
     const reason = escapeHtml(missingText(row.reason ?? 'no-data', text));
     return `<tr>${cell(label)}${cell(reason, 'missing', 3)}${cell(coverage, 'num')}${levelCell(row.level, t)}</tr>`;
   }
   return `<tr>${cell(label)}${cell(escapeHtml(rowValue(row, row.average, text)), 'num')}${cell(escapeHtml(rowRange(row, text) ?? ''), 'num')}${cell(
-    sparklineSvg(row.series, label) + `<div class="note">${escapeHtml(trendText(row.trend, t))}</div>`,
+    sparklineSvg(row.series, rawLabel) + `<div class="note">${escapeHtml(trendText(row.trend, t))}</div>`,
   )}${cell(coverage, 'num')}${levelCell(row.level, t)}</tr>`;
 }
 
 function labHtml(lab: ReportLab, text: ReportText): string {
   const { t, language } = text;
-  const name = escapeHtml(labName(lab.ref, t));
+  const rawName = labName(lab.ref, t);
+  const name = escapeHtml(rawName);
   const status = labStatus(lab, t);
   const lines = [
     escapeHtml(t('health.report.labs.latest', { value: labValue(lab.latest.value, lab.latest.unit, language), day: lab.latest.day })),
     escapeHtml(labRange(lab, text)),
     ...(status === null ? [] : [escapeHtml(status)]),
+    ...(lab.excluded === 0 ? [] : [escapeHtml(t('health.report.labs.excluded', { count: lab.excluded }))]),
     ...(lab.latest.note === null ? [] : [escapeHtml(t('health.report.labs.note', { note: lab.latest.note }))]),
   ];
   const average = escapeHtml(labValue(lab.average, lab.unit, language));
   const range = escapeHtml(`${labValue(lab.min, lab.unit, language)} – ${labValue(lab.max, lab.unit, language)}`);
   return `<tr>${cell(`${name}${lines.map((line) => `<div class="note">${line}</div>`).join('')}`)}${cell(average, 'num')}${cell(range, 'num')}${cell(
-    sparklineSvg(lab.values, name) + `<div class="note">${escapeHtml(trendText(lab.trend, t))}</div>`,
+    sparklineSvg(lab.values, rawName) + `<div class="note">${escapeHtml(trendText(lab.trend, t))}</div>`,
   )}${cell(escapeHtml(t('health.report.labs.count', { count: lab.count })), 'num')}${levelCell('D', t)}</tr>`;
 }
 

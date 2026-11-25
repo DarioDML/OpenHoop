@@ -286,6 +286,7 @@
   "health.report.labs.count": "Results: {count}",
   "health.report.labs.empty": "No lab values entered in this period.",
   "health.report.labs.enteredNote": "Entered by you from your own lab report. OpenHoop does not interpret results and ships no reference ranges.",
+  "health.report.labs.excluded": "Not included: {count} result(s) in another unit that cannot be converted",
   "health.report.labs.latest": "Latest: {value} on {day}",
   "health.report.labs.note": "Your note: {note}",
   "health.report.metric.calories": "Calories (estimate)",
