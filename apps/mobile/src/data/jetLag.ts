@@ -47,6 +47,7 @@ export interface LightWindow {
 
 export interface PlanDay {
   offset: number;
+  date: string;
   phase: JetLagPhase;
   shiftH: number;
   bed: PointInTime;
@@ -166,6 +167,7 @@ export function generatePlan(trip: JetLagTrip, anchor: SleepAnchor): PlanResult 
 
     days.push({
       offset,
+      date,
       phase: offset < 0 ? 'before' : offset === 0 ? 'travel' : 'after',
       shiftH,
       bed,

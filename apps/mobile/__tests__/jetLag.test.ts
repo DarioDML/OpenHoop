@@ -34,6 +34,11 @@ function planOf(tripInput: JetLagTrip, anchor: SleepAnchor = ANCHOR): JetLagPlan
   return result.plan;
 }
 
+function must<T>(value: T | undefined | null): T {
+  if (value === undefined || value === null) throw new Error('missing value');
+  return value;
+}
+
 function clock(point: { minutes: number }): string {
   return formatMinutes(point.minutes);
 }
@@ -137,7 +142,7 @@ describe('generatePlan', () => {
 
     const arrival = plan.days[plan.days.length - 1];
     expect(arrival?.adapted).toBe(true);
-    expect(clock(arrival!.bed.dest)).toBe('23:00');
+    expect(clock(must(arrival).bed.dest)).toBe('23:00');
   });
 
   it('honours the number of days to pre-adjust', () => {
@@ -178,9 +183,9 @@ describe('generatePlan', () => {
     expect(clock(plan.departure.dest)).toBe('09:00');
     const first = plan.days[0];
     expect(first?.bed.home.date).toBe('2026-01-10');
-    expect(clock(first!.bed.home)).toBe('00:00');
+    expect(clock(must(first).bed.home)).toBe('00:00');
     expect(first?.bed.dest.date).toBe('2026-01-10');
-    expect(clock(first!.bed.dest)).toBe('23:00');
+    expect(clock(must(first).bed.dest)).toBe('23:00');
   });
 
   it('treats a 25 hour difference over the date line as one hour east', () => {
@@ -217,7 +222,7 @@ describe('generatePlan', () => {
     const last = plan.days[plan.days.length - 1];
     expect(last?.shiftH).toBe(-5);
     expect(last?.adapted).toBe(true);
-    expect(clock(last!.bed.dest)).toBe('23:00');
+    expect(clock(must(last).bed.dest)).toBe('23:00');
   });
 
   it('keeps the night length when bed and wake shift together', () => {
@@ -228,9 +233,9 @@ describe('generatePlan', () => {
   it('puts a bedtime after midnight on the next calendar day', () => {
     const plan = planOf(trip({ preDays: 0 }), { bedMinutes: 30, wakeMinutes: 8 * 60, source: 'sleep-data' });
     const day = plan.days[0];
-    expect(clock(day!.bed.home)).toBe('23:30');
+    expect(clock(must(day).bed.home)).toBe('23:30');
     expect(day?.bed.home.date).toBe('2026-03-10');
-    expect(clock(day!.wake.home)).toBe('07:00');
+    expect(clock(must(day).wake.home)).toBe('07:00');
     expect(day?.wake.home.date).toBe('2026-03-11');
   });
 

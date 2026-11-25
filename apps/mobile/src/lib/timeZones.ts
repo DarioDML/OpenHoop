@@ -171,3 +171,8 @@ export function zoneLabel(zone: string): string {
   const name = zone.split('/').slice(1).join(' / ') || zone;
   return name.replace(/_/g, ' ');
 }
+
+export function zoneTitle(zone: string): string {
+  const label = zoneLabel(zone);
+  return label === zone ? zone : `${label} · ${zone}`;
+}
