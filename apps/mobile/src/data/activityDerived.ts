@@ -1,0 +1,299 @@
+import type { DayRecord, WorkoutRecord } from '@openhoop/core';
+
+import type { Language, Profile } from './types';
+import { addDays, baselineAt, mean, weekdayIndex, weekStart, wearStreak, type Baseline } from './derived';
+
+export const LOAD_DAY_MIN = 7;
+export const MIN_REPORT_DAYS = 3;
+export const FALLBACK_MAX_HR = 190;
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isLoadDay(day: DayRecord | null): boolean {
+  return day !== null && day.load.value !== null && day.load.value >= LOAD_DAY_MIN;
+}
+
+export function sleepNightMet(day: DayRecord | null): boolean | null {
+  if (day === null) return null;
+  const need = day.sleep.need.value;
+  if (day.sleep.asleepS === null || need === null) return null;
+  return day.sleep.asleepS >= need;
+}
+
+export interface WeekProgress {
+  start: string;
+  elapsed: number;
+  remaining: number;
+  daysWithData: number;
+  loadDays: number;
+  sleepNightsMet: number;
+  sleepNightsMeasured: number;
+}
+
+export function weekProgress(days: readonly DayRecord[], today: string): WeekProgress {
+  const start = weekStart(today);
+  const elapsed = weekdayIndex(today) + 1;
+  const byDay = new Map(days.map((d) => [d.day, d]));
+  let daysWithData = 0;
+  let loadDays = 0;
+  let met = 0;
+  let measured = 0;
+  for (let i = 0; i < elapsed; i++) {
+    const day = byDay.get(addDays(start, i)) ?? null;
+    if (day === null) continue;
+    daysWithData++;
+    if (isLoadDay(day)) loadDays++;
+    const ok = sleepNightMet(day);
+    if (ok !== null) {
+      measured++;
+      if (ok) met++;
+    }
+  }
+  return { start, elapsed, remaining: 7 - elapsed, daysWithData, loadDays, sleepNightsMet: met, sleepNightsMeasured: measured };
+}
+
+export interface PeriodStats {
+  days: number;
+  readiness: number | null;
+  load: number | null;
+  sleepH: number | null;
+  hrv: number | null;
+  restingHr: number | null;
+  loadDays: number;
+  peakLoad: { day: string; value: number } | null;
+}
+
+export function periodStats(days: readonly DayRecord[]): PeriodStats {
+  let peak: { day: string; value: number } | null = null;
+  for (const d of days) {
+    if (d.load.value !== null && (peak === null || d.load.value > peak.value)) peak = { day: d.day, value: d.load.value };
+  }
+  return {
+    days: days.length,
+    readiness: mean(days.map((d) => d.readiness.value)),
+    load: mean(days.map((d) => d.load.value)),
+    sleepH: mean(days.map((d) => (d.sleep.asleepS === null ? null : d.sleep.asleepS / 3600))),
+    hrv: mean(days.map((d) => d.hrv.value)),
+    restingHr: mean(days.map((d) => d.restingHr.value)),
+    loadDays: days.filter((d) => isLoadDay(d)).length,
+    peakLoad: peak,
+  };
+}
+
+export interface PeriodWindows {
+  current: DayRecord[];
+  previous: DayRecord[];
+}
+
+export function periodWindows(days: readonly DayRecord[], length: number): PeriodWindows {
+  const end = days.length;
+  return { current: days.slice(Math.max(0, end - length), end), previous: days.slice(Math.max(0, end - 2 * length), Math.max(0, end - length)) };
+}
+
+export type Trend = 'up' | 'down' | 'stable';
+
+export function trendOf(current: number, previous: number, relativeThreshold = 0.05): Trend {
+  if (previous === 0) return current === 0 ? 'stable' : current > 0 ? 'up' : 'down';
+  const change = (current - previous) / Math.abs(previous);
+  if (change > relativeThreshold) return 'up';
+  if (change < -relativeThreshold) return 'down';
+  return 'stable';
+}
+
+export function enoughForReport(days: readonly DayRecord[]): boolean {
+  return days.length >= MIN_REPORT_DAYS;
+}
+
+export function loadTargetBand(days: readonly DayRecord[]): Baseline | null {
+  if (days.length === 0) return null;
+  const baseline = baselineAt(days, days.length - 1, 'load');
+  if (baseline === null) return null;
+  return { ...baseline, low: Math.max(0, baseline.low), high: Math.min(21, baseline.high) };
+}
+
+export type TargetAdvice = 'lower' | 'middle' | 'upper' | 'unknown';
+
+export function targetAdvice(readiness: number | null): TargetAdvice {
+  if (readiness === null) return 'unknown';
+  if (readiness < 34) return 'lower';
+  if (readiness >= 67) return 'upper';
+  return 'middle';
+}
+
+export function effectiveMaxHr(profile: Profile, year: number): number {
+  if (profile.maxHeartRate !== null && profile.maxHeartRate > 0) return profile.maxHeartRate;
+  if (profile.birthYear !== null && profile.birthYear <= year) return 208 - 0.7 * (year - profile.birthYear);
+  return FALLBACK_MAX_HR;
+}
+
+export const ZONE_FLOORS = [0.5, 0.6, 0.7, 0.8, 0.9] as const;
+
+export function liveZone(heartRate: number, maxHr: number): number | null {
+  if (maxHr <= 0) return null;
+  const fraction = heartRate / maxHr;
+  let zone: number | null = null;
+  ZONE_FLOORS.forEach((floor, index) => {
+    if (fraction >= floor) zone = index + 1;
+  });
+  return zone;
+}
+
+export function parseDayParam(value: string | string[] | undefined, days: readonly DayRecord[]): DayRecord | null {
+  if (typeof value !== 'string' || !ISO_DAY.test(value)) return null;
+  return days.find((d) => d.day === value) ?? null;
+}
+
+export function parseIndexParam(value: string | string[] | undefined, length: number): number | null {
+  if (typeof value !== 'string' || !/^\d{1,3}$/.test(value)) return null;
+  const index = Number(value);
+  return index < length ? index : null;
+}
+
+export interface WorkoutRef {
+  day: DayRecord;
+  index: number;
+  workout: WorkoutRecord;
+}
+
+export function resolveWorkout(
+  days: readonly DayRecord[],
+  dayParam: string | string[] | undefined,
+  indexParam: string | string[] | undefined,
+): WorkoutRef | null {
+  const day = parseDayParam(dayParam, days);
+  if (day === null) return null;
+  const index = parseIndexParam(indexParam, day.workouts.length);
+  if (index === null) return null;
+  const workout = day.workouts[index];
+  return workout ? { day, index, workout } : null;
+}
+
+export function formatWeekday(day: string, language: Language, style: 'short' | 'long' = 'short'): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const date = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+  return date.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { weekday: style, timeZone: 'UTC' });
+}
+
+export function formatMonthYear(day: string, language: Language): string {
+  const [y, m] = day.split('-').map(Number);
+  const date = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, 1));
+  return date.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+export function longestStreak(days: readonly DayRecord[]): number {
+  let best = 0;
+  let run = 0;
+  let previous: string | null = null;
+  for (const d of days) {
+    const worn = d.heartRate.avg !== null || d.sleep.asleepS !== null;
+    if (!worn) {
+      run = 0;
+      previous = null;
+      continue;
+    }
+    run = previous !== null && addDays(previous, 1) === d.day ? run + 1 : 1;
+    previous = d.day;
+    best = Math.max(best, run);
+  }
+  return best;
+}
+
+export interface Lifetime {
+  daysTracked: number;
+  nights: number;
+  workouts: number;
+  steps: number;
+  memberSince: string | null;
+}
+
+export function lifetimeStats(days: readonly DayRecord[]): Lifetime {
+  return {
+    daysTracked: days.length,
+    nights: days.filter((d) => d.sleep.asleepS !== null).length,
+    workouts: days.reduce((sum, d) => sum + d.workouts.length, 0),
+    steps: days.reduce((sum, d) => sum + (d.steps ?? 0), 0),
+    memberSince: days[0]?.day ?? null,
+  };
+}
+
+export type AchievementGroup = 'streak' | 'nights' | 'workouts';
+
+export interface Achievement {
+  id: string;
+  group: AchievementGroup;
+  target: number;
+  current: number;
+  unlocked: boolean;
+}
+
+const TIERS: Record<AchievementGroup, readonly number[]> = {
+  streak: [3, 7, 14, 30],
+  nights: [7, 30, 90],
+  workouts: [1, 10, 25],
+};
+
+export function achievements(days: readonly DayRecord[]): Achievement[] {
+  const stats = lifetimeStats(days);
+  const currents: Record<AchievementGroup, number> = {
+    streak: Math.max(wearStreak(days), longestStreak(days)),
+    nights: stats.nights,
+    workouts: stats.workouts,
+  };
+  const out: Achievement[] = [];
+  (Object.keys(TIERS) as AchievementGroup[]).forEach((group) => {
+    for (const target of TIERS[group]) {
+      out.push({ id: `${group}-${target}`, group, target, current: currents[group], unlocked: currents[group] >= target });
+    }
+  });
+  return out;
+}
+
+export const ACTIVITY_TYPES = ['running', 'walking', 'cycling', 'swimming', 'strength', 'yoga', 'hiit', 'football', 'padel', 'pilates', 'hiking', 'other'] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+export function parseActivityType(value: string | string[] | undefined): ActivityType {
+  return typeof value === 'string' && (ACTIVITY_TYPES as readonly string[]).includes(value) ? (value as ActivityType) : 'other';
+}
+
+export function formatElapsed(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+}
+
+export interface StepsStats {
+  average: number | null;
+  total: number;
+  best: { day: string; steps: number } | null;
+  daysWithData: number;
+  goalDays: number | null;
+}
+
+export function stepsStats(days: readonly DayRecord[], goal: number | null): StepsStats {
+  const withSteps = days.filter((d): d is DayRecord & { steps: number } => d.steps !== null);
+  const total = withSteps.reduce((sum, d) => sum + d.steps, 0);
+  let best: StepsStats['best'] = null;
+  for (const d of withSteps) {
+    if (best === null || d.steps > best.steps) best = { day: d.day, steps: d.steps };
+  }
+  return {
+    average: withSteps.length === 0 ? null : total / withSteps.length,
+    total,
+    best,
+    daysWithData: withSteps.length,
+    goalDays: goal === null ? null : withSteps.filter((d) => d.steps >= goal).length,
+  };
+}
+
+export function parseWholeNumber(text: string): number | null {
+  const trimmed = text.trim();
+  return /^\d{1,6}$/.test(trimmed) ? Number(trimmed) : null;
+}
+
+export function parseDecimal(text: string): number | null {
+  const trimmed = text.trim().replace(',', '.');
+  return /^\d{1,3}(\.\d{1,2})?$/.test(trimmed) ? Number(trimmed) : null;
+}
