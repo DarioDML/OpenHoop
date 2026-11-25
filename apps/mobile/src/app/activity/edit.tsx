@@ -1,25 +1,89 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import type { ActivitySource } from '@openhoop/core';
+import { router, Stack } from 'expo-router';
+import { useState } from 'react';
 
-import { resolveWorkout } from '@/data/activityDerived';
+import { formFor, validateActivityForm, type ActivityEntry, type ActivityForm, type EntryKind, type FormError } from '@/data/activities';
 import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatShortDay } from '@/lib/format';
-import { NoDataScreen, workoutTitle } from '@/ui/activity/parts';
+import { unixToIsoDate } from '@/lib/dates';
+import { ActivityFormFields, entryTitle, useResolvedEntry, type ResolvedEntry } from '@/ui/activity/entries';
+import { NoDataScreen } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { ListGroup, ListRow } from '@/ui/ListGroup';
-import { NotBuilt } from '@/ui/NotBuilt';
+import { Button } from '@/ui/controls';
 import { Screen } from '@/ui/Screen';
 import { TopBar } from '@/ui/TopBar';
+import { useTheme } from '@/ui/theme';
+
+const SOURCE_OF: Record<EntryKind, ActivitySource> = { detected: 'auto', edited: 'auto', manual: 'manual', live: 'live' };
 
 export default function EditActivityScreen() {
-  const { days } = useAppData();
-  const { t, language } = useT();
-  const params = useLocalSearchParams<{ day?: string; index?: string }>();
-  const ref = resolveWorkout(days, params.day, params.index);
+  const { t } = useT();
+  const resolved = useResolvedEntry();
+  if (resolved === null) return <NoDataScreen title={t('activity.edit.title')} notFound />;
+  return <EditForm resolved={resolved} key={resolved.entry.key} />;
+}
 
-  if (ref === null) return <NoDataScreen title={t('activity.edit.title')} notFound />;
-  const { day, workout } = ref;
+function initialForm(entry: ActivityEntry, tzOffsetS: number): ActivityForm {
+  return formFor(entry.type ?? 'other', entry.start, entry.end, entry.note, tzOffsetS);
+}
+
+function EditForm({ resolved }: { resolved: ResolvedEntry }) {
+  const { activities, saveActivity, deleteActivity, notice } = useAppData();
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  const { entry, workout, tzOffsetS } = resolved;
+  const [form, setForm] = useState<ActivityForm>(() => initialForm(entry, tzOffsetS));
+  const [error, setError] = useState<FormError | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const close = (): void => {
+    if (router.canGoBack()) router.back();
+  };
+
+  const save = async (): Promise<void> => {
+    const result = validateActivityForm(form, Math.floor(Date.now() / 1000), tzOffsetS);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    setFailed(false);
+    const row = entry.id === null ? undefined : activities.find((r) => r.id === entry.id);
+    const id = await saveActivity(
+      {
+        source: SOURCE_OF[entry.kind],
+        detectedStart: entry.detectedStart,
+        type: result.value.type,
+        start: result.value.start,
+        end: result.value.end,
+        paused: row?.paused ?? [],
+        note: result.value.note,
+      },
+      entry.id ?? undefined,
+    );
+    setBusy(false);
+    if (id === null) setFailed(true);
+    else close();
+  };
+
+  const remove = async (): Promise<void> => {
+    setBusy(true);
+    const ok =
+      entry.id !== null
+        ? await deleteActivity({ kind: 'activity', id: entry.id })
+        : workout !== null
+          ? await deleteActivity({ kind: 'detected', workout })
+          : false;
+    setBusy(false);
+    if (ok) close();
+    else setFailed(true);
+  };
+
+  const day = unixToIsoDate(entry.start, tzOffsetS);
 
   return (
     <Screen
@@ -30,19 +94,26 @@ export default function EditActivityScreen() {
           <Stack.Screen options={{ presentation: 'modal' }} />
           <TopBar title={t('activity.edit.title')} close back={false} />
         </>
-      }>
+      }
+      footer={<Button label={t('activity.form.save')} onPress={() => void save()} disabled={busy} testID="edit-save" />}>
       <Card>
-        <AppText variant="cardTitle">{workoutTitle(workout, t('workout.default'))}</AppText>
+        <AppText variant="cardTitle">{entryTitle(t, entry)}</AppText>
         <AppText variant="label" muted numeric>
-          {formatShortDay(day.day, language)} · {formatClock(workout.start, day.tzOffsetS)}–{formatClock(workout.end, day.tzOffsetS)} · {formatDuration(t, workout.end - workout.start)}
+          {formatShortDay(day, language)} · {formatClock(entry.start, tzOffsetS)}–{formatClock(entry.end, tzOffsetS)} · {formatDuration(t, entry.metrics.activeS)}
         </AppText>
+        {entry.kind === 'detected' || entry.kind === 'edited' ? (
+          <AppText variant="caption" muted testID="edit-detected-note">
+            {t('activity.edit.detectedNote')}
+          </AppText>
+        ) : null}
       </Card>
-      <ListGroup>
-        <ListRow title={t('activity.edit.type')} value={workoutTitle(workout, t('workout.default'))} disabled />
-        <ListRow title={t('activity.edit.start')} value={formatClock(workout.start, day.tzOffsetS)} disabled />
-        <ListRow title={t('activity.edit.end')} value={formatClock(workout.end, day.tzOffsetS)} disabled />
-      </ListGroup>
-      <NotBuilt issue="activities" body={t('activity.edit.notBuilt')} />
+      <ActivityFormFields form={form} onChange={setForm} error={error} />
+      {failed ? (
+        <AppText variant="label" color={colors.negative} testID="edit-failed">
+          {notice === null ? t('activity.form.failed') : t(notice.key, notice.params)}
+        </AppText>
+      ) : null}
+      <Button label={t('activity.delete')} variant="danger" disabled={busy} onPress={() => void remove()} testID="edit-delete" />
     </Screen>
   );
 }

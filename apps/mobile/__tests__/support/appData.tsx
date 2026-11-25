@@ -37,6 +37,11 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     heartRateBetween: async () => [],
     saveSleepEdit: async () => 'saved',
     deleteSleepEdit: async () => true,
+    activities: [],
+    pendingDelete: null,
+    saveActivity: async () => 1,
+    deleteActivity: async () => true,
+    undoDelete: noop,
     ...overrides,
   };
 }

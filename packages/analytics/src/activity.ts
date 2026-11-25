@@ -1,5 +1,5 @@
-import { DEFAULT_CALIBRATION } from './calibration';
-import type { Calibration } from './calibration';
+import { DEFAULT_CALIBRATION, effectiveMaxHr } from './calibration';
+import type { Calibration, Profile } from './calibration';
 import { loadFromSum, loadSum, sumFromLoad } from './load';
 import { ALGO, fail, succeed } from './types';
 import type { Outcome } from './types';
@@ -19,6 +19,39 @@ export interface HrPoint {
 export const MINUTE_S = 60;
 export const MINUTE_MIN_VALID_S = 30;
 export const ACTIVITY_MIN_COVERAGE = 0.5;
+export const ACTIVITY_MAX_S = 24 * 3_600;
+export const ACTIVITY_MIN_S = 60;
+export const ACTIVITY_NOTE_MAX = 500;
+const RESTING_HR_FALLBACK = 60;
+const RESTING_DAYS = 14;
+
+export interface LoadReference {
+  rest: number;
+  max: number;
+}
+
+export interface RestingDay {
+  start: number;
+  restingHr: { value: number | null };
+}
+
+export function loadReference(days: readonly RestingDay[], profile: Profile, at: number, year: number): LoadReference {
+  const profileRest = profile.restingHr;
+  let rest = RESTING_HR_FALLBACK;
+  if (profileRest !== null && Number.isFinite(profileRest) && profileRest > 0) {
+    rest = profileRest;
+  } else {
+    const values: number[] = [];
+    for (const day of days) {
+      if (day.start > at) break;
+      const v = day.restingHr.value;
+      if (v !== null && Number.isFinite(v)) values.push(v);
+    }
+    const recent = values.slice(-RESTING_DAYS);
+    if (recent.length > 0) rest = recent.reduce((a, b) => a + b, 0) / recent.length;
+  }
+  return { rest, max: effectiveMaxHr(profile, year) };
+}
 
 export function normalizeIntervals(list: readonly Interval[]): Interval[] {
   const sorted = list

@@ -1,18 +1,16 @@
-import { DEFAULT_CALIBRATION, activityMetrics, effectiveMaxHr, normalizeIntervals } from '@openhoop/analytics';
-import type { Calibration, HrPoint, Interval, Profile } from '@openhoop/analytics';
+import { ACTIVITY_MAX_S, ACTIVITY_MIN_S, ACTIVITY_NOTE_MAX, DEFAULT_CALIBRATION, activityMetrics, normalizeIntervals } from '@openhoop/analytics';
+import type { Calibration, HrPoint, Interval, LoadReference } from '@openhoop/analytics';
 import { SOURCE_RANK, validHr } from './pipeline';
-import type { DayRecord, SampleRow, SqlDriver, SqlValue, Store } from './store/types';
+import type { SampleRow, SqlDriver, SqlValue, Store } from './store/types';
+
+export { ACTIVITY_MAX_S, ACTIVITY_MIN_S, ACTIVITY_NOTE_MAX, loadReference } from '@openhoop/analytics';
+export type { LoadReference } from '@openhoop/analytics';
 
 export const ACTIVITY_SOURCES = ['manual', 'live', 'auto'] as const;
 export type ActivitySource = (typeof ACTIVITY_SOURCES)[number];
 
-export const ACTIVITY_MAX_S = 24 * 3_600;
-export const ACTIVITY_MIN_S = 60;
-export const ACTIVITY_NOTE_MAX = 500;
 export const ACTIVITY_TYPE_MAX = 32;
 export const ACTIVITY_MAX_PAUSES = 200;
-const RESTING_HR_FALLBACK = 60;
-const RESTING_DAYS = 14;
 const ZONE_COUNT = 6;
 
 export interface ActivityMetricsRecord {
@@ -169,6 +167,7 @@ export interface ActivityStore {
   save(input: ActivityInput, metrics: ActivityMetricsRecord, now: number, id?: number): Promise<ActivityRow>;
   setMetrics(id: number, metrics: ActivityMetricsRecord): Promise<void>;
   setDeleted(id: number, deletedAt: number | null, now: number): Promise<void>;
+  remove(id: number): Promise<void>;
   purgeDeleted(deviceId: number | null): Promise<number>;
 }
 
@@ -243,6 +242,10 @@ export function bindActivityStore(driver: SqlDriver): ActivityStore {
       await driver.run('UPDATE activities SET deleted_at = ?, updated_at = ? WHERE id = ?', [deletedAt, now, id]);
     },
 
+    async remove(id) {
+      await driver.run('DELETE FROM activities WHERE id = ?', [id]);
+    },
+
     async purgeDeleted(deviceId) {
       const result =
         deviceId === null
@@ -260,29 +263,6 @@ export function heartRatePoints(rows: readonly SampleRow[]): HrPoint[] {
     if (current === undefined || SOURCE_RANK[row.source] < SOURCE_RANK[current.source]) best.set(row.t, row);
   }
   return [...best.values()].sort((a, b) => a.t - b.t).map((row) => ({ t: row.t, hr: validHr(row.hr) }));
-}
-
-export interface LoadReference {
-  rest: number;
-  max: number;
-}
-
-export function loadReference(days: readonly DayRecord[], profile: Profile, at: number, year: number): LoadReference {
-  const profileRest = profile.restingHr;
-  let rest = RESTING_HR_FALLBACK;
-  if (profileRest !== null && Number.isFinite(profileRest) && profileRest > 0) {
-    rest = profileRest;
-  } else {
-    const values: number[] = [];
-    for (const day of days) {
-      if (day.start > at) break;
-      const v = day.restingHr.value;
-      if (v !== null && Number.isFinite(v)) values.push(v);
-    }
-    const recent = values.slice(-RESTING_DAYS);
-    if (recent.length > 0) rest = recent.reduce((a, b) => a + b, 0) / recent.length;
-  }
-  return { rest, max: effectiveMaxHr(profile, year) };
 }
 
 export function metricsFromPoints(

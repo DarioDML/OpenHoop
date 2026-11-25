@@ -1,4 +1,5 @@
-import type { BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, SleepEditProblem, SleepEditRow } from '@openhoop/core';
+import type { Interval } from '@openhoop/analytics';
+import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, SleepEditProblem, SleepEditRow, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 
@@ -65,6 +66,23 @@ export interface HeartRatePoint {
   hr: number;
 }
 
+export interface ActivityDraft {
+  source: ActivitySource;
+  detectedStart: number | null;
+  type: string;
+  start: number;
+  end: number;
+  paused: Interval[];
+  note: string | null;
+}
+
+export type DeleteTarget = { kind: 'activity'; id: number } | { kind: 'detected'; workout: WorkoutRecord };
+
+export interface PendingDelete {
+  id: number;
+  until: number;
+}
+
 export type SleepEditOutcome = 'saved' | SleepEditProblem | 'error';
 
 export interface SleepEditLimits {
@@ -85,6 +103,8 @@ export interface AppData {
   bodyMeasurements: BodyMeasurement[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
+  activities: ActivityRow[];
+  pendingDelete: PendingDelete | null;
   scan(): Promise<DiscoveredBand[]>;
   pair(bandId: string, ownerSince: string): Promise<void>;
   sync(): Promise<void>;
@@ -99,6 +119,9 @@ export interface AppData {
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;
+  saveActivity(draft: ActivityDraft, id?: number): Promise<number | null>;
+  deleteActivity(target: DeleteTarget): Promise<boolean>;
+  undoDelete(): Promise<void>;
   clearNotice(): void;
 }
 

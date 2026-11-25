@@ -77,6 +77,8 @@ describe('activity store', () => {
     expect(await activities.get(own.id)).toBeNull();
     expect((await activities.findDetected(device.id, T0 + 5000))?.deletedAt).toBe(50);
     await expect(activities.save(input(device.id, { source: 'auto', detectedStart: T0 + 5000 }), EMPTY, 2)).rejects.toThrow();
+    await activities.remove(override.id);
+    expect(await activities.findDetected(device.id, T0 + 5000)).toBeNull();
   });
 
   it('computes metrics from stored samples, one source per second', async () => {

@@ -32,13 +32,17 @@ export {
 export type { ActiveHrBin, ActiveMinutes, BodyProfile, EnergyEstimate, EnergySex } from './energy';
 export { dayLoad, loadFromSum, loadSum, sumFromLoad } from './load';
 export {
+  ACTIVITY_MAX_S,
   ACTIVITY_MIN_COVERAGE,
+  ACTIVITY_MIN_S,
+  ACTIVITY_NOTE_MAX,
   SAME_SESSION_FRACTION,
   activeSegments,
   activityLoad,
   activityMetrics,
   clipIntervals,
   coveredFraction,
+  loadReference,
   minuteMeans,
   normalizeIntervals,
   overlapSeconds,
@@ -47,5 +51,5 @@ export {
   subtractIntervals,
   totalSeconds,
 } from './activity';
-export type { ActivityMetrics, HrPoint, Interval } from './activity';
+export type { ActivityMetrics, HrPoint, Interval, LoadReference, RestingDay } from './activity';
 export { zoneIndex } from './zones';
