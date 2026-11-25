@@ -30,19 +30,21 @@ jobs:
       run:
         working-directory: apps/mobile
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: |
             package-lock.json
             apps/mobile/package-lock.json
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - name: Install workspace packages the app imports by path
         run: npm ci --ignore-scripts
         working-directory: .
@@ -73,7 +75,7 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/release.jks"
       - run: cp android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/OpenHoop-android.apk"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openhoop-android
           path: ${{ runner.temp }}/OpenHoop-android.apk
@@ -87,8 +89,10 @@ jobs:
       run:
         working-directory: apps/mobile
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -112,7 +116,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
           cp -R "$RUNNER_TEMP/device/Build/Products/Release-iphoneos/OpenHoop.app" "$RUNNER_TEMP/ipa/Payload/"
           (cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/OpenHoop-ios-unsigned.ipa" Payload)
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openhoop-ios
           path: ${{ runner.temp }}/OpenHoop-ios-unsigned.ipa
@@ -143,7 +147,7 @@ jobs:
             ls ~/Library/Logs/DiagnosticReports/ | grep -i openhoop && cat ~/Library/Logs/DiagnosticReports/OpenHoop* | head -80
             exit 1
           fi
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: ios-simulator-screenshot
@@ -155,10 +159,11 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [android, ios]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: openhoop-*
           path: dist
