@@ -109,6 +109,8 @@ export default function SleepScreen() {
         <StatRow label={t('metric.need')} value={need === null ? reason(sleep.need.reason) : formatHm(need)} href="/sleep/need" testID="link-need" />
         <Divider />
         <StatRow label={t('sleepx.trends')} value="" href="/sleep/trends" testID="link-trends" />
+        <Divider />
+        <StatRow label={t('sleepx.jetLag')} value="" href="/sleep/jet-lag" testID="link-jet-lag" />
       </Card>
 
       <Card href="/sleep/planner" testID="card-planner" accessibilityLabel={t('sleepx.planner')}>

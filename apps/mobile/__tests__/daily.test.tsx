@@ -215,6 +215,12 @@ describe('Sleep', () => {
     expect(screen.getByTestId('tile-asleep')).toBeTruthy();
   });
 
+  it('links to the jet lag plan', async () => {
+    await render(withAppData(<SleepScreen />));
+    await fireEvent.press(screen.getByTestId('link-jet-lag'));
+    expect(mockPush).toHaveBeenCalledWith('/sleep/jet-lag');
+  });
+
   it('shows last night with the stages not-built notice', async () => {
     mockParams = { day: last?.day };
     await render(withAppData(<LastNightScreen />));
