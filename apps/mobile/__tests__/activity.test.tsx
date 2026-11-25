@@ -141,7 +141,7 @@ describe('load screens', () => {
     const latest = days[days.length - 1];
     expect(screen.getByTestId('hr-max')).toBeTruthy();
     expect(screen.getByText('Time per heart rate zone')).toBeTruthy();
-    expect(screen.getByTestId('not-built-calories')).toBeTruthy();
+    expect(screen.getByTestId('calories-card')).toBeTruthy();
     if (latest && latest.workouts.length > 0) expect(screen.getByTestId(`workout-${latest.day}-0`)).toBeTruthy();
     else expect(screen.getByText('No workouts on this day.')).toBeTruthy();
   });

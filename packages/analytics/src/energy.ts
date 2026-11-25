@@ -14,10 +14,11 @@ import type { Outcome } from './types';
  * energy expenditure in healthy individuals." Am J Clin Nutr 1990;51(2):241-247, in kcal/day:
  *   10 W + 6.25 H - 5 A + 5 (male) or - 161 (female)
  *
- * A minute is active when its mean heart rate reaches 30 % of heart rate reserve, the lower bound of "light"
- * intensity in Garber CE, et al. ACSM position stand, Med Sci Sports Exerc 2011;43(7):1334-1359. Keytel was fitted
- * on exercise, so it is not used below that bound, and an active minute never counts for less than rest.
- * Minutes without heart rate count as rest. For sex 'other' both equations are averaged.
+ * A minute is active when its mean heart rate reaches 40 % of heart rate reserve, the lower bound of "moderate"
+ * intensity in Garber CE, et al. ACSM position stand, Med Sci Sports Exerc 2011;43(7):1334-1359, and the lower
+ * edge of OpenHoop's heart rate zone 1. Keytel was fitted on exercise and its intercept overestimates light
+ * activity, so below that bound a minute counts as rest and the total stays conservative. An active minute never
+ * counts for less than rest. Minutes without heart rate count as rest. For sex 'other' both equations are averaged.
  */
 
 export type EnergySex = 'female' | 'male' | 'other';
@@ -50,7 +51,7 @@ export interface EnergyEstimate {
 
 export const KJ_PER_KCAL = 4.184;
 export const MINUTES_PER_DAY = 1440;
-export const ACTIVE_HRR_FRACTION = 0.3;
+export const ACTIVE_HRR_FRACTION = 0.4;
 export const ENERGY_MIN_MEASURED_MINUTES = 600;
 export const ENERGY_AGE_RANGE = { min: 18, max: 100 } as const;
 

@@ -6,6 +6,7 @@ import { loadTargetBand } from '@/data/activityDerived';
 import { rangeStatus } from '@/data/derived';
 import { useT } from '@/i18n/useT';
 import { formatDuration, formatNumber, formatShortDay } from '@/lib/format';
+import { CaloriesCard } from '@/ui/activity/CaloriesCard';
 import { NoDataScreen, ProgressBar, StatRow, StatTile, WorkoutRow } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { BarChart } from '@/ui/BarChart';
@@ -13,7 +14,6 @@ import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { Num } from '@/ui/Num';
-import { NotBuilt } from '@/ui/NotBuilt';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
 import { Screen } from '@/ui/Screen';
@@ -127,7 +127,7 @@ export default function LoadScreen() {
         )}
       </Card>
 
-      <NotBuilt issue="calories" compact />
+      <CaloriesCard day={day} />
 
       <Section title={t('load.history')}>
         <Card>

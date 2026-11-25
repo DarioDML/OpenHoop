@@ -1,3 +1,4 @@
+import { ACTIVE_HRR_FRACTION, type ActiveMinutes } from '@openhoop/analytics';
 import type { DayRecord, Derived, SleepPeriodRecord, WorkoutRecord } from '@openhoop/core';
 
 import type { DeviceStatus, DiscoveredBand, LockState, Profile, Settings } from './types';
@@ -12,6 +13,10 @@ const NO_SLEEP = 18;
 const CLOCK_OFFSET = 30;
 const MISSING_SPO2 = 22;
 const WORKOUT_LABELS = ['Hardlopen', 'Fietsen', 'Krachttraining'];
+const FIXTURE_MAX_HR = 183;
+const ZONE_HRR_MIDPOINTS = [null, 0.5, 0.65, 0.75, 0.85];
+const MEASURED_MINUTES = 1380;
+const LOW_COVERAGE_MEASURED_MINUTES = 480;
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -63,6 +68,20 @@ function buildWorkout(dayStart: number, rand: () => number, index: number): Work
     maxHr: Math.round(168 + rand() * 14),
     source: manual ? 'manual' : 'auto',
     label: manual ? (WORKOUT_LABELS[index % WORKOUT_LABELS.length] ?? null) : null,
+  };
+}
+
+function buildActiveMinutes(zoneSeconds: number[], rest: number, lowCoverage: boolean): ActiveMinutes {
+  const activeHr = zoneSeconds.flatMap((seconds, z) => {
+    const fraction = ZONE_HRR_MIDPOINTS[z] ?? null;
+    const minutes = Math.round(seconds / 60);
+    return fraction === null || minutes <= 0 ? [] : [{ bpm: Math.round(rest + fraction * (FIXTURE_MAX_HR - rest)), minutes }];
+  });
+  return {
+    totalMinutes: DAY_S / 60,
+    measuredMinutes: lowCoverage ? LOW_COVERAGE_MEASURED_MINUTES : MEASURED_MINUTES,
+    thresholdBpm: round(rest + ACTIVE_HRR_FRACTION * (FIXTURE_MAX_HR - rest), 1),
+    activeHr,
   };
 }
 
@@ -178,6 +197,7 @@ function buildDay(i: number, epochDay: number, deviceId: number): DayRecord {
       max: workouts[0]?.maxHr ?? Math.round(118 + noise(10)),
     },
     workouts,
+    activeMinutes: buildActiveMinutes(zoneSeconds, rhrRaw, lowCoverage),
   };
 }
 

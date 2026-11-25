@@ -15,7 +15,7 @@ const MAN: BodyProfile = { weightKg: 80, heightCm: 180, sex: 'male', ageYears: 3
 const WOMAN: BodyProfile = { weightKg: 60, heightCm: 165, sex: 'female', ageYears: 30 };
 
 function day(activeHr: ActiveMinutes['activeHr'], measuredMinutes = 1440, totalMinutes = 1440): ActiveMinutes {
-  return { totalMinutes, measuredMinutes, thresholdBpm: 96, activeHr };
+  return { totalMinutes, measuredMinutes, thresholdBpm: 112, activeHr };
 }
 
 describe('Mifflin-St Jeor resting energy', () => {
@@ -51,20 +51,20 @@ describe('Keytel 2005 heart rate equations without VO2max', () => {
 });
 
 describe('active minutes', () => {
-  it('uses 30 % of heart rate reserve as the active threshold', () => {
-    expect(activeThresholdBpm(60, 190)).toBeCloseTo(99, 9);
+  it('uses 40 % of heart rate reserve as the active threshold', () => {
+    expect(activeThresholdBpm(60, 190)).toBeCloseTo(112, 9);
     expect(activeThresholdBpm(60, 60)).toBeNull();
     expect(activeThresholdBpm(Number.NaN, 190)).toBeNull();
   });
 
   it('counts measured minutes and bins only minutes at or above the threshold', () => {
-    const minutes = activeMinutes([null, 70, 98.9, 99, 120.4, 120.2, null, 150.6], 60, 190);
+    const minutes = activeMinutes([null, 70, 111.9, 112, 120.4, 120.2, null, 150.6], 60, 190);
     expect(minutes).toEqual({
       totalMinutes: 8,
       measuredMinutes: 6,
-      thresholdBpm: 99,
+      thresholdBpm: 112,
       activeHr: [
-        { bpm: 99, minutes: 1 },
+        { bpm: 112, minutes: 1 },
         { bpm: 120, minutes: 2 },
         { bpm: 151, minutes: 1 },
       ],
@@ -136,7 +136,7 @@ describe('worked examples end to end', () => {
   it('turns a minute series with gaps into a female day estimate', () => {
     const series: (number | null)[] = [...Array<number>(600).fill(62), ...Array<null>(240).fill(null), ...Array<number>(30).fill(150), ...Array<number>(570).fill(70)];
     const minutes = activeMinutes(series, 60, 190);
-    expect(minutes).toMatchObject({ totalMinutes: 1440, measuredMinutes: 1200, thresholdBpm: 99 });
+    expect(minutes).toMatchObject({ totalMinutes: 1440, measuredMinutes: 1200, thresholdBpm: 112 });
     const result = dailyEnergy(minutes, WOMAN);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
