@@ -32,6 +32,7 @@ const ENTRIES: readonly Entry[] = [
   { id: 'stress', icon: 'pulse', title: 'health.hub.stress', subtitle: 'health.hub.stressHint', href: '/health/stress' },
   { id: 'body-age', icon: 'user', title: 'health.hub.bodyAge', subtitle: 'health.hub.bodyAgeHint', href: '/health/body-age' },
   { id: 'vo2max', icon: 'lungs', title: 'health.hub.vo2max', subtitle: 'health.hub.vo2maxHint', href: '/health/vo2max' },
+  { id: 'pillars', icon: 'target', title: 'health.hub.pillars', subtitle: 'health.hub.pillarsHint', href: '/health/pillar' },
   { id: 'body-composition', icon: 'layers', title: 'health.hub.bodyComposition', subtitle: 'health.hub.bodyCompositionHint', href: '/health/body-composition' },
   { id: 'cycle', icon: 'calendar', title: 'health.hub.cycle', subtitle: 'health.hub.cycleHint', href: '/health/cycle' },
   { id: 'labs', icon: 'drop', title: 'health.hub.labs', subtitle: 'health.hub.labsHint', href: '/health/labs' },

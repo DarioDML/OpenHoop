@@ -20,4 +20,6 @@ export const PARITY = {
   calories: 'C',
   stress: 'C',
   jetLag: 'C',
+  vo2max: 'C',
+  pillars: 'C',
 } as const satisfies Record<string, ParityLevel>;
