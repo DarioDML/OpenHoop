@@ -1,4 +1,4 @@
-import { ACTIVE_HRR_FRACTION, type ActiveMinutes } from '@openhoop/analytics';
+import { ACTIVE_HRR_FRACTION, ALGO, STRESS_WINDOW_S, type ActiveMinutes, type StressDay, type StressWindow } from '@openhoop/analytics';
 import type { DayRecord, Derived, SleepPeriodRecord, WorkoutRecord } from '@openhoop/core';
 
 import type { DeviceStatus, DiscoveredBand, LockState, Profile, Settings } from './types';
@@ -85,6 +85,35 @@ function buildActiveMinutes(zoneSeconds: number[], rest: number, lowCoverage: bo
   };
 }
 
+const STRESS_FROM_H = 8;
+const STRESS_TO_H = 22;
+const STRESS_POST_WORKOUT_S = 1800;
+const STRESS_MOVING_SHARE = 0.3;
+
+function buildStress(i: number, dayStart: number, workouts: WorkoutRecord[], periods: SleepPeriodRecord[], lowCoverage: boolean, untilS: number): StressDay {
+  if (lowCoverage) return { algo: ALGO.stress, reason: 'low-coverage', baselineDays: Math.min(14, i), windows: [] };
+  const rand = mulberry32(i * 104729 + 7);
+  const calibrating = CALIBRATING.has(i);
+  const windows: StressWindow[] = [];
+  for (let t = dayStart + STRESS_FROM_H * 3600; t + STRESS_WINDOW_S <= Math.min(dayStart + STRESS_TO_H * 3600, untilS); t += STRESS_WINDOW_S) {
+    const end = t + STRESS_WINDOW_S;
+    if (workouts.some((w) => t <= w.end + STRESS_POST_WORKOUT_S && end > w.start)) continue;
+    if (periods.some((p) => t <= p.offset && end > p.onset)) continue;
+    if (rand() < STRESS_MOVING_SHARE) continue;
+    const hour = (t - dayStart) / 3600;
+    const workBump = hour >= 9.5 && hour < 12 ? 0.9 + 0.3 * Math.sin(i) : 0;
+    const raw = 0.45 + 0.35 * Math.sin((hour + i) / 2.3) + workBump + (rand() - 0.5) * 0.9;
+    const score = clamp(round(raw, 1), 0, 3);
+    windows.push({
+      t,
+      hr: round(66 + score * 6 + (rand() - 0.5) * 4, 1),
+      rmssd: rand() < 0.4 ? null : round(Math.max(8, 42 - score * 9 + (rand() - 0.5) * 8), 1),
+      score: calibrating ? null : score,
+    });
+  }
+  return { algo: ALGO.stress, reason: calibrating ? 'needs-history' : null, baselineDays: calibrating ? 0 : Math.min(14, i), windows };
+}
+
 interface SleepPart {
   periods: SleepPeriodRecord[];
   asleepS: number;
@@ -106,7 +135,7 @@ function buildSleep(dayStart: number, rand: () => number): SleepPart {
   return { periods, asleepS: asleepMain, inBedS: inBedMain };
 }
 
-function buildDay(i: number, epochDay: number, deviceId: number): DayRecord {
+function buildDay(i: number, epochDay: number, deviceId: number, untilS: number): DayRecord {
   const rand = mulberry32(i * 7919 + 13);
   const noise = (amp: number): number => (rand() - 0.5) * 2 * amp;
   const start = epochDay * DAY_S - TZ_OFFSET_S;
@@ -198,12 +227,14 @@ function buildDay(i: number, epochDay: number, deviceId: number): DayRecord {
     },
     workouts,
     activeMinutes: buildActiveMinutes(zoneSeconds, rhrRaw, lowCoverage),
+    stress: buildStress(i, start, workouts, sleepPart?.periods ?? [], lowCoverage, untilS),
   };
 }
 
 export function createFixtureDays(now: Date = new Date(), deviceId = 1): DayRecord[] {
   const todayEpochDay = Math.floor((now.getTime() / 1000 + TZ_OFFSET_S) / DAY_S);
-  return Array.from({ length: FIXTURE_DAY_COUNT }, (_, i) => buildDay(i, todayEpochDay - (FIXTURE_DAY_COUNT - 1 - i), deviceId));
+  const nowS = Math.floor(now.getTime() / 1000);
+  return Array.from({ length: FIXTURE_DAY_COUNT }, (_, i) => buildDay(i, todayEpochDay - (FIXTURE_DAY_COUNT - 1 - i), deviceId, nowS));
 }
 
 export function createFixtureDevice(now: Date = new Date(), lockState: LockState = 'open'): DeviceStatus {
@@ -216,6 +247,7 @@ export function createFixtureDevice(now: Date = new Date(), lockState: LockState
     backlogPages: 0,
     lockState,
     connection: 'connected',
+    configSnapshot: null,
   };
 }
 

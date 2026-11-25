@@ -21,7 +21,7 @@ These points support the approach. They do not guarantee that every step taken i
 ## What the project does not do
 
 - It contains no vendor code, firmware, logos or other assets.
-- It does not access vendor accounts or vendor servers.
+- It does not access vendor accounts or vendor servers. The import reads a data export file that the user requested and saved themselves, for interoperability, and keeps its values labelled as the vendor's.
 - It does not modify the firmware of a band, and the commands for loading firmware cannot be built in the code.
 - It does not circumvent the firmware 50.43+ data lock, and it does not capture, replay, forge or otherwise handle the certificate or any token involved. The commands related to certificates cannot be built in the code.
 - It makes no medical claims and is not a medical device.

@@ -21,11 +21,10 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-import CoachScreen from '@/app/coach/index';
 import EcgScreen from '@/app/health/ecg';
 import HeartRateScreen from '@/app/health/heart-rate';
 import MetricsScreen from '@/app/health/metrics';
-import StressScreen from '@/app/health/stress';
+import BodyAgeScreen from '@/app/health/body-age';
 import VitalsScreen from '@/app/health/vitals';
 import BreathingScreen from '@/app/health/breathing';
 import HealthTab from '@/app/(tabs)/health';
@@ -116,8 +115,8 @@ describe('health screens', () => {
   });
 
   it('shows the NotBuilt notice on unbuilt screens', async () => {
-    await render(withAppData(<StressScreen />));
-    expect(screen.getByTestId('not-built-stress')).toBeTruthy();
+    await render(withAppData(<BodyAgeScreen />));
+    expect(screen.getByTestId('not-built-healthspan')).toBeTruthy();
   });
 
   it('flags MG-only screens on a 5.0 band and never shows a verdict', async () => {
@@ -134,12 +133,6 @@ describe('health screens', () => {
     expect(screen.getByTestId('breath-stop')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('breath-stop'));
     expect(screen.getByTestId('breath-start')).toBeTruthy();
-  });
-
-  it('renders the coach with real chips and the notice, no conversation', async () => {
-    await render(withAppData(<CoachScreen />));
-    expect(screen.getByTestId('not-built-coach')).toBeTruthy();
-    expect(screen.getByTestId('coach-chips')).toBeTruthy();
   });
 });
 
