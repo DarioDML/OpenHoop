@@ -121,6 +121,9 @@ There are four pillars and no combined score:
 - Fitness: the VO2 max estimate against the treadmill reference values per sex and age group in Loe et al., "Aerobic capacity reference data in 3816 healthy men and women 20-90 years", PLoS One 2013;8(5):e64319, Table 2.
 
 There is no body age. A fitness age from the HUNT study exists, but its exact method could not be checked, and the error of the VO2 max estimate would turn into many years of "age".
+## Health report
+
+The health report is a PDF of the last 30 or 90 days that you can share with your doctor. It is made on the phone with `expo-print` from HTML that contains no network references, and is handed to the system share sheet. The temporary file is deleted after sharing and any leftover is removed at the next start. You choose the period, the sections and whether your name is on it. For each value it shows the average, the range, the trend, the coverage (days with data out of the days in the period) and the parity level of the value. Averages and ranges keep the level of the value they summarise. The trend compares the mean of the first half of the values with the mean of the second half and calls it rising or falling only when the difference is larger than the noise of the series (twice the standard deviation divided by the square root of the number of values), and needs at least 6 values. When there is no value, the report shows the reason, not a number. It ends with: not a medical device, OpenHoop's own estimates, generated on the date on this phone.
 
 ## Privacy
 
