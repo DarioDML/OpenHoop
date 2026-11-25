@@ -97,9 +97,12 @@ jobs:
         working-directory: .
         run: |
           UDID=$(xcrun simctl list devices available --json | python3 -c '
-          import json, sys
+          import json, re, sys
           devices = json.load(sys.stdin)["devices"]
-          phones = [d for runtime, ds in sorted(devices.items()) if "iOS" in runtime for d in ds if d["name"].startswith("iPhone")]
+          runtimes = sorted(devices.items(), key=lambda kv: [int(n) for n in re.findall(r"\d+", kv[0])])
+          phones = [d for runtime, ds in runtimes if "iOS" in runtime for d in ds if d["name"].startswith("iPhone")]
+          if not phones:
+              sys.exit("No available iPhone simulator on this runner image")
           print(phones[-1]["udid"])
           ')
           echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
