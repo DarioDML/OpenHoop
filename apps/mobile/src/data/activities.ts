@@ -1,4 +1,4 @@
-import { ACTIVITY_MAX_S, ACTIVITY_MIN_S, ACTIVITY_NOTE_MAX, sameSession, totalSeconds } from '@openhoop/analytics';
+import { ACTIVITY_MAX_S, ACTIVITY_MIN_S, ACTIVITY_NOTE_MAX, sameSession, totalSeconds, type ActiveMinutes } from '@openhoop/analytics';
 import type { ActivityRow, DayRecord, WorkoutRecord } from '@openhoop/core';
 
 import { parseIsoDate, unixToIsoDate } from '@/lib/dates';
@@ -14,6 +14,7 @@ export interface EntryMetrics {
   zoneSeconds: number[];
   avgHr: number | null;
   maxHr: number | null;
+  activeMinutes: ActiveMinutes | null;
 }
 
 export interface ActivityEntry {
@@ -56,6 +57,7 @@ function fromRow(row: ActivityRow, kind: EntryKind): ActivityEntry {
       zoneSeconds: row.metrics.zoneSeconds,
       avgHr: row.metrics.avgHr,
       maxHr: row.metrics.maxHr,
+      activeMinutes: row.metrics.activeMinutes,
     },
     hasLoad: true,
   };
@@ -79,6 +81,7 @@ function fromWorkout(workout: WorkoutRecord): ActivityEntry {
       zoneSeconds: workout.zoneSeconds,
       avgHr: workout.avgHr,
       maxHr: workout.maxHr,
+      activeMinutes: null,
     },
     hasLoad: false,
   };

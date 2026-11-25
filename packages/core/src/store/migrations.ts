@@ -227,6 +227,7 @@ CREATE TABLE activities (
   avg_hr REAL,
   max_hr REAL,
   hr_seconds INTEGER NOT NULL DEFAULT 0,
+  active_minutes TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   CHECK (end > start),

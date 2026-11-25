@@ -1,5 +1,5 @@
-import { ACTIVITY_MAX_S, ACTIVITY_MIN_S, ACTIVITY_NOTE_MAX, DEFAULT_CALIBRATION, activityMetrics, normalizeIntervals } from '@openhoop/analytics';
-import type { Calibration, HrPoint, Interval, LoadReference } from '@openhoop/analytics';
+import { ACTIVITY_MAX_S, ACTIVITY_MIN_S, ACTIVITY_NOTE_MAX, DEFAULT_CALIBRATION, activityMetrics, normalizeIntervals, parseActiveMinutes } from '@openhoop/analytics';
+import type { ActiveMinutes, Calibration, HrPoint, Interval, LoadReference } from '@openhoop/analytics';
 import { SOURCE_RANK, validHr } from './pipeline';
 import type { SampleRow, SqlDriver, SqlValue, Store } from './store/types';
 
@@ -21,6 +21,7 @@ export interface ActivityMetricsRecord {
   avgHr: number | null;
   maxHr: number | null;
   hrSeconds: number;
+  activeMinutes: ActiveMinutes | null;
 }
 
 export interface ActivityInput {
@@ -67,6 +68,7 @@ type ActivityDb = {
   avg_hr: number | null;
   max_hr: number | null;
   hr_seconds: number;
+  active_minutes: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -129,6 +131,7 @@ function toActivity(row: ActivityDb): ActivityRow {
       avgHr: row.avg_hr,
       maxHr: row.max_hr,
       hrSeconds: row.hr_seconds,
+      activeMinutes: row.active_minutes === null ? null : parseActiveMinutes(parseJson(row.active_minutes)),
     },
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -157,7 +160,7 @@ export function checkActivityInput(input: ActivityInput): ActivityInput {
 }
 
 function metricParams(m: ActivityMetricsRecord): SqlValue[] {
-  return [m.activeS, m.load, m.loadReason, JSON.stringify(m.zoneSeconds), m.avgHr, m.maxHr, m.hrSeconds];
+  return [m.activeS, m.load, m.loadReason, JSON.stringify(m.zoneSeconds), m.avgHr, m.maxHr, m.hrSeconds, m.activeMinutes === null ? null : JSON.stringify(m.activeMinutes)];
 }
 
 export interface ActivityStore {
@@ -211,15 +214,15 @@ export function bindActivityStore(driver: SqlDriver): ActivityStore {
       if (id === undefined) {
         const result = await driver.run(
           `INSERT INTO activities (device_id, source, detected_start, type, start, end, paused, note,
-             active_s, load, load_reason, zone_seconds, avg_hr, max_hr, hr_seconds, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             active_s, load, load_reason, zone_seconds, avg_hr, max_hr, hr_seconds, active_minutes, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [...fields, ...metricParams(metrics), now, now],
         );
         savedId = result.lastInsertRowid;
       } else {
         const result = await driver.run(
           `UPDATE activities SET device_id = ?, source = ?, detected_start = ?, type = ?, start = ?, end = ?, paused = ?, note = ?,
-             active_s = ?, load = ?, load_reason = ?, zone_seconds = ?, avg_hr = ?, max_hr = ?, hr_seconds = ?, updated_at = ?
+             active_s = ?, load = ?, load_reason = ?, zone_seconds = ?, avg_hr = ?, max_hr = ?, hr_seconds = ?, active_minutes = ?, updated_at = ?
            WHERE id = ?`,
           [...fields, ...metricParams(metrics), now, id],
         );
@@ -233,7 +236,7 @@ export function bindActivityStore(driver: SqlDriver): ActivityStore {
 
     async setMetrics(id, metrics) {
       await driver.run(
-        `UPDATE activities SET active_s = ?, load = ?, load_reason = ?, zone_seconds = ?, avg_hr = ?, max_hr = ?, hr_seconds = ? WHERE id = ?`,
+        `UPDATE activities SET active_s = ?, load = ?, load_reason = ?, zone_seconds = ?, avg_hr = ?, max_hr = ?, hr_seconds = ?, active_minutes = ? WHERE id = ?`,
         [...metricParams(metrics), id],
       );
     },
@@ -281,6 +284,7 @@ export function metricsFromPoints(
     avgHr: m.avgHr,
     maxHr: m.maxHr,
     hrSeconds: m.hrSeconds,
+    activeMinutes: m.activeMinutes,
   };
 }
 

@@ -15,6 +15,7 @@ import {
   subtractIntervals,
   sumFromLoad,
   totalSeconds,
+  windowEnergy,
 } from '../src';
 import type { HrPoint } from '../src';
 
@@ -138,6 +139,27 @@ describe('activity metrics', () => {
     const points = steady(T0, 600, 150);
     const once = activityMetrics(points, { start: T0, end: T0 + 600 }, [], 60, 190);
     expect(once.hrSeconds).toBe(600);
+  });
+});
+
+describe('activity calories', () => {
+  const body = { weightKg: 70, heightCm: 178, sex: 'male' as const, ageYears: 35 };
+
+  it('bins the active minutes of the window for the calorie estimate', () => {
+    const m = activityMetrics(steady(T0, 1800, 150), { start: T0, end: T0 + 1800 }, [], 60, 190);
+    expect(m.activeMinutes).toMatchObject({ totalMinutes: 30, measuredMinutes: 30, activeHr: [{ bpm: 150, minutes: 30 }] });
+    const kcal = windowEnergy(m.activeMinutes, body);
+    expect(kcal.ok && kcal.value.activeMinutes).toBe(30);
+    expect(kcal.ok && kcal.value.totalKcal).toBeGreaterThan(kcal.ok ? kcal.value.restingKcal : Infinity);
+  });
+
+  it('gives a reason instead of calories when data or profile is missing', () => {
+    const empty = activityMetrics(steady(T0, 1800, null), { start: T0, end: T0 + 1800 }, [], 60, 190);
+    expect(windowEnergy(empty.activeMinutes, body)).toMatchObject({ ok: false, reason: 'no-data' });
+    const sparse = activityMetrics(steady(T0, 600, 150), { start: T0, end: T0 + 3600 }, [], 60, 190);
+    expect(windowEnergy(sparse.activeMinutes, body)).toMatchObject({ ok: false, reason: 'low-coverage' });
+    expect(windowEnergy(sparse.activeMinutes, null)).toMatchObject({ ok: false, reason: 'no-profile' });
+    expect(windowEnergy(null, body)).toMatchObject({ ok: false, reason: 'missing-signal' });
   });
 });
 

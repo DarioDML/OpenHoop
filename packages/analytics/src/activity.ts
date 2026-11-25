@@ -1,5 +1,7 @@
 import { DEFAULT_CALIBRATION, effectiveMaxHr } from './calibration';
 import type { Calibration, Profile } from './calibration';
+import { activeMinutes } from './energy';
+import type { ActiveMinutes } from './energy';
 import { loadFromSum, loadSum, sumFromLoad } from './load';
 import { ALGO, fail, succeed } from './types';
 import type { Outcome } from './types';
@@ -143,6 +145,7 @@ export interface ActivityMetrics {
   avgHr: number | null;
   maxHr: number | null;
   hrSeconds: number;
+  activeMinutes: ActiveMinutes | null;
 }
 
 export function activeSegments(window: Interval, paused: readonly Interval[]): Interval[] {
@@ -170,13 +173,15 @@ export function activityMetrics(
   }
   const zonesValid = Number.isFinite(rest) && Number.isFinite(max) && max > rest;
   const zones: ZoneSeconds = zonesValid ? zoneSeconds(hrs, rest, max) : [0, 0, 0, 0, 0, 0];
+  const minuteHr = segmentMinutes(points, segments);
   return {
     activeS,
-    load: activityLoad(segmentMinutes(points, segments), activeS, rest, max, c),
+    load: activityLoad(minuteHr, activeS, rest, max, c),
     zoneSeconds: zones,
     avgHr: hrs.length === 0 ? null : total / hrs.length,
     maxHr: peak,
     hrSeconds: hrs.length,
+    activeMinutes: activeMinutes(minuteHr, rest, max),
   };
 }
 

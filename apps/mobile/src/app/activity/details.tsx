@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { formatWeekday } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
+import { caloriesForActivity } from '@/data/energyDerived';
 import { useT } from '@/i18n/useT';
 import { unixToIsoDate } from '@/lib/dates';
 import { formatClock, formatDuration, formatNumber, formatShortDay } from '@/lib/format';
@@ -20,7 +21,7 @@ import { IconButton, TopBar } from '@/ui/TopBar';
 import { displayedZones, ZoneBar } from '@/ui/ZoneBar';
 
 export default function ActivityDetailsScreen() {
-  const { deleteActivity, pendingDelete } = useAppData();
+  const { deleteActivity, pendingDelete, userData, profile } = useAppData();
   const { t, language, reason } = useT();
   const resolved = useResolvedEntry();
   const [deleting, setDeleting] = useState(false);
@@ -46,6 +47,7 @@ export default function ActivityDetailsScreen() {
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
   const day = unixToIsoDate(entry.start, tzOffsetS);
   const m = entry.metrics;
+  const calories = entry.hasLoad ? caloriesForActivity(m.activeMinutes, entry.start, userData, profile) : null;
 
   const remove = async (): Promise<void> => {
     setDeleting(true);
@@ -79,6 +81,22 @@ export default function ActivityDetailsScreen() {
         <StatTile label={t('loadx.hr.avg')} value={m.avgHr === null ? '–' : fmt(m.avgHr)} unit={m.avgHr === null ? undefined : t('unit.bpm')} testID="detail-avg" />
         <StatTile label={t('loadx.hr.max')} value={m.maxHr === null ? '–' : fmt(m.maxHr)} unit={m.maxHr === null ? undefined : t('unit.bpm')} testID="detail-max" />
       </StatRow>
+      {calories !== null ? (
+        <Card testID="detail-calories" style={{ gap: 4 }}>
+          <AppText variant="capSmall" muted>
+            {t('calories.title')} · {t('calories.estimate')}
+          </AppText>
+          <AppText variant="bodyStrong" testID="detail-calories-value">
+            {calories.estimate === null ? reason(calories.reason) : `${fmt(calories.estimate.totalKcal)} ${t('calories.unit')}`}
+          </AppText>
+          {calories.reason === 'no-profile' ? (
+            <AppText variant="label" muted>
+              {t('calories.needsProfile')}
+            </AppText>
+          ) : null}
+          <ParityBadge level={PARITY.calories} />
+        </Card>
+      ) : null}
       {entry.hasLoad && m.load === null ? (
         <Card tone="outline">
           <AppText variant="label" muted testID="detail-no-load">

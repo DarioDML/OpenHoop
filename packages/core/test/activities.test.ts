@@ -15,7 +15,7 @@ import { openStrictDriver } from './strictDriver';
 
 const T0 = 1_800_000_000;
 
-const EMPTY: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0 };
+const EMPTY: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null };
 
 function input(deviceId: number, over: Partial<ActivityInput> = {}): ActivityInput {
   return { deviceId, source: 'manual', detectedStart: null, type: 'running', start: T0, end: T0 + 1800, paused: [], note: null, ...over };
@@ -91,6 +91,9 @@ describe('activity store', () => {
     expect(m.avgHr).toBe(150);
     expect(m.load).toBeGreaterThan(0);
     expect(m.loadReason).toBeNull();
+    const saved = await activities.save(input(device.id), m, 5);
+    expect(saved.metrics.activeMinutes).toEqual(m.activeMinutes);
+    expect(saved.metrics.activeMinutes?.measuredMinutes).toBe(30);
     const empty = await computeActivityMetrics(store, device.id, { start: T0 + 9000, end: T0 + 9600 }, [], { rest: 60, max: 190 });
     expect(empty).toMatchObject({ load: null, loadReason: 'no-data', hrSeconds: 0 });
   });

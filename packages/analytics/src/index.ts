@@ -25,6 +25,8 @@ export {
   activeMinutes,
   activeThresholdBpm,
   dailyEnergy,
+  windowEnergy,
+  WINDOW_MIN_COVERAGE,
   keytelKcalPerMinute,
   parseActiveMinutes,
   restingKcalPerDay,

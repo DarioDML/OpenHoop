@@ -15,6 +15,7 @@ import {
   type ActivityForm,
 } from '@/data/activities';
 import { createFixtureDays } from '@/data/fixtureSource';
+import { defaultUserData } from '@/data/userData';
 import { activeSeconds, hudFor, IDLE_SESSION, liveReducer, sessionWindow, type LiveSession } from '@/data/liveSession';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 
@@ -68,7 +69,7 @@ function activity(over: Partial<ActivityRow> = {}): ActivityRow {
     paused: [],
     note: null,
     deletedAt: null,
-    metrics: { activeS: 1800, load: 6.2, loadReason: null, zoneSeconds: [0, 300, 600, 600, 300, 0], avgHr: 141, maxHr: 172, hrSeconds: 1800 },
+    metrics: { activeS: 1800, load: 6.2, loadReason: null, zoneSeconds: [0, 300, 600, 600, 300, 0], avgHr: 141, maxHr: 172, hrSeconds: 1800, activeMinutes: { totalMinutes: 30, measuredMinutes: 30, thresholdBpm: 112, activeHr: [{ bpm: 141, minutes: 30 }] } },
     createdAt: 1,
     updatedAt: 1,
     ...over,
@@ -269,11 +270,24 @@ describe('activity details, edit and delete with undo', () => {
     expect(screen.getByTestId('detail-load')).toHaveTextContent(/6\.2/);
     expect(screen.getByTestId('detail-note')).toHaveTextContent('hills');
     expect(screen.queryByTestId('detail-no-load')).toBeNull();
+    expect(screen.getByTestId('detail-calories-value')).toHaveTextContent(/No value|profile/i);
+  });
+
+  it('shows the calorie estimate of an activity when the profile is complete', async () => {
+    mockParams = { id: '7' };
+    await render(
+      withAppData(<ActivityDetailsScreen />, 'en', {
+        activities: [activity()],
+        profile: { birthYear: 1990, maxHeartRate: null },
+        userData: { ...defaultUserData(), onboardingDone: true, weightKg: 70, heightCm: 178, sex: 'male' },
+      }),
+    );
+    expect(screen.getByTestId('detail-calories-value')).toHaveTextContent(/\d+ kcal/);
   });
 
   it('explains a missing load instead of showing a number', async () => {
     mockParams = { id: '7' };
-    const empty = activity({ metrics: { activeS: 1800, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0 } });
+    const empty = activity({ metrics: { activeS: 1800, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null } });
     await render(withAppData(<ActivityDetailsScreen />, 'en', { activities: [empty] }));
     expect(screen.getByTestId('detail-load')).toHaveTextContent(/No data/);
     expect(screen.getByTestId('detail-no-load')).toHaveTextContent(/no heart rate/);

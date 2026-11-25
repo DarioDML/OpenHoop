@@ -81,7 +81,7 @@ const LATEST_DAY = '9999-12-31';
 const INCREMENTAL_RECOMPUTE_BACK_S = 2 * DAY_S;
 const MAX_DEMO_BACKLOG_DAYS = 20;
 export const UNDO_MS = 5_000;
-const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0 };
+const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null };
 const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
   clock: 'sync.stop.clock',
   corrupt: 'sync.stop.corrupt',
