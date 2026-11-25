@@ -47,10 +47,13 @@ export default function GpsActivityScreen() {
   );
 
   const begin = async (): Promise<void> => {
+    if (starting) return;
     setStarting(true);
-    const ok = await gps.start();
-    setStarting(false);
-    if (ok) await recording.begin();
+    try {
+      if (await gps.start()) await recording.begin();
+    } finally {
+      setStarting(false);
+    }
   };
 
   const pause = (): void => {
@@ -65,7 +68,7 @@ export default function GpsActivityScreen() {
 
   const finish = async (): Promise<void> => {
     const route = gps.stop();
-    await recording.finish(route.length >= 2 ? () => route : undefined);
+    await recording.finish(route.length >= 2 ? route : undefined);
   };
 
   const blocked = session.phase === 'ready' ? BLOCKED[gps.state] : undefined;

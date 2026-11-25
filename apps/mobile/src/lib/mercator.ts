@@ -41,11 +41,17 @@ export function worldPx(p: LatLon, z: number): Pixel {
 export function fitView(points: readonly LatLon[], width: number, height: number, pad: number): MapView | null {
   if (points.length === 0 || width <= 2 * pad || height <= 2 * pad) return null;
   for (let z = MAX_ZOOM; z >= MIN_ZOOM; z--) {
-    const px = points.map((p) => worldPx(p, z));
-    const minX = Math.min(...px.map((p) => p.x));
-    const maxX = Math.max(...px.map((p) => p.x));
-    const minY = Math.min(...px.map((p) => p.y));
-    const maxY = Math.max(...px.map((p) => p.y));
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const p of points) {
+      const px = worldPx(p, z);
+      minX = Math.min(minX, px.x);
+      maxX = Math.max(maxX, px.x);
+      minY = Math.min(minY, px.y);
+      maxY = Math.max(maxY, px.y);
+    }
     if (maxX - minX <= width - 2 * pad && maxY - minY <= height - 2 * pad) {
       return { z, left: (minX + maxX) / 2 - width / 2, top: (minY + maxY) / 2 - height / 2, width, height };
     }

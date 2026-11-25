@@ -57,7 +57,7 @@ export function useLiveRecording(type: ActivityType) {
     await startLive();
   };
 
-  const finish = async (route?: () => RoutePoint[]): Promise<void> => {
+  const finish = async (route?: RoutePoint[]): Promise<void> => {
     const at = nowSeconds();
     const final = liveReducer(sessionRef.current, { kind: 'stop', at });
     send({ kind: 'stop', at });
@@ -69,9 +69,8 @@ export function useLiveRecording(type: ActivityType) {
       return;
     }
     setSave({ kind: 'saving' });
-    const points = route?.();
     const draft = { source: 'live' as const, detectedStart: null, type, start: final.startedAt, end: final.endedAt, paused: final.paused, note: null };
-    const id = await saveActivity(points === undefined ? draft : { ...draft, route: points });
+    const id = await saveActivity(route === undefined ? draft : { ...draft, route });
     setSave(id === null ? { kind: 'failed' } : { kind: 'saved', id });
   };
 

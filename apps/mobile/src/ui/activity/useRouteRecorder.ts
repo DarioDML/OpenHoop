@@ -64,6 +64,7 @@ export function useRouteRecorder(type: ActivityType) {
   };
 
   const start = async (): Promise<boolean> => {
+    if (subscription.current !== null) return false;
     setState('asking');
     try {
       const permission = await requestForegroundPermissionsAsync();
