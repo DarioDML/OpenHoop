@@ -41,7 +41,6 @@ import ActivityDetailsScreen from '@/app/activity/details';
 import EditActivityScreen from '@/app/activity/edit';
 import GpsActivityScreen from '@/app/activity/gps';
 import LiveActivityScreen from '@/app/activity/live';
-import ShareActivityScreen from '@/app/activity/share';
 import StartActivityScreen from '@/app/activity/start';
 import LoadScreen from '@/app/load/index';
 import LoadTargetScreen from '@/app/load/target';
@@ -218,11 +217,9 @@ describe('activity screens', () => {
     expect(screen.getByText('Activity not found')).toBeTruthy();
   });
 
-  it('marks gps and share as not built', async () => {
+  it('marks gps as not built', async () => {
     await render(withAppData(<GpsActivityScreen />));
     expect(screen.getByTestId('not-built-gps')).toBeTruthy();
-    await render(withAppData(<ShareActivityScreen />));
-    expect(screen.getByTestId('not-built-share')).toBeTruthy();
   });
 });
 
