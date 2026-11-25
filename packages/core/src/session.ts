@@ -17,6 +17,9 @@ export const systemClock: Clock = {
 
 export type CommandResponse = Extract<Packet, { kind: 'commandResponse' }>;
 
+export const LINK_QUIET_MS = 2_000;
+export const LINK_QUIET_MAX_MS = 10_000;
+
 export interface SessionOptions {
   now?: () => number;
   clock?: Clock;
@@ -58,6 +61,7 @@ interface Pending {
 const RESULT_SUCCESS = 1;
 const RESULT_PENDING = 2;
 const SENTINEL_CLOCKS: readonly number[] = [0, 0xffffffff];
+const PACKET_TYPE_OFFSET = 8;
 const NOTIFY_CHANNELS = [GATT.cmdFromStrap, GATT.eventsFromStrap, GATT.dataFromStrap] as const;
 
 export class Session {
@@ -72,6 +76,8 @@ export class Session {
   private helloInfo: HelloInfo | null = null;
   private offsetS: number | null = null;
   private disconnected = false;
+  private discardedBytes = 0;
+  private undecodableFrames = 0;
 
   constructor(
     private readonly transport: Transport,
@@ -97,7 +103,13 @@ export class Session {
     for (const characteristic of NOTIFY_CHANNELS) {
       const reassembler = new Reassembler();
       const unsubscribe = await this.transport.subscribe(GATT.service, characteristic, (data) => {
-        for (const frame of reassembler.feed(data)) this.handleFrame(frame);
+        let counted = reassembler.discardedBytes;
+        reassembler.feedEach(data, (frame) => {
+          this.discardedBytes += reassembler.discardedBytes - counted;
+          counted = reassembler.discardedBytes;
+          this.handleFrame(frame);
+        });
+        this.discardedBytes += reassembler.discardedBytes - counted;
       });
       this.unsubscribers.push(unsubscribe);
     }
@@ -148,6 +160,10 @@ export class Session {
 
   clockOffsetS(): number | null {
     return this.offsetS;
+  }
+
+  get integrityErrors(): number {
+    return this.discardedBytes + this.undecodableFrames;
   }
 
   onPacket(callback: (packet: Packet, raw: Uint8Array) => void): () => void {
@@ -218,7 +234,8 @@ export class Session {
     try {
       packet = decodeFrame(raw);
     } catch {
-      return;
+      this.undecodableFrames += 1;
+      packet = { kind: 'unknown', packetType: raw[PACKET_TYPE_OFFSET] ?? 0 };
     }
     if (packet.kind === 'commandResponse') this.handleResponse(packet);
     for (const listener of [...this.packetListeners]) listener(packet, raw);

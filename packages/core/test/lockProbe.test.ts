@@ -1,16 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { GATT, encodeBiometric, encodeRealtimeHr } from '@stoop/protocol';
-import { Session, probeLock } from '../src/index';
-import type { BandScript } from './fakeTransport';
+import { LINK_QUIET_MAX_MS, LINK_QUIET_MS, Session, probeLock } from '../src/index';
+import type { BandScript, Emit, Outgoing } from './fakeTransport';
 import { FakeTransport, VirtualClock, reply, scriptBand } from './fakeTransport';
 
-async function band(script: Omit<BandScript, 'clock'>): Promise<{ transport: FakeTransport; session: Session }> {
-  const clock = new VirtualClock();
+async function band(
+  script: Omit<BandScript, 'clock'>,
+  clock = new VirtualClock(),
+): Promise<{ transport: FakeTransport; session: Session; clock: VirtualClock }> {
   const transport = new FakeTransport();
   scriptBand(transport, { clock, ...script });
   const session = new Session(transport, { clock });
   await session.open();
-  return { transport, session };
+  return { transport, session, clock };
+}
+
+function servesOneRecordThen(onAbort: (emit: Emit) => void): (out: Outgoing, emit: Emit) => boolean {
+  return (out, emit) => {
+    if (out.command === 22) {
+      emit(GATT.cmdFromStrap, reply(out));
+      emit(GATT.dataFromStrap, encodeBiometric({ recordIndex: 1, unixS: 1_800_000_000, heartRate: 60 }));
+      return true;
+    }
+    if (out.command !== 20) return false;
+    onAbort(emit);
+    return true;
+  };
 }
 
 function expectSafeWire(transport: FakeTransport): void {
@@ -70,11 +85,59 @@ describe('probeLock', () => {
     expectSafeWire(transport);
   });
 
-  it('reports locked when realtime stays silent on a locked band with nothing behind', async () => {
+  it('reports no-data, not locked, when a 50.43.2.0 band with nothing behind sends no realtime heart rate', async () => {
     const { transport, session } = await band({ firmware: '50.43.2.0', pagesBehind: 0 });
     const result = await probeLock(session);
-    expect(result).toMatchObject({ state: 'locked', sawRealtime: false });
+    expect(result).toMatchObject({ state: 'no-data', sawRealtime: false, sawHistory: false, pagesBehind: 0 });
     expect(result.waitedMs).toBeGreaterThanOrEqual(6_000);
+    expect(transport.commandsSent()).not.toContain(22);
     expectSafeWire(transport);
+  });
+
+  it('returns only after the link has been quiet for 2 s once the transfer is aborted', async () => {
+    const clock = new VirtualClock();
+    const tail = [0, 1, 2].map((k) => encodeBiometric({ recordIndex: 10 + k, unixS: 1_800_000_010 + k, heartRate: 60 }));
+    const { transport, session } = await band(
+      {
+        firmware: '50.38.1.0',
+        onCommand: servesOneRecordThen((emit) => {
+          tail.forEach((frame, k) => clock.schedule(500 * (k + 1), () => emit(GATT.dataFromStrap, frame)));
+        }),
+      },
+      clock,
+    );
+    let lastTailAt = 0;
+    session.onPacket((packet) => {
+      if (packet.kind === 'record' && packet.recordIndex >= 10) lastTailAt = clock.now();
+    });
+    const result = await probeLock(session);
+    expect(result.state).toBe('open');
+    expect(lastTailAt).toBeGreaterThan(0);
+    expect(clock.now() - lastTailAt).toBeGreaterThanOrEqual(LINK_QUIET_MS);
+    expectSafeWire(transport);
+  });
+
+  it('stops waiting for quiet after 10 s even when the band keeps talking', async () => {
+    const clock = new VirtualClock();
+    let talking = true;
+    const { session } = await band(
+      {
+        firmware: '50.38.1.0',
+        onCommand: servesOneRecordThen((emit) => {
+          const chatter = (): void => {
+            if (!talking) return;
+            emit(GATT.eventsFromStrap, encodeBiometric({ recordIndex: 2, unixS: 1_800_000_001, heartRate: 60 }));
+            clock.schedule(1_000, chatter);
+          };
+          chatter();
+        }),
+      },
+      clock,
+    );
+    const result = await probeLock(session);
+    talking = false;
+    expect(result.state).toBe('open');
+    expect(result.waitedMs).toBeGreaterThanOrEqual(LINK_QUIET_MAX_MS);
+    expect(result.waitedMs).toBeLessThan(LINK_QUIET_MAX_MS + 1_000);
   });
 });

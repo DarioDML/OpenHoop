@@ -95,7 +95,35 @@ describe('Reassembler', () => {
   });
 
   it('skips garbage before a frame', () => {
-    const out = new Reassembler().feed(concat(Uint8Array.of(0, 1, 2, 0xaa, 0x55, 0xaa), STREAM));
+    const r = new Reassembler();
+    const out = r.feed(concat(Uint8Array.of(0, 1, 2, 0xaa, 0x55, 0xaa), STREAM));
     expect(out.map(toHex)).toEqual(FRAMES.map(toHex));
+    expect(r.discardedBytes).toBe(6);
+  });
+
+  it('counts no discard for a clean stream or a partial frame waiting for more bytes', () => {
+    if (!FIRST) throw new Error('fixture');
+    const r = new Reassembler();
+    for (const b of STREAM) r.feed(Uint8Array.of(b));
+    expect(r.discardedBytes).toBe(0);
+    expect(r.feed(FIRST.subarray(0, FIRST.length - 1))).toEqual([]);
+    expect(r.discardedBytes).toBe(0);
+    expect(r.feed(FIRST.subarray(FIRST.length - 1)).map(toHex)).toEqual([toHex(FIRST)]);
+    expect(r.discardedBytes).toBe(0);
+  });
+
+  it('counts every byte of a corrupt frame as discarded', () => {
+    if (!FIRST || !SECOND || !THIRD) throw new Error('fixture');
+    const r = new Reassembler();
+    r.feed(concat(FIRST, patched(SECOND, 14, 0xee), THIRD));
+    expect(r.discardedBytes).toBe(SECOND.length);
+  });
+
+  it('reports the discard count reached before each frame while feeding', () => {
+    if (!FIRST || !SECOND || !THIRD) throw new Error('fixture');
+    const r = new Reassembler();
+    const seen: number[] = [];
+    r.feedEach(concat(FIRST, patched(SECOND, 14, 0xee), THIRD), () => seen.push(r.discardedBytes));
+    expect(seen).toEqual([0, SECOND.length]);
   });
 });

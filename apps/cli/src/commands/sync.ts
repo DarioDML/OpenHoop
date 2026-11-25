@@ -51,7 +51,12 @@ async function run(ctx: Context): Promise<CommandResult> {
   const known = stored.find((d) => d.bleId === chosen.id) ?? null;
   if (ownerSince === null && (known?.ownerSince ?? null) === null) throw refusal();
   const device = await registerDevice(store, chosen, { model: modelFromText(chosen.name), ownerSince });
-  if (ownerSince !== null) {
+  const clockPolicy = ctx.args.flag('ignore-clock') ? 'store-all' : 'strict';
+  if (clockPolicy === 'store-all') {
+    ctx.log(
+      'WARNING: --ignore-clock: the band clock is not trusted, so nothing is filtered by date and records from before you owned the band may be stored.',
+    );
+  } else if (ownerSince !== null) {
     ctx.log(`Owner since ${formatIso(ownerSince)}: history from before this moment is discarded, not stored.`);
   }
 
@@ -63,7 +68,7 @@ async function run(ctx: Context): Promise<CommandResult> {
   const { session, hello } = await openSession(ctx, transport);
   const interrupt = interruptSignal();
   try {
-    const report = await syncAndRecompute(ctx, store, session, device.id, interrupt.signal);
+    const report = await syncAndRecompute(ctx, store, session, device.id, interrupt.signal, clockPolicy);
     if (report.sync.stoppedBy === 'locked') {
       ctx.log('The band is locked: it sent no history. Run `triage` for details, or `live --record` to record the standard heart rate.');
     }
@@ -82,8 +87,8 @@ async function run(ctx: Context): Promise<CommandResult> {
 export const sync: Command = {
   name: 'sync',
   summary: 'Bond, read the history from the band, store it and recompute the days',
-  usage: ['sync [--owner-since <ISO date>]'],
-  options: { 'owner-since': { type: 'string' } },
+  usage: ['sync [--owner-since <ISO date>] [--ignore-clock]'],
+  options: { 'owner-since': { type: 'string' }, 'ignore-clock': { type: 'boolean' } },
   bluetooth: true,
   run,
 };

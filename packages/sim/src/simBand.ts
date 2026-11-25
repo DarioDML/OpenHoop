@@ -30,7 +30,13 @@ export interface SimOptions {
   recordsPerChunk?: number;
   liveIntervalMs?: number;
   wireLogCap?: number;
-  faults?: { disconnectAfterFrames?: number; dropAckOnce?: boolean; corruptEveryNthFragment?: number };
+  faults?: {
+    disconnectAfterFrames?: number;
+    dropAckOnce?: boolean;
+    corruptEveryNthFragment?: number;
+    /** On the first abort, the last n frames of the aborted chunk stay in flight and arrive just before the next transfer. */
+    strayTailFramesAfterAbort?: number;
+  };
 }
 
 export interface WireEntry {
@@ -161,6 +167,9 @@ export class SimBand implements Transport {
   private readonly deviceId: string;
   private readonly disconnectAfterFrames: number | undefined;
   private readonly corruptEvery: number | undefined;
+  private readonly strayTailFrames: number;
+  private strayTail: Outgoing[] = [];
+  private strayUsed = false;
   private dropAckPending: boolean;
   private disconnectFired = false;
 
@@ -205,6 +214,7 @@ export class SimBand implements Transport {
     this.disconnectAfterFrames = opts.faults?.disconnectAfterFrames;
     this.corruptEvery = opts.faults?.corruptEveryNthFragment;
     this.dropAckPending = opts.faults?.dropAckOnce === true;
+    this.strayTailFrames = Math.max(0, Math.floor(opts.faults?.strayTailFramesAfterAbort ?? 0));
     const startS = Math.floor(opts.now()) + this.clockOffsetS - Math.floor(opts.historyDays * 86400) + 1;
     this.ring = new HistoryRing(opts.seed, startS);
   }
@@ -403,6 +413,7 @@ export class SimBand implements Transport {
     this.histGen += 1;
     this.serving = false;
     this.pending = null;
+    this.strayTail = [];
     this.realtimeOn = false;
     this.cursors = new Map();
     this.reassembler = new Reassembler();
@@ -523,7 +534,7 @@ export class SimBand implements Transport {
       case Command.ABORT_HISTORICAL_TRANSMITS:
         this.serving = false;
         this.pending = null;
-        this.cancelHistory();
+        this.abortHistory();
         this.reply(command, seq, SUCCESS);
         return;
       case Command.TOGGLE_REALTIME_HR:
@@ -573,9 +584,37 @@ export class SimBand implements Transport {
     this.queue = this.queue.filter((item) => item.gen === NO_GEN);
   }
 
+  private abortHistory(): void {
+    if (this.strayTailFrames > 0 && !this.strayUsed) {
+      this.strayTail = this.tailFrames(this.histGen, this.strayTailFrames);
+      this.strayUsed = this.strayTail.length > 0;
+    }
+    this.cancelHistory();
+  }
+
+  private tailFrames(gen: number, frames: number): Outgoing[] {
+    const kept: Outgoing[] = [];
+    let complete = 0;
+    for (let i = this.queue.length - 1; i >= 0; i--) {
+      const item = this.queue[i];
+      if (item === undefined || item.gen !== gen) continue;
+      if (item.frameEnd) {
+        if (complete === frames) break;
+        complete += 1;
+      }
+      kept.unshift({ ...item, gen: NO_GEN });
+    }
+    return kept;
+  }
+
   private startHistory(): void {
     this.cancelHistory();
     this.pending = null;
+    if (this.strayTail.length > 0) {
+      this.queue.push(...this.strayTail);
+      this.strayTail = [];
+      this.schedule();
+    }
     if (this.locked) return;
     this.serving = true;
     this.serveChunk();

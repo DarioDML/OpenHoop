@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { ConfigKey, DiscoveredDevice, GattService, Transport } from '@stoop/core';
-import { probeLock, readDeviceInformation, readKeys } from '@stoop/core';
+import { MAX_CLOCK_OFFSET_S, clockTrusted, probeLock, readDeviceInformation, readKeys } from '@stoop/core';
 import type { Session } from '@stoop/core';
 import { GATT, formatFirmware, isDataLockFirmware, parseFirmware, parseHeartRateMeasurement } from '@stoop/protocol';
 import { UsageError } from '../args';
@@ -12,7 +12,6 @@ import { bondWithGuidance, openSession, pickBand, registerDevice, scanForBands }
 import { errorMessage, formatDuration, formatIso, timestampForFile } from '../format';
 
 const SECONDS_PER_PAGE = 13.6;
-const CLOCK_WARN_S = 120;
 const DEFAULT_HR_SECONDS = 10;
 const DEFAULT_SCAN_SECONDS = 8;
 
@@ -49,6 +48,7 @@ type Verdict = {
   line: string;
   explanation: string;
   nextCommand: string;
+  clock: string | null;
 };
 
 interface Snapshot {
@@ -167,22 +167,35 @@ function keyLine(key: ConfigKey): string {
   return `  ${key.key} = ${value}`;
 }
 
-export function buildVerdict(state: 'open' | 'locked' | 'no-data'): Verdict {
+export function clockVerdict(offsetS: number | null): string | null {
+  if (clockTrusted(offsetS)) return null;
+  const state = offsetS === null ? 'CLOCK UNSET: the band clock is not set (sentinel value)' : `CLOCK OFF: the band clock is ${offsetS} s off`;
+  return `${state}, so \`sync\` will refuse to read history until it is within ${MAX_CLOCK_OFFSET_S} s, or until you run \`sync --ignore-clock\`, which stores every record including any from before you owned the band.`;
+}
+
+export function buildVerdict(state: 'open' | 'locked' | 'no-data', clock: string | null = null): Verdict {
+  const withClock = (line: string): string => (clock === null ? line : `${line} ${clock}`);
   if (state === 'open') {
     const explanation = 'The band sent history or live data when asked, so its data is readable.';
     const nextCommand = 'npm run stoop -- sync --owner-since <YYYY-MM-DD the band became yours>';
-    return { label: 'OPEN', line: `OPEN: ${explanation} Next: ${nextCommand}`, explanation, nextCommand };
+    return { label: 'OPEN', line: withClock(`OPEN: ${explanation} Next: ${nextCommand}`), explanation, nextCommand, clock };
   }
   if (state === 'locked') {
     const explanation =
-      'The band answers every command but sends no data, which is how firmware 50.43 and later behaves without a vendor-signed certificate; Stoop does not try to get around that.';
+      'The band was asked for its backlog and sent nothing, which is how firmware 50.43 and later behaves without a vendor-signed certificate; Stoop does not try to get around that.';
     const nextCommand = 'npm run stoop -- live --record';
-    return { label: 'LOCKED', line: `LOCKED (firmware 50.43+, data withheld): ${explanation} Next: ${nextCommand}`, explanation, nextCommand };
+    return {
+      label: 'LOCKED',
+      line: withClock(`LOCKED (firmware 50.43+, data withheld): ${explanation} Next: ${nextCommand}`),
+      explanation,
+      nextCommand,
+      clock,
+    };
   }
   const explanation =
-    'The band answered but sent no data within the wait, and its firmware is older than 50.43, so it is probably not locked.';
+    'The band answered but sent no data within the wait: it may have no backlog and not be worn, or its firmware is older than 50.43 and it is probably not locked.';
   const nextCommand = 'wear the band for a few minutes, then run: npm run stoop -- triage';
-  return { label: 'NO DATA', line: `NO DATA: ${explanation} Next: ${nextCommand}`, explanation, nextCommand };
+  return { label: 'NO DATA', line: withClock(`NO DATA: ${explanation} Next: ${nextCommand}`), explanation, nextCommand, clock };
 }
 
 function outputPath(requested: string | undefined, now: Date): string {
@@ -328,22 +341,17 @@ async function run(ctx: Context): Promise<CommandResult> {
     sessionStep.status === 'ok' ? sessionStep.summary.firmware : infoStep.status === 'ok' ? infoStep.firmware : null;
   const parsedFirmware = snapshot.firmware === null ? null : parseFirmware(snapshot.firmware);
   const lockFirmware = parsedFirmware !== null && isDataLockFirmware(parsedFirmware);
+  const clock = sessionStep.status === 'ok' ? clockVerdict(sessionStep.summary.clockOffsetS) : null;
   if (steps.lockProbe.status === 'ok') {
     snapshot.state = steps.lockProbe.state;
-    snapshot.verdict = buildVerdict(steps.lockProbe.state);
+    snapshot.verdict = buildVerdict(steps.lockProbe.state, clock);
   }
   if (lockFirmware && snapshot.state !== 'locked') {
     snapshot.warnings.push(
       `Firmware ${snapshot.firmware} is 50.43 or later: it withholds data without a vendor-signed certificate. If the band reads OPEN now, the certificate it holds may still expire, so sync soon and keep an export of the database.`,
     );
   }
-  if (sessionStep.status === 'ok') {
-    const offset = sessionStep.summary.clockOffsetS;
-    if (offset === null) snapshot.warnings.push('The band clock is not set (sentinel value). Samples cannot be placed in time.');
-    else if (Math.abs(offset) > CLOCK_WARN_S) {
-      snapshot.warnings.push(`The band clock differs from this laptop by ${offset} s. Days touched by a sync are flagged, not corrected.`);
-    }
-  }
+  if (clock !== null && snapshot.verdict === null) snapshot.warnings.push(clock);
   if (steps.bond.status === 'ok' && (steps.bond.result === 'refused' || steps.bond.result === 'unsupported')) {
     snapshot.warnings.push('The band was not bonded, so the bonded steps may have failed. See the pairing instructions above.');
   }

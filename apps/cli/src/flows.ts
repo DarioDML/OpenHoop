@@ -1,5 +1,5 @@
-import type { BondResult, DeviceRow, DiscoveredDevice, Store, SyncResult, Transport } from '@stoop/core';
-import { Session, recomputeDays, syncHistory } from '@stoop/core';
+import type { BondResult, DeviceRow, DiscoveredDevice, Store, SyncOptions, SyncResult, Transport } from '@stoop/core';
+import { MAX_CLOCK_OFFSET_S, Session, recomputeDays, syncHistory } from '@stoop/core';
 import type { HelloInfo } from '@stoop/protocol';
 import { formatFirmware } from '@stoop/protocol';
 import type { Context } from './context';
@@ -8,7 +8,6 @@ import { formatIso } from './format';
 
 const DAY_S = 86_400;
 const PROGRESS_INTERVAL_MS = 1_000;
-const CLOCK_WARN_S = 120;
 
 export const PAIRING_GUIDANCE = [
   'Next step: pair the band in Windows Bluetooth settings while it is in pairing mode, then run this command again.',
@@ -63,11 +62,29 @@ export async function openSession(ctx: Context, transport: Transport): Promise<{
   ctx.log(`Session open: firmware ${formatFirmware(hello.firmware)}, battery ${hello.batteryPercent}%`);
   const offset = session.clockOffsetS();
   if (offset === null) ctx.log('Band clock: not set (sentinel value); samples cannot be placed in time until it is set.');
-  else if (Math.abs(offset) > CLOCK_WARN_S) {
-    ctx.log(`Band clock differs from this laptop by ${offset} s; days touched by this sync are flagged, not corrected.`);
+  else if (Math.abs(offset) > MAX_CLOCK_OFFSET_S) {
+    ctx.log(`Band clock differs from this laptop by ${offset} s (more than ${MAX_CLOCK_OFFSET_S} s).`);
   } else ctx.log(`Band clock offset: ${offset} s`);
   return { session, hello };
 }
+
+export function clockRefusalLines(offsetS: number | null): string[] {
+  const state = offsetS === null ? 'is not set (it reports a sentinel value)' : `is off by ${offsetS} s (more than ${MAX_CLOCK_OFFSET_S} s)`;
+  return [
+    `Sync stopped: the band's clock ${state}.`,
+    'No history was read from the band and nothing was removed from it; its history is still there.',
+    'Stoop uses the band clock to tell your records from those of a previous owner, so a wrong clock could make it throw away your own nights.',
+    'Options:',
+    '  - run sync again with --ignore-clock: every record is stored, including any from before you owned the band;',
+    '  - or wait until Stoop can set the band clock in a verified way, then sync normally.',
+  ];
+}
+
+export const CORRUPT_LINES = [
+  'Sync stopped: the band sent the same piece of history damaged several times in a row.',
+  'That piece was not stored and not acknowledged, so the band still holds it; chunks stored before it are safe.',
+  'Next: move the band closer to this computer, away from other Bluetooth and Wi-Fi traffic, and run sync again.',
+];
 
 export interface SyncReport {
   sync: SyncResult;
@@ -82,12 +99,14 @@ export async function syncAndRecompute(
   session: Session,
   deviceId: number,
   signal: AbortSignal,
+  clockPolicy: NonNullable<SyncOptions['clockPolicy']> = 'strict',
 ): Promise<SyncReport> {
   const before = await store.getSyncState(deviceId);
   let lastPrinted = 0;
   const sync = await syncHistory(session, store, {
     deviceId,
     signal,
+    clockPolicy,
     onProgress: (p) => {
       const now = Date.now();
       if (now - lastPrinted < PROGRESS_INTERVAL_MS) return;
@@ -100,6 +119,8 @@ export async function syncAndRecompute(
     `Sync ${sync.stoppedBy}: ${sync.chunks} chunks, ${sync.frames} frames, ${sync.samples} samples stored, ` +
       `${sync.discardedBeforeOwner} discarded (before owner date), ${sync.unknownFrames} unknown frames`,
   );
+  if (sync.stoppedBy === 'clock') for (const line of clockRefusalLines(session.clockOffsetS())) ctx.log(line);
+  if (sync.stoppedBy === 'corrupt') for (const line of CORRUPT_LINES) ctx.log(line);
   const range = await store.sampleRange(deviceId);
   if (range === null || sync.samples === 0) return { sync, recomputedDays: 0, firstDay: null, lastDay: null };
   ctx.log('Recomputing days...');

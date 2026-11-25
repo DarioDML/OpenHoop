@@ -82,37 +82,54 @@ function findStart(buf: Uint8Array, from: number): number {
 
 export class Reassembler {
   private buf: Uint8Array = new Uint8Array(0);
+  private discarded = 0;
+
+  get discardedBytes(): number {
+    return this.discarded;
+  }
 
   feed(chunk: Uint8Array): Uint8Array[] {
-    const buf = concat(this.buf, chunk);
     const out: Uint8Array[] = [];
-    let pos = 0;
-    for (;;) {
-      const start = findStart(buf, pos);
-      if (start < 0) {
-        pos = buf.length > pos && buf[buf.length - 1] === SOF ? buf.length - 1 : buf.length;
-        break;
-      }
-      pos = start;
-      if (buf.length - pos < 4) break;
-      const total = view(buf).getUint16(pos + 2, true) + 8;
-      if (total < MIN_FRAME || total > MAX_FRAME) {
-        pos += 1;
-        continue;
-      }
-      if (buf.length - pos < total) break;
-      const candidate = buf.slice(pos, pos + total);
-      try {
-        validateFrame(candidate);
-      } catch (e) {
-        if (!(e instanceof FrameError)) throw e;
-        pos += 1;
-        continue;
-      }
-      out.push(candidate);
-      pos += total;
-    }
-    this.buf = buf.slice(pos);
+    this.feedEach(chunk, (frame) => out.push(frame));
     return out;
+  }
+
+  // onFrame runs as each frame is found, so discardedBytes read inside it counts only the bytes before that frame.
+  feedEach(chunk: Uint8Array, onFrame: (frame: Uint8Array) => void): void {
+    const buf = concat(this.buf, chunk);
+    let pos = 0;
+    const skipTo = (next: number): void => {
+      this.discarded += next - pos;
+      pos = next;
+    };
+    try {
+      for (;;) {
+        const start = findStart(buf, pos);
+        if (start < 0) {
+          skipTo(buf.length > pos && buf[buf.length - 1] === SOF ? buf.length - 1 : buf.length);
+          break;
+        }
+        skipTo(start);
+        if (buf.length - pos < 4) break;
+        const total = view(buf).getUint16(pos + 2, true) + 8;
+        if (total < MIN_FRAME || total > MAX_FRAME) {
+          skipTo(pos + 1);
+          continue;
+        }
+        if (buf.length - pos < total) break;
+        const candidate = buf.slice(pos, pos + total);
+        try {
+          validateFrame(candidate);
+        } catch (e) {
+          if (!(e instanceof FrameError)) throw e;
+          skipTo(pos + 1);
+          continue;
+        }
+        pos += total;
+        onFrame(candidate);
+      }
+    } finally {
+      this.buf = buf.slice(pos);
+    }
   }
 }

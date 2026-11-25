@@ -2,8 +2,12 @@ import { Command, isDataLockFirmware, toHex } from '@stoop/protocol';
 import type { DataRange, Packet } from '@stoop/protocol';
 import { sampleFromPacket } from './mapping';
 import type { Session } from './session';
-import { CommandFailedError, DisconnectedError } from './session';
+import { CommandFailedError, DisconnectedError, LINK_QUIET_MAX_MS, LINK_QUIET_MS } from './session';
 import type { ConsoleRow, EventRow, SampleRow, Store, SyncStateRow } from './store/types';
+
+export const MAX_CLOCK_OFFSET_S = 120;
+export const MAX_DAMAGED_ATTEMPTS = 3;
+export const MAX_HISTORY_REREQUESTS = 20;
 
 export interface SyncProgress {
   chunks: number;
@@ -14,7 +18,7 @@ export interface SyncProgress {
   newestSampleT: number | null;
 }
 
-export type SyncStop = 'complete' | 'disconnect' | 'abort' | 'idle' | 'locked';
+export type SyncStop = 'complete' | 'disconnect' | 'abort' | 'idle' | 'locked' | 'clock' | 'corrupt';
 
 export interface SyncResult {
   chunks: number;
@@ -30,10 +34,18 @@ export interface SyncOptions {
   onProgress?: (progress: SyncProgress) => void;
   signal?: AbortSignal;
   idleTimeoutMs?: number;
+  clockPolicy?: 'strict' | 'store-all';
+}
+
+export class OwnerSinceRequiredError extends Error {
+  constructor(readonly deviceId: number) {
+    super(`device ${deviceId} has no owner-since date; refusing to read history that may belong to a previous owner`);
+    this.name = 'OwnerSinceRequiredError';
+  }
 }
 
 type SyncEvent =
-  | { type: 'frame'; packet: Packet; raw: Uint8Array }
+  | { type: 'frame'; packet: Packet; raw: Uint8Array; integrity: number }
   | { type: 'disconnect' }
   | { type: 'abort' }
   | { type: 'idle' }
@@ -50,7 +62,8 @@ class EventQueue {
   ) {
     this.cleanups.push(
       session.onPacket((packet, raw) => {
-        if (packet.kind !== 'commandResponse' && packet.kind !== 'realtimeHr') this.push({ type: 'frame', packet, raw });
+        if (packet.kind === 'commandResponse' || packet.kind === 'realtimeHr') return;
+        this.push({ type: 'frame', packet, raw, integrity: session.integrityErrors });
       }),
       session.onDisconnect(() => this.push({ type: 'disconnect' })),
     );
@@ -104,26 +117,39 @@ interface ChunkTally {
   unknownFrames: number;
   discarded: number;
   content: number;
+  spontaneous: { packet: Packet; raw: Uint8Array }[];
 }
 
 function emptyTally(): ChunkTally {
-  return { frames: [], samples: [], events: [], console: [], unknownFrames: 0, discarded: 0, content: 0 };
+  return { frames: [], samples: [], events: [], console: [], unknownFrames: 0, discarded: 0, content: 0, spontaneous: [] };
 }
 
 function isChunkMarker(packet: Packet): boolean {
   return packet.kind === 'metadata' && (packet.metaName === 'HISTORY_START' || packet.metaName === 'HISTORY_END');
 }
 
-function addFrame(tally: ChunkTally, deviceId: number, ownerSince: number | null, packet: Packet, raw: Uint8Array): void {
-  const before = tally.frames.length;
-  addFrameKind(tally, deviceId, ownerSince, packet, raw);
-  if (tally.frames.length > before && !isChunkMarker(packet)) tally.content += 1;
+function isMeta(packet: Packet, name: string): packet is Extract<Packet, { kind: 'metadata' }> {
+  return packet.kind === 'metadata' && packet.metaName === name;
 }
 
-function addFrameKind(tally: ChunkTally, deviceId: number, ownerSince: number | null, packet: Packet, raw: Uint8Array): void {
+function addFrame(tally: ChunkTally, deviceId: number, ownerFloor: number | null, packet: Packet, raw: Uint8Array): void {
+  const before = tally.frames.length;
+  addFrameKind(tally, deviceId, ownerFloor, packet, raw);
+  if (tally.frames.length === before) return;
+  if (!isChunkMarker(packet)) tally.content += 1;
+  if (packet.kind === 'event' || packet.kind === 'console') tally.spontaneous.push({ packet, raw });
+}
+
+function carryOver(damaged: ChunkTally, deviceId: number, ownerFloor: number | null): ChunkTally {
+  const next = emptyTally();
+  for (const { packet, raw } of damaged.spontaneous) addFrame(next, deviceId, ownerFloor, packet, raw);
+  return next;
+}
+
+function addFrameKind(tally: ChunkTally, deviceId: number, ownerFloor: number | null, packet: Packet, raw: Uint8Array): void {
   switch (packet.kind) {
     case 'record': {
-      if (ownerSince !== null && packet.unixS < ownerSince) {
+      if (ownerFloor !== null && packet.unixS < ownerFloor) {
         tally.discarded += 1;
         return;
       }
@@ -134,6 +160,7 @@ function addFrameKind(tally: ChunkTally, deviceId: number, ownerSince: number | 
       return;
     }
     case 'event':
+      if (ownerFloor !== null && packet.unixS < ownerFloor) return;
       tally.frames.push(raw);
       tally.events.push({
         deviceId,
@@ -144,6 +171,7 @@ function addFrameKind(tally: ChunkTally, deviceId: number, ownerSince: number | 
       });
       return;
     case 'console':
+      if (ownerFloor !== null && packet.unixS < ownerFloor) return;
       tally.frames.push(raw);
       tally.console.push({ deviceId, t: packet.unixS, sequence: packet.consoleSequence, text: packet.text });
       return;
@@ -162,16 +190,18 @@ function newest(current: number | null, samples: SampleRow[]): number | null {
   return out;
 }
 
+export function clockTrusted(offsetS: number | null): boolean {
+  return offsetS !== null && Math.abs(offsetS) <= MAX_CLOCK_OFFSET_S;
+}
+
 export async function syncHistory(session: Session, store: Store, opts: SyncOptions): Promise<SyncResult> {
   const { deviceId } = opts;
   const idleTimeoutMs = opts.idleTimeoutMs ?? 15_000;
+  const clockPolicy = opts.clockPolicy ?? 'strict';
   const device = await store.getDevice(deviceId);
   if (device === null) throw new Error(`device ${deviceId} is not in the store`);
-  const ownerSince = device.ownerSince;
-  const previous = await store.getSyncState(deviceId);
-  let lastEndToken = previous?.lastEndToken ?? null;
-  let newestSampleT = previous?.newestSampleT ?? null;
-  let range: DataRange | null = null;
+  if (device.ownerSince === null) throw new OwnerSinceRequiredError(deviceId);
+  const ownerFloor = clockPolicy === 'strict' ? device.ownerSince : null;
 
   const totals: SyncResult = {
     chunks: 0,
@@ -181,6 +211,17 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
     unknownFrames: 0,
     stoppedBy: 'complete',
   };
+  const finish = (stoppedBy: SyncStop): SyncResult => ({ ...totals, stoppedBy });
+
+  // A band clock that restarted near zero dates every new record before ownerSince; filtering on it would destroy them.
+  if (clockPolicy === 'strict' && !clockTrusted(session.clockOffsetS())) return finish('clock');
+  if (opts.signal?.aborted === true) return finish('abort');
+
+  const previous = await store.getSyncState(deviceId);
+  let lastEndToken = previous?.lastEndToken ?? null;
+  let newestSampleT = previous?.newestSampleT ?? null;
+  let range: DataRange | null = null;
+
   const progress = (): void =>
     opts.onProgress?.({
       chunks: totals.chunks,
@@ -190,9 +231,6 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
       unknownFrames: totals.unknownFrames,
       newestSampleT,
     });
-  const finish = (stoppedBy: SyncStop): SyncResult => ({ ...totals, stoppedBy });
-
-  if (opts.signal?.aborted === true) return finish('abort');
 
   const syncState = (endToken: Uint8Array | null): SyncStateRow => ({
     deviceId,
@@ -238,27 +276,58 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
   if (range?.pagesBehind === 0) return finish('complete');
 
   const queue = new EventQueue(session, opts.signal);
-  let transferOpen = false;
+  let requested = false;
   const abortTransfer = async (): Promise<void> => {
-    if (!transferOpen || !session.isConnected) return;
-    transferOpen = false;
+    if (!requested || !session.isConnected) return;
+    requested = false;
     try {
       await session.post(Command.ABORT_HISTORICAL_TRANSMITS, Uint8Array.of(0));
     } catch (error) {
       if (!(error instanceof DisconnectedError)) throw error;
     }
   };
-
-  try {
-    transferOpen = true;
+  const request = (): void => {
+    requested = true;
     void session.send(Command.SEND_HISTORICAL_DATA, Uint8Array.of(0)).then(
       () => undefined,
       (error: unknown) => {
         if (error instanceof CommandFailedError) queue.push({ type: 'failed', error });
       },
     );
+  };
+  const drainUntilQuiet = async (): Promise<'quiet' | 'disconnect' | 'abort'> => {
+    const until = session.clock.now() + LINK_QUIET_MAX_MS;
+    for (;;) {
+      const left = until - session.clock.now();
+      if (left <= 0) return 'quiet';
+      const event = await queue.next(Math.min(LINK_QUIET_MS, left));
+      if (event.type === 'disconnect' || event.type === 'abort') return event.type;
+      if (event.type === 'idle') return 'quiet';
+    }
+  };
+
+  try {
+    let reRequests = 0;
+    let damagedAttempts = 0;
+    let open = false;
+    let chunkBaseline = 0;
     let sawFrame = false;
     let tally = emptyTally();
+
+    const restart = async (): Promise<SyncStop | null> => {
+      await abortTransfer();
+      open = false;
+      // Events and console lines may be spontaneous rather than history, so a re-request might not bring them back.
+      tally = carryOver(tally, deviceId, ownerFloor);
+      if (reRequests >= MAX_HISTORY_REREQUESTS) return 'corrupt';
+      reRequests += 1;
+      const drained = await drainUntilQuiet();
+      if (drained !== 'quiet') return drained;
+      request();
+      return null;
+    };
+
+    request();
     for (;;) {
       const event = await queue.next(idleTimeoutMs);
       if (event.type === 'disconnect') return finish('disconnect');
@@ -278,9 +347,43 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
         return finish(locked ? 'locked' : 'idle');
       }
       sawFrame = true;
-      const { packet, raw } = event;
-      if (packet.kind === 'metadata' && packet.metaName === 'HISTORY_END') {
-        addFrame(tally, deviceId, ownerSince, packet, raw);
+      const { packet, raw, integrity } = event;
+
+      if (!open) {
+        if (isMeta(packet, 'HISTORY_START')) {
+          open = true;
+          chunkBaseline = integrity;
+          addFrame(tally, deviceId, ownerFloor, packet, raw);
+        } else if (isMeta(packet, 'HISTORY_END')) {
+          // The head of this chunk was sent before our request opened the transfer, so acknowledging it would trim unread data.
+          const stop = await restart();
+          if (stop !== null) return finish(stop);
+        } else if (isMeta(packet, 'HISTORY_COMPLETE')) {
+          requested = false;
+          if (tally.content > 0) {
+            addFrame(tally, deviceId, ownerFloor, packet, raw);
+            await commit(tally, null);
+            progress();
+          }
+          return finish('complete');
+        } else if (packet.kind === 'event' || packet.kind === 'console') {
+          addFrame(tally, deviceId, ownerFloor, packet, raw);
+        }
+        continue;
+      }
+
+      if (isMeta(packet, 'HISTORY_END')) {
+        if (integrity !== chunkBaseline) {
+          damagedAttempts += 1;
+          if (damagedAttempts >= MAX_DAMAGED_ATTEMPTS) {
+            await abortTransfer();
+            return finish('corrupt');
+          }
+          const stop = await restart();
+          if (stop !== null) return finish(stop);
+          continue;
+        }
+        addFrame(tally, deviceId, ownerFloor, packet, raw);
         const endToken = packet.endToken ?? null;
         try {
           await commit(tally, endToken);
@@ -289,6 +392,8 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
           throw error;
         }
         tally = emptyTally();
+        damagedAttempts = 0;
+        chunkBaseline = integrity;
         totals.chunks += 1;
         progress();
         if (endToken !== null) {
@@ -301,16 +406,16 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
         }
         continue;
       }
-      if (packet.kind === 'metadata' && packet.metaName === 'HISTORY_COMPLETE') {
-        transferOpen = false;
-        if (tally.content > 0) {
-          addFrame(tally, deviceId, ownerSince, packet, raw);
+      if (isMeta(packet, 'HISTORY_COMPLETE')) {
+        requested = false;
+        if (tally.content > 0 && integrity === chunkBaseline) {
+          addFrame(tally, deviceId, ownerFloor, packet, raw);
           await commit(tally, null);
           progress();
         }
         return finish('complete');
       }
-      addFrame(tally, deviceId, ownerSince, packet, raw);
+      addFrame(tally, deviceId, ownerFloor, packet, raw);
     }
   } finally {
     queue.close();

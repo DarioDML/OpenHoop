@@ -26,6 +26,7 @@ export const GLOBAL_OPTIONS = {
   'sim-firmware': { type: 'string' },
   'sim-days': { type: 'string' },
   'sim-bond-refused': { type: 'boolean' },
+  'sim-clock-offset': { type: 'string' },
   db: { type: 'string' },
   json: { type: 'boolean' },
   device: { type: 'string' },

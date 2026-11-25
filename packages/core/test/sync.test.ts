@@ -1,12 +1,47 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { GATT, encodeBiometric, encodeConsole, encodeEvent, encodeMetadata, encodeUnknownRecord, toHex } from '@stoop/protocol';
-import { Session, openStore, syncHistory } from '../src/index';
-import type { SqlDriver, SqlValue, Store } from '../src/index';
+import {
+  GATT,
+  encodeBiometric,
+  encodeConsole,
+  encodeEvent,
+  encodeMetadata,
+  encodeUnknownRecord,
+  toHex,
+} from '@stoop/protocol';
+import {
+  MAX_CLOCK_OFFSET_S,
+  MAX_DAMAGED_ATTEMPTS,
+  MAX_HISTORY_REREQUESTS,
+  OwnerSinceRequiredError,
+  Session,
+  openStore,
+  syncHistory,
+} from '../src/index';
+import type { DeviceRow, SampleRow, SqlDriver, SqlValue, Store } from '../src/index';
 import { openNodeDriver } from '../src/node/index';
 import type { BandScript } from './fakeTransport';
-import { FakeTransport, VirtualClock, biometricChunk, historyComplete, scriptBand, token } from './fakeTransport';
+import { FakeTransport, VirtualClock, biometricChunk, historyComplete, reply, scriptBand, token } from './fakeTransport';
 
 const T0 = 1_799_990_000;
+
+const DEVICE: Omit<DeviceRow, 'id'> = {
+  bleId: 'AA:BB',
+  name: 'WHOOP',
+  model: '5.0',
+  firmware: '50.38.1.0',
+  serial: null,
+  ownerSince: T0,
+  configSnapshot: null,
+};
+
+function damagedChunk(): { stream: Uint8Array[]; corrupt: Uint8Array; headerBroken: Uint8Array } {
+  const chunk = biometricChunk(0, { firstT: T0, count: 4 });
+  const corrupt = encodeBiometric({ recordIndex: 999, unixS: T0 + 50, heartRate: 99 });
+  corrupt[corrupt.length - 1] = (corrupt[corrupt.length - 1] ?? 0) ^ 0xff;
+  const headerBroken = encodeBiometric({ recordIndex: 998, unixS: T0 + 51, heartRate: 98 });
+  headerBroken[6] = (headerBroken[6] ?? 0) ^ 0xff;
+  return { stream: [...chunk.slice(0, 2), corrupt, headerBroken, ...chunk.slice(2)], corrupt, headerBroken };
+}
 
 function recordingDriver(inner: SqlDriver, log: string[], hooks: { afterCommit?: () => void }): SqlDriver {
   return {
@@ -15,7 +50,7 @@ function recordingDriver(inner: SqlDriver, log: string[], hooks: { afterCommit?:
     all<T extends Record<string, SqlValue>>(sql: string, params?: SqlValue[]): Promise<T[]> {
       return inner.all<T>(sql, params);
     },
-    async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    async transaction<T>(fn: (tx: SqlDriver) => Promise<T>): Promise<T> {
       const result = await inner.transaction(fn);
       log.push('commit');
       hooks.afterCommit?.();
@@ -36,15 +71,7 @@ beforeEach(async () => {
   hooks = {};
   transports = [];
   store = await openStore(recordingDriver(openNodeDriver(':memory:'), log, hooks));
-  const device = await store.upsertDevice({
-    bleId: 'AA:BB',
-    name: 'WHOOP',
-    model: '5.0',
-    firmware: '50.38.1.0',
-    serial: null,
-    ownerSince: T0,
-    configSnapshot: null,
-  });
+  const device = await store.upsertDevice(DEVICE);
   deviceId = device.id;
   log.length = 0;
 });
@@ -196,20 +223,167 @@ describe('syncHistory', () => {
     expect(transport.commandsSent()).toContain(23);
   });
 
-  it('keeps frames with a bad CRC out of the store', async () => {
-    const chunk = biometricChunk(0, { firstT: T0, count: 4 });
-    const corrupt = encodeBiometric({ recordIndex: 999, unixS: T0 + 50, heartRate: 99 });
-    corrupt[corrupt.length - 1] = (corrupt[corrupt.length - 1] ?? 0) ^ 0xff;
-    const headerBroken = encodeBiometric({ recordIndex: 998, unixS: T0 + 51, heartRate: 98 });
-    headerBroken[6] = (headerBroken[6] ?? 0) ^ 0xff;
-    const stream = [...chunk.slice(0, 2), corrupt, headerBroken, ...chunk.slice(2)];
-    const { session } = await band({ chunks: [stream], complete: historyComplete(T0 + 60) });
+  it('neither stores nor acknowledges a chunk that stays damaged, and stops with corrupt', async () => {
+    const { stream, corrupt, headerBroken } = damagedChunk();
+    const { session, transport } = await band({ chunks: [stream], complete: historyComplete(T0 + 60) });
     const result = await syncHistory(session, store, { deviceId });
-    expect(result.samples).toBe(4);
+    expect(result).toMatchObject({ chunks: 0, samples: 0, stoppedBy: 'corrupt' });
+    expect(transport.commandsSent().filter((c) => c === 22)).toHaveLength(MAX_DAMAGED_ATTEMPTS);
+    expect(transport.commandsSent()).not.toContain(23);
+    expect(transport.commandsSent().at(-1)).toBe(20);
+    expect(await store.listChunkIds(deviceId)).toEqual([]);
+    expect(await sampleCount()).toBe(0);
+    expect(log).toEqual(['abort', 'abort', 'abort']);
+    expect(transport.wire.some((w) => w.dir === 'in' && toHex(w.data) === toHex(corrupt))).toBe(true);
+    expect(transport.wire.some((w) => w.dir === 'in' && toHex(w.data) === toHex(headerBroken))).toBe(true);
+  });
+
+  it('re-requests a chunk damaged once and acknowledges it only after an intact copy is stored', async () => {
+    const { stream, corrupt } = damagedChunk();
+    const clean = biometricChunk(0, { firstT: T0, count: 4 });
+    let requests = 0;
+    const { session, transport } = await band({
+      chunks: [clean],
+      complete: historyComplete(T0 + 60),
+      onCommand: (out, emit) => {
+        if (out.command !== 22) return false;
+        requests += 1;
+        if (requests > 1) return false;
+        emit(GATT.cmdFromStrap, reply(out));
+        for (const frame of stream) emit(GATT.dataFromStrap, frame);
+        return true;
+      },
+    });
+    const result = await syncHistory(session, store, { deviceId });
+    expect(result).toMatchObject({ chunks: 1, samples: 4, stoppedBy: 'complete' });
+    const commands = transport.commandsSent();
+    expect(commands.filter((c) => c === 22)).toHaveLength(2);
+    expect(commands.lastIndexOf(22)).toBeLessThan(commands.indexOf(23));
+    expect(commands.indexOf(20)).toBeLessThan(commands.lastIndexOf(22));
+    expect(log).toEqual(['abort', 'commit', `ack:${toHex(token(0))}`]);
     const frames = await store.readChunkFrames((await store.listChunkIds(deviceId))[0] ?? -1);
+    expect(frames.map(toHex)).toEqual(clean.map(toHex));
     expect(frames.map(toHex)).not.toContain(toHex(corrupt));
-    expect(frames.map(toHex)).not.toContain(toHex(headerBroken));
     expect((await store.samplesBetween(deviceId, T0, T0 + 100)).map((s) => s.t)).toEqual([T0, T0 + 1, T0 + 2, T0 + 3]);
+  });
+
+  it('ignores the tail of an earlier transfer, re-requests, and ends like a clean run', async () => {
+    const chunks = [0, 1, 2].map((n) => biometricChunk(n, { firstT: T0 + n * 100, count: 10 }));
+    const strayTail = (chunks[0] ?? []).slice(5);
+    let requests = 0;
+    const { session, transport } = await band({
+      chunks,
+      complete: historyComplete(T0 + 500),
+      onCommand: (out, emit) => {
+        if (out.command !== 22) return false;
+        requests += 1;
+        if (requests > 1) return false;
+        emit(GATT.cmdFromStrap, reply(out));
+        for (const frame of [...strayTail, ...(chunks[0] ?? [])]) emit(GATT.dataFromStrap, frame);
+        return true;
+      },
+    });
+    const result = await syncHistory(session, store, { deviceId });
+    expect(result).toMatchObject({ chunks: 3, samples: 30, stoppedBy: 'complete' });
+
+    const commands = transport.commandsSent();
+    const secondRequest = commands.lastIndexOf(22);
+    expect(commands.filter((c) => c === 22)).toHaveLength(2);
+    expect(commands.indexOf(23)).toBeGreaterThan(secondRequest);
+    const acks = transport.writes.filter((w) => w.command === 23).map((w) => toHex(w.args.subarray(1, 9)));
+    expect(acks).toEqual([0, 1, 2].map((n) => toHex(token(n))));
+    for (const chunkId of await store.listChunkIds(deviceId)) {
+      const frames = (await store.readChunkFrames(chunkId)).map(toHex);
+      const served = chunks.find((c) => toHex(c[c.length - 1] ?? new Uint8Array(0)) === frames[frames.length - 1]);
+      expect(frames).toEqual(served?.map(toHex));
+    }
+
+    const cleanStore = await openStore(openNodeDriver(':memory:'));
+    const cleanDevice = await cleanStore.upsertDevice({ ...DEVICE, ownerSince: T0 });
+    const clean = await band({ chunks, complete: historyComplete(T0 + 500) });
+    await syncHistory(clean.session, cleanStore, { deviceId: cleanDevice.id });
+    const strip = (rows: SampleRow[]): SampleRow[] => rows.map((r) => ({ ...r, deviceId: 0, chunkId: null }));
+    expect(strip(await store.samplesBetween(deviceId, 0, 2 ** 40))).toEqual(
+      strip(await cleanStore.samplesBetween(cleanDevice.id, 0, 2 ** 40)),
+    );
+    await cleanStore.driver.close();
+  });
+
+  it('gives up with corrupt after a bounded number of re-requests when no transfer ever opens', async () => {
+    const headless = (biometricChunk(0, { firstT: T0, count: 5 })).slice(1);
+    const { session, transport } = await band({ chunks: [headless] });
+    const result = await syncHistory(session, store, { deviceId });
+    expect(result.stoppedBy).toBe('corrupt');
+    expect(transport.commandsSent().filter((c) => c === 22)).toHaveLength(MAX_HISTORY_REREQUESTS + 1);
+    expect(transport.commandsSent()).not.toContain(23);
+    expect(await store.listChunkIds(deviceId)).toEqual([]);
+  });
+
+  it('throws OwnerSinceRequiredError for a device without an owner date and writes nothing', async () => {
+    const unowned = await store.upsertDevice({ ...DEVICE, bleId: 'CC:DD', ownerSince: null });
+    const { session, transport } = await band({ chunks: [biometricChunk(0, { firstT: T0, count: 3 })] });
+    const before = transport.writes.length;
+    await expect(syncHistory(session, store, { deviceId: unowned.id })).rejects.toBeInstanceOf(OwnerSinceRequiredError);
+    expect(transport.writes.length).toBe(before);
+  });
+
+  it('drops events and console lines dated before ownerSince', async () => {
+    const old = [encodeEvent({ event: 9, unixS: T0 - 10 }), encodeConsole({ consoleSequence: 3, unixS: T0 - 10, text: 'old' })];
+    const fresh = [encodeEvent({ event: 9, unixS: T0 + 2 }), encodeConsole({ consoleSequence: 4, unixS: T0 + 2, text: 'new' })];
+    const { session } = await band({
+      chunks: [[...old, ...fresh, ...biometricChunk(0, { firstT: T0 + 10, count: 2 })]],
+      complete: historyComplete(T0 + 50),
+    });
+    const result = await syncHistory(session, store, { deviceId });
+    expect(result.frames).toBe(6);
+    const events = await store.driver.all<{ t: number }>('SELECT t FROM events');
+    const lines = await store.driver.all<{ t: number }>('SELECT t FROM console_log');
+    expect(events.map((e) => e.t)).toEqual([T0 + 2]);
+    expect(lines.map((e) => e.t)).toEqual([T0 + 2]);
+  });
+
+  describe('band clock', () => {
+    const NOW_S = T0 + 50_000;
+    const cases = [
+      { name: 'a sentinel clock', helloUnixS: 0, firstT: 1_000 },
+      { name: 'a clock three hours ahead', helloUnixS: NOW_S + 10_800, firstT: T0 - 50 },
+    ];
+
+    for (const c of cases) {
+      it(`refuses to request or acknowledge anything with ${c.name} in strict mode`, async () => {
+        const { session, transport } = await band({
+          helloUnixS: c.helloUnixS,
+          chunks: [biometricChunk(0, { firstT: c.firstT, count: 10 })],
+          complete: historyComplete(c.firstT + 50),
+        });
+        const result = await syncHistory(session, store, { deviceId });
+        expect(result).toMatchObject({ chunks: 0, samples: 0, discardedBeforeOwner: 0, stoppedBy: 'clock' });
+        expect(transport.commandsSent()).toEqual([145]);
+        expect(await store.listChunkIds(deviceId)).toEqual([]);
+      });
+
+      it(`stores everything and discards nothing with ${c.name} in store-all mode`, async () => {
+        const { session, transport } = await band({
+          helloUnixS: c.helloUnixS,
+          chunks: [biometricChunk(0, { firstT: c.firstT, count: 10 })],
+          complete: historyComplete(c.firstT + 50),
+        });
+        const result = await syncHistory(session, store, { deviceId, clockPolicy: 'store-all' });
+        expect(result).toMatchObject({ chunks: 1, samples: 10, discardedBeforeOwner: 0, stoppedBy: 'complete' });
+        expect(transport.commandsSent()).toContain(23);
+        const [chunkId] = await store.listChunkIds(deviceId);
+        expect((await store.getChunkMeta(chunkId ?? -1))?.clockOffsetS).toBe(session.clockOffsetS());
+      });
+    }
+
+    it(`accepts an offset of exactly ${MAX_CLOCK_OFFSET_S} s`, async () => {
+      const { session } = await band({
+        helloUnixS: NOW_S - MAX_CLOCK_OFFSET_S,
+        chunks: [biometricChunk(0, { firstT: T0, count: 3 })],
+        complete: historyComplete(T0 + 50),
+      });
+      expect((await syncHistory(session, store, { deviceId })).stoppedBy).toBe('complete');
+    });
   });
 
   it('reassembles frames split across notifications', async () => {

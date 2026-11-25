@@ -1,7 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import { ConfirmationRequiredError, ForbiddenCommandError, GATT, toHex } from '@stoop/protocol';
+import { describe, expect, it, vi } from 'vitest';
+import { ConfirmationRequiredError, ForbiddenCommandError, GATT, encodeBiometric, toHex, wrapFrame } from '@stoop/protocol';
+import type { Packet } from '@stoop/protocol';
+import type * as Protocol from '@stoop/protocol';
 import { CommandFailedError, CommandTimeoutError, DisconnectedError, Session, readDeviceInformation } from '../src/index';
 import { FakeTransport, VirtualClock, reply, scriptBand } from './fakeTransport';
+
+const UNDECODABLE_TYPE = 0x77;
+
+vi.mock('@stoop/protocol', async (importOriginal) => {
+  const actual = await importOriginal<typeof Protocol>();
+  return {
+    ...actual,
+    decodeFrame: (raw: Uint8Array): Packet => {
+      if (raw[8] === UNDECODABLE_TYPE) throw new RangeError('read past the end of the body');
+      return actual.decodeFrame(raw);
+    },
+  };
+});
 
 function setup(opts: { helloUnixS?: number; firmware?: string } = {}): {
   transport: FakeTransport;
@@ -87,6 +102,30 @@ describe('Session', () => {
     await expect(a).rejects.toBeInstanceOf(DisconnectedError);
     await expect(b).rejects.toBeInstanceOf(DisconnectedError);
     await expect(session.battery()).rejects.toBeInstanceOf(DisconnectedError);
+  });
+
+  it('counts discarded bytes and undecodable frames as integrity errors and still delivers the frame raw', async () => {
+    const { transport, session } = setup();
+    await session.open();
+    expect(session.integrityErrors).toBe(0);
+    const received: Packet[] = [];
+    session.onPacket((packet) => received.push(packet));
+
+    const good = encodeBiometric({ recordIndex: 1, unixS: 1_800_000_000, heartRate: 60 });
+    transport.notify(GATT.dataFromStrap, good.subarray(0, 10));
+    transport.notify(GATT.dataFromStrap, good.subarray(10));
+    expect(session.integrityErrors).toBe(0);
+
+    const broken = good.slice();
+    broken[broken.length - 1] = (broken[broken.length - 1] ?? 0) ^ 0xff;
+    transport.notify(GATT.eventsFromStrap, broken);
+    expect(session.integrityErrors).toBe(broken.length);
+
+    const undecodable = wrapFrame(Uint8Array.of(UNDECODABLE_TYPE, 1, 2, 3));
+    transport.notify(GATT.dataFromStrap, undecodable);
+    expect(session.integrityErrors).toBe(broken.length + 1);
+    expect(received.map((p) => p.kind)).toEqual(['record', 'unknown']);
+    expect(received[1]).toEqual({ kind: 'unknown', packetType: UNDECODABLE_TYPE });
   });
 
   it('never builds a forbidden, write or dangerous frame without its grant', async () => {

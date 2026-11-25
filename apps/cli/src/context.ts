@@ -14,6 +14,7 @@ export const DEFAULT_DB_PATH = './stoop-data/stoop.db';
 export const BLUETOOTH_NOTICE = 'Bluetooth path: UNTESTED until day 1';
 const PROFILE_KEY = 'profile';
 const MAX_SEED = 2_147_483_647;
+const MAX_SIM_CLOCK_OFFSET_S = 10 * 365 * 86_400;
 
 export interface SimSettings {
   seed: number;
@@ -21,6 +22,7 @@ export interface SimSettings {
   firmware: string | undefined;
   days: number;
   bondRefused: boolean;
+  clockOffsetS: number;
 }
 
 export interface TransportHandle {
@@ -52,7 +54,9 @@ export interface Sink {
 
 function readSimSettings(args: ParsedArgs): SimSettings | null {
   const simulated = args.has('sim');
-  const extras = ['sim-locked', 'sim-firmware', 'sim-days', 'sim-bond-refused'].filter((name) => args.has(name));
+  const extras = ['sim-locked', 'sim-firmware', 'sim-days', 'sim-bond-refused', 'sim-clock-offset'].filter((name) =>
+    args.has(name),
+  );
   if (!simulated) {
     if (extras.length > 0) throw new UsageError(`--${extras[0]} only works together with --sim`);
     return null;
@@ -68,6 +72,7 @@ function readSimSettings(args: ParsedArgs): SimSettings | null {
     firmware,
     days: args.int('sim-days', 0, 30) ?? 1,
     bondRefused: args.flag('sim-bond-refused'),
+    clockOffsetS: args.int('sim-clock-offset', -MAX_SIM_CLOCK_OFFSET_S, MAX_SIM_CLOCK_OFFSET_S) ?? 0,
   };
 }
 
@@ -133,6 +138,7 @@ export function createContext(args: ParsedArgs, sink: Sink): Context {
         firmware: sim.firmware,
         locked: sim.locked,
         bondRefused: sim.bondRefused,
+        clockOffsetS: sim.clockOffsetS,
       });
       const handle: TransportHandle = { transport: band, sim: band, dispose: async () => undefined };
       handles.push(handle);

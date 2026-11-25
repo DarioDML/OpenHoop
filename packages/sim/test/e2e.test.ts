@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Profile } from '@stoop/analytics';
-import { decodeFrame, toHex } from '@stoop/protocol';
+import { decodeFrame } from '@stoop/protocol';
 import {
+  MAX_DAMAGED_ATTEMPTS,
   Session,
   openStore,
   probeLock,
@@ -20,6 +21,7 @@ const DAY_S = 86_400;
 const TZ_S = 3_600;
 const PROFILE: Profile = { maxHr: 190, birthYear: null, restingHr: null };
 const COMMAND_ABORT_HISTORICAL = 20;
+const COMMAND_SEND_HISTORICAL = 22;
 const COMMAND_HISTORICAL_RESULT = 23;
 const COMMAND_PACKET_TYPE = 35;
 
@@ -47,7 +49,7 @@ async function openSession(band: SimBand, clock: Clock = scaledClock(1)): Promis
   return session;
 }
 
-async function newStore(ownerSince: number | null = null): Promise<{ store: Store; deviceId: number }> {
+async function newStore(ownerSince: number = NOW_S - 365 * DAY_S): Promise<{ store: Store; deviceId: number }> {
   const store = await openStore(openNodeDriver(':memory:'));
   const device = await store.upsertDevice({
     bleId: 'sim:7',
@@ -97,6 +99,17 @@ function expectNoRestrictedCommands(band: SimBand): void {
   expect(band.forbiddenReceived).toBe(0);
   expect(band.writesReceived).toBe(0);
   expect(band.dangerousReceived).toBe(0);
+}
+
+async function storedRecordIndices(store: Store, deviceId: number): Promise<number[]> {
+  const out: number[] = [];
+  for (const chunkId of await store.listChunkIds(deviceId)) {
+    for (const frame of await store.readChunkFrames(chunkId)) {
+      const packet = decodeFrame(frame);
+      if (packet.kind === 'record') out.push(packet.recordIndex);
+    }
+  }
+  return out;
 }
 
 function commandsReceived(band: SimBand): number[] {
@@ -224,22 +237,131 @@ describe('faults', () => {
     await store.driver.close();
   });
 
-  it('lets no invalid frame reach the store when fragments are corrupted', async () => {
+  it('re-requests damaged chunks and ends with every record intact and no hole', async () => {
     const { store, deviceId } = await newStore();
     const band = new SimBand(simOptions({ faults: { corruptEveryNthFragment: 1_000 } }));
-    const session = await openSession(band);
-    const result = await syncHistory(session, store, { deviceId, idleTimeoutMs: 400 });
+    const session = await openSession(band, scaledClock(20));
+    const result = await syncHistory(session, store, { deviceId, idleTimeoutMs: 8_000 });
     await session.close();
-    expect(result.samples).toBeLessThan(reference.size);
-    expect(result.samples).toBeGreaterThan(1_000);
-    for (const chunkId of await store.listChunkIds(deviceId)) {
-      for (const frame of await store.readChunkFrames(chunkId)) {
-        expect(() => decodeFrame(frame), toHex(frame)).not.toThrow();
-      }
-    }
-    for (const sample of await allSamples(store, deviceId)) {
-      expect(key(sample)).toBe(reference.get(sample.t));
-    }
+    expect(result.stoppedBy).toBe('complete');
+    expect(commandsReceived(band).filter((c) => c === COMMAND_SEND_HISTORICAL).length).toBeGreaterThan(1);
+    const indices = await storedRecordIndices(store, deviceId);
+    expect(indices.length).toBe(reference.size);
+    expect(new Set(indices).size).toBe(indices.length);
+    const samples = await allSamples(store, deviceId);
+    expect(new Map(samples.map((s) => [s.t, key(s)]))).toEqual(reference);
+    expectNoRestrictedCommands(band);
+    await store.driver.close();
+  });
+
+  it('stops with corrupt, acknowledging and storing nothing, when every copy of a chunk is damaged', async () => {
+    const { store, deviceId } = await newStore();
+    const band = new SimBand(simOptions({ faults: { corruptEveryNthFragment: 100 } }));
+    const session = await openSession(band, scaledClock(20));
+    const result = await syncHistory(session, store, { deviceId, idleTimeoutMs: 8_000 });
+    await session.close();
+    expect(result).toMatchObject({ chunks: 0, samples: 0, stoppedBy: 'corrupt' });
+    const commands = commandsReceived(band);
+    expect(commands.filter((c) => c === COMMAND_SEND_HISTORICAL)).toHaveLength(MAX_DAMAGED_ATTEMPTS);
+    expect(commands).not.toContain(COMMAND_HISTORICAL_RESULT);
+    expect(await store.listChunkIds(deviceId)).toEqual([]);
+    expect(await allSamples(store, deviceId)).toEqual([]);
+    expectNoRestrictedCommands(band);
+    await store.driver.close();
+  });
+});
+
+describe('a link that is still busy with an aborted transfer', () => {
+  let reference: Map<number, string>;
+
+  beforeAll(async () => {
+    reference = await referenceSamples(1 / 24);
+  }, 60_000);
+
+  async function expectEveryRecordOnce(store: Store, deviceId: number): Promise<void> {
+    const indices = await storedRecordIndices(store, deviceId);
+    expect(indices.length).toBe(reference.size);
+    expect(new Set(indices).size).toBe(indices.length);
+    const samples = await allSamples(store, deviceId);
+    expect(new Map(samples.map((s) => [s.t, key(s)]))).toEqual(reference);
+  }
+
+  it('a lock probe followed at once by sync stores every record exactly once', async () => {
+    const { store, deviceId } = await newStore();
+    const band = new SimBand(simOptions({ faults: { strayTailFramesAfterAbort: 40 } }));
+    const session = await openSession(band, scaledClock(20));
+    const probe = await probeLock(session);
+    expect(probe.state).toBe('open');
+    const result = await syncHistory(session, store, { deviceId });
+    await session.close();
+    expect(result.stoppedBy).toBe('complete');
+    await expectEveryRecordOnce(store, deviceId);
+    expectNoRestrictedCommands(band);
+    await store.driver.close();
+  });
+
+  it('a sync that starts while an aborted chunk tail is still arriving acknowledges none of it', async () => {
+    const { store, deviceId } = await newStore();
+    const band = new SimBand(simOptions({ faults: { strayTailFramesAfterAbort: 40 } }));
+    const session = await openSession(band, scaledClock(20));
+    let strayEnds = 0;
+    const off = session.onPacket((packet) => {
+      if (packet.kind === 'metadata' && packet.metaName === 'HISTORY_END') strayEnds += 1;
+    });
+    const firstRecord = new Promise<void>((resolveFirst) => {
+      const stop = session.onPacket((packet) => {
+        if (packet.kind !== 'record') return;
+        stop();
+        resolveFirst();
+      });
+    });
+    await session.post(COMMAND_SEND_HISTORICAL, Uint8Array.of(0));
+    await firstRecord;
+    await session.post(COMMAND_ABORT_HISTORICAL, Uint8Array.of(0));
+    const result = await syncHistory(session, store, { deviceId });
+    off();
+    await session.close();
+    expect(result.stoppedBy).toBe('complete');
+    expect(strayEnds).toBeGreaterThan(result.chunks);
+    const commands = commandsReceived(band);
+    expect(commands.filter((c) => c === COMMAND_SEND_HISTORICAL).length).toBeGreaterThanOrEqual(3);
+    expect(commands.filter((c) => c === COMMAND_HISTORICAL_RESULT)).toHaveLength(result.chunks);
+    await expectEveryRecordOnce(store, deviceId);
+    expectNoRestrictedCommands(band);
+    await store.driver.close();
+  });
+});
+
+describe('band clock', () => {
+  const OFFSET_S = 3 * 3_600;
+
+  it('refuses to request or acknowledge history when the band clock is 3 hours off', async () => {
+    const { store, deviceId } = await newStore(NOW_S - 1_800);
+    const band = new SimBand(simOptions({ clockOffsetS: OFFSET_S }));
+    const session = await openSession(band, scaledClock(20));
+    const result = await syncHistory(session, store, { deviceId });
+    await session.close();
+    expect(result.stoppedBy).toBe('clock');
+    const commands = commandsReceived(band);
+    expect(commands).not.toContain(COMMAND_SEND_HISTORICAL);
+    expect(commands).not.toContain(COMMAND_HISTORICAL_RESULT);
+    expect(await allSamples(store, deviceId)).toEqual([]);
+    expectNoRestrictedCommands(band);
+    await store.driver.close();
+  });
+
+  it('stores every record and discards none with store-all, however the band dates them', async () => {
+    const { store, deviceId } = await newStore(NOW_S + OFFSET_S - 600);
+    const band = new SimBand(simOptions({ clockOffsetS: OFFSET_S }));
+    const session = await openSession(band, scaledClock(20));
+    const result = await syncHistory(session, store, { deviceId, clockPolicy: 'store-all' });
+    await session.close();
+    expect(result).toMatchObject({ stoppedBy: 'complete', discardedBeforeOwner: 0 });
+    const indices = await storedRecordIndices(store, deviceId);
+    expect(indices.length).toBeGreaterThan(3_500);
+    expect(new Set(indices).size).toBe(indices.length);
+    expect(result.samples).toBe(indices.length);
+    expect(await store.getChunkMeta((await store.listChunkIds(deviceId))[0] ?? -1)).toMatchObject({ clockOffsetS: OFFSET_S });
     expectNoRestrictedCommands(band);
     await store.driver.close();
   });

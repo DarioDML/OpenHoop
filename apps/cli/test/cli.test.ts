@@ -126,6 +126,30 @@ describe.concurrent('triage', () => {
     expect(JSON.stringify(snapshot.warnings)).toContain('50.43 or later');
   });
 
+  it('puts a wrong band clock in the verdict because sync will refuse', async () => {
+    const run = await cli(
+      'triage',
+      '--sim=7',
+      '--sim-clock-offset',
+      '10800',
+      '--json',
+      '--db',
+      join(dir, 'triage-clock.db'),
+      '--out',
+      join(dir, 'triage-clock.json'),
+      '--hr-seconds',
+      '0',
+      '--scan-seconds',
+      '1',
+    );
+    expect(run.code).toBe(0);
+    const verdict = asRecord(parseJson(run).verdict);
+    expect(verdict.label).toBe('OPEN');
+    expect(verdict.clock).toEqual(expect.stringMatching(/^CLOCK OFF/));
+    expect(verdict.line).toEqual(expect.stringContaining('`sync` will refuse'));
+    expect(verdict.line).toEqual(expect.stringContaining('--ignore-clock'));
+  });
+
   it('reaches no verdict but still finishes the independent steps when the bond is refused', async () => {
     const run = await cli(
       'triage',
@@ -242,6 +266,41 @@ describe.concurrent('sync', () => {
     expect(second.code, second.stderr).toBe(0);
   }, 60_000);
 
+  it('stops with clock when the band clock is 3 hours off, and explains what to do', async () => {
+    const db = join(dir, 'sync-clock.db');
+    const run = await cli('sync', '--sim=7', '--sim-days', '0', '--sim-clock-offset', '10800', '--owner-since', '2020-01-01', '--json', '--db', db);
+    expect(run.code).toBe(1);
+    expect(asRecord(parseJson(run).sync).stoppedBy).toBe('clock');
+    expect(run.stderr).toMatch(/clock is off by 10[78]\d\d s/);
+    expect(run.stderr).toContain('nothing was removed from it');
+    expect(run.stderr).toContain('--ignore-clock');
+    const store = await openStore(openNodeDriver(db));
+    const [device] = await store.listDevices();
+    expect(await store.listChunkIds(device?.id ?? -1)).toEqual([]);
+    await store.driver.close();
+  }, 60_000);
+
+  it('syncs a band with a wrong clock under --ignore-clock and warns about it', async () => {
+    const db = join(dir, 'sync-ignore-clock.db');
+    const run = await cli(
+      'sync',
+      '--sim=7',
+      '--sim-days',
+      '0',
+      '--sim-clock-offset',
+      '10800',
+      '--owner-since',
+      '2020-01-01',
+      '--ignore-clock',
+      '--json',
+      '--db',
+      db,
+    );
+    expect(run.code, run.stderr).toBe(0);
+    expect(asRecord(parseJson(run).sync)).toMatchObject({ stoppedBy: 'complete', discardedBeforeOwner: 0 });
+    expect(run.stderr).toContain('records from before you owned the band may be stored');
+  }, 60_000);
+
   it('rejects a malformed owner-since date', async () => {
     const run = await cli('sync', '--sim=7', '--owner-since', '31-01-2027', '--db', join(dir, 'sync-bad.db'));
     expect(run.code).toBe(2);
@@ -283,6 +342,8 @@ describe.concurrent('usage', () => {
     expect(run.code).toBe(0);
     expect(run.stdout).toContain('triage');
     expect(run.stdout).toContain('UNTESTED until day 1');
+    expect(run.stdout).toContain('--ignore-clock');
+    expect(run.stdout).toContain('--sim-clock-offset');
   });
 
   it('keeps stdout to one JSON document even when the command fails', async () => {
