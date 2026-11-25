@@ -89,13 +89,32 @@ export interface Derived {
   algo: string;
 }
 
+export type SleepSource = 'detected' | 'edited' | 'manual';
+
 export interface SleepPeriodRecord {
   onset: number;
   offset: number;
   asleepS: number;
   inBedS: number;
   nap: boolean;
+  source: SleepSource;
+  editId: number | null;
 }
+
+export interface SleepEdit {
+  id: number;
+  targetOnset: number | null;
+  targetOffset: number | null;
+  onset: number;
+  offset: number;
+}
+
+export interface SleepEditRow extends SleepEdit {
+  deviceId: number;
+  createdAt: number;
+}
+
+export type SleepEditInput = Omit<SleepEditRow, 'id'> & { id: number | null };
 
 export interface WorkoutRecord {
   start: number;
@@ -146,6 +165,7 @@ export type ExportTable =
   | 'samples_1hz'
   | 'daily_metrics'
   | 'sleeps'
+  | 'sleep_edits'
   | 'workouts'
   | 'events'
   | 'console_log'
@@ -177,6 +197,9 @@ export interface Store {
   getSetting(key: string): Promise<string | null>;
   setSetting(key: string, value: string): Promise<void>;
   clearDerived(deviceId: number): Promise<void>;
+  listSleepEdits(deviceId: number): Promise<SleepEditRow[]>;
+  saveSleepEdit(edit: SleepEditInput): Promise<number>;
+  deleteSleepEdit(deviceId: number, id: number): Promise<boolean>;
   deleteBefore(
     deviceId: number,
     t: number,

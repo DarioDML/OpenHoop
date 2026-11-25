@@ -11,9 +11,10 @@ import type { Reason, Sample } from './types';
  * Circulation 1996;93(5):1043-1065. A window is scored only when the wearer is awake and still: at least 80 % of its
  * seconds carry a heart rate, the band reports WAKE or STILL, mean motion stays at or below 0.1 g, mean heart rate
  * stays below 40 % of heart rate reserve (the ACSM "moderate" bound, as for calories), and the window does not touch a
- * workout or the 30 minutes after it (vagal reactivation after exercise: Stanley J, Peake JM, Buchheit M, Sports Med
- * 2013;43(12):1259-1277). Heart rate rises without movement are the "additional heart rate" of Myrtek M, "Heart and
- * Emotion: Ambulatory Monitoring Studies in Everyday Life", Hogrefe & Huber 2004.
+ * recorded or hand-added sleep period, a workout or the 30 minutes after it (vagal reactivation after exercise:
+ * Stanley J, Peake JM, Buchheit M, Sports Med 2013;43(12):1259-1277). Heart rate rises without movement are the
+ * "additional heart rate" of Myrtek M, "Heart and Emotion: Ambulatory Monitoring Studies in Everyday Life",
+ * Hogrefe & Huber 2004.
  *
  * Per window: mean heart rate, and RMSSD over runs of consecutive beats when at least 30 successive differences are
  * present (ultra-short RMSSD agrees with 5-minute RMSSD: Munoz ML et al., PLoS One 2015;10(9):e0138921).
@@ -72,6 +73,7 @@ export interface StressInput {
   start: number;
   end: number;
   workouts: readonly StressSpan[];
+  sleep?: readonly StressSpan[];
   activeThresholdBpm: number | null;
 }
 
@@ -125,13 +127,14 @@ function windowRmssd(rows: readonly Sample[]): number | null {
   return count < STRESS_MIN_RR_DIFFS ? null : Math.sqrt(sum / count);
 }
 
-function blocked(t: number, workouts: readonly StressSpan[]): boolean {
+function blocked(t: number, input: StressInput): boolean {
   const end = t + STRESS_WINDOW_S;
-  return workouts.some((w) => t <= w.end + STRESS_POST_WORKOUT_S && end > w.start);
+  if (input.workouts.some((w) => t <= w.end + STRESS_POST_WORKOUT_S && end > w.start)) return true;
+  return (input.sleep ?? []).some((p) => t <= p.end && end > p.start);
 }
 
 function eligibleFeature(rows: readonly Sample[], t: number, input: StressInput): StressWindow | null {
-  if (rows.length === 0 || blocked(t, input.workouts)) return null;
+  if (rows.length === 0 || blocked(t, input)) return null;
   let hrCount = 0;
   let hrSum = 0;
   let awake = 0;

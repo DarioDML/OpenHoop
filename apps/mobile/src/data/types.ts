@@ -1,7 +1,8 @@
-import type { BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord } from '@openhoop/core';
+import type { BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, SleepEditProblem, SleepEditRow } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 
+import type { SleepEditRequest } from './sleepEditForm';
 import type { UserData } from './userData';
 
 export type Language = 'nl' | 'en';
@@ -64,9 +65,18 @@ export interface HeartRatePoint {
   hr: number;
 }
 
+export type SleepEditOutcome = 'saved' | SleepEditProblem | 'error';
+
+export interface SleepEditLimits {
+  napMaxS: number;
+  sleepMaxS: number;
+}
+
 export interface AppData {
   ready: boolean;
   days: DayRecord[];
+  sleepEdits: SleepEditRow[];
+  sleepEditLimits: SleepEditLimits;
   device: DeviceStatus;
   live: LiveState;
   profile: Profile;
@@ -87,6 +97,8 @@ export interface AppData {
   saveBodyMeasurement(id: number | null, input: BodyMeasurementInput): Promise<boolean>;
   removeBodyMeasurement(id: number): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
+  saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
+  deleteSleepEdit(id: number): Promise<boolean>;
   clearNotice(): void;
 }
 

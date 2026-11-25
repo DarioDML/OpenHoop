@@ -114,6 +114,12 @@ describe('window features', () => {
     expect(windows.map((w) => w.t - TODAY)).toEqual([2400, 2700]);
   });
 
+  it('skips sleep periods the wearer added by hand even when the band reported awake', () => {
+    const rows = segment({ start: TODAY, seconds: 1800, hr: 64, jitterMs: 20 });
+    const windows = stressFeatures(rows, input(TODAY, 1800, { sleep: [{ start: TODAY + 600, end: TODAY + 1199 }] }));
+    expect(windows.map((w) => w.t - TODAY)).toEqual([0, 300, 1200, 1500]);
+  });
+
   it('needs four minutes of heart rate and motion data in a window', () => {
     const sparse = segment({ start: TODAY, seconds: 600, hr: 64, jitterMs: 20, hrEvery: 2 });
     expect(stressFeatures(sparse, input(TODAY, 600))).toEqual([]);
