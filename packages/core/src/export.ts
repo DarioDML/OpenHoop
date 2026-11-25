@@ -48,6 +48,11 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
       'id, device_id, received_at, clock_offset_s, frame_count, unknown_frames, hex(end_token) AS end_token, hex(sha256) AS sha256',
     order: 'device_id, id',
   },
+  body_measurements: {
+    columns: ['id', 'day', 'weight_kg', 'body_fat_pct', 'created_at'],
+    select: 'id, day, weight_kg, body_fat_pct, created_at',
+    order: 'day, id',
+  },
 };
 
 function cell(value: SqlValue | undefined): string {

@@ -1,4 +1,4 @@
-import type { BandModel, DayRecord } from '@openhoop/core';
+import type { BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 
@@ -72,6 +72,7 @@ export interface AppData {
   profile: Profile;
   settings: Settings;
   userData: UserData;
+  bodyMeasurements: BodyMeasurement[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   scan(): Promise<DiscoveredBand[]>;
@@ -83,6 +84,8 @@ export interface AppData {
   updateProfile(patch: Partial<Profile>): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
   updateUserData(patch: Partial<UserData>): Promise<boolean>;
+  saveBodyMeasurement(id: number | null, input: BodyMeasurementInput): Promise<boolean>;
+  removeBodyMeasurement(id: number): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
   clearNotice(): void;
 }
