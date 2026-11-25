@@ -208,7 +208,23 @@ CREATE TABLE sleep_edits (
 CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4];
+const V5 = `
+CREATE TABLE lab_results (
+  id INTEGER PRIMARY KEY,
+  biomarker TEXT NOT NULL CHECK (length(biomarker) BETWEEN 1 AND 80),
+  unit TEXT NOT NULL CHECK (length(unit) BETWEEN 1 AND 24),
+  value REAL NOT NULL CHECK (value >= 0 AND value <= 1000000),
+  day TEXT NOT NULL CHECK (day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  ref_low REAL CHECK (ref_low IS NULL OR (ref_low >= 0 AND ref_low <= 1000000)),
+  ref_high REAL CHECK (ref_high IS NULL OR (ref_high >= 0 AND ref_high <= 1000000)),
+  note TEXT CHECK (note IS NULL OR length(note) <= 300),
+  created_at INTEGER NOT NULL,
+  CHECK (ref_low IS NULL OR ref_high IS NULL OR ref_low < ref_high)
+);
+CREATE INDEX lab_results_biomarker_day ON lab_results (biomarker, day, id);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
