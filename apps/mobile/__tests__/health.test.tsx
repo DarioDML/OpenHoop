@@ -25,7 +25,7 @@ import CoachScreen from '@/app/coach/index';
 import EcgScreen from '@/app/health/ecg';
 import HeartRateScreen from '@/app/health/heart-rate';
 import MetricsScreen from '@/app/health/metrics';
-import StressScreen from '@/app/health/stress';
+import Vo2maxScreen from '@/app/health/vo2max';
 import VitalsScreen from '@/app/health/vitals';
 import BreathingScreen from '@/app/health/breathing';
 import HealthTab from '@/app/(tabs)/health';
@@ -116,8 +116,8 @@ describe('health screens', () => {
   });
 
   it('shows the NotBuilt notice on unbuilt screens', async () => {
-    await render(withAppData(<StressScreen />));
-    expect(screen.getByTestId('not-built-stress')).toBeTruthy();
+    await render(withAppData(<Vo2maxScreen />));
+    expect(screen.getByTestId('not-built-healthspan')).toBeTruthy();
   });
 
   it('flags MG-only screens on a 5.0 band and never shows a verdict', async () => {

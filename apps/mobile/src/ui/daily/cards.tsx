@@ -5,16 +5,19 @@ import { Pressable, View } from 'react-native';
 import { useAppData } from '@/data/context';
 import { baselineAt } from '@/data/derived';
 import { caloriesForDay } from '@/data/energyDerived';
+import { stressForDay } from '@/data/stressDerived';
 import { formatHm, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
 import { useT } from '@/i18n/useT';
-import { formatClock, formatDuration } from '@/lib/format';
+import { formatClock, formatDuration, formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Icon, type IconName } from '@/ui/Icon';
 import { MetricTile } from '@/ui/MetricTile';
 import { ISSUES, type IssueKey } from '@/ui/NotBuilt';
+import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
+import { stressColor } from '@/ui/health/StressLevels';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
 import { Divider, WeekDots, useRangeChip } from './bits';
@@ -75,9 +78,36 @@ export function VitalsCard({ days, index }: DayProps) {
   );
 }
 
-export function StressCard() {
-  const { t } = useT();
-  return <PendingCard label={t('home.stress')} issue="stress" href="/health/stress" testID="card-stress" />;
+export function StressCard({ days, index }: DayProps) {
+  const { t, language, reason } = useT();
+  const { colors } = useTheme();
+  const day = days[index];
+  const view = stressForDay(day);
+  const latest = view.latest;
+  return (
+    <Card href="/health/stress" testID="card-stress" accessibilityLabel={t('home.stress')} style={{ flex: 1, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+        <AppText variant="capSmall" muted numberOfLines={1} style={{ flexShrink: 1 }}>
+          {t('home.stress')} ›
+        </AppText>
+        <ParityBadge level={PARITY.stress} />
+      </View>
+      {latest && day ? (
+        <>
+          <AppText variant="bodyStrong" color={stressColor(colors, latest.level)} testID="stress-tile-level">
+            {t(`stress.level.${latest.level}`)} · {formatNumber(latest.score, 1, language)}
+          </AppText>
+          <AppText variant="caption" muted numeric testID="stress-tile-time">
+            {t('stress.at', { time: formatClock(latest.t, day.tzOffsetS) })} · {t('stress.estimate')}
+          </AppText>
+        </>
+      ) : (
+        <AppText variant="bodyStrong" muted testID="stress-tile-reason">
+          {view.calibrating ? t('stress.calibratingTitle') : view.reason === 'low-coverage' ? t('stress.noWindows') : reason(view.reason ?? 'no-data')}
+        </AppText>
+      )}
+    </Card>
+  );
 }
 
 export function MorningBriefCard({ days, index }: DayProps) {

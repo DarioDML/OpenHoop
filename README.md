@@ -76,7 +76,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A | SpO2, skin temperature |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones |
-| C | Sleep consistency, automatic workouts, calories (estimate) |
+| C | Sleep consistency, automatic workouts, calories (estimate), stress (estimate) |
 | D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
 
 When the data does not support a number, the app shows the reason instead of a number.
@@ -88,6 +88,12 @@ The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to
 ## Calories
 
 Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart rate at or above 40 % of heart rate reserve use the sex-specific equations without VO2max from Keytel et al., "Prediction of energy expenditure from heart rate monitoring during submaximal exercise", J Sports Sci 2005;23(3):289-297. All other minutes, including minutes without heart rate, use resting energy from the Mifflin-St Jeor equation (Mifflin et al., Am J Clin Nutr 1990;51(2):241-247). The estimate needs height, weight, sex and birth year. For the sex "other" it uses the mean of the male and female equations. Without a complete profile or with fewer than 600 minutes of heart rate in a day, the app shows the reason instead of a number.
+
+## Stress
+
+Stress is an estimate, OpenHoop's own method (level C), and not a diagnosis. The day is split into 5-minute windows, the short-term HRV length of the Task Force of the ESC and NASPE (Circulation 1996;93(5):1043-1065). A window counts only when the band reports the wearer awake (WAKE or STILL), mean motion stays at or below 0.1 g, mean heart rate stays below 40 % of heart rate reserve, and the window does not touch a workout or the 30 minutes after it (vagal reactivation after exercise, Stanley et al., Sports Med 2013;43(12):1259-1277), so exercise and sleep do not read as stress. Each window gets its mean heart rate and, when at least 30 successive beat-to-beat differences are present, its RMSSD (ultra-short RMSSD: Munoz et al., PLoS One 2015;10(9):e0138921). Acute stress raises heart rate and lowers RMSSD (Kim et al., Psychiatry Investig 2018;15(3):235-245).
+
+The baseline is the windows of up to 14 earlier days, at least 3 days with an hour of windows each; until then the day is labelled "calibrating". Centre and spread are the median and 1.4826 × MAD (Leys et al., J Exp Soc Psychol 2013;49(4):764-766), with RMSSD on a log scale (Plews et al., Sports Med 2013;43(9):773-781). A window's score is the mean of the heart rate z-score and the inverted ln RMSSD z-score (heart rate alone when there is no RMSSD), clamped to 0–3: the number of standard deviations above the wearer's own calm, awake normal. Low is below 1, medium from 1, high from 2. Because the baseline is personal, a long stressful period slowly becomes the new normal, and caffeine, illness, heat or alcohol raise the score as well.
 
 ## Privacy
 
