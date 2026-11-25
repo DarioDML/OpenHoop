@@ -1,0 +1,15 @@
+node_modules/
+dist/
+stoop-data/
+*.db
+*.db-wal
+*.db-shm
+.expo/
+*.tsbuildinfo
+.env
+.env.*
+apps/mobile/android/
+apps/mobile/ios/
+*.apk
+*.aab
+coverage/
