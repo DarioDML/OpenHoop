@@ -63,7 +63,7 @@ describe('parseBandConfig', () => {
     ['an empty key', JSON.stringify({ ...SNAPSHOT, flags: [flag('', '1')] })],
     ['an overlong key', JSON.stringify({ ...SNAPSHOT, flags: [flag('k'.repeat(33), '1')] })],
     ['a numeric value', JSON.stringify({ ...SNAPSHOT, config: [{ key: 'enable_rfid', valueText: 2, valueHex: null }] })],
-    ['an overlong value', JSON.stringify({ ...SNAPSHOT, config: [flag('enable_rfid', 'v'.repeat(257))] })],
+    ['an overlong value', JSON.stringify({ ...SNAPSHOT, config: [flag('enable_rfid', 'v'.repeat(8193))] })],
     ['too many entries', JSON.stringify({ ...SNAPSHOT, flags: Array.from({ length: MAX_ENTRIES + 1 }, (_, i) => flag(`k${i}`, '1')) })],
   ])('rejects %s as malformed', (_name, raw) => {
     expect(parseBandConfig(raw)).toEqual({ status: 'malformed' });

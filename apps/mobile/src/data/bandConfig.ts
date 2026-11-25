@@ -54,7 +54,7 @@ export type BandConfigState =
 
 export const MAX_ENTRIES = 256;
 const MAX_KEY_LENGTH = 32;
-const MAX_VALUE_LENGTH = 256;
+const MAX_VALUE_LENGTH = 8192;
 
 export function isFlagKey(key: string): key is FlagKey {
   return (FLAG_KEYS as readonly string[]).includes(key);
