@@ -3,9 +3,12 @@ import {
   bindStore,
   deleteBodyMeasurement,
   deleteDataBefore,
+  deleteLabResult,
   exportCsv,
   insertBodyMeasurement,
+  insertLabResult,
   listBodyMeasurements,
+  listLabResults,
   probeLock,
   readDeviceInformation,
   recomputeDays,
@@ -15,11 +18,14 @@ import {
   EDITED_SLEEP_MAX_S,
   MANUAL_NAP_MAX_S,
   updateBodyMeasurement,
+  updateLabResult,
   type BandModel,
   type BodyMeasurement,
   type BodyMeasurementInput,
   type DayRecord,
   type DeviceRow,
+  type LabResult,
+  type LabResultInput,
   type SleepEditRow,
   type SyncProgress,
   type SyncStop,
@@ -94,6 +100,7 @@ export interface Snapshot {
   settings: Settings;
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
+  labResults: LabResult[];
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
@@ -177,6 +184,7 @@ export class AppController {
       settings: { language, dataSource: 'demo', ownerSince: null },
       userData: defaultUserData(),
       bodyMeasurements: [],
+      labResults: [],
       syncProgress: null,
       notice: null,
       inbox: [],
@@ -270,11 +278,13 @@ export class AppController {
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
     this.notificationState = parseNotificationState(await store.getSetting(NOTIFICATION_STATE_KEY));
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
+    const labResults = await listLabResults(this.app.driver);
     this.patch({
       settings: { ...this.snapshot.settings, language, dataSource },
       profile,
       userData,
       bodyMeasurements,
+      labResults,
       inbox: this.notificationState.inbox,
     });
     await this.loadActiveDevice();
@@ -781,6 +791,33 @@ export class AppController {
 
   removeBodyMeasurement = (id: number): Promise<boolean> => this.runBodyChange((driver) => deleteBodyMeasurement(driver, id));
 
+  private runLabChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const done = await task(driver);
+        this.patch({ labResults: await listLabResults(driver) });
+        return done;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
+  saveLabResult = (id: number | null, input: LabResultInput): Promise<boolean> =>
+    this.runLabChange(async (driver) => {
+      if (id === null) {
+        await insertLabResult(driver, input, nowSeconds());
+        return true;
+      }
+      return updateLabResult(driver, id, input);
+    });
+
+  removeLabResult = (id: number): Promise<boolean> => this.runLabChange((driver) => deleteLabResult(driver, id));
+
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
@@ -967,6 +1004,8 @@ export class AppController {
       updateUserData: this.updateUserData,
       saveBodyMeasurement: this.saveBodyMeasurement,
       removeBodyMeasurement: this.removeBodyMeasurement,
+      saveLabResult: this.saveLabResult,
+      removeLabResult: this.removeLabResult,
       heartRateBetween: this.heartRateBetween,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
