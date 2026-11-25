@@ -23,7 +23,6 @@ export class ShareCaptureError extends Error {
 export type CardHandle = ComponentRef<typeof View>;
 
 const IMAGE_NAME = 'openhoop-activity.png';
-const IMAGE_WIDTH = 1080;
 
 function decodeBase64(text: string): Uint8Array {
   const binary = atob(text);
@@ -46,10 +45,10 @@ export async function shareSnapshotImage(target: RefObject<CardHandle | null>): 
   if (view === null) throw new ShareCaptureError();
   const folder = new Directory(Paths.cache, exportFolderName(new Date()));
   try {
-    const base64 = await captureRef(view, { format: 'png', result: 'base64', width: IMAGE_WIDTH });
+    const base64 = await captureRef(view, { format: 'png', result: 'base64' });
     folder.create({ intermediates: true, overwrite: true });
     const file = new File(folder, IMAGE_NAME);
-    file.write(decodeBase64(base64));
+    await file.write(decodeBase64(base64));
     await shareAsync(file.uri, { mimeType: 'image/png', dialogTitle: 'OpenHoop', UTI: 'public.png' });
   } finally {
     removeFolder(folder);

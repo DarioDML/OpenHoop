@@ -49,7 +49,8 @@ jest.mock('expo-file-system', () => {
     constructor(folder: MockDirectory, name: string) {
       this.uri = `${folder.uri}/${name}`;
     }
-    write(bytes: Uint8Array): void {
+    async write(bytes: Uint8Array): Promise<void> {
+      await Promise.resolve();
       mockFiles.set(this.uri, bytes);
     }
   }

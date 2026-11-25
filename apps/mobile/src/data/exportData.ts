@@ -88,7 +88,7 @@ export async function exportAll(
     }
 
     const zip = new File(folder, ZIP_NAME);
-    zip.write(zipSync(archive));
+    await zip.write(zipSync(archive));
     await shareAsync(zip.uri, { mimeType: 'application/zip', dialogTitle: 'OpenHoop' });
     return { databaseIncluded, tables: EXPORT_TABLES.length };
   } finally {

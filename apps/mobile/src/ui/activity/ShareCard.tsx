@@ -26,7 +26,7 @@ function Wordmark({ color }: { color: string }) {
   const gap = 6;
   const segment = (circumference - gap * SEGMENTS) / SEGMENTS;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} accessibilityLabel="OpenHoop">
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} accessible accessibilityLabel="OpenHoop">
       <Svg width={22} height={22} viewBox="0 0 100 100">
         <Defs>
           <LinearGradient id="seg" x1="0" y1="0" x2="1" y2="1">
