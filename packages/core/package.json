@@ -1,0 +1,17 @@
+{
+  "name": "@stoop/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node/index.ts"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@stoop/analytics": "*",
+    "@stoop/protocol": "*",
+    "fflate": "^0.8.3"
+  }
+}
