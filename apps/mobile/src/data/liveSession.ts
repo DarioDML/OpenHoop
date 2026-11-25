@@ -80,7 +80,7 @@ export interface Hud {
 export function hudFor(state: LiveSession, nowS: number, heartRate: number | null, ref: LoadReference, today: DayRecord | null): Hud {
   const span = sessionWindow(state, nowS);
   const zone = heartRate !== null && heartRate > 0 && ref.max > ref.rest ? zoneIndex(heartRate, ref.rest, ref.max) : null;
-  if (span === null) return { activeS: 0, load: null, loadReason: null, avgHr: null, maxHr: null, zone, projectedDayLoad: null };
+  if (span === null) return { activeS: 0, load: null, loadReason: null, avgHr: null, maxHr: null, zone, projectedDayLoad: today?.load.value ?? null };
   const m = activityMetrics(state.points, span.window, span.paused, ref.rest, ref.max);
   const dayLoad = today?.load.value ?? null;
   const projected =
