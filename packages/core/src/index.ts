@@ -11,4 +11,5 @@ export * from './deviceInfo';
 export * from './config';
 export * from './pipeline';
 export * from './bodyMeasurements';
+export * from './cycle';
 export * from './sleepEdits';
