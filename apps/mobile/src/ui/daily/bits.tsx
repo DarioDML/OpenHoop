@@ -1,5 +1,5 @@
 import type { DayRecord } from '@openhoop/core';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -45,7 +45,7 @@ interface StatRowProps {
   value: string;
   caption?: string;
   right?: ReactNode;
-  href?: string;
+  href?: Href;
   testID?: string;
 }
 

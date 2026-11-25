@@ -18,7 +18,7 @@ import { spacing, useTheme } from '@/ui/theme';
 
 export default function SleepScreen() {
   const { days } = useAppData();
-  const { t, language } = useT();
+  const { t, language, reason } = useT();
   const { colors } = useTheme();
   const index = days.length - 1;
   const day = days[index];
@@ -64,7 +64,7 @@ export default function SleepScreen() {
                 {t('sleepx.slept')}
               </AppText>
               <AppText variant="cardTitle" numeric testID="slept">
-                {sleep.asleepS === null ? '–' : formatHm(sleep.asleepS)}
+                {sleep.asleepS === null ? reason('no-sleep') : formatHm(sleep.asleepS)}
               </AppText>
             </View>
             <View style={{ alignItems: 'center' }}>
@@ -72,7 +72,7 @@ export default function SleepScreen() {
                 {t('sleepx.needed')}
               </AppText>
               <AppText variant="cardTitle" numeric testID="needed">
-                {need === null ? '–' : formatHm(need)}
+                {need === null ? reason(sleep.need.reason) : formatHm(need)}
               </AppText>
             </View>
           </View>
@@ -93,11 +93,11 @@ export default function SleepScreen() {
 
       <Card testID="card-contributors" style={{ gap: 0 }}>
         <CardHeader title={t('sleepx.contributors')} />
-        <StatRow label={t('sleepx.hoursVsNeed')} value={hoursVsNeed === null ? '–' : `${hoursVsNeed}%`} testID="contrib-hours" />
+        <StatRow label={t('sleepx.hoursVsNeed')} value={hoursVsNeed === null ? reason(sleep.need.reason) : `${hoursVsNeed}%`} testID="contrib-hours" />
         <Divider />
-        <StatRow label={t('metric.consistency')} value={sleep.consistency.value === null ? '–' : `${formatNumber(sleep.consistency.value, 0, language)}%`} testID="contrib-consistency" />
+        <StatRow label={t('metric.consistency')} value={sleep.consistency.value === null ? reason(sleep.consistency.reason) : `${formatNumber(sleep.consistency.value, 0, language)}%`} testID="contrib-consistency" />
         <Divider />
-        <StatRow label={t('sleepx.efficiency')} value={efficiency === null ? '–' : `${efficiency}%`} testID="contrib-efficiency" />
+        <StatRow label={t('sleepx.efficiency')} value={efficiency === null ? reason('no-sleep') : `${efficiency}%`} testID="contrib-efficiency" />
         <View style={{ paddingTop: spacing.sm }}>
           <ParityBadge level={PARITY.sleepScore} long />
         </View>
@@ -106,7 +106,7 @@ export default function SleepScreen() {
       <Card style={{ gap: 0 }}>
         <StatRow label={t('sleepx.lastNight')} caption={t('sleepx.lastNightHint')} value="" href={`/sleep/last-night?day=${day.day}`} testID="link-last-night" />
         <Divider />
-        <StatRow label={t('metric.need')} value={need === null ? '–' : formatHm(need)} href="/sleep/need" testID="link-need" />
+        <StatRow label={t('metric.need')} value={need === null ? reason(sleep.need.reason) : formatHm(need)} href="/sleep/need" testID="link-need" />
         <Divider />
         <StatRow label={t('sleepx.trends')} value="" href="/sleep/trends" testID="link-trends" />
       </Card>

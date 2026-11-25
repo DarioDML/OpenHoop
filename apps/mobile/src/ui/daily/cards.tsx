@@ -1,5 +1,5 @@
 import type { DayRecord } from '@openhoop/core';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
@@ -28,7 +28,7 @@ interface DayProps {
 interface PendingProps {
   label: string;
   issue: IssueKey;
-  href?: string;
+  href?: Href;
   testID?: string;
 }
 
@@ -132,7 +132,7 @@ export function CoachPill() {
 interface ActionButtonProps {
   label: string;
   icon: IconName;
-  href: string;
+  href: Href;
   testID: string;
 }
 

@@ -56,7 +56,7 @@
   "home.startActivity": "Start activity",
   "home.thisWeek": "This week",
   "home.weeklyPlan": "Weekly plan",
-  "home.weekActive": "Load days (≥ 7)",
+  "home.weekActive": "Load days",
   "home.weekSleep": "Sleep nights",
   "home.tonight": "Tonight's sleep",
   "home.planner": "Planner",
@@ -195,5 +195,6 @@
   "metricDetail.method.rhr": "Resting heart rate is derived by OpenHoop from the band's heart rate during sleep. It is a calibrated model.",
   "metricDetail.method.resp": "Respiratory rate is estimated by OpenHoop from the band's signals during sleep. It is a calibrated model.",
   "metricDetail.method.spo2": "SpO2 is reported by the band itself. OpenHoop shows it as received.",
-  "metricDetail.method.temp": "Skin temperature is reported by the band itself. OpenHoop shows it as received."
+  "metricDetail.method.temp": "Skin temperature is reported by the band itself. OpenHoop shows it as received.",
+  "home.actionCenter.title": "Action center"
 }

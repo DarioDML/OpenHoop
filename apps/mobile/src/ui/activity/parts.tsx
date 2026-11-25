@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -106,7 +106,7 @@ interface PlannedScreenProps {
   tint?: Tint;
   bullets?: ReadonlyArray<TranslationKey>;
   bulletsTitle?: string;
-  action?: { label: string; href: string };
+  action?: { label: string; href: Href };
   close?: boolean;
   children?: ReactNode;
   testID?: string;

@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { View } from 'react-native';
 
 import type { TranslationKey } from '@/i18n';
@@ -17,7 +17,7 @@ interface Example {
   title: TranslationKey;
   body: TranslationKey;
   params?: Record<string, number>;
-  action?: { label: TranslationKey; route: string };
+  action?: { label: TranslationKey; route: Href };
 }
 
 const EXAMPLES: readonly Example[] = [

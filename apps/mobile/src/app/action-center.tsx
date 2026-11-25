@@ -1,4 +1,4 @@
-import { router, Stack } from 'expo-router';
+import { router, Stack, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
@@ -14,7 +14,7 @@ interface Entry {
   id: string;
   label: TranslationKey;
   icon: IconName;
-  href: string;
+  href: Href;
 }
 
 const ENTRIES: ReadonlyArray<Entry> = [
@@ -40,7 +40,7 @@ export default function ActionCenterScreen() {
   parts.push(device.lastSyncAt === null ? t('home.neverSynced') : t('home.syncedShort', { ago: formatAgo(t, nowS, device.lastSyncAt) }));
 
   return (
-    <Page title={t('a11y.actionCenter')} close testID="action-center">
+    <Page title={t('home.actionCenter.title')} close testID="action-center">
       <Stack.Screen options={{ presentation: 'modal' }} />
       <AppText variant="capLarge" muted>
         {t('home.quickActions')}

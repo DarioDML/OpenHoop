@@ -79,7 +79,7 @@ export function ScoreRing({
         <View style={{ alignItems: 'center', gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <AppText variant="cap" muted numberOfLines={1}>
-              {label} ›
+              {label}
             </AppText>
           </View>
           <ParityBadge level={level} />

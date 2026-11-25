@@ -56,7 +56,7 @@
   "home.startActivity": "Activiteit starten",
   "home.thisWeek": "Deze week",
   "home.weeklyPlan": "Weekplan",
-  "home.weekActive": "Belastingsdagen (≥ 7)",
+  "home.weekActive": "Belasting",
   "home.weekSleep": "Slaapnachten",
   "home.tonight": "Slaap vannacht",
   "home.planner": "Planner",
@@ -195,5 +195,6 @@
   "metricDetail.method.rhr": "OpenHoop leidt de rusthartslag af uit de hartslag van de band tijdens slaap. Het is een gekalibreerd model.",
   "metricDetail.method.resp": "OpenHoop schat de ademhalingsfrequentie uit de signalen van de band tijdens slaap. Het is een gekalibreerd model.",
   "metricDetail.method.spo2": "SpO2 wordt door de band zelf gemeten. OpenHoop toont het zoals ontvangen.",
-  "metricDetail.method.temp": "Huidtemperatuur wordt door de band zelf gemeten. OpenHoop toont het zoals ontvangen."
+  "metricDetail.method.temp": "Huidtemperatuur wordt door de band zelf gemeten. OpenHoop toont het zoals ontvangen.",
+  "home.actionCenter.title": "Actiecentrum"
 }

@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -16,16 +16,25 @@ interface GradientProps {
 }
 
 export function GradientFill({ from, to, stop = 1, angle = 'vertical', id }: GradientProps) {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const onLayout = (event: LayoutChangeEvent): void => {
+    const { width, height } = event.nativeEvent.layout;
+    setSize((current) => (current && current.width === width && current.height === height ? current : { width, height }));
+  };
   return (
-    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none" pointerEvents="none">
-      <Defs>
-        <LinearGradient id={id} x1="0" y1="0" x2={angle === 'diagonal' ? '1' : '0'} y2="1">
-          <Stop offset="0" stopColor={from} />
-          <Stop offset={stop} stopColor={to} />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-    </Svg>
+    <View style={StyleSheet.absoluteFill} pointerEvents="none" onLayout={onLayout}>
+      {size ? (
+        <Svg width={size.width} height={size.height}>
+          <Defs>
+            <LinearGradient id={id} x1="0" y1="0" x2={angle === 'diagonal' ? '1' : '0'} y2="1">
+              <Stop offset="0" stopColor={from} />
+              <Stop offset={stop} stopColor={to} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width={size.width} height={size.height} fill={`url(#${id})`} />
+        </Svg>
+      ) : null}
+    </View>
   );
 }
 

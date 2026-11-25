@@ -582,18 +582,20 @@ export class AppController {
 
   updateProfile = async (patch: Partial<Profile>): Promise<void> => {
     const { store } = this.requireApp();
-    const profile = { ...this.snapshot.profile, ...patch };
+    const before = this.snapshot.profile;
+    const profile = { ...before, ...patch };
     await store.setSetting(SETTING_KEYS.birthYear, serializeOptionalInteger(profile.birthYear));
     await store.setSetting(SETTING_KEYS.maxHeartRate, serializeOptionalInteger(profile.maxHeartRate));
     this.patch({ profile });
     const deviceId = this.deviceRow?.id;
-    if (deviceId === undefined) return;
-    await this.exclusive(async () => {
+    const changed = profile.birthYear !== before.birthYear || profile.maxHeartRate !== before.maxHeartRate;
+    if (deviceId === undefined || !changed) return;
+    void this.exclusive(async () => {
       this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
       try {
         await this.recompute(deviceId, null);
       } catch (error) {
-        throw this.fail(error);
+        this.fail(error);
       } finally {
         this.patch({ syncProgress: null });
       }

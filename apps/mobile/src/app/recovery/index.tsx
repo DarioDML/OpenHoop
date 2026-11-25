@@ -54,9 +54,7 @@ export default function ReadinessScreen() {
             size={168}
             strokeWidth={14}
           />
-          {day.readinessCalibrating ? (
-            <Chip label={t('calibrating.label')} tone="neutral" testID="band-chip" />
-          ) : band ? (
+          {!day.readinessCalibrating && band ? (
             <Chip label={t(`readiness.${band}`)} tone={band === 'high' ? 'positive' : band === 'medium' ? 'warning' : 'negative'} testID="band-chip" />
           ) : null}
         </View>
@@ -100,7 +98,7 @@ export default function ReadinessScreen() {
               <StatRow
                 testID={`row-${slug}`}
                 label={t(spec.label)}
-                value={derived.value === null ? '–' : `${formatNumber(derived.value, spec.decimals, language)} ${t(spec.unit)}`}
+                value={derived.value === null ? reason(derived.reason) : `${formatNumber(derived.value, spec.decimals, language)} ${t(spec.unit)}`}
                 right={chip ? <Chip label={chip.label} tone={chip.tone} small /> : undefined}
                 href={`/recovery/metric/${slug}`}
               />
@@ -111,7 +109,7 @@ export default function ReadinessScreen() {
         <StatRow
           testID="row-sleep"
           label={t('score.sleep')}
-          value={day.sleep.score.value === null ? '–' : `${formatNumber(day.sleep.score.value, 0, language)}%`}
+          value={day.sleep.score.value === null ? reason(day.sleep.score.reason) : `${formatNumber(day.sleep.score.value, 0, language)}%`}
           right={sleepChip ? <Chip label={sleepChip.label} tone={sleepChip.tone} small /> : undefined}
           href="/sleep"
         />

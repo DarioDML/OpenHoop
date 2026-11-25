@@ -60,7 +60,7 @@ export default function HomeScreen() {
           <HomeHeader days={days} index={index} />
           <Hero days={days} index={index} variant={userData.homeHero} />
           <View style={{ alignItems: 'center' }}>
-            <AppText variant="caption" color={colors.textMuted} testID="synced-line">
+            <AppText variant="caption" color={colors.textMuted} testID="synced-line" style={{ textAlign: 'center' }}>
               {syncedText}
             </AppText>
           </View>

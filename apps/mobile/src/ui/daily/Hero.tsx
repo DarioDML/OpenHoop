@@ -1,5 +1,5 @@
 import type { DayRecord } from '@openhoop/core';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { metricValue } from '@/data/derived';
@@ -22,7 +22,7 @@ interface RingProps {
   reason: string | null;
   caption?: string | null;
   captionColor?: string;
-  href: string;
+  href: Href;
   size?: number;
   testID: string;
 }
@@ -98,7 +98,7 @@ export function Hero({ days, index, variant }: HeroProps) {
   const { day } = v;
 
   if (variant === 'compact') {
-    const stat = (label: string, value: string | null, unit: string, href: string, testID: string) => (
+    const stat = (label: string, value: string | null, unit: string, href: Href, testID: string) => (
       <Pressable key={testID} testID={testID} accessibilityRole="button" accessibilityLabel={label} onPress={() => router.push(href)} style={{ gap: 2, minHeight: 44, justifyContent: 'center' }}>
         <AppText variant="capSmall" muted>
           {label}
