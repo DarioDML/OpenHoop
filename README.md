@@ -42,9 +42,18 @@ On a Mac with Xcode, `npx expo run:ios` does the same for iOS. The app can use t
 
 ### Ready-made builds
 
-The `App builds` workflow (`.github/workflows/apps.yml`) builds an Android APK and an unsigned iOS IPA, and starts the iOS build on a simulator to check that it launches. It runs on pull requests that change the native setup, on demand from the Actions tab, and on every `v*` tag. A tag also publishes both files as a GitHub release. To install them on a phone, see [docs/installeren.md](docs/installeren.md) (Dutch).
+The `App builds` workflow (`.github/workflows/apps.yml`) builds an Android APK and an iOS simulator build, and launches the app to check that it stays up. It runs on pull requests and `master` pushes that change the native setup, on demand from the Actions tab, and on every `v*` tag. Tags and manual runs also build the unsigned iOS IPA. To install the files on a phone, see [docs/installeren.md](docs/installeren.md) (Dutch).
 
-Pull request and on-demand builds sign the APK with the public debug key: fine for testing, but anyone could sign an update for it. A tagged release signs with your own key and fails without it. Set the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`; only tag builds can read them. The IPA needs no secrets: every iPhone user signs it with their own Apple ID.
+Pull request and on-demand builds sign the APK with the public debug key: fine for testing, but anyone could sign an update for it.
+
+#### Releasing
+
+1. Bump `expo.version` in `apps/mobile/app.json` in a PR and merge it. The Android `versionCode` and iOS `buildNumber` are derived from it in `app.config.ts` (`1.2.3` becomes `1002003`), so every release installs over the previous one.
+2. Tag the merge commit on `master` as `v<version>` (or `v<version>-rc.1`) and push the tag. Only admins can create `v*` tags, and tags cannot be moved or deleted.
+3. The tag run checks that the tag matches `app.json` and is on `master`, reruns CI, and builds an **unsigned** APK. Signing happens in a separate job in the `release` environment, which waits for your approval and is the only place the key exists.
+4. The release gets the APK, the IPA, `SHA256SUMS.txt` and a build-provenance attestation (`gh attestation verify <file> --repo DarioDML/OpenHoop`).
+
+Put the signing key in the `release` environment as secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`. Then set the repository variable `ANDROID_SIGNING_CERT_SHA256` to the certificate fingerprint (`keytool -list -v -keystore <file>`), so a release signed with any other key fails. To rehearse a release without publishing, start **App builds** from the Actions tab with **release dry run** checked: it runs the whole path and signs with a throwaway key. The IPA needs no secrets: every iPhone user signs it with their own Apple ID.
 
 A Dutch runbook for the first day with a real band is in [docs/dag-1.md](docs/dag-1.md).
 
