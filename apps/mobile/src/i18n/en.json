@@ -47,6 +47,7 @@
   "reason.no-sleep": "No sleep recorded",
   "reason.missing-signal": "Signal missing",
   "reason.needs-history": "Needs more nights first",
+  "reason.no-profile": "Body profile incomplete",
   "reason.unknown": "No value available",
   "calibrating.label": "Calibrating",
   "calibrating.hint": "For the first three nights OpenHoop is still learning what is normal for you. Treat the score as an indication.",

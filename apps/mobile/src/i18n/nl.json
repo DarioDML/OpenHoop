@@ -47,6 +47,7 @@
   "reason.no-sleep": "Geen slaap vastgelegd",
   "reason.missing-signal": "Signaal ontbreekt",
   "reason.needs-history": "Eerst meer nachten nodig",
+  "reason.no-profile": "Lichaamsprofiel onvolledig",
   "reason.unknown": "Geen waarde beschikbaar",
   "calibrating.label": "Kalibreert",
   "calibrating.hint": "De eerste drie nachten leert OpenHoop nog wat voor jou normaal is. Zie de score als een indicatie.",
