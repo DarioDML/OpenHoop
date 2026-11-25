@@ -54,6 +54,8 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx jest
+      - name: Bundle the app with Metro and Hermes
+        run: npx expo export --platform android --platform ios --output-dir "$RUNNER_TEMP/export"
 
   dependency-review:
     name: Dependency review

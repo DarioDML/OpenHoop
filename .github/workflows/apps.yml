@@ -3,9 +3,9 @@ name: App builds
 on:
   workflow_dispatch:
   push:
+    branches: [master]
     tags: ['v*']
-  pull_request:
-    paths:
+    paths: &native-paths
       - 'apps/mobile/app.json'
       - 'apps/mobile/package.json'
       - 'apps/mobile/package-lock.json'
@@ -13,13 +13,15 @@ on:
       - 'apps/mobile/locales/**'
       - 'apps/mobile/src/ble/**'
       - '.github/workflows/apps.yml'
+  pull_request:
+    paths: *native-paths
 
 permissions:
   contents: read
 
 concurrency:
   group: apps-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   android:
@@ -70,7 +72,7 @@ jobs:
           OPENHOOP_KEYSTORE_PASSWORD: ${{ startsWith(github.ref, 'refs/tags/v') && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
           OPENHOOP_KEY_ALIAS: ${{ startsWith(github.ref, 'refs/tags/v') && secrets.ANDROID_KEY_ALIAS || '' }}
           OPENHOOP_KEY_PASSWORD: ${{ startsWith(github.ref, 'refs/tags/v') && secrets.ANDROID_KEY_PASSWORD || '' }}
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+        run: ./gradlew assembleRelease --build-cache -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
       - name: Remove the decoded keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/release.jks"
@@ -85,10 +87,26 @@ jobs:
     name: iOS IPA and simulator check
     runs-on: macos-latest
     timeout-minutes: 90
+    env:
+      BUILD_DEVICE_IPA: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
     defaults:
       run:
         working-directory: apps/mobile
     steps:
+      - name: Start booting a simulator while the app builds
+        working-directory: .
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, re, sys
+          devices = json.load(sys.stdin)["devices"]
+          runtimes = sorted(devices.items(), key=lambda kv: [int(n) for n in re.findall(r"\d+", kv[0])])
+          phones = [d for runtime, ds in runtimes if "iOS" in runtime for d in ds if d["name"].startswith("iPhone")]
+          if not phones:
+              sys.exit("No available iPhone simulator on this runner image")
+          print(phones[-1]["udid"])
+          ')
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -106,6 +124,7 @@ jobs:
       - run: xcodebuild -version
       - run: npx expo prebuild --platform ios --clean
       - name: Build unsigned IPA for sideloading
+        if: env.BUILD_DEVICE_IPA == 'true'
         working-directory: apps/mobile/ios
         run: |
           xcodebuild -workspace OpenHoop.xcworkspace -scheme OpenHoop -configuration Release \
@@ -117,32 +136,27 @@ jobs:
           cp -R "$RUNNER_TEMP/device/Build/Products/Release-iphoneos/OpenHoop.app" "$RUNNER_TEMP/ipa/Payload/"
           (cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/OpenHoop-ios-unsigned.ipa" Payload)
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: env.BUILD_DEVICE_IPA == 'true'
         with:
           name: openhoop-ios
           path: ${{ runner.temp }}/OpenHoop-ios-unsigned.ipa
           if-no-files-found: error
-      - name: Build for the simulator
+      - name: Build for the simulator (arm64 only, the runner's architecture)
         working-directory: apps/mobile/ios
         run: |
           xcodebuild -workspace OpenHoop.xcworkspace -scheme OpenHoop -configuration Release \
-            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -sdk iphonesimulator -destination "id=$SIM_UDID" \
             -derivedDataPath "$RUNNER_TEMP/simulator" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             -quiet build
-      - name: Launch on a simulator and check the app stays up
+      - name: Launch on the simulator and check the app stays up
         run: |
-          UDID=$(xcrun simctl list devices available --json | python3 -c '
-          import json, sys
-          devices = json.load(sys.stdin)["devices"]
-          phones = [d for runtime, ds in sorted(devices.items()) if "iOS" in runtime for d in ds if d["name"].startswith("iPhone")]
-          print(phones[-1]["udid"])
-          ')
-          xcrun simctl boot "$UDID"
-          xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" "$RUNNER_TEMP/simulator/Build/Products/Release-iphonesimulator/OpenHoop.app"
-          xcrun simctl launch "$UDID" app.openhoop.mobile
+          xcrun simctl bootstatus "$SIM_UDID" -b
+          xcrun simctl install "$SIM_UDID" "$RUNNER_TEMP/simulator/Build/Products/Release-iphonesimulator/OpenHoop.app"
+          xcrun simctl launch "$SIM_UDID" app.openhoop.mobile
           sleep 30
-          xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/ios-simulator.png"
-          if ! xcrun simctl spawn "$UDID" launchctl list | grep -q 'app.openhoop.mobile'; then
+          xcrun simctl io "$SIM_UDID" screenshot "$RUNNER_TEMP/ios-simulator.png"
+          if ! xcrun simctl spawn "$SIM_UDID" launchctl list | grep -q 'app.openhoop.mobile'; then
             echo "::error::OpenHoop is no longer running 30 seconds after launch on the simulator."
             ls ~/Library/Logs/DiagnosticReports/ | grep -i openhoop && cat ~/Library/Logs/DiagnosticReports/OpenHoop* | head -80
             exit 1
