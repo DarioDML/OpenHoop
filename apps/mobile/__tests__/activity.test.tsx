@@ -55,12 +55,6 @@ import AchievementsScreen from '@/app/profile/achievements';
 import EditProfileScreen from '@/app/profile/edit';
 import ProfileScreen from '@/app/profile/index';
 import StepsScreen from '@/app/steps';
-import StrengthBuilderScreen from '@/app/strength/builder';
-import StrengthExerciseScreen from '@/app/strength/exercise';
-import StrengthHomeScreen from '@/app/strength/index';
-import StrengthLiveScreen from '@/app/strength/live';
-import StrengthSummaryScreen from '@/app/strength/summary';
-import StrengthTrendsScreen from '@/app/strength/trends';
 
 const days = createFixtureDays(FIXTURE_NOW);
 
@@ -245,21 +239,6 @@ describe('steps', () => {
     await render(withAppData(<StepsScreen />, 'en', { userData: { ...defaultUserData(), stepsGoal: 8000 } }));
     expect(screen.queryByTestId('steps-set-goal')).toBeNull();
     expect(screen.getByTestId('steps-goal-days')).toBeTruthy();
-  });
-});
-
-describe('strength', () => {
-  it.each([
-    ['home', StrengthHomeScreen],
-    ['builder', StrengthBuilderScreen],
-    ['live', StrengthLiveScreen],
-    ['summary', StrengthSummaryScreen],
-    ['exercise', StrengthExerciseScreen],
-    ['trends', StrengthTrendsScreen],
-  ])('shows the not-built notice on %s', async (_name, Component) => {
-    await render(withAppData(<Component />));
-    expect(screen.getByTestId('not-built-strength')).toBeTruthy();
-    expect(screen.queryByText(/\d\d\d kg/)).toBeNull();
   });
 });
 

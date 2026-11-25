@@ -1,6 +1,19 @@
 import {
   Session,
+  addStrengthSessionExercise,
+  addStrengthSet,
   bindStore,
+  deleteCustomExercise,
+  deleteStrengthSession,
+  deleteStrengthSet,
+  deleteStrengthTemplate,
+  emptyStrengthData,
+  finishStrengthSession,
+  insertCustomExercise,
+  listStrengthData,
+  removeStrengthSessionExercise,
+  saveStrengthTemplate,
+  startStrengthSession,
   deleteBodyMeasurement,
   deleteDataBefore,
   exportCsv,
@@ -18,6 +31,11 @@ import {
   type BandModel,
   type BodyMeasurement,
   type BodyMeasurementInput,
+  type CustomExerciseInput,
+  type PlannedExercise,
+  type StrengthData,
+  type StrengthSetInput,
+  type StrengthTemplateInput,
   type DayRecord,
   type DeviceRow,
   type SleepEditRow,
@@ -54,6 +72,7 @@ import type {
   Profile,
   Settings,
   SleepEditOutcome,
+  StrengthActions,
   SyncProgressView,
 } from './types';
 
@@ -83,6 +102,7 @@ export interface Snapshot {
   settings: Settings;
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
+  strength: StrengthData;
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
 }
@@ -160,6 +180,7 @@ export class AppController {
       settings: { language, dataSource: 'demo', ownerSince: null },
       userData: defaultUserData(),
       bodyMeasurements: [],
+      strength: emptyStrengthData(),
       syncProgress: null,
       notice: null,
     };
@@ -250,7 +271,8 @@ export class AppController {
     const userData = parseUserData(rawUserData);
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
-    this.patch({ settings: { ...this.snapshot.settings, language, dataSource }, profile, userData, bodyMeasurements });
+    const strength = await listStrengthData(this.app.driver);
+    this.patch({ settings: { ...this.snapshot.settings, language, dataSource }, profile, userData, bodyMeasurements, strength });
     await this.loadActiveDevice();
     this.patch({ ready: true });
     if (dataSource === 'demo') void this.sync();
@@ -747,6 +769,54 @@ export class AppController {
 
   removeBodyMeasurement = (id: number): Promise<boolean> => this.runBodyChange((driver) => deleteBodyMeasurement(driver, id));
 
+  private runStrength<T>(task: (driver: AppStore['driver']) => Promise<T>, failed: T): Promise<T> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const result = await task(driver);
+        this.patch({ strength: await listStrengthData(driver) });
+        return result;
+      } catch (error) {
+        this.fail(error);
+        return failed;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
+  private readonly strengthActionSet: StrengthActions = this.strengthActions();
+
+  private strengthActions(): StrengthActions {
+    return {
+      saveExercise: (input: CustomExerciseInput) =>
+        this.runStrength(async (driver) => {
+          await insertCustomExercise(driver, input, nowSeconds());
+          return true;
+        }, false),
+      removeExercise: (id: number) => this.runStrength((driver) => deleteCustomExercise(driver, id), false),
+      saveTemplate: (id: number | null, input: StrengthTemplateInput) =>
+        this.runStrength((driver) => saveStrengthTemplate(driver, id, input, nowSeconds()), null),
+      removeTemplate: (id: number) => this.runStrength((driver) => deleteStrengthTemplate(driver, id), false),
+      startSession: (templateId: number | null, name: string, exercises: PlannedExercise[]) =>
+        this.runStrength(async (driver) => {
+          const open = this.snapshot.strength.sessions.find((session) => session.endedAt === null);
+          if (open !== undefined) return open.id;
+          const now = new Date(Date.now());
+          const day = unixToIsoDate(Math.floor(now.getTime() / 1000), deviceTzOffsetS(now));
+          return startStrengthSession(driver, { templateId, name, day, exercises }, nowSeconds());
+        }, null),
+      addSessionExercise: (sessionId: number, exercise: PlannedExercise) =>
+        this.runStrength((driver) => addStrengthSessionExercise(driver, sessionId, exercise), false),
+      removeSessionExercise: (id: number) => this.runStrength((driver) => removeStrengthSessionExercise(driver, id), false),
+      logSet: (sessionId: number, input: StrengthSetInput) =>
+        this.runStrength(async (driver) => (await addStrengthSet(driver, sessionId, input, nowSeconds())) !== null, false),
+      removeSet: (id: number) => this.runStrength((driver) => deleteStrengthSet(driver, id), false),
+      finishSession: (id: number) => this.runStrength((driver) => finishStrengthSession(driver, id, nowSeconds()), false),
+      removeSession: (id: number) => this.runStrength((driver) => deleteStrengthSession(driver, id), false),
+    };
+  }
+
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
@@ -833,6 +903,7 @@ export class AppController {
       updateUserData: this.updateUserData,
       saveBodyMeasurement: this.saveBodyMeasurement,
       removeBodyMeasurement: this.removeBodyMeasurement,
+      strengthActions: this.strengthActionSet,
       heartRateBetween: this.heartRateBetween,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,

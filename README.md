@@ -76,7 +76,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A | SpO2, skin temperature |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones |
-| C | Sleep consistency, automatic workouts, calories (estimate) |
+| C | Sleep consistency, automatic workouts, calories (estimate), muscular load and estimated 1RM (strength training) |
 | D | Raw records, for example optical and motion data. Also the values you enter by hand (weight, body fat) and the plain arithmetic on them (BMI, lean mass, change over a period) |
 
 When the data does not support a number, the app shows the reason instead of a number.
@@ -86,6 +86,15 @@ You can correct the start and end of a detected sleep and add a nap by hand. A c
 ## Scores
 
 The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to 100). They are OpenHoop's own models. Their constants come from the open reference project `wearable5.0` and were fitted on one wearer, so they are not the vendor's scores and may differ for you. The constants live in a `Calibration` object so they can be refitted without changing code. The first three nights are labelled "calibrating".
+
+## Strength training
+
+Sessions, sets, templates and your own exercises are stored on the phone and are part of the export. Reps, weight and RPE are what you enter (level D). Everything computed from them is an own method (level C) and is labelled as such.
+
+- **Volume** is reps × weight in kg, summed over the sets. A set with 0 kg (bodyweight) counts as a set but adds no volume.
+- **Muscular load** is the volume summed per primary muscle group of each exercise, next to the number of sets and the share of the session volume. It has no secondary muscles and no physiological weighting, so it is a plain volume count and not a measure of strain on the muscle.
+- **Estimated 1RM** uses the Epley formula, 1RM ≈ weight × (1 + reps / 30) (Epley B., Poundage Chart, Boyd Epley Workout, Body Enterprises, Lincoln NE, 1985), only for sets of 1 to 12 reps with weight. It is an estimate, not a tested maximum.
+- **Heart rate** in a session summary is taken from the band samples between the start and the end of the session. Without samples the app says so. A session works without a band.
 
 ## Calories
 

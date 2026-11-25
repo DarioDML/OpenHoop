@@ -1,4 +1,16 @@
-import type { BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, SleepEditProblem, SleepEditRow } from '@openhoop/core';
+import type {
+  BandModel,
+  BodyMeasurement,
+  BodyMeasurementInput,
+  CustomExerciseInput,
+  DayRecord,
+  PlannedExercise,
+  SleepEditProblem,
+  SleepEditRow,
+  StrengthData,
+  StrengthSetInput,
+  StrengthTemplateInput,
+} from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 
@@ -72,6 +84,20 @@ export interface SleepEditLimits {
   sleepMaxS: number;
 }
 
+export interface StrengthActions {
+  saveExercise(input: CustomExerciseInput): Promise<boolean>;
+  removeExercise(id: number): Promise<boolean>;
+  saveTemplate(id: number | null, input: StrengthTemplateInput): Promise<number | null>;
+  removeTemplate(id: number): Promise<boolean>;
+  startSession(templateId: number | null, name: string, exercises: PlannedExercise[]): Promise<number | null>;
+  addSessionExercise(sessionId: number, exercise: PlannedExercise): Promise<boolean>;
+  removeSessionExercise(id: number): Promise<boolean>;
+  logSet(sessionId: number, input: StrengthSetInput): Promise<boolean>;
+  removeSet(id: number): Promise<boolean>;
+  finishSession(id: number): Promise<boolean>;
+  removeSession(id: number): Promise<boolean>;
+}
+
 export interface AppData {
   ready: boolean;
   days: DayRecord[];
@@ -83,6 +109,8 @@ export interface AppData {
   settings: Settings;
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
+  strength: StrengthData;
+  strengthActions: StrengthActions;
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
   scan(): Promise<DiscoveredBand[]>;
