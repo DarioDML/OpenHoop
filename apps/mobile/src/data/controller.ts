@@ -56,6 +56,7 @@ import { openAppStore, type AppStore } from './appStore';
 import { addDays } from './derived';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
+import { removeLeftoverReports } from './reportFiles';
 import {
   NOTIFICATION_STATE_KEY,
   emptyNotificationState,
@@ -275,8 +276,9 @@ export class AppController {
     this.started = true;
     try {
       removeLeftoverExports();
+      removeLeftoverReports();
     } catch {
-      // a leftover export is removed again before the next export
+      // a leftover export or report is removed again before the next one
     }
     try {
       this.app = await openAppStore();
