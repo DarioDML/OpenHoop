@@ -1,13 +1,13 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { View } from 'react-native';
 
 import { LiveProvider } from '@/data/LiveProvider';
-import { useT } from '@/i18n/useT';
-import { useTheme } from '@/ui/theme';
+import { useAppFonts } from '@/ui/fonts';
+import { darkColors, useTheme } from '@/ui/theme';
 
 function RootStack() {
   const { colors, dark } = useTheme();
-  const { t } = useT();
   const base = dark ? DarkTheme : DefaultTheme;
   const navTheme: Theme = {
     ...base,
@@ -24,25 +24,16 @@ function RootStack() {
   return (
     <ThemeProvider value={navTheme}>
       <StatusBar style={dark ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: colors.background },
-          headerTitleStyle: { color: colors.text },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-          contentStyle: { backgroundColor: colors.background },
-        }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="pairing" options={{ title: t('screen.pairing') }} />
-        <Stack.Screen name="readiness" options={{ title: t('screen.readiness') }} />
-        <Stack.Screen name="settings" options={{ title: t('screen.settings') }} />
-        <Stack.Screen name="selftest" options={{ title: t('screen.selftest') }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+        <Stack.Screen name="(tabs)" />
       </Stack>
     </ThemeProvider>
   );
 }
 
 export default function RootLayout() {
+  const fontsReady = useAppFonts();
+  if (!fontsReady) return <View style={{ flex: 1, backgroundColor: darkColors.background }} />;
   return (
     <LiveProvider>
       <RootStack />

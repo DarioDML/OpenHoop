@@ -1,12 +1,13 @@
 import { View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
 
 import type { ParityLevel } from '@/data/types';
 import { formatNumber } from '@/lib/format';
 import { useT } from '@/i18n/useT';
 
 import { AppText } from './AppText';
+import { Num } from './Num';
 import { ParityBadge } from './ParityBadge';
+import { Ring } from './Ring';
 import { useTheme } from './theme';
 
 interface Props {
@@ -20,6 +21,10 @@ interface Props {
   size?: number;
   strokeWidth?: number;
   showLabel?: boolean;
+  color?: string;
+  unit?: string;
+  sublabel?: string;
+  tickValue?: number | null;
   testID?: string;
 }
 
@@ -32,56 +37,52 @@ export function ScoreRing({
   decimals = 0,
   calibrating = false,
   size = 104,
-  strokeWidth = 9,
+  strokeWidth = 7,
   showLabel = true,
+  color,
+  unit,
+  sublabel,
+  tickValue = null,
   testID,
 }: Props) {
   const { colors } = useTheme();
   const { language, t, reason: reasonLabel } = useT();
-  const r = (size - strokeWidth) / 2;
-  const c = 2 * Math.PI * r;
-  const fraction = value === null ? 0 : Math.min(1, Math.max(0, value / max));
-  const arcColor = calibrating ? colors.textMuted : colors.accent;
+  const arcColor = calibrating ? colors.textMuted : (color ?? colors.accent);
+  const numberColor = calibrating ? colors.textMuted : (color ?? colors.text);
 
   return (
-    <View style={{ alignItems: 'center', gap: 8, flex: 1 }} testID={testID}>
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <Svg width={size} height={size} style={{ position: 'absolute' }}>
-          <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.surfaceAlt} strokeWidth={strokeWidth} fill="none" />
-          {value !== null ? (
-            <Circle
-              cx={size / 2}
-              cy={size / 2}
-              r={r}
-              stroke={arcColor}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={`${c * fraction} ${c}`}
-              strokeDashoffset={0}
-              rotation={-90}
-              origin={`${size / 2}, ${size / 2}`}
-              fill="none"
-            />
-          ) : null}
-        </Svg>
+    <View style={{ alignItems: 'center', gap: 10 }} testID={testID}>
+      <Ring
+        size={size}
+        strokeWidth={strokeWidth}
+        fraction={value === null ? null : value / max}
+        color={arcColor}
+        tickFraction={tickValue === null ? null : tickValue / max}>
         {value !== null ? (
-          <AppText variant={size >= 140 ? 'display' : 'value'} numeric>
-            {formatNumber(value, decimals, language)}
-          </AppText>
+          <View style={{ alignItems: 'center', gap: 2 }}>
+            <Num size={Math.round(size * 0.38)} color={numberColor} unit={unit} unitSize={Math.round(size * 0.17)}>
+              {formatNumber(value, decimals, language)}
+            </Num>
+            {sublabel ? (
+              <AppText variant="capSmall" color={numberColor} style={{ fontSize: 9, lineHeight: 11 }}>
+                {sublabel}
+              </AppText>
+            ) : null}
+          </View>
         ) : (
           <AppText variant="caption" muted style={{ textAlign: 'center', paddingHorizontal: 14 }}>
             {reasonLabel(reason)}
           </AppText>
         )}
-      </View>
+      </Ring>
       {showLabel ? (
         <View style={{ alignItems: 'center', gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <AppText variant="label" numberOfLines={1}>
-              {label}
+            <AppText variant="cap" muted numberOfLines={1}>
+              {label} ›
             </AppText>
-            <ParityBadge level={level} />
           </View>
+          <ParityBadge level={level} />
           {calibrating && value !== null ? (
             <AppText variant="caption" color={colors.warning}>
               {t('calibrating.label')}

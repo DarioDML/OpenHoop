@@ -1,3 +1,4 @@
+import type { Href } from 'expo-router';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { ParityLevel } from '@/data/types';
@@ -6,6 +7,8 @@ import { useT } from '@/i18n/useT';
 
 import { AppText } from './AppText';
 import { Card } from './Card';
+import { Chip, type ChipTone } from './Chip';
+import { Num } from './Num';
 import { ParityBadge } from './ParityBadge';
 import { spacing } from './theme';
 
@@ -18,28 +21,31 @@ interface Props {
   decimals?: number;
   format?: (value: number) => string;
   caption?: string;
+  chip?: { label: string; tone: ChipTone } | null;
+  href?: Href;
+  size?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
-export function MetricTile({ label, value, level, unit, reason = null, decimals = 0, format, caption, style, testID }: Props) {
+export function MetricTile({ label, value, level, unit, reason = null, decimals = 0, format, caption, chip, href, size = 44, style, testID }: Props) {
   const { language, reason: reasonLabel } = useT();
   const hasValue = value !== null;
   return (
-    <Card style={[{ gap: spacing.sm, padding: spacing.md }, style]}>
+    <Card href={href} style={[{ gap: 10 }, style]} testID={testID} accessibilityLabel={label}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-        <AppText variant="label" muted numberOfLines={1} style={{ flexShrink: 1 }}>
-          {label}
+        <AppText variant="capSmall" muted numberOfLines={1} style={{ flexShrink: 1 }}>
+          {href ? `${label} ›` : label}
         </AppText>
         <ParityBadge level={level} />
       </View>
       {hasValue ? (
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-          <AppText variant="value" numeric testID={testID ? `${testID}-value` : undefined}>
+          <Num size={size} testID={testID ? `${testID}-value` : undefined}>
             {format ? format(value) : formatNumber(value, decimals, language)}
-          </AppText>
+          </Num>
           {unit ? (
-            <AppText variant="label" muted>
+            <AppText variant="cardTitle" muted style={{ fontWeight: '400' }}>
               {unit}
             </AppText>
           ) : null}
@@ -49,6 +55,7 @@ export function MetricTile({ label, value, level, unit, reason = null, decimals 
           {reasonLabel(reason)}
         </AppText>
       )}
+      {chip && hasValue ? <Chip label={chip.label} tone={chip.tone} /> : null}
       {caption ? (
         <AppText variant="caption" muted>
           {caption}

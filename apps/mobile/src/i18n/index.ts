@@ -1,12 +1,25 @@
 import type { Language } from '@/data/types';
 
-import en from './en.json';
-import nl from './nl.json';
+import coreEn from './en.json';
+import coreNl from './nl.json';
+import activityEn from './sections/activity.en.json';
+import activityNl from './sections/activity.nl.json';
+import dailyEn from './sections/daily.en.json';
+import dailyNl from './sections/daily.nl.json';
+import healthEn from './sections/health.en.json';
+import healthNl from './sections/health.nl.json';
+import manageEn from './sections/manage.en.json';
+import manageNl from './sections/manage.nl.json';
+
+const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl };
+const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn };
 
 export type TranslationKey = keyof typeof nl;
 export type TranslationParams = Record<string, string | number>;
 
 const dictionaries: Record<Language, Record<TranslationKey, string>> = { nl, en };
+
+export const allTranslations: Readonly<Record<Language, Readonly<Record<string, string>>>> = { nl, en };
 
 export const KNOWN_REASONS = ['no-data', 'low-coverage', 'no-sleep', 'missing-signal', 'needs-history'] as const;
 export type KnownReason = (typeof KNOWN_REASONS)[number];

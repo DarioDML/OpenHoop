@@ -1,37 +1,14 @@
 import { render, screen } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 
-import { AppDataContext } from '@/data/context';
-import { createFixtureDays, createFixtureDevice, createFixtureSettings } from '@/data/fixtureSource';
-import type { AppData, Language } from '@/data/types';
+import { createFixtureDays } from '@/data/fixtureSource';
+import type { Language } from '@/data/types';
 import { MetricTile } from '@/ui/MetricTile';
 
-function appData(language: Language): AppData {
-  const now = new Date('2026-11-25T12:00:00Z');
-  const noop = async (): Promise<void> => undefined;
-  return {
-    ready: true,
-    syncProgress: null,
-    notice: null,
-    clearNotice: () => undefined,
-    days: createFixtureDays(now),
-    device: createFixtureDevice(now),
-    live: { active: false, heartRate: null, lastRrMs: null, updatedAt: null },
-    profile: { birthYear: null, maxHeartRate: null },
-    settings: createFixtureSettings(language, now),
-    scan: async () => [],
-    pair: noop,
-    sync: noop,
-    startLive: noop,
-    stopLive: noop,
-    exportData: noop,
-    updateProfile: noop,
-    updateSettings: noop,
-  };
-}
+import { withAppData } from './support/appData';
 
 function wrap(language: Language, children: ReactNode): ReactElement {
-  return <AppDataContext.Provider value={appData(language)}>{children}</AppDataContext.Provider>;
+  return withAppData(children, language);
 }
 
 describe('MetricTile', () => {

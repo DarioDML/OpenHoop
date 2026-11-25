@@ -1,6 +1,6 @@
-import en from '@/i18n/en.json';
-import nl from '@/i18n/nl.json';
-import { KNOWN_REASONS, reasonKey, reasonText, translate } from '@/i18n';
+import { KNOWN_REASONS, allTranslations, reasonKey, reasonText, translate } from '@/i18n';
+
+const { en, nl } = allTranslations;
 
 describe('translation files', () => {
   it('have identical key sets', () => {
@@ -9,10 +9,12 @@ describe('translation files', () => {
 
   it('have no empty values and matching placeholders', () => {
     const placeholders = (text: string): string[] => (text.match(/\{\w+\}/g) ?? []).sort();
-    for (const key of Object.keys(nl) as Array<keyof typeof nl>) {
-      expect(nl[key].trim()).not.toBe('');
-      expect(en[key].trim()).not.toBe('');
-      expect(placeholders(en[key])).toEqual(placeholders(nl[key]));
+    for (const key of Object.keys(nl)) {
+      const nlText = nl[key] ?? '';
+      const enText = en[key] ?? '';
+      expect(nlText.trim()).not.toBe('');
+      expect(enText.trim()).not.toBe('');
+      expect(placeholders(enText)).toEqual(placeholders(nlText));
     }
   });
 
