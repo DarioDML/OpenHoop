@@ -8,6 +8,7 @@ import {
   generateFromSaved,
   parseTripForm,
   sameSavedPlan,
+  stepsNeeded,
   type FormProblem,
   type JetLagPlan,
   type LightWindow,
@@ -54,11 +55,11 @@ function formState(saved: SavedJetLagPlan | null, history: { bedMinutes: number;
   };
 }
 
-function PreDaysStepper({ value, effective, auto, onChange }: { value: number | null; effective: number | null; auto: number | null; onChange: (next: number | null) => void }) {
+function PreDaysStepper({ value, effective, auto, max, onChange }: { value: number | null; effective: number | null; auto: number | null; max: number; onChange: (next: number | null) => void }) {
   const { t } = useT();
   const { colors } = useTheme();
-  const current = value ?? effective ?? 0;
-  const label = value === null ? (auto === null ? t('jetlag.preDaysAutoButton') : t('jetlag.preDaysAuto', { days: auto })) : value === 1 ? t('jetlag.preDaysOne') : t('jetlag.preDaysMany', { count: value });
+  const current = effective ?? value ?? 0;
+  const label = value === null ? (auto === null ? t('jetlag.preDaysAutoButton') : t('jetlag.preDaysAuto', { days: auto })) : current === 1 ? t('jetlag.preDaysOne') : t('jetlag.preDaysMany', { count: current });
   const button = (testID: string, accessibilityLabel: string, glyph: string, next: number, disabled: boolean) => (
     <Pressable
       testID={testID}
@@ -80,7 +81,7 @@ function PreDaysStepper({ value, effective, auto, onChange }: { value: number | 
         <AppText variant="bodyStrong" testID="predays-value" style={{ minWidth: 110, textAlign: 'center' }}>
           {label}
         </AppText>
-        {button('predays-more', t('jetlag.preDaysMore'), '+', current + 1, current >= MAX_PRE_ADJUST_DAYS)}
+        {button('predays-more', t('jetlag.preDaysMore'), '+', current + 1, current >= max)}
       </View>
       {value !== null ? <Button testID="predays-auto" variant="tertiary" label={t('jetlag.preDaysAutoButton')} onPress={() => onChange(null)} /> : null}
     </View>
@@ -191,7 +192,7 @@ export default function JetLagScreen() {
         />
         <ZonePicker testID="zone-home" label={t('jetlag.homeZone')} value={form.homeZone} options={zones} onChange={(homeZone) => edit({ homeZone })} />
         <ZonePicker testID="zone-dest" label={t('jetlag.destZone')} value={form.destZone} options={zones} onChange={(destZone) => edit({ destZone })} />
-        <PreDaysStepper value={form.preDays} effective={plan?.preDays ?? null} auto={plan !== null && form.preDays === null ? plan.preDays : null} onChange={(preDays) => edit({ preDays })} />
+        <PreDaysStepper value={form.preDays} effective={plan?.preDays ?? null} auto={plan !== null && form.preDays === null ? plan.preDays : null} max={plan === null ? MAX_PRE_ADJUST_DAYS : Math.min(MAX_PRE_ADJUST_DAYS, stepsNeeded(plan.zoneShiftH))} onChange={(preDays) => edit({ preDays })} />
       </Card>
 
       <Card style={{ gap: spacing.md }}>

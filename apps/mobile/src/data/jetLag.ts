@@ -76,6 +76,10 @@ export function normalizeShiftH(hours: number): number {
   return Math.abs(wrapped) < EPSILON ? 0 : wrapped;
 }
 
+function nearestTo(hours: number, reference: number): number {
+  return hours - 24 * Math.round((hours - reference) / 24);
+}
+
 export function zoneShiftH(homeZone: string, destZone: string, epochS: number): number | null {
   const home = zoneOffsetS(homeZone, epochS);
   const dest = zoneOffsetS(destZone, epochS);
@@ -147,7 +151,7 @@ export function generatePlan(trip: JetLagTrip, anchor: SleepAnchor): PlanResult 
     const destOffsetBefore = noonOffset(trip.destZone, addDaysIso(date, -1));
     if (homeOffsetNow === null || destOffsetNow === null || homeOffsetBefore === null || destOffsetBefore === null) return { ok: false, problem: 'invalid-zone' };
 
-    const dayShift = normalizeShiftH((destOffsetNow - homeOffsetNow) / HOUR_S);
+    const dayShift = nearestTo((destOffsetNow - homeOffsetNow) / HOUR_S, shift);
     const reachable = Math.sign(dayShift) === sign ? Math.abs(dayShift) : 0;
     const step = offset + preDays + 1;
     const magnitude = Math.min(rate * step, reachable);

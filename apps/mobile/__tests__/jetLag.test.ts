@@ -225,6 +225,18 @@ describe('generatePlan', () => {
     expect(clock(must(last).bed.dest)).toBe('23:00');
   });
 
+  it('keeps the direction when a clock change moves the difference across twelve hours', () => {
+    const plan = planOf(trip({ departureDate: '2026-04-07', homeZone: 'Europe/London', destZone: 'Pacific/Auckland' }));
+    expect(plan.direction).toBe('east');
+    expect(plan.zoneShiftH).toBe(11);
+    const first = must(plan.days[0]);
+    expect(first.offset).toBe(-3);
+    expect(first.shiftH).toBe(1);
+    expect(first.adapted).toBe(false);
+    expect(first.seek).not.toBeNull();
+    expect(plan.days.map((d) => d.shiftH)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  });
+
   it('keeps the night length when bed and wake shift together', () => {
     const plan = planOf(trip({}));
     for (const day of plan.days) expect(day.wake.epochS - day.bed.epochS).toBe(8 * 3_600);

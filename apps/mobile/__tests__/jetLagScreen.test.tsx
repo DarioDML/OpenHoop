@@ -136,6 +136,23 @@ describe('jet lag screen', () => {
     expect(screen.getByTestId('predays-less')).toBeDisabled();
   });
 
+  it('does not offer more days to adjust than the shift needs', async () => {
+    const { tree } = setup();
+    await render(tree);
+    await fireEvent.changeText(screen.getByTestId('jetlag-date'), '2026-03-10');
+    await fireEvent.changeText(screen.getByTestId('jetlag-time'), '10:00');
+    await pickZone('zone-home', 'brussels', 'Europe/Brussels');
+    await pickZone('zone-dest', 'athens', 'Europe/Athens');
+    await fireEvent.changeText(screen.getByTestId('jetlag-bed'), '23:00');
+    await fireEvent.changeText(screen.getByTestId('jetlag-wake'), '07:00');
+    expect(screen.getByTestId('predays-more')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('predays-less'));
+    expect(screen.getByTestId('predays-value')).toHaveTextContent(has('0 days'));
+    await fireEvent.press(screen.getByTestId('predays-more'));
+    expect(screen.getByTestId('predays-value')).toHaveTextContent(has('1 day'));
+    expect(screen.getByTestId('predays-more')).toBeDisabled();
+  });
+
   it('shows a westward plan with later bedtimes', async () => {
     const { tree } = setup();
     await render(tree);
