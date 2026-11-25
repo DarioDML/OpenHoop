@@ -90,7 +90,7 @@ export default function JournalScreen() {
         </View>
       </Card>
       {dayNotes.map((note) => (
-        <JournalNoteCard key={note.id} note={note} showDay={false} onPress={openLog} accessibilityLabel={t('journal.log.title')} />
+        <JournalNoteCard key={note.id} note={note} showDay={false} onPress={openLog} />
       ))}
       {questions.map((question) => (
         <JournalRow
