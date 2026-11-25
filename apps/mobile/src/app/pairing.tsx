@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
+import { toAppError } from '@/data/errors';
 import type { DiscoveredBand } from '@/data/types';
+import type { TranslationKey, TranslationParams } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { isValidIsoDate, todayIso } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -13,10 +15,15 @@ import { Screen } from '@/ui/Screen';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
 type Step = 1 | 2 | 3 | 4;
+
+interface Failure {
+  key: TranslationKey;
+  params?: TranslationParams;
+}
 const TOTAL = 4;
 
 export default function PairingScreen() {
-  const { scan, pair } = useAppData();
+  const { scan, pair, device } = useAppData();
   const { t } = useT();
   const { colors } = useTheme();
   const [step, setStep] = useState<Step>(1);
@@ -27,14 +34,19 @@ export default function PairingScreen() {
   const [since, setSince] = useState(() => todayIso(new Date()));
   const [bonding, setBonding] = useState(false);
   const [bonded, setBonded] = useState(false);
+  const [failure, setFailure] = useState<Failure | null>(null);
 
   const sinceValid = isValidIsoDate(since, new Date());
 
   const runScan = async (): Promise<void> => {
     setScanning(true);
+    setFailure(null);
     try {
       setBands(await scan());
       setScanned(true);
+    } catch (error) {
+      const failed = toAppError(error);
+      setFailure({ key: failed.key, params: failed.params });
     } finally {
       setScanning(false);
     }
@@ -43,9 +55,13 @@ export default function PairingScreen() {
   const runPair = async (): Promise<void> => {
     if (!selected) return;
     setBonding(true);
+    setFailure(null);
     try {
       await pair(selected, since);
       setBonded(true);
+    } catch (error) {
+      const failed = toAppError(error);
+      setFailure({ key: failed.key, params: failed.params });
     } finally {
       setBonding(false);
     }
@@ -82,7 +98,12 @@ export default function PairingScreen() {
         <View style={{ gap: spacing.lg }}>
           <AppText variant="title">{t('pairing.scanTitle')}</AppText>
           <Button label={scanning ? t('pairing.scanning') : t('pairing.scanStart')} onPress={() => void runScan()} disabled={scanning} testID="scan-button" />
-          {scanned && bands.length === 0 ? (
+          {failure ? (
+            <Card tone="warning">
+              <AppText variant="body">{t(failure.key, failure.params)}</AppText>
+            </Card>
+          ) : null}
+          {scanned && bands.length === 0 && !failure ? (
             <AppText variant="body" muted>
               {t('pairing.scanNone')}
             </AppText>
@@ -135,9 +156,17 @@ export default function PairingScreen() {
         <View style={{ gap: spacing.lg }}>
           <AppText variant="title">{t('pairing.bondTitle')}</AppText>
           <AppText variant="body">{t('pairing.bondBody')}</AppText>
+          {failure ? (
+            <Card tone="warning">
+              <AppText variant="body">{t(failure.key, failure.params)}</AppText>
+            </Card>
+          ) : null}
           {bonded ? (
-            <Card tone="accent">
-              <AppText variant="bodyStrong">{t('pairing.bondDone')}</AppText>
+            <Card tone={device.lockState === 'locked' ? 'warning' : 'accent'} style={{ gap: 6 }}>
+              <AppText variant="bodyStrong">
+                {device.lockState === 'locked' ? t('pairing.lockedDone') : t('pairing.bondDone')}
+              </AppText>
+              {device.lockState === 'locked' ? <AppText variant="body">{t('lock.locked.body')}</AppText> : null}
             </Card>
           ) : (
             <Button label={bonding ? t('pairing.bonding') : t('pairing.bondStart')} onPress={() => void runPair()} disabled={bonding} testID="bond-button" />

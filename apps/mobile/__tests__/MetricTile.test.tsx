@@ -10,6 +10,10 @@ function appData(language: Language): AppData {
   const now = new Date('2026-11-25T12:00:00Z');
   const noop = async (): Promise<void> => undefined;
   return {
+    ready: true,
+    syncProgress: null,
+    notice: null,
+    clearNotice: () => undefined,
     days: createFixtureDays(now),
     device: createFixtureDevice(now),
     live: { active: false, heartRate: null, lastRrMs: null, updatedAt: null },

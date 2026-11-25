@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
-import { FixtureProvider } from '@/data/FixtureProvider';
+import { LiveProvider } from '@/data/LiveProvider';
 import { useT } from '@/i18n/useT';
 import { useTheme } from '@/ui/theme';
 
@@ -44,8 +44,8 @@ function RootStack() {
 
 export default function RootLayout() {
   return (
-    <FixtureProvider>
+    <LiveProvider>
       <RootStack />
-    </FixtureProvider>
+    </LiveProvider>
   );
 }

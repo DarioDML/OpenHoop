@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
@@ -10,6 +10,7 @@ import { isValidIsoDate } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Button, Field, Segmented } from '@/ui/controls';
+import { NoticeCard } from '@/ui/NoticeCard';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { Screen } from '@/ui/Screen';
 import { Section } from '@/ui/Section';
@@ -31,6 +32,9 @@ export default function SettingsScreen() {
   const [profileState, setProfileState] = useState<'idle' | 'saved' | 'invalid'>('idle');
   const [ownerSince, setOwnerSince] = useState(settings.ownerSince ?? '');
   const [ownerState, setOwnerState] = useState<'idle' | 'saved' | 'invalid'>('idle');
+  useEffect(() => {
+    setOwnerSince(settings.ownerSince ?? '');
+  }, [settings.ownerSince]);
   const [exporting, setExporting] = useState(false);
 
   const parsedYear = birthYear.trim() === '' ? null : parseInteger(birthYear);
@@ -72,6 +76,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
+      <NoticeCard />
       <Section title={t('settings.profile')}>
         <Card style={{ gap: spacing.lg }}>
           <Field
@@ -126,6 +131,11 @@ export default function SettingsScreen() {
             { value: 'band', label: t('settings.source.band') },
           ]}
         />
+        {settings.dataSource === 'band' ? (
+          <AppText variant="label" muted>
+            {t('settings.sourceUntested')}
+          </AppText>
+        ) : null}
       </Section>
 
       <Section title={t('settings.ownerSince')}>
@@ -151,6 +161,9 @@ export default function SettingsScreen() {
         <Card style={{ gap: spacing.md }}>
           <AppText variant="body" muted>
             {t('settings.exportBody')}
+          </AppText>
+          <AppText variant="label" muted>
+            {t('settings.exportWarning')}
           </AppText>
           <Button label={exporting ? t('settings.exporting') : t('settings.exportAction')} onPress={() => void runExport()} disabled={exporting} testID="export-button" />
         </Card>

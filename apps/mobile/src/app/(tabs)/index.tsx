@@ -10,10 +10,12 @@ import { Card } from '@/ui/Card';
 import { EmptyState } from '@/ui/EmptyState';
 import { FlagNotice } from '@/ui/FlagNotice';
 import { MetricTile } from '@/ui/MetricTile';
+import { NoticeCard } from '@/ui/NoticeCard';
 import { PARITY } from '@/ui/parity';
 import { Screen } from '@/ui/Screen';
 import { ScoreRing } from '@/ui/ScoreRing';
 import { Section } from '@/ui/Section';
+import { SyncBanner } from '@/ui/SyncBanner';
 import { spacing } from '@/ui/theme';
 
 export default function TodayScreen() {
@@ -24,6 +26,8 @@ export default function TodayScreen() {
   if (!day) {
     return (
       <Screen>
+        <SyncBanner />
+        <NoticeCard />
         <EmptyState />
       </Screen>
     );
@@ -34,6 +38,8 @@ export default function TodayScreen() {
 
   return (
     <Screen>
+      <SyncBanner />
+      <NoticeCard />
       <FlagNotice flags={day.flags} />
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <Pressable accessibilityRole="button" onPress={() => router.push('/readiness')} style={{ flex: 1 }}>
@@ -88,7 +94,7 @@ export default function TodayScreen() {
                 </AppText>
               </View>
               <AppText variant="label" muted>
-                {live.active && live.lastRrMs !== null ? t('today.liveRr', { value: live.lastRrMs }) : t('today.liveIdle')}
+                {!live.active ? t('today.liveIdle') : live.lastRrMs !== null ? t('today.liveRr', { value: live.lastRrMs }) : t('today.liveWaiting')}
               </AppText>
             </View>
             <View style={{ width: 120 }}>

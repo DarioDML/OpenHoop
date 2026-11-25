@@ -8,10 +8,12 @@ import { useT } from '@/i18n/useT';
 import { formatAgo } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
+import { NoticeCard } from '@/ui/NoticeCard';
 import { ConfirmDangerDialog } from '@/ui/ConfirmDangerDialog';
 import { Button } from '@/ui/controls';
 import { Screen } from '@/ui/Screen';
 import { Section } from '@/ui/Section';
+import { SyncBanner } from '@/ui/SyncBanner';
 import { spacing, useTheme } from '@/ui/theme';
 
 interface RowProps {
@@ -33,12 +35,12 @@ function Row({ label, value }: RowProps) {
 }
 
 export default function BandScreen() {
-  const { device, sync } = useAppData();
+  const { device, sync, syncProgress } = useAppData();
   const { t } = useT();
   const { colors } = useTheme();
   const [dangerOpen, setDangerOpen] = useState(false);
 
-  const syncing = device.connection === 'syncing';
+  const syncing = device.connection === 'syncing' || syncProgress !== null;
   const unknown = t('band.unknown');
   const lockBody: Record<LockState, string> = {
     open: t('lock.open.body'),
@@ -56,6 +58,8 @@ export default function BandScreen() {
 
   return (
     <Screen>
+      <NoticeCard />
+      <SyncBanner detailed />
       <Card style={{ gap: spacing.xs }}>
         <AppText variant="title">{device.name ?? unknown}</AppText>
         <Row label={t('band.model')} value={device.model ?? unknown} />
@@ -93,6 +97,9 @@ export default function BandScreen() {
             {t('danger.intro')}
           </AppText>
           <Button label={t('danger.entry')} variant="secondary" onPress={() => setDangerOpen(true)} testID="danger-entry" />
+          <AppText variant="label" muted>
+            {t('danger.note')}
+          </AppText>
         </Card>
       </Section>
 
