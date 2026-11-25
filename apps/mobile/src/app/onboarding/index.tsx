@@ -44,7 +44,7 @@ export default function WelcomeScreen() {
       title={t('onboarding.welcome.title')}
       subtitle={t('onboarding.welcome.subtitle')}
       primary={{ label: t('onboarding.welcome.start'), onPress: () => router.push('/onboarding/profile'), testID: 'welcome-start' }}
-      secondary={{ label: t('onboarding.welcome.haveData'), onPress: () => router.push('/settings/import') }}
+      secondary={{ label: t('onboarding.welcome.haveData'), onPress: () => router.push('/settings/integrations'), testID: 'welcome-have-data' }}
       tertiary={{ label: t('onboarding.welcome.demo'), onPress: () => void useDemo(), testID: 'welcome-demo' }}>
       <View style={{ flex: 1, gap: 16 }}>
         <AppText variant="title" style={{ fontWeight: '700' }}>

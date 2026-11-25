@@ -43,6 +43,8 @@
   "health.bodyComposition.body": "Log je gewicht en vetpercentage met de hand en volg de trend. Alles hier typ je zelf in. De band meet het niet.",
   "health.bodyComposition.entries.empty": "Nog geen metingen. Voeg hierboven je eerste meting toe.",
   "health.bodyComposition.entries.fat": "{value} % vet",
+  "health.bodyComposition.entries.fromHealthConnect": "Uit Health Connect",
+  "health.bodyComposition.entries.fromHealthConnectApp": "Uit Health Connect ({app})",
   "health.bodyComposition.entries.title": "Metingen",
   "health.bodyComposition.field.bodyFat": "Vetpercentage (optioneel)",
   "health.bodyComposition.field.bodyFatHint": "{min} tot {max} %",

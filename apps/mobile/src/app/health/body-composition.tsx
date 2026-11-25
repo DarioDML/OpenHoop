@@ -253,6 +253,13 @@ export default function BodyCompositionScreen() {
                     {entry.day}
                     {entry.bodyFatPct === null ? '' : ` · ${t('health.bodyComposition.entries.fat', { value: fmt(entry.bodyFatPct) })}`}
                   </AppText>
+                  {entry.source === 'health_connect' ? (
+                    <AppText variant="caption" muted testID={`body-source-${entry.id}`}>
+                      {entry.origin === null
+                        ? t('health.bodyComposition.entries.fromHealthConnect')
+                        : t('health.bodyComposition.entries.fromHealthConnectApp', { app: entry.origin })}
+                    </AppText>
+                  ) : null}
                 </View>
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm }}>

@@ -43,6 +43,8 @@
   "health.bodyComposition.body": "Log your weight and body fat by hand and follow the trend. Everything here is typed in by you. The band does not measure it.",
   "health.bodyComposition.entries.empty": "No entries yet. Add your first measurement above.",
   "health.bodyComposition.entries.fat": "{value} % body fat",
+  "health.bodyComposition.entries.fromHealthConnect": "From Health Connect",
+  "health.bodyComposition.entries.fromHealthConnectApp": "From Health Connect ({app})",
   "health.bodyComposition.entries.title": "Entries",
   "health.bodyComposition.field.bodyFat": "Body fat (optional)",
   "health.bodyComposition.field.bodyFatHint": "{min} to {max} %",
