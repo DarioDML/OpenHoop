@@ -85,6 +85,7 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
   coach_memory: {
     columns: ['id', 'text', 'source', 'created_at', 'updated_at'],
     select: 'id, text, source, created_at, updated_at',
+    order: 'id',
   },
   cycle_periods: {
     columns: ['id', 'start_day', 'end_day', 'flow', 'created_at'],
