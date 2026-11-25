@@ -20,7 +20,7 @@ const WIDGETS: ReadonlyArray<{ name: WidgetName; size: 'small' | 'wide'; label: 
 ];
 
 export default function WidgetsScreen() {
-  const { days, device, userData, updateUserData, refreshWidgets } = useAppData();
+  const { days, device, userData, updateUserData, refreshWidgetsAfterPin } = useAppData();
   const { t, language } = useT();
   const [pinFailed, setPinFailed] = useState(false);
   const android = Platform.OS === 'android';
@@ -31,7 +31,7 @@ export default function WidgetsScreen() {
   const pin = async (widgetName: WidgetName): Promise<void> => {
     const pinned = await requestPinWidget({ widgetName }).catch(() => false);
     setPinFailed(!pinned);
-    if (pinned) await refreshWidgets();
+    if (pinned) await refreshWidgetsAfterPin();
   };
 
   return (

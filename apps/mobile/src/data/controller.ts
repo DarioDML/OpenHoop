@@ -100,6 +100,8 @@ const LATEST_DAY = '9999-12-31';
 const INCREMENTAL_RECOMPUTE_BACK_S = 2 * DAY_S;
 const MAX_DEMO_BACKLOG_DAYS = 20;
 export const UNDO_MS = 5_000;
+const PIN_WAIT_ATTEMPTS = 60;
+const PIN_WAIT_MS = 1_000;
 const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null };
 const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
   clock: 'sync.stop.clock',
@@ -973,6 +975,14 @@ export class AppController {
     return this.widgetChain;
   };
 
+  refreshWidgetsAfterPin = async (): Promise<void> => {
+    for (let attempt = 0; attempt < PIN_WAIT_ATTEMPTS; attempt += 1) {
+      if ((await this.widgets.placed().catch(() => 0)) > 0) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, PIN_WAIT_MS));
+    }
+    await this.refreshWidgets();
+  };
+
   setNotificationsEnabled = async (enabled: boolean): Promise<PermissionState> => {
     if (!enabled) {
       await this.updateUserData({ notifications: { ...this.snapshot.userData.notifications, enabled: false } });
@@ -1185,6 +1195,7 @@ export class AppController {
       refreshNotifications: this.refreshNotifications,
       setNotificationsEnabled: this.setNotificationsEnabled,
       refreshWidgets: this.refreshWidgets,
+      refreshWidgetsAfterPin: this.refreshWidgetsAfterPin,
       markInboxRead: this.markInboxRead,
       clearInbox: this.clearInbox,
     };

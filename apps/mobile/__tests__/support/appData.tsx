@@ -43,6 +43,7 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     refreshNotifications: noop,
     setNotificationsEnabled: async () => 'granted',
     refreshWidgets: noop,
+    refreshWidgetsAfterPin: noop,
     markInboxRead: noop,
     clearInbox: noop,
     saveSleepEdit: async () => 'saved',

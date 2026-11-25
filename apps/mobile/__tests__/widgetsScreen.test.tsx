@@ -58,11 +58,11 @@ describe('widgets screen on Android', () => {
   });
 
   it('asks the launcher to pin a widget and refreshes it', async () => {
-    const refreshWidgets = jest.fn(async () => undefined);
-    await render(withAppData(<WidgetsScreen />, 'en', { refreshWidgets }));
+    const refreshWidgetsAfterPin = jest.fn(async () => undefined);
+    await render(withAppData(<WidgetsScreen />, 'en', { refreshWidgetsAfterPin }));
     await fireEvent.press(screen.getByTestId('widget-pin-OpenHoopOverview'));
     expect(mocked.requestPinWidget).toHaveBeenCalledWith({ widgetName: 'OpenHoopOverview' });
-    expect(refreshWidgets).toHaveBeenCalledTimes(1);
+    expect(refreshWidgetsAfterPin).toHaveBeenCalledTimes(1);
   });
 
   it('explains how to add it when the launcher cannot pin', async () => {
