@@ -30,6 +30,8 @@ const LABELS: Readonly<Record<keyof typeof PARITY, TranslationKey>> = {
   consistency: 'metric.consistency',
   workouts: 'load.workouts',
   calories: 'calories.title',
+  stress: 'health.stress.title',
+  jetLag: 'sleepx.jetLag',
 };
 
 const KEYS = Object.keys(PARITY) as ReadonlyArray<keyof typeof PARITY>;

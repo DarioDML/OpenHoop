@@ -1,5 +1,5 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, DayRecord, LabResult, LabResultInput, SleepEditProblem, SleepEditRow, VendorData, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { InboxEntry } from '@/lib/notificationPlan';
@@ -96,6 +96,20 @@ export interface SleepEditLimits {
   sleepMaxS: number;
 }
 
+export interface StrengthActions {
+  saveExercise(input: CustomExerciseInput): Promise<boolean>;
+  removeExercise(id: number): Promise<boolean>;
+  saveTemplate(id: number | null, input: StrengthTemplateInput): Promise<number | null>;
+  removeTemplate(id: number): Promise<boolean>;
+  startSession(templateId: number | null, name: string, exercises: PlannedExercise[]): Promise<number | null>;
+  addSessionExercise(sessionId: number, exercise: PlannedExercise): Promise<boolean>;
+  removeSessionExercise(id: number): Promise<boolean>;
+  logSet(sessionId: number, input: StrengthSetInput): Promise<boolean>;
+  removeSet(id: number): Promise<boolean>;
+  finishSession(id: number): Promise<boolean>;
+  removeSession(id: number): Promise<boolean>;
+}
+
 export interface AppData {
   ready: boolean;
   days: DayRecord[];
@@ -108,6 +122,10 @@ export interface AppData {
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
   labResults: LabResult[];
+  cycle: CycleData;
+  strength: StrengthData;
+  strengthActions: StrengthActions;
+  journalNotes: JournalNote[];
   vendorData: VendorData;
   syncProgress: SyncProgressView | null;
   notice: Notice | null;
@@ -128,6 +146,15 @@ export interface AppData {
   removeBodyMeasurement(id: number): Promise<boolean>;
   saveLabResult(id: number | null, input: LabResultInput): Promise<boolean>;
   removeLabResult(id: number): Promise<boolean>;
+  savePeriod(id: number | null, input: PeriodInput): Promise<boolean>;
+  removePeriod(id: number): Promise<boolean>;
+  saveSymptom(input: SymptomInput): Promise<boolean>;
+  removeSymptom(id: number): Promise<boolean>;
+  savePregnancy(dueDay: string): Promise<boolean>;
+  removePregnancy(): Promise<boolean>;
+  removeAllCycleData(): Promise<boolean>;
+  saveJournalNote(id: number | null, input: JournalNoteInput): Promise<boolean>;
+  removeJournalNote(id: number): Promise<boolean>;
   importVendorFiles(files: SourceFile[], rejected: FileReport[]): Promise<VendorImportResult | null>;
   removeVendorData(): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;

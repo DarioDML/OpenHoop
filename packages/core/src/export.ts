@@ -73,6 +73,71 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, biomarker, unit, value, day, ref_low, ref_high, note, created_at',
     order: 'day, id',
   },
+  coach_conversations: {
+    columns: ['id', 'title', 'created_at', 'updated_at'],
+    select: 'id, title, created_at, updated_at',
+    order: 'id',
+  },
+  coach_messages: {
+    columns: ['id', 'conversation_id', 'role', 'text', 'chips', 'created_at'],
+    select: 'id, conversation_id, role, text, chips, created_at',
+    order: 'conversation_id, id',
+  },
+  coach_memory: {
+    columns: ['id', 'text', 'source', 'created_at', 'updated_at'],
+    select: 'id, text, source, created_at, updated_at',
+    order: 'id',
+  },
+  cycle_periods: {
+    columns: ['id', 'start_day', 'end_day', 'flow', 'created_at'],
+    select: 'id, start_day, end_day, flow, created_at',
+    order: 'start_day, id',
+  },
+  symptom_logs: {
+    columns: ['id', 'day', 'symptom', 'intensity', 'created_at'],
+    select: 'id, day, symptom, intensity, created_at',
+    order: 'day, id',
+  },
+  pregnancy: {
+    columns: ['id', 'due_day', 'created_at'],
+    select: 'id, due_day, created_at',
+    order: 'id',
+  },
+  strength_exercises: {
+    columns: ['id', 'name', 'muscle', 'created_at'],
+    select: 'id, name, muscle, created_at',
+    order: 'id',
+  },
+  strength_templates: {
+    columns: ['id', 'name', 'created_at', 'updated_at'],
+    select: 'id, name, created_at, updated_at',
+    order: 'id',
+  },
+  strength_template_items: {
+    columns: ['id', 'template_id', 'position', 'exercise_key', 'exercise_name', 'muscle', 'sets', 'reps', 'weight_kg'],
+    select: 'id, template_id, position, exercise_key, exercise_name, muscle, sets, reps, weight_kg',
+    order: 'template_id, position, id',
+  },
+  strength_sessions: {
+    columns: ['id', 'template_id', 'name', 'day', 'started_at', 'ended_at'],
+    select: 'id, template_id, name, day, started_at, ended_at',
+    order: 'started_at, id',
+  },
+  strength_session_exercises: {
+    columns: ['id', 'session_id', 'position', 'exercise_key', 'exercise_name', 'muscle', 'sets', 'reps', 'weight_kg'],
+    select: 'id, session_id, position, exercise_key, exercise_name, muscle, sets, reps, weight_kg',
+    order: 'session_id, position, id',
+  },
+  strength_sets: {
+    columns: ['id', 'session_id', 'exercise_key', 'exercise_name', 'muscle', 'reps', 'weight_kg', 'rpe', 'done_at'],
+    select: 'id, session_id, exercise_key, exercise_name, muscle, reps, weight_kg, rpe, done_at',
+    order: 'session_id, id',
+  },
+  journal_notes: {
+    columns: ['id', 'day', 'body', 'tags', 'created_at'],
+    select: 'id, day, body, tags, created_at',
+    order: 'day, id',
+  },
   vendor_cycles: {
     columns: ['start_t', 'end_t', 'tz_offset_s', 'day', 'recovery_pct', 'resting_hr', 'hrv_ms', 'skin_temp_c', 'spo2_pct', 'respiratory_rate', 'day_strain', 'source', 'imported_at'],
     select: 'start_t, end_t, tz_offset_s, day, recovery_pct, resting_hr, hrv_ms, skin_temp_c, spo2_pct, respiratory_rate, day_strain, source, imported_at',

@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
 
+import { CoachProvider } from '@/coach/CoachProvider';
 import { LiveProvider } from '@/data/LiveProvider';
 import { expoNotifier } from '@/data/notifier';
 import { useAppFonts } from '@/ui/fonts';
@@ -39,7 +40,9 @@ export default function RootLayout() {
   if (!fontsReady) return <View style={{ flex: 1, backgroundColor: darkColors.background }} />;
   return (
     <LiveProvider>
-      <RootStack />
+      <CoachProvider>
+        <RootStack />
+      </CoachProvider>
     </LiveProvider>
   );
 }
