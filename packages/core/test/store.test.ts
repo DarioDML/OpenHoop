@@ -1,0 +1,332 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { deflateSync } from 'fflate';
+import { exportCsv, openStore } from '../src/index';
+import type { DayRecord, Derived, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
+import { openNodeDriver } from '../src/node/index';
+
+const DEVICE: Omit<DeviceRow, 'id'> = {
+  bleId: 'AA:BB',
+  name: 'WHOOP 5',
+  model: '5.0',
+  firmware: '50.43.2.0',
+  serial: 'SN1',
+  ownerSince: 1_000,
+  configSnapshot: null,
+};
+
+function sample(deviceId: number, t: number, over: Partial<SampleRow> = {}): SampleRow {
+  return {
+    deviceId,
+    t,
+    source: 'history',
+    hr: 60 + (t % 10),
+    rr: [800, 810],
+    steps: 5,
+    skinTempC: 33.5,
+    spo2Raw: 97,
+    state: 'SLEEP',
+    motionG: 0.01,
+    chunkId: null,
+    ...over,
+  };
+}
+
+function syncState(deviceId: number, over: Partial<SyncStateRow> = {}): SyncStateRow {
+  return {
+    deviceId,
+    lastEndToken: new Uint8Array([1, 2, 3]),
+    lastSyncAt: 5_000,
+    newestSampleT: 2_000,
+    readPage: 1,
+    writePage: 2,
+    trimPage: 3,
+    totalPages: 4,
+    ...over,
+  };
+}
+
+function derived(value: number | null): Derived {
+  return { value, reason: value === null ? 'no data' : null, coverage: 1, algo: 'test@1' };
+}
+
+function dayRecord(deviceId: number, day: string, over: Partial<DayRecord> = {}): DayRecord {
+  return {
+    deviceId,
+    day,
+    start: 0,
+    end: 86_400,
+    tzOffsetS: 3_600,
+    flags: [],
+    sleep: {
+      periods: [
+        { onset: 100, offset: 28_900, asleepS: 27_000, inBedS: 28_800, nap: false },
+        { onset: 50_000, offset: 51_800, asleepS: 1_700, inBedS: 1_800, nap: true },
+      ],
+      asleepS: 28_700,
+      inBedS: 30_600,
+      need: derived(28_800),
+      debt: derived(0),
+      consistency: derived(90),
+      score: derived(82),
+    },
+    hrv: derived(60),
+    restingHr: derived(50),
+    respiratoryRate: derived(14),
+    spo2: derived(97),
+    skinTempC: derived(33),
+    skinTempDeviationC: derived(0.1),
+    readiness: derived(71),
+    readinessCalibrating: false,
+    readinessContributions: { hrv: 1, sleep: 2, rhr: 3 },
+    load: derived(8.5),
+    zoneSeconds: [1, 2, 3, 4, 5],
+    steps: 9_000,
+    heartRate: { min: 45, avg: 70, max: 150 },
+    workouts: [{ start: 60_000, end: 63_000, zoneSeconds: [0, 0, 600, 1_800, 600], avgHr: 140, maxHr: 170, source: 'auto', label: null }],
+    ...over,
+  };
+}
+
+async function count(store: Store, table: string): Promise<number> {
+  const rows = await store.driver.all<{ c: number }>(`SELECT COUNT(*) AS c FROM ${table}`);
+  return rows[0]?.c ?? -1;
+}
+
+describe('store', () => {
+  let store: Store;
+  let device: DeviceRow;
+
+  beforeEach(async () => {
+    store = await openStore(openNodeDriver(':memory:'));
+    device = await store.upsertDevice(DEVICE);
+  });
+  afterEach(async () => {
+    await store.driver.close();
+  });
+
+  it('migrations are idempotent and record the version', async () => {
+    const before = await store.driver.all<{ user_version: number }>('PRAGMA user_version');
+    const again = await openStore(store.driver);
+    const after = await again.driver.all<{ user_version: number }>('PRAGMA user_version');
+    expect(before[0]?.user_version).toBeGreaterThan(0);
+    expect(after).toEqual(before);
+    expect((await again.listDevices()).length).toBe(1);
+  });
+
+  it('creates every table of the spec', async () => {
+    const rows = await store.driver.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table'");
+    const names = rows.map((r) => r.name);
+    for (const t of [
+      'devices', 'raw_chunks', 'samples_1hz', 'events', 'console_log', 'sync_state', 'daily_metrics', 'sleeps',
+      'workouts', 'baselines', 'calibration', 'settings', 'sleep_stages', 'journal', 'oracle_values', 'optical_bursts',
+      'imu_blocks', 'ecg_recordings',
+    ]) {
+      expect(names).toContain(t);
+    }
+  });
+
+  it('commitChunk then readChunkFrames returns identical frames', async () => {
+    const frames = [new Uint8Array([0xaa, 1, 2]), new Uint8Array(0), new Uint8Array(3_000).fill(7)];
+    const id = await store.commitChunk(
+      { deviceId: device.id, endToken: new Uint8Array([9, 9]), frames, clockOffsetS: 10_800, receivedAt: 123 },
+      [sample(device.id, 1_000), sample(device.id, 1_001)],
+      {
+        events: [{ deviceId: device.id, t: 1_000, event: 3, name: 'BATTERY', payloadHex: '0a' }],
+        console: [{ deviceId: device.id, t: 1_000, sequence: 1, text: 'boot' }],
+        unknownFrames: 2,
+        syncState: syncState(device.id),
+      },
+    );
+    expect(await store.readChunkFrames(id)).toEqual(frames);
+    expect(await store.listChunkIds(device.id)).toEqual([id]);
+    expect(await store.getChunkMeta(id)).toEqual({ deviceId: device.id, clockOffsetS: 10_800, receivedAt: 123 });
+    expect(await store.getChunkMeta(id + 1)).toBeNull();
+    const stored = await store.samplesBetween(device.id, 0, 5_000);
+    expect(stored.map((s) => s.chunkId)).toEqual([id, id]);
+    expect(await count(store, 'events')).toBe(1);
+    expect(await count(store, 'console_log')).toBe(1);
+    expect(await store.getSyncState(device.id)).toEqual(syncState(device.id));
+  });
+
+  it('a throw inside commitChunk leaves no chunk, no samples and the old sync state', async () => {
+    const old = syncState(device.id, { readPage: 99 });
+    await store.setSyncState(old);
+    const badSample = sample(device.id + 1_000, 2_000);
+    await expect(
+      store.commitChunk(
+        { deviceId: device.id, endToken: null, frames: [new Uint8Array([1])], clockOffsetS: null, receivedAt: 1 },
+        [sample(device.id, 1_500), badSample],
+        {
+          events: [{ deviceId: device.id, t: 1, event: 1, name: 'x', payloadHex: '' }],
+          console: [],
+          unknownFrames: 0,
+          syncState: syncState(device.id, { readPage: 1 }),
+        },
+      ),
+    ).rejects.toThrow();
+    expect(await count(store, 'raw_chunks')).toBe(0);
+    expect(await count(store, 'samples_1hz')).toBe(0);
+    expect(await count(store, 'events')).toBe(0);
+    expect(await store.getSyncState(device.id)).toEqual(old);
+  });
+
+  it('inserting the same samples twice inserts 0 the second time', async () => {
+    const samples = [sample(device.id, 1_000), sample(device.id, 1_001), sample(device.id, 1_001, { source: 'live' })];
+    expect(await store.insertSamples(samples)).toBe(3);
+    expect(await store.insertSamples(samples)).toBe(0);
+    expect(await count(store, 'samples_1hz')).toBe(3);
+  });
+
+  it('samplesBetween is ordered, from inclusive and to exclusive', async () => {
+    await store.insertSamples([3, 1, 5, 2, 4].map((t) => sample(device.id, 1_000 + t)));
+    const rows = await store.samplesBetween(device.id, 1_002, 1_005);
+    expect(rows.map((r) => r.t)).toEqual([1_002, 1_003, 1_004]);
+  });
+
+  it('round-trips sample fields including rr, nulls and sources', async () => {
+    const a = sample(device.id, 2_000, { rr: [], hr: null, state: null, steps: null, skinTempC: null, spo2Raw: null, motionG: null });
+    const b = sample(device.id, 2_000, { source: 'hrm', rr: [1_000, 950, 1_020] });
+    await store.insertSamples([a, b]);
+    const rows = await store.samplesBetween(device.id, 2_000, 2_001);
+    expect(rows).toEqual([a, b]);
+  });
+
+  it('sampleRange and deleteSamples', async () => {
+    expect(await store.sampleRange(device.id)).toBeNull();
+    await store.insertSamples([sample(device.id, 10), sample(device.id, 20), sample(device.id, 30, { source: 'live' })]);
+    expect(await store.sampleRange(device.id)).toEqual({ first: 10, last: 30, count: 3 });
+    await store.deleteSamples(device.id, 'live');
+    expect(await store.sampleRange(device.id)).toEqual({ first: 10, last: 20, count: 2 });
+    await store.deleteSamples(device.id);
+    expect(await store.sampleRange(device.id)).toBeNull();
+  });
+
+  it('inserts a full day of samples quickly', async () => {
+    const day = Array.from({ length: 86_400 }, (_, i) => sample(device.id, 100_000 + i));
+    const started = performance.now();
+    expect(await store.insertSamples(day)).toBe(86_400);
+    const ms = performance.now() - started;
+    console.log(`insert 86400 samples: ${ms.toFixed(0)} ms`);
+    expect(ms).toBeLessThan(2_000);
+  });
+
+  it('a corrupted chunk blob fails its checksum with a clear error', async () => {
+    const id = await store.commitChunk(
+      { deviceId: device.id, endToken: null, frames: [new Uint8Array([1, 2, 3, 4])], clockOffsetS: null, receivedAt: 1 },
+      [],
+      { events: [], console: [], unknownFrames: 0, syncState: syncState(device.id) },
+    );
+    const tampered = deflateSync(new Uint8Array([4, 0, 0, 0, 1, 2, 3, 5]));
+    await store.driver.run('UPDATE raw_chunks SET frames = ? WHERE id = ?', [tampered, id]);
+    await expect(store.readChunkFrames(id)).rejects.toThrow(/checksum/i);
+    await store.driver.run('UPDATE raw_chunks SET frames = ? WHERE id = ?', [new Uint8Array([1, 2, 3]), id]);
+    await expect(store.readChunkFrames(id)).rejects.toThrow(/corrupted/i);
+    await expect(store.readChunkFrames(id + 5)).rejects.toThrow(/does not exist/);
+  });
+
+  it('upsertDevice matches on bleId and keeps non-null ownerSince, serial and model', async () => {
+    const again = await store.upsertDevice({ ...DEVICE, ownerSince: null, serial: null, model: null, name: 'Renamed' });
+    expect(again.id).toBe(device.id);
+    expect(again.ownerSince).toBe(1_000);
+    expect(again.serial).toBe('SN1');
+    expect(again.model).toBe('5.0');
+    expect(again.name).toBe('Renamed');
+    const updated = await store.upsertDevice({ ...DEVICE, ownerSince: 2_000 });
+    expect(updated.ownerSince).toBe(2_000);
+    expect(await store.listDevices()).toHaveLength(1);
+    expect(await store.getDevice(device.id)).toEqual(updated);
+    expect(await store.getDevice(999)).toBeNull();
+  });
+
+  it('sync state upserts', async () => {
+    expect(await store.getSyncState(device.id)).toBeNull();
+    await store.setSyncState(syncState(device.id));
+    await store.setSyncState(syncState(device.id, { lastEndToken: null, readPage: null }));
+    expect(await store.getSyncState(device.id)).toEqual(syncState(device.id, { lastEndToken: null, readPage: null }));
+  });
+
+  it('replaceDay stores the record, indexed columns, sleeps and workouts, and replaces them', async () => {
+    await store.replaceDay(dayRecord(device.id, '2026-11-24'));
+    const first = dayRecord(device.id, '2026-11-25');
+    await store.replaceDay(first);
+    expect(await store.getDay(device.id, '2026-11-25')).toEqual(first);
+    expect(await store.getDay(device.id, '2026-01-01')).toBeNull();
+    const indexed = await store.driver.all<{ readiness: number; load: number; sleep_score: number }>(
+      "SELECT readiness, load, sleep_score FROM daily_metrics WHERE day = '2026-11-25'",
+    );
+    expect(indexed).toEqual([{ readiness: 71, load: 8.5, sleep_score: 82 }]);
+    expect(await count(store, 'sleeps')).toBe(4);
+    expect(await count(store, 'workouts')).toBe(2);
+
+    const second = dayRecord(device.id, '2026-11-25', {
+      readiness: derived(null),
+      sleep: { ...first.sleep, periods: [], score: derived(null) },
+      workouts: [],
+    });
+    await store.replaceDay(second);
+    expect(await store.getDay(device.id, '2026-11-25')).toEqual(second);
+    expect(await count(store, 'sleeps')).toBe(2);
+    expect(await count(store, 'workouts')).toBe(1);
+    expect(await count(store, 'daily_metrics')).toBe(2);
+    const nulls = await store.driver.all<{ readiness: number | null; sleep_score: number | null }>(
+      "SELECT readiness, sleep_score FROM daily_metrics WHERE day = '2026-11-25'",
+    );
+    expect(nulls).toEqual([{ readiness: null, sleep_score: null }]);
+  });
+
+  it('listDays is ordered and inclusive', async () => {
+    for (const d of ['2026-11-23', '2026-11-21', '2026-11-22', '2026-11-24']) await store.replaceDay(dayRecord(device.id, d));
+    const days = await store.listDays(device.id, '2026-11-22', '2026-11-23');
+    expect(days.map((d) => d.day)).toEqual(['2026-11-22', '2026-11-23']);
+  });
+
+  it('clearDerived removes derived rows but keeps samples and raw chunks', async () => {
+    await store.replaceDay(dayRecord(device.id, '2026-11-25'));
+    await store.driver.run('INSERT INTO baselines (device_id, name, value) VALUES (?, ?, ?)', [device.id, 'hrv', '{}']);
+    await store.insertSamples([sample(device.id, 1_000)]);
+    await store.commitChunk(
+      { deviceId: device.id, endToken: null, frames: [new Uint8Array([1])], clockOffsetS: null, receivedAt: 1 },
+      [],
+      { events: [], console: [], unknownFrames: 0, syncState: syncState(device.id) },
+    );
+    await store.clearDerived(device.id);
+    for (const t of ['daily_metrics', 'sleeps', 'workouts', 'baselines']) expect(await count(store, t)).toBe(0);
+    expect(await count(store, 'samples_1hz')).toBe(1);
+    expect(await count(store, 'raw_chunks')).toBe(1);
+  });
+
+  it('settings round trip', async () => {
+    expect(await store.getSetting('k')).toBeNull();
+    await store.setSetting('k', 'v1');
+    await store.setSetting('k', 'v2');
+    expect(await store.getSetting('k')).toBe('v2');
+  });
+
+  it('exportCsv quotes commas, quotes and newlines and keeps the header when empty', async () => {
+    expect(await exportCsv(store, 'events')).toBe('id,device_id,t,event,name,payload_hex,chunk_id\r\n');
+    await store.upsertDevice({ ...DEVICE, bleId: 'X', name: 'a,b "c"\nd', serial: null, model: null, ownerSince: null, firmware: null });
+    const csv = await exportCsv(store, 'devices');
+    const lines = csv.split('\r\n');
+    expect(lines[0]).toBe('id,ble_id,name,model,firmware,serial,owner_since,config_snapshot');
+    expect(lines[1]).toBe('1,AA:BB,WHOOP 5,5.0,50.43.2.0,SN1,1000,');
+    expect(csv).toContain('2,X,"a,b ""c""\nd",,,,,\r\n');
+  });
+
+  it('exportCsv covers every table, including raw chunks and exported sleeps/workouts', async () => {
+    await store.replaceDay(dayRecord(device.id, '2026-11-25'));
+    await store.commitChunk(
+      { deviceId: device.id, endToken: new Uint8Array([0xab]), frames: [new Uint8Array([1])], clockOffsetS: null, receivedAt: 1 },
+      [sample(device.id, 1_000)],
+      { events: [], console: [{ deviceId: device.id, t: 1, sequence: 1, text: 'a,b' }], unknownFrames: 0, syncState: syncState(device.id) },
+    );
+    const tables = ['devices', 'samples_1hz', 'daily_metrics', 'sleeps', 'workouts', 'events', 'console_log', 'raw_chunks'] as const;
+    for (const table of tables) {
+      const csv = await exportCsv(store, table);
+      expect(csv.endsWith('\r\n')).toBe(true);
+    }
+    expect((await exportCsv(store, 'sleeps')).split('\r\n')).toHaveLength(4);
+    expect(await exportCsv(store, 'console_log')).toContain('"a,b"');
+    expect(await exportCsv(store, 'raw_chunks')).toContain(',AB,');
+    await expect(exportCsv(store, 'settings' as 'devices')).rejects.toThrow();
+  });
+});

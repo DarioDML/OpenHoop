@@ -1,1 +1,1 @@
-export {};
+export { openNodeDriver } from './sqliteDriver';
