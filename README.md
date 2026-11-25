@@ -100,6 +100,7 @@ Calories are an estimate, OpenHoop's own method (level C). Minutes with a heart 
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
 - Export gives you the whole database and one CSV file per table, plus `notifications.json` with your notification settings and inbox.
 - Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
+- Android home-screen widgets cannot open the encrypted database. While at least one OpenHoop widget is on the home screen, the app keeps a small unencrypted file in its private cache with only the numbers the widget shows (Readiness, Sleep score, Load, resting heart rate, HRV, or the reason a value is missing), the day, the sync time and the app language. There is no name and no raw data in it. Android also keeps the drawn widget images in the app's private storage. Turning "Show values on widgets" off replaces the file with one that holds no values; removing the last widget deletes the file and the images. Neither is included in Android backups.
 
 ## Not a medical device
 
