@@ -6,6 +6,7 @@ import {
   activeThresholdBpm,
   dailyEnergy,
   keytelKcalPerMinute,
+  parseActiveMinutes,
   restingKcalPerDay,
 } from '../src';
 import type { ActiveMinutes, BodyProfile } from '../src';
@@ -128,5 +129,55 @@ describe('daily energy', () => {
     expect(dailyEnergy(day([]), null)).toEqual({ ok: false, reason: 'no-profile', algo: ALGO.energy });
     expect(dailyEnergy(day([]), { ...MAN, ageYears: 15 })).toEqual({ ok: false, reason: 'no-profile', algo: ALGO.energy });
     expect(dailyEnergy(day([]), { ...MAN, weightKg: Number.NaN })).toEqual({ ok: false, reason: 'no-profile', algo: ALGO.energy });
+  });
+});
+
+describe('worked examples end to end', () => {
+  it('turns a minute series with gaps into a female day estimate', () => {
+    const series: (number | null)[] = [...Array<number>(600).fill(62), ...Array<null>(240).fill(null), ...Array<number>(30).fill(150), ...Array<number>(570).fill(70)];
+    const minutes = activeMinutes(series, 60, 190);
+    expect(minutes).toMatchObject({ totalMinutes: 1440, measuredMinutes: 1200, thresholdBpm: 99 });
+    const result = dailyEnergy(minutes, WOMAN);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const femaleKcal = (-20.4022 + 0.4472 * 150 - 0.1263 * 60 + 0.074 * 30) / 4.184;
+    expect(femaleKcal).toBeCloseTo(9.8757, 4);
+    const restPerMinute = 1320.25 / 1440;
+    expect(result.value.activeKcal).toBeCloseTo(30 * (femaleKcal - restPerMinute), 9);
+    expect(result.value.totalKcal).toBeCloseTo(1320.25 + 30 * (femaleKcal - restPerMinute), 9);
+    expect(result.value.totalKcal).toBeCloseTo(1589.01, 1);
+    expect(result.coverage).toBeCloseTo(1200 / 1440, 9);
+  });
+
+  it('averages both equations for sex other in the day total', () => {
+    const other: BodyProfile = { ...MAN, sex: 'other' };
+    const result = dailyEnergy(day([{ bpm: 140, minutes: 60 }]), other);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const male = 13.4304;
+    const female = (-20.4022 + 0.4472 * 140 - 0.1263 * 80 + 0.074 * 35) / 4.184;
+    const rest = 1672;
+    expect(result.value.restingKcal).toBeCloseTo(rest, 9);
+    expect(result.value.activeKcal).toBeCloseTo(60 * ((male + female) / 2 - rest / 1440), 2);
+  });
+});
+
+describe('parseActiveMinutes', () => {
+  const valid = { totalMinutes: 1440, measuredMinutes: 1300, thresholdBpm: 99, activeHr: [{ bpm: 120, minutes: 30 }] };
+
+  it('accepts a well formed stored value', () => {
+    expect(parseActiveMinutes(valid)).toEqual(valid);
+  });
+
+  it('rejects missing, malformed or inconsistent values', () => {
+    expect(parseActiveMinutes(undefined)).toBeNull();
+    expect(parseActiveMinutes(null)).toBeNull();
+    expect(parseActiveMinutes('1440')).toBeNull();
+    expect(parseActiveMinutes({ ...valid, totalMinutes: '1440' })).toBeNull();
+    expect(parseActiveMinutes({ ...valid, measuredMinutes: 1500 })).toBeNull();
+    expect(parseActiveMinutes({ ...valid, thresholdBpm: Number.NaN })).toBeNull();
+    expect(parseActiveMinutes({ ...valid, activeHr: [{ bpm: 120 }] })).toBeNull();
+    expect(parseActiveMinutes({ ...valid, activeHr: [{ bpm: -5, minutes: 3 }] })).toBeNull();
+    expect(parseActiveMinutes({ ...valid, activeHr: [{ bpm: 120, minutes: 1301 }] })).toBeNull();
   });
 });

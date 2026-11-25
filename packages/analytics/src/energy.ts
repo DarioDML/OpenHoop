@@ -134,3 +134,26 @@ export function dailyEnergy(minutes: ActiveMinutes | null, body: BodyProfile | n
     ALGO.energy,
   );
 }
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isActiveHrBin(value: unknown): value is ActiveHrBin {
+  if (typeof value !== 'object' || value === null) return false;
+  const bin = value as { bpm?: unknown; minutes?: unknown };
+  return isFiniteNumber(bin.bpm) && bin.bpm > 0 && isFiniteNumber(bin.minutes) && bin.minutes >= 0;
+}
+
+export function parseActiveMinutes(value: unknown): ActiveMinutes | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const candidate = value as { totalMinutes?: unknown; measuredMinutes?: unknown; thresholdBpm?: unknown; activeHr?: unknown };
+  const { totalMinutes, measuredMinutes, thresholdBpm, activeHr } = candidate;
+  if (!isFiniteNumber(totalMinutes) || totalMinutes < 0) return null;
+  if (!isFiniteNumber(measuredMinutes) || measuredMinutes < 0 || measuredMinutes > totalMinutes) return null;
+  if (!isFiniteNumber(thresholdBpm) || thresholdBpm <= 0) return null;
+  if (!Array.isArray(activeHr) || !activeHr.every(isActiveHrBin)) return null;
+  const binned = activeHr.reduce((sum: number, bin: ActiveHrBin) => sum + bin.minutes, 0);
+  if (binned > measuredMinutes) return null;
+  return { totalMinutes, measuredMinutes, thresholdBpm, activeHr: activeHr.map((bin: ActiveHrBin) => ({ bpm: bin.bpm, minutes: bin.minutes })) };
+}

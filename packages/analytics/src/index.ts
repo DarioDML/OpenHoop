@@ -26,6 +26,7 @@ export {
   activeThresholdBpm,
   dailyEnergy,
   keytelKcalPerMinute,
+  parseActiveMinutes,
   restingKcalPerDay,
 } from './energy';
 export type { ActiveHrBin, ActiveMinutes, BodyProfile, EnergyEstimate, EnergySex } from './energy';
