@@ -145,7 +145,7 @@
   "strength.summary.volumeNote": "Volume is reps × weight, added up over all sets. Bodyweight sets (0 kg) add no volume.",
   "strength.summary.heartRate": "Heart rate",
   "strength.summary.hrAvg": "Average",
-  "strength.summary.hrMax": "Highest",
+  "strength.summary.hrMax": "Highest (10 s average)",
   "strength.summary.hrNone": "No heart rate samples were recorded between the start and the finish of this workout.",
   "strength.summary.hrNote": "From the band samples in that window. Values are averages per 10 seconds.",
   "strength.summary.perExercise": "Per exercise",

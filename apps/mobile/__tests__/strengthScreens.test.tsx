@@ -210,6 +210,12 @@ describe('workout builder', () => {
     await waitFor(() => expect(saveExercise).toHaveBeenCalledWith({ name: 'Sled push', muscle: 'quads' }));
   });
 
+  it('does not offer save-and-start while a workout is running', async () => {
+    const running: StrengthSession = { ...DAY_1, id: 9, endedAt: null };
+    await render(withAppData(<StrengthBuilderScreen />, 'en', app(data({ sessions: [running] }), actions())));
+    expect(screen.getByTestId('builder-save-start').props.accessibilityState.disabled).toBe(true);
+  });
+
   it('says so when the template no longer exists', async () => {
     mockParams = { id: '99' };
     await render(withAppData(<StrengthBuilderScreen />, 'en', app(data(), actions())));

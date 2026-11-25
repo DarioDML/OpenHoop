@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 
 import { singleParam } from '@/data/dailyDerived';
 import { useAppData } from '@/data/context';
-import { STRENGTH_LIMITS, cleanName, planned, targetDraftOf, validateTargetDraft, type ExerciseRef, type TargetDraft, type TargetField } from '@/data/strength';
+import { STRENGTH_LIMITS, activeSession, cleanName, planned, targetDraftOf, validateTargetDraft, type ExerciseRef, type TargetDraft, type TargetField } from '@/data/strength';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
@@ -46,6 +46,7 @@ export default function StrengthBuilderScreen() {
   const [formError, setFormError] = useState<'name' | 'items' | 'targets' | 'tooMany' | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const running = activeSession(strength.sessions) !== null;
 
   if (templateId !== null && existing === null) {
     return (
@@ -255,7 +256,7 @@ export default function StrengthBuilderScreen() {
         </AppText>
       ) : null}
       <Button label={t('strength.builder.save')} onPress={() => void save(false)} disabled={saving} testID="builder-save" />
-      <Button label={t('strength.builder.saveStart')} variant="secondary" icon="play" onPress={() => void save(true)} disabled={saving} testID="builder-save-start" />
+      <Button label={t('strength.builder.saveStart')} variant="secondary" icon="play" onPress={() => void save(true)} disabled={saving || running} testID="builder-save-start" />
       {existing !== null ? (
         confirmDelete ? (
           <View style={{ flexDirection: 'row', gap: spacing.sm, justifyContent: 'center' }}>

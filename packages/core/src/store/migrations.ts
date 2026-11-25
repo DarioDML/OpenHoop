@@ -210,7 +210,7 @@ CREATE INDEX sleep_edits_device ON sleep_edits (device_id, onset);
 
 const V5 = `
 CREATE TABLE strength_exercises (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 40),
   muscle TEXT NOT NULL CHECK (muscle IN ('chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core')),
   created_at INTEGER NOT NULL

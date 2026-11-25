@@ -145,7 +145,7 @@
   "strength.summary.volumeNote": "Volume is herhalingen × gewicht, opgeteld over alle sets. Sets met lichaamsgewicht (0 kg) tellen niet mee in het volume.",
   "strength.summary.heartRate": "Hartslag",
   "strength.summary.hrAvg": "Gemiddeld",
-  "strength.summary.hrMax": "Hoogste",
+  "strength.summary.hrMax": "Hoogste (gem. 10 s)",
   "strength.summary.hrNone": "Er is geen hartslag opgenomen tussen start en einde van deze workout.",
   "strength.summary.hrNote": "Uit de bandmetingen in dat tijdvenster. De waarden zijn gemiddelden per 10 seconden.",
   "strength.summary.perExercise": "Per oefening",

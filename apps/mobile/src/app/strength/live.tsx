@@ -56,6 +56,17 @@ export default function StrengthLiveScreen() {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [busy, setBusy] = useState(false);
   const startedLiveHere = useRef(false);
+  const stopLiveRef = useRef(stopLive);
+  stopLiveRef.current = stopLive;
+  useEffect(
+    () => () => {
+      if (startedLiveHere.current) {
+        startedLiveHere.current = false;
+        void stopLiveRef.current();
+      }
+    },
+    [],
+  );
 
   if (session === null) {
     return (

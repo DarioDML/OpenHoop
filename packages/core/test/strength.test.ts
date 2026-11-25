@@ -49,6 +49,13 @@ describe('strength storage', () => {
     expect(await deleteCustomExercise(driver, created.id)).toBe(false);
   });
 
+  it('never reuses the id of a deleted custom exercise', async () => {
+    const first = await insertCustomExercise(driver, { name: 'Cable kickback', muscle: 'glutes' }, 1);
+    await deleteCustomExercise(driver, first.id);
+    const second = await insertCustomExercise(driver, { name: 'Weighted dip', muscle: 'triceps' }, 2);
+    expect(second.id).toBeGreaterThan(first.id);
+  });
+
   it('creates, edits and deletes templates with ordered items', async () => {
     const id = await saveStrengthTemplate(driver, null, { name: 'Leg day', items: [SQUAT, BENCH] }, 10);
     expect(id).not.toBeNull();
