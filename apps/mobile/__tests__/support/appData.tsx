@@ -30,6 +30,12 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     updateSettings: noop,
     updateUserData: async () => true,
     heartRateBetween: async () => [],
+    inbox: [],
+    notificationPermission: 'undetermined',
+    refreshNotifications: noop,
+    setNotificationsEnabled: async () => 'granted',
+    markInboxRead: noop,
+    clearInbox: noop,
     ...overrides,
   };
 }
