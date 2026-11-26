@@ -401,6 +401,20 @@ export function DashboardGrid({ days, index }: DayProps) {
             />
           );
         }
+        if (tile === 'wearTime') {
+          return (
+            <MetricTile
+              key={tile}
+              style={tileStyle}
+              testID="tile-wearTime"
+              label={label}
+              value={day.worn?.value ?? null}
+              reason={day.worn === undefined ? 'no-data' : day.worn.reason}
+              level={PARITY.wearTime}
+              format={(v) => formatDuration(t, v)}
+            />
+          );
+        }
         if (tile === 'sleepDebt') {
           return (
             <MetricTile
