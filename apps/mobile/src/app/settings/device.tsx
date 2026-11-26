@@ -26,6 +26,9 @@ export default function DeviceSettingsScreen() {
   const syncing = device.connection === 'syncing' || syncProgress !== null;
   const unknown = t('band.unknown');
   const nowS = Math.floor(Date.now() / 1000);
+  const wear = device.band?.wear ?? null;
+  const charging = device.band?.charging ?? null;
+  const boot = device.band?.boot;
   const lockBody: Record<LockState, string> = {
     open: t('lock.open.body'),
     locked: t('lock.locked.body'),
@@ -50,6 +53,41 @@ export default function DeviceSettingsScreen() {
         <KeyValueRow label={t('band.backlog')} value={device.backlogPages === null ? unknown : t('band.backlogPages', { count: device.backlogPages })} />
         <KeyValueRow label={t('band.connection')} value={t(`connection.${device.connection}`)} />
         <KeyValueRow label={t('band.lock')} value={t(`lock.${device.lockState}`)} />
+      </Card>
+
+      <Card style={{ gap: 0 }} testID="band-status">
+        <AppText variant="cardTitle">{t('device.status.title')}</AppText>
+        <AppText variant="label" muted>
+          {t('device.status.body')}
+        </AppText>
+        <KeyValueRow
+          testID="band-status-wear"
+          label={t('device.status.wear')}
+          value={wear === null ? unknown : t(wear.phase === 'on' ? 'device.status.onWrist' : 'device.status.offWrist')}
+        />
+        {wear !== null && <KeyValueRow testID="band-status-wear-since" label={t('device.status.since')} value={formatAgo(t, nowS, wear.since)} />}
+        <KeyValueRow
+          testID="band-status-charging"
+          label={t('device.status.charging')}
+          value={charging === null ? unknown : t(charging.charging ? 'device.status.chargingYes' : 'device.status.chargingNo')}
+        />
+        {charging !== null && <KeyValueRow testID="band-status-charging-at" label={t('device.status.reported')} value={formatAgo(t, nowS, charging.at)} />}
+      </Card>
+
+      <Card style={{ gap: 0 }} testID="band-info">
+        <AppText variant="cardTitle">{t('device.info.title')}</AppText>
+        <KeyValueRow testID="band-info-signal" label={t('device.info.signalProcessing')} value={boot?.signalProcessingVersion ?? unknown} />
+        <KeyValueRow testID="band-info-restarts" label={t('device.info.restarts')} value={boot?.bootCount === null || boot === undefined ? unknown : String(boot.bootCount)} />
+        <KeyValueRow
+          testID="band-info-last"
+          label={t('device.info.lastRestart')}
+          value={boot?.lastBootAt === null || boot === undefined ? unknown : formatAgo(t, nowS, boot.lastBootAt)}
+        />
+        <KeyValueRow
+          testID="band-info-reason"
+          label={t('device.info.restartReason')}
+          value={boot?.rebootReason === null || boot === undefined ? unknown : `0x${boot.rebootReason.toString(16).padStart(4, '0')}`}
+        />
       </Card>
 
       {device.lockState === 'locked' ? (

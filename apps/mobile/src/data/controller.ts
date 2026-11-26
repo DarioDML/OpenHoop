@@ -45,6 +45,7 @@ import {
   loadCycleData,
   probeLock,
   readDeviceInformation,
+  latestBandStatus,
   latestBatteryPack,
   readKeys,
   rebuildStaleSamples,
@@ -69,6 +70,7 @@ import {
   upsertSymptom,
   updateJournalNote,
   type BandModel,
+  type BandStatus,
   type BatteryPackState,
   type HeldChunk,
   type BodyImportResult,
@@ -254,6 +256,7 @@ function emptyDevice(): DeviceStatus {
     connection: 'disconnected',
     configSnapshot: null,
     batteryPack: null,
+    band: null,
   };
 }
 
@@ -291,6 +294,7 @@ export class AppController {
   private connection: ConnectionState = 'disconnected';
   private battery: number | null = null;
   private batteryPack: BatteryPackState | null = null;
+  private bandStatus: BandStatus | null = null;
   private backlogPages: number | null = null;
   private lastSyncAt: number | null = null;
   private lastSyncCounts: SyncCounts | null = null;
@@ -379,6 +383,7 @@ export class AppController {
         connection: this.connection,
         configSnapshot: row?.configSnapshot ?? null,
         batteryPack: this.batteryPack,
+        band: this.bandStatus,
       },
     });
   }
@@ -469,13 +474,19 @@ export class AppController {
     if (dataSource === 'demo') void this.sync();
   }
 
+  private async loadBandReports(deviceId: number): Promise<void> {
+    const { store } = this.requireApp();
+    this.batteryPack = await latestBatteryPack(store, deviceId);
+    this.bandStatus = await latestBandStatus(store, deviceId);
+  }
+
   private async redecodeStoredSamples(): Promise<void> {
     try {
       const { store } = this.requireApp();
       const rebuilt = await rebuildStaleSamples(store, (deviceId) => this.recompute(deviceId, null));
       const recomputed = await recomputeStaleDays(store, (deviceId) => this.recompute(deviceId, null));
       if (rebuilt.length === 0 && recomputed.length === 0) return;
-      if (this.deviceRow !== null) this.batteryPack = await latestBatteryPack(store, this.deviceRow.id);
+      if (this.deviceRow !== null) await this.loadBandReports(this.deviceRow.id);
       this.patch({ syncProgress: null });
       this.patchDevice();
     } catch (error) {
@@ -506,9 +517,10 @@ export class AppController {
     this.lastSyncAt = null;
     this.lastSyncCounts = null;
     this.batteryPack = null;
+    this.bandStatus = null;
     let ownerSince: string | null = null;
     if (this.deviceRow !== null) {
-      this.batteryPack = await latestBatteryPack(store, this.deviceRow.id);
+      await this.loadBandReports(this.deviceRow.id);
       const state = await store.getSyncState(this.deviceRow.id);
       this.lastSyncAt = state?.lastSyncAt ?? null;
       const savedLock = await store.getSetting(this.lockKey(this.deviceRow.id));
@@ -740,7 +752,7 @@ export class AppController {
       }
       const computeStarted = Date.now();
       await this.recompute(deviceId, previousNewest === null ? null : previousNewest - INCREMENTAL_RECOMPUTE_BACK_S);
-      this.batteryPack = await latestBatteryPack(store, deviceId);
+      await this.loadBandReports(deviceId);
       const computeMs = Date.now() - computeStarted;
       const after = await store.getSyncState(deviceId);
       this.lastSyncAt = after?.lastSyncAt ?? this.lastSyncAt;
@@ -966,7 +978,7 @@ export class AppController {
         });
         this.patch({ settings: { ...this.snapshot.settings, ownerSince: iso } });
         if (later) {
-          this.batteryPack = await latestBatteryPack(store, row.id);
+          await this.loadBandReports(row.id);
           this.patchDevice();
           this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
           await this.recompute(row.id, null);
