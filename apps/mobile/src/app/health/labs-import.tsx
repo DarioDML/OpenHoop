@@ -282,8 +282,14 @@ interface ReviewListProps {
 function ReviewList({ rows, dropped, invalid, notice, saving, onChange, onDay, onSave, onReset }: ReviewListProps) {
   const { t } = useT();
   const { colors } = useTheme();
+  const [showOthers, setShowOthers] = useState(false);
   const selected = rows.filter((row) => row.selected).length;
   const day = sharedDay(rows);
+  const known = rows.filter((row) => row.matchedAs !== null);
+  const others = rows.filter((row) => row.matchedAs === null);
+  const folded = known.length > 0 && others.length > 0;
+  if (!showOthers && others.some((row) => invalid[row.id] !== undefined)) setShowOthers(true);
+  const card = (row: ReviewRow) => <ReviewCard key={row.id} row={row} invalid={invalid[row.id] ?? []} onChange={(change) => onChange(row.id, change)} />;
   return (
     <View style={{ gap: spacing.lg }} testID="labs-import-review">
       <Card>
@@ -311,9 +317,22 @@ function ReviewList({ rows, dropped, invalid, notice, saving, onChange, onDay, o
           testID="labs-import-day"
         />
       </Card>
-      {rows.map((row) => (
-        <ReviewCard key={row.id} row={row} invalid={invalid[row.id] ?? []} onChange={(change) => onChange(row.id, change)} />
-      ))}
+      {folded ? known.map(card) : rows.map(card)}
+      {folded ? (
+        <Card testID="labs-import-others">
+          <AppText variant="bodyStrong">{others.length === 1 ? t('health.labsImport.review.othersOne') : t('health.labsImport.review.others', { count: others.length })}</AppText>
+          <AppText variant="label" muted>
+            {t('health.labsImport.review.othersBody')}
+          </AppText>
+          <Button
+            label={showOthers ? t('health.labsImport.review.othersHide') : t('health.labsImport.review.othersShow')}
+            variant="secondary"
+            onPress={() => setShowOthers(!showOthers)}
+            testID="labs-import-others-toggle"
+          />
+        </Card>
+      ) : null}
+      {folded && showOthers ? others.map(card) : null}
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
           <ParityBadge level="D" />
@@ -342,7 +361,7 @@ interface ReviewCardProps {
 function ReviewCard({ row, invalid, onChange }: ReviewCardProps) {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const [picking, setPicking] = useState(row.matchedAs === null);
+  const [picking, setPicking] = useState(false);
   const has = (field: LabField): boolean => invalid.includes(field);
   const patch = (change: Partial<LabDraft>): void => onChange((current) => ({ ...current, draft: { ...current.draft, ...change } }));
   const { draft } = row;
@@ -376,7 +395,7 @@ function ReviewCard({ row, invalid, onChange }: ReviewCardProps) {
         </AppText>
       ) : null}
 
-      {picking ? (
+      {picking || has('biomarker') || (row.selected && row.draft.biomarker === '') ? (
         <View style={{ gap: 6 }}>
           <AppText variant="capSmall" muted>
             {t('health.labsUpload.field.biomarker')}

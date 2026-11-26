@@ -53,7 +53,7 @@ export const BIOMARKER_UNITS: Readonly<Record<BiomarkerId, readonly LabUnit[]>> 
   mcv: [unit('fL')],
   rdw: [unit('%')],
   alp: [unit('U/L'), unit('µkat/L', 60)],
-  wbc: [unit('10^9/L'), unit('10^3/µL')],
+  wbc: [unit('10^9/L'), unit('10^3/µL'), unit('/µL', 0.001)],
 };
 
 export function isBiomarkerId(value: string): value is BiomarkerId {

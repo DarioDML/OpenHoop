@@ -215,6 +215,18 @@ describe('result lines', () => {
   it('skips long prose lines that are not in the catalogue', () => {
     expect(parseResultLine('Your result was within the usual limits of 5.0 mmol/L for most people')).toBeNull();
   });
+
+  it('reads a count printed per microlitre, also with a thousands multiplier', () => {
+    expect(parseResultLine('Leukocyten 4880 /µL 3720 - 10540 <')).toMatchObject({ biomarker: 'wbc', value: 4880, unit: '/µL', refLow: 3720, refHigh: 10540 });
+    expect(parseResultLine('Trombocyten 275 x 1.000/µL 148 - 362 <')).toMatchObject({ name: 'Trombocyten', value: 275, unit: '10^3/µL', refLow: 148, refHigh: 362 });
+    expect(parseResultLine('Lymfocyten 1362 /µL 964 - 3440 <')).toMatchObject({ biomarker: null, value: 1362, unit: '/µL' });
+  });
+
+  it('skips target values printed under a result', () => {
+    expect(parseResultLine('Streefwaarde bij matig CV risico <130 mg/dL')).toBeNull();
+    expect(parseResultLine('Streefwaarde bij zeer hoog CV risico <55 mg/dL')).toBeNull();
+    expect(parseResultLine('Target for high CV risk < 70 mg/dL')).toBeNull();
+  });
 });
 
 describe('report dates', () => {

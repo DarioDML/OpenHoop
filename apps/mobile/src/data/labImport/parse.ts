@@ -43,6 +43,7 @@ const FULL_RANGE = new RegExp(`^(?:${NUMBER}\\s*(?:-|tot|to)\\s*${NUMBER}|(?:<=?
 const LOWER = new RegExp(`(?:>=?|min\\.?|minimum|vanaf|from)\\s*(${NUMBER})`, 'i');
 const LETTERS = /[A-Za-zÀ-ÿ]/;
 const CONTROL = /[\u0000-\u001f\u007f]/g;
+const ANNOTATION = new Set(['streefwaarde', 'streefwaarden', 'doelwaarde', 'doelwaarden', 'target', 'targets', 'goal', 'cible']);
 
 export function parseNumber(text: string): number | null {
   if (!NUMBER_ONLY.test(text)) return null;
@@ -181,7 +182,7 @@ export function parseResultLine(line: string): Omit<LabCandidate, 'day'> | null 
     if (unit === null) return null;
     if (!onlyFlagsOrRange(tail.slice(0, unit.start))) continue;
     const name = cleanName(tokens.slice(0, hit.index));
-    if (name === null) return null;
+    if (name === null || ANNOTATION.has(nameKey(name).split(' ')[0] ?? '')) return null;
     const rangeText = [...tail.slice(0, unit.start), ...tail.slice(unit.start + unit.length)].filter((token) => !FLAG.test(token)).join(' ');
     const range = parseRange(rangeText);
     let biomarker = matchBiomarker(name);
