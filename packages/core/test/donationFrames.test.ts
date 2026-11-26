@@ -46,6 +46,8 @@ describe('identity filter', () => {
     expect(identityReason(hardware, decodeFrame(hardware), [])).toBe('identityEvent');
     expect(identityReason(unknown, decodeFrame(unknown), [])).toBe('identityEvent');
     expect(identityReason(charge, decodeFrame(charge), [])).toBeNull();
+    const oversized = encodeEvent({ packetType: 54, event: 2, unixS: 1_700_000_000, payload: Uint8Array.of(1, 0xe5, 0, 0, 0x41, 0x42) });
+    expect(identityReason(oversized, decodeFrame(oversized), [])).toBe('identityEvent');
   });
 
   it('removes frames whose text holds a serial or a Bluetooth address', () => {

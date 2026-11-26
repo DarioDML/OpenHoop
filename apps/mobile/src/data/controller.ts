@@ -963,6 +963,8 @@ export class AppController {
         });
         this.patch({ settings: { ...this.snapshot.settings, ownerSince: iso } });
         if (later) {
+          this.batteryPack = await latestBatteryPack(store, row.id);
+          this.patchDevice();
           this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
           await this.recompute(row.id, null);
         }
