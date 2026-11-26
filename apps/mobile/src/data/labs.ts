@@ -22,6 +22,13 @@ export const BIOMARKER_IDS = [
   'tsh',
   'crp',
   'haemoglobin',
+  'albumin',
+  'creatinine',
+  'lymphocytePct',
+  'mcv',
+  'rdw',
+  'alp',
+  'wbc',
 ] as const;
 
 export type BiomarkerId = (typeof BIOMARKER_IDS)[number];
@@ -40,6 +47,13 @@ export const BIOMARKER_UNITS: Readonly<Record<BiomarkerId, readonly LabUnit[]>> 
   tsh: [unit('mIU/L'), unit('µIU/mL')],
   crp: [unit('mg/L'), unit('mg/dL', 10)],
   haemoglobin: [unit('g/dL'), unit('g/L', 0.1)],
+  albumin: [unit('g/L'), unit('g/dL', 10)],
+  creatinine: [unit('µmol/L'), unit('mg/dL', 88.42)],
+  lymphocytePct: [unit('%')],
+  mcv: [unit('fL')],
+  rdw: [unit('%')],
+  alp: [unit('U/L'), unit('µkat/L', 60)],
+  wbc: [unit('10^9/L'), unit('10^3/µL')],
 };
 
 export function isBiomarkerId(value: string): value is BiomarkerId {
