@@ -3,7 +3,7 @@ import { defaultNetworkPrefs, type NetworkPrefs } from '@/net/features';
 import { checkRequest } from '@/net/gate';
 import { MAX_TILES_PER_MAP, TILE_HOST, tileSources, tileUrl, tileUserAgent } from '@/net/tiles';
 
-const MAPS_ON: NetworkPrefs = { enabled: true, features: { coach: false, maps: true } };
+const MAPS_ON: NetworkPrefs = { enabled: true, features: { coach: false, maps: true, labs: false } };
 const TILE: TileRef = { z: 15, x: 16723, y: 10946, left: 0, top: 0 };
 
 describe('web mercator', () => {
@@ -65,8 +65,8 @@ describe('map tiles', () => {
 
   it('refuses every tile while the network or the maps feature is off', () => {
     expect(tileSources(defaultNetworkPrefs(), [TILE], '0.1.0')).toEqual({ allowed: false, reason: 'network-off' });
-    expect(tileSources({ enabled: true, features: { coach: true, maps: false } }, [TILE], '0.1.0')).toEqual({ allowed: false, reason: 'feature-off' });
-    expect(tileSources({ enabled: false, features: { coach: false, maps: true } }, [TILE], '0.1.0')).toEqual({ allowed: false, reason: 'network-off' });
+    expect(tileSources({ enabled: true, features: { coach: true, maps: false, labs: false } }, [TILE], '0.1.0')).toEqual({ allowed: false, reason: 'feature-off' });
+    expect(tileSources({ enabled: false, features: { coach: false, maps: true, labs: false } }, [TILE], '0.1.0')).toEqual({ allowed: false, reason: 'network-off' });
   });
 
   it('gives image sources with the app User-Agent and default caching when maps is on', () => {
@@ -86,7 +86,7 @@ describe('map tiles', () => {
   });
 
   it('allows only the tile host for maps and keeps it out of the coach feature', () => {
-    const all: NetworkPrefs = { enabled: true, features: { coach: true, maps: true } };
+    const all: NetworkPrefs = { enabled: true, features: { coach: true, maps: true, labs: true } };
     expect(checkRequest(all, 'maps', `https://${TILE_HOST}/1/0/0.png`)).toEqual({ allowed: true });
     expect(checkRequest(all, 'maps', 'https://a.tile.openstreetmap.org/1/0/0.png')).toEqual({ allowed: false, reason: 'host-not-allowed' });
     expect(checkRequest(all, 'maps', 'https://api.anthropic.com/v1/messages')).toEqual({ allowed: false, reason: 'host-not-allowed' });

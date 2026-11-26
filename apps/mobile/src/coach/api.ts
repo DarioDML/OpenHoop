@@ -1,4 +1,5 @@
 import { isRecord, parseJson, type Json } from '@/lib/json';
+import type { NetworkFeature } from '@/net/features';
 import { NetworkRefusedError, type GatedFetch } from '@/net/gate';
 
 import { COACH_METRICS } from './metrics';
@@ -10,7 +11,7 @@ export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 export const MAX_TOKENS = 2048;
 export const REQUEST_TIMEOUT_MS = 60_000;
 
-const MODELS_WITH_FALLBACK: readonly CoachModel[] = ['claude-sonnet-5-5', 'claude-opus-5-5'];
+export const MODELS_WITH_FALLBACK: readonly CoachModel[] = ['claude-sonnet-5-5', 'claude-opus-5-5'];
 
 export const REPLY_SCHEMA: Json = {
   type: 'object',
@@ -121,17 +122,24 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
-export async function requestCoachReply(send: GatedFetch, request: CoachRequest, options: RequestOptions = {}): Promise<CoachApiResult> {
+export interface MessagesCall {
+  feature: NetworkFeature;
+  apiKey: string;
+  model: CoachModel;
+  body: string;
+}
+
+export async function postMessages(send: GatedFetch, call: MessagesCall, options: RequestOptions = {}): Promise<CoachApiResult> {
   const abort = new AbortController();
   const stop = (): void => abort.abort();
   const timer = setTimeout(stop, options.timeoutMs ?? REQUEST_TIMEOUT_MS);
   options.signal?.addEventListener('abort', stop);
   if (options.signal?.aborted === true) stop();
   try {
-    const response = await send('coach', MESSAGES_URL, {
+    const response = await send(call.feature, MESSAGES_URL, {
       method: 'POST',
-      headers: buildHeaders(request.apiKey, request.model),
-      body: buildRequestBody(request),
+      headers: buildHeaders(call.apiKey, call.model),
+      body: call.body,
       signal: abort.signal,
     });
     if (!response.ok) return { ok: false, error: errorForStatus(response.status) };
@@ -144,4 +152,8 @@ export async function requestCoachReply(send: GatedFetch, request: CoachRequest,
     clearTimeout(timer);
     options.signal?.removeEventListener('abort', stop);
   }
+}
+
+export function requestCoachReply(send: GatedFetch, request: CoachRequest, options: RequestOptions = {}): Promise<CoachApiResult> {
+  return postMessages(send, { feature: 'coach', apiKey: request.apiKey, model: request.model, body: buildRequestBody(request) }, options);
 }
