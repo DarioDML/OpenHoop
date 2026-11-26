@@ -60,7 +60,7 @@ export function PendingCard({ label, issue, href, testID }: PendingProps) {
 }
 
 function halfCard(compact: boolean): ViewStyle {
-  return { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: compact ? '100%' : 0 };
+  return { flexGrow: 1, flexShrink: 1, flexBasis: compact ? '100%' : 160, minWidth: 140 };
 }
 
 export function VitalsCard({ days, index }: DayProps) {

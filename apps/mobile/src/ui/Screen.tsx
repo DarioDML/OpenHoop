@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, RefreshControl, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -118,6 +118,7 @@ export function Screen({
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
+          testID="screen-scroll"
           onScroll={onScroll}
           scrollEventThrottle={32}
           refreshControl={
@@ -138,8 +139,8 @@ export function Screen({
       {scroll && scrolled && insets.top > 0 ? (
         <View pointerEvents="none" testID="status-bar-scrim" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: colors.background, opacity: 0.94 }} />
       ) : null}
-      {!footer && insets.bottom >= BUTTON_NAV_INSET ? (
-        <View pointerEvents="none" testID="nav-bar-scrim" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: insets.bottom, backgroundColor: colors.background, opacity: 0.97 }} />
+      {Platform.OS === 'android' && !footer && insets.bottom >= BUTTON_NAV_INSET ? (
+        <View pointerEvents="none" testID="nav-bar-scrim" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: insets.bottom, backgroundColor: header ? colors.sheet : colors.background, opacity: 0.97 }} />
       ) : null}
     </View>
   );

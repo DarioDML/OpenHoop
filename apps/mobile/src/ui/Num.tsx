@@ -17,7 +17,7 @@ interface Props {
   adjustsFontSizeToFit?: boolean;
 }
 
-export function Num({ children, size = 44, color, unit, unitSize, unitColor, style, testID, accessibilityLabel, maxFontSizeMultiplier = 1.15, adjustsFontSizeToFit = false }: Props) {
+export function Num({ children, size = 44, color, unit, unitSize, unitColor, style, testID, accessibilityLabel, maxFontSizeMultiplier = 1.3, adjustsFontSizeToFit = false }: Props) {
   const { colors } = useTheme();
   const base: TextStyle = {
     fontFamily: fonts.numeric,

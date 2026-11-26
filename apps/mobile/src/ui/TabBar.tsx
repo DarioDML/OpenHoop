@@ -56,8 +56,8 @@ export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps)
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.75}
-          maxFontSizeMultiplier={1.15}
-          style={{ fontSize: 10, lineHeight: 13, fontWeight: focused ? '600' : '500', textAlign: 'center' }}>
+          maxFontSizeMultiplier={1.3}
+          style={{ fontSize: 11, lineHeight: 14, fontWeight: focused ? '600' : '500', textAlign: 'center' }}>
           {label}
         </AppText>
       </Pressable>

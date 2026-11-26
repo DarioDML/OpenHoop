@@ -14,7 +14,7 @@ interface KeyValueProps {
 export function KeyValueRow({ label, value, valueColor, testID }: KeyValueProps) {
   return (
     <View testID={testID} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, minHeight: 44 }}>
-      <AppText variant="body" muted style={{ flexShrink: 1, minWidth: '40%' }}>
+      <AppText variant="body" muted style={{ flexShrink: 1, minWidth: 96 }}>
         {label}
       </AppText>
       <AppText variant="bodyStrong" numeric color={valueColor} style={{ flexShrink: 1, textAlign: 'right' }}>

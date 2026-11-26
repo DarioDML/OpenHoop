@@ -53,7 +53,7 @@ export function StatRow({ label, value, caption, right, href, testID }: StatRowP
   const { colors } = useTheme();
   const body = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52 }}>
-      <View style={{ flexGrow: 1, flexShrink: 1, minWidth: '40%', gap: 2 }}>
+      <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 96, gap: 2 }}>
         <AppText variant="body" style={{ fontWeight: '500' }}>
           {label}
         </AppText>
