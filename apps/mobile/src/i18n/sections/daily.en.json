@@ -172,6 +172,8 @@
   "alarm.enabled": "Alarm",
   "alarm.earlier": "5 minutes earlier",
   "alarm.later": "5 minutes later",
+  "alarm.hourEarlier": "1 hour earlier",
+  "alarm.hourLater": "1 hour later",
   "alarm.save": "Set alarm",
   "alarm.saving": "Setting…",
   "alarm.status.title": "On the band",

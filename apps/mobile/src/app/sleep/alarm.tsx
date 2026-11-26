@@ -19,6 +19,8 @@ import { Num } from '@/ui/Num';
 import { spacing, useTheme } from '@/ui/theme';
 
 const STEP_MIN = 5;
+const HOUR_MIN = 60;
+const RING_WINDOW_S = 120;
 
 function localDay(unixS: number): string {
   return unixToIsoDate(unixS, deviceTzOffsetS(new Date(unixS * 1000)));
@@ -32,10 +34,10 @@ export function wakeLabel(t: TFunction, language: 'nl' | 'en', unixS: number, no
   return t('alarm.onDay', { day: formatShortDay(day, language), time });
 }
 
-function lastRing(events: readonly AlarmEvent[]): { at: number; endedBy: AlarmEvent['endedBy'] } | null {
-  const fired = events.find((event) => event.kind === 'fired' || event.kind === 'haptics-fired');
+export function lastRing(events: readonly AlarmEvent[]): { at: number; endedBy: AlarmEvent['endedBy'] } | null {
+  const fired = events.find((event) => event.kind === 'fired' || event.kind === 'app-fired');
   if (fired === undefined) return null;
-  const ended = events.find((event) => event.kind === 'haptics-ended' && event.t >= fired.t);
+  const ended = events.find((event) => event.kind === 'haptics-ended' && event.t >= fired.t && event.t <= fired.t + RING_WINDOW_S);
   return { at: fired.t, endedBy: ended?.endedBy ?? null };
 }
 
@@ -96,12 +98,14 @@ export default function HapticAlarmScreen() {
 
       <Card style={{ gap: spacing.md }}>
         <ToggleRow title={t('alarm.enabled')} value={draft.enabled} onChange={(enabled) => setDraft((plan) => ({ ...plan, enabled }))} testID="alarm-enabled" />
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, opacity: draft.enabled ? 1 : 0.5 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.md, opacity: draft.enabled ? 1 : 0.5 }}>
+          {stepper(-HOUR_MIN, '«', 'alarm-hour-earlier', t('alarm.hourEarlier'))}
           {stepper(-STEP_MIN, '−', 'alarm-earlier', t('alarm.earlier'))}
           <Num size={44} testID="alarm-time">
             {formatMinutes(draft.minutes)}
           </Num>
           {stepper(STEP_MIN, '+', 'alarm-later', t('alarm.later'))}
+          {stepper(HOUR_MIN, '»', 'alarm-hour-later', t('alarm.hourLater'))}
         </View>
         <AppText variant="label" muted>
           {t('sleepx.alarmExact')}

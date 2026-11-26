@@ -172,6 +172,8 @@
   "alarm.enabled": "Alarm",
   "alarm.earlier": "5 minuten vroeger",
   "alarm.later": "5 minuten later",
+  "alarm.hourEarlier": "1 uur vroeger",
+  "alarm.hourLater": "1 uur later",
   "alarm.save": "Alarm instellen",
   "alarm.saving": "Instellen…",
   "alarm.status.title": "Op de band",

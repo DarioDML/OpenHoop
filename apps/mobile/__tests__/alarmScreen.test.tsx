@@ -40,8 +40,12 @@ describe('Haptic alarm', () => {
     await fireEvent.press(screen.getByTestId('alarm-earlier'));
     await fireEvent.press(screen.getByTestId('alarm-earlier'));
     expect(screen.getByText('06:50')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('alarm-hour-earlier'));
+    await fireEvent.press(screen.getByTestId('alarm-hour-later'));
+    await fireEvent.press(screen.getByTestId('alarm-hour-later'));
+    expect(screen.getByText('07:50')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('alarm-save'));
-    await waitFor(() => expect(save).toHaveBeenCalledWith({ ...DEFAULT_ALARM_PLAN, enabled: true, minutes: 6 * 60 + 50 }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ ...DEFAULT_ALARM_PLAN, enabled: true, minutes: 7 * 60 + 50 }));
   });
 
   it('says when the alarm is on the band and when it is not yet', async () => {
@@ -68,6 +72,16 @@ describe('Haptic alarm', () => {
     );
     expect(screen.getByTestId('alarm-problem').props.children).toBe('The band refused the alarm (invalid-alarm-time).');
     expect(screen.getByTestId('alarm-last').props.children).toMatch(/stopped with a double tap$/);
+  });
+
+  it('does not count a haptics test as an alarm ring', async () => {
+    const buzz = inHours(-1);
+    await render(
+      withAppData(<HapticAlarmScreen />, 'en', {
+        alarm: alarm({ plan: PLAN, events: [{ t: buzz + 2, kind: 'haptics-ended', endedBy: 'expired' }, { t: buzz, kind: 'haptics-fired', endedBy: null }] }),
+      }),
+    );
+    expect(screen.queryByTestId('alarm-last')).toBeNull();
   });
 
   it('tests the alarm buzz and keeps smart wake marked as not built', async () => {
