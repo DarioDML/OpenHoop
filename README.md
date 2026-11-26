@@ -145,6 +145,7 @@ The health report is a PDF of the last 30 or 90 days that you can share with you
 ## Privacy
 
 - No account, no OpenHoop server and no telemetry.
+- The Donate button and the GitHub links on the support page open your browser. The app sends no request for them, and the link carries only the amount and whether it is once or monthly.
 - No network access by default. Every request goes through one gate in the app that refuses it unless you switch on "Network features" and the specific feature under Privacy, and the address is https on that feature's fixed host. Both switches start off.
 - Opt-in network features and what leaves the phone:
   - **Coach** sends your question, the current conversation, a summary of the last 7 days of Readiness, Sleep score, Load, HRV and resting heart rate (with their levels) and your coach memory notes to Anthropic (`api.anthropic.com`), using your own API key. No name, band identifiers or raw readings are sent. Coach settings show the exact text. The key stays in the device's secure storage and is never written to the database or the export. Anthropic's own terms apply to what you send.
@@ -173,6 +174,21 @@ On Android, OpenHoop can write heart rate (minute averages), resting heart rate,
 ## Not a medical device
 
 OpenHoop is not a medical device. It does not diagnose, treat or monitor any condition, and it makes no rhythm classification and no blood pressure value. Its numbers are estimates from a consumer sensor and from models that have not been validated for clinical use. Do not use them for medical decisions.
+
+## Support the project
+
+OpenHoop is free and has no paywalls. Donations help pay for test bands and reference devices. They go through [GitHub Sponsors](https://github.com/sponsors/DarioDML), once or every month, with any amount:
+
+| | $3 | $5 | $10 | Other |
+| --- | --- | --- | --- | --- |
+| Once | [$3](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=one-time&amount=3) | [$5](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=one-time&amount=5) | [$10](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=one-time&amount=10) | [Choose](https://github.com/sponsors/DarioDML?frequency=one-time) |
+| Monthly | [$3](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=recurring&amount=3) | [$5](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=recurring&amount=5) | [$10](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=recurring&amount=10) | [Choose](https://github.com/sponsors/DarioDML?frequency=recurring) |
+
+GitHub takes no fee on sponsorships from personal accounts, so all of it reaches the project. Sponsorships paid by an organisation carry a fee of up to 6%. You pay by card in US dollars and need a GitHub account. A monthly sponsorship can be changed or cancelled at any time on GitHub.
+
+In the app the same choice is under More → Support the project. It opens GitHub in your browser; the app itself sends nothing.
+
+You can also help by [reporting a problem or contributing code](https://github.com/DarioDML/OpenHoop/issues).
 
 ## More documents
 

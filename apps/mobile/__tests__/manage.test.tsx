@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { Linking } from 'react-native';
 
 import { createFixtureDevice } from '@/data/fixtureSource';
 import { pickDeviceState } from '@/ui/manage/deviceState';
+import { donationUrl } from '@/ui/manage/links';
 import { checkMeasure, checkProfile, defaultMaxHr } from '@/ui/manage/validation';
 import { PARITY } from '@/ui/parity';
 
@@ -158,10 +160,35 @@ describe('About, accuracy and support', () => {
     expect(screen.queryByText(/±/)).toBeNull();
   });
 
-  it('has no payment links on the support page', async () => {
+  it('builds GitHub Sponsors links for a preset or open amount', () => {
+    expect(donationUrl('one-time', 5)).toBe('https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=one-time&amount=5');
+    expect(donationUrl('monthly', 10)).toBe('https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=recurring&amount=10');
+    expect(donationUrl('monthly', null)).toBe('https://github.com/sponsors/DarioDML?frequency=recurring');
+    expect(donationUrl('one-time', null)).toBe('https://github.com/sponsors/DarioDML?frequency=one-time');
+  });
+
+  it('opens a one-off $5 donation by default', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     await render(withAppData(<SupportScreen />));
+    expect(screen.getByText('Donate $5 once')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('support-donate'));
+    expect(open).toHaveBeenCalledWith(donationUrl('one-time', 5));
+    open.mockRestore();
+  });
+
+  it('opens a monthly donation with the chosen amount, or an open amount for Other', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    await render(withAppData(<SupportScreen />));
+    await fireEvent.press(screen.getByText('Monthly'));
+    await fireEvent.press(screen.getByTestId('donate-amount-10'));
+    expect(screen.getByText('Donate $10 a month')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('support-donate'));
+    expect(open).toHaveBeenLastCalledWith(donationUrl('monthly', 10));
+    await fireEvent.press(screen.getByTestId('donate-amount-other'));
+    await fireEvent.press(screen.getByTestId('support-donate'));
+    expect(open).toHaveBeenLastCalledWith(donationUrl('monthly', null));
     expect(screen.getByTestId('support-repo')).toBeTruthy();
-    expect(screen.queryByText(/€|donate|paypal/i)).toBeNull();
+    open.mockRestore();
   });
 });
 
