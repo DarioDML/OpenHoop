@@ -146,6 +146,7 @@ The health report is a PDF of the last 30 or 90 days that you can share with you
 
 - No account, no OpenHoop server and no telemetry.
 - The Donate button opens the GitHub Sponsors checkout in the system browser, shown as a sheet over the app; the GitHub links on the support page open the browser itself. The app sends no request for them and does not see what you enter on GitHub. The link carries only the amount and whether it is once or monthly.
+- Donate your data builds its files on the phone and saves them in a folder you pick. The app sends nothing: it opens a prefilled GitHub issue form in the same browser sheet, and you attach and post the files yourself. The link carries the band model, the number of days and files, the date range, the firmware and the app version. See "Donate your data".
 - No network access by default. Every request goes through one gate in the app that refuses it unless you switch on "Network features" and the specific feature under Privacy, and the address is https on that feature's fixed host. Both switches start off.
 - Opt-in network features and what leaves the phone:
   - **Coach** sends your question, the current conversation, a summary of the last 7 days of Readiness, Sleep score, Load, HRV and resting heart rate (with their levels) and your coach memory notes to Anthropic (`api.anthropic.com`), using your own API key. No name, band identifiers or raw readings are sent. Coach settings show the exact text. The key stays in the device's secure storage and is never written to the database or the export. Anthropic's own terms apply to what you send.
@@ -189,6 +190,20 @@ GitHub takes no fee on sponsorships from personal accounts; sponsorships paid by
 In the app, go to More → Support the project. Pick $3, $5, $10 or type any whole-dollar amount up to $12,000, choose one-off or monthly, and tap Donate. The GitHub Sponsors checkout opens in a sheet over the app with that amount filled in (a Chrome Custom Tab on Android, a Safari view on iOS). Closing it brings you back to the app. On Android the sheet uses your default browser, so if you are signed in to GitHub there you are signed in here too. On iOS the sheet keeps its own sign-in, separate from Safari, so you sign in to GitHub in the sheet the first time.
 
 You can also help by [reporting a problem or contributing code](https://github.com/DarioDML/OpenHoop/issues).
+
+### Donate your data
+
+Raw band data next to the official values for the same days is what makes the scores more accurate. In the app, go to More → Support the project → Donate your data (it is also on the Accuracy page):
+
+1. Choose one or more days, or Select all. Days that also have official values are marked "most useful"; import the official export first to get those.
+2. Confirm that the data becomes public and tap Donate. The app packs the days into zip files of at most 24 MiB each and saves them in a folder you pick (Downloads on Android, which the app remembers).
+3. A prefilled "Data donation" issue opens on GitHub. Attach the files and submit. You need a free GitHub account.
+
+What goes in: the raw band records of the chosen days in the format of wearable5.0's donations (`frames.jsonl`), the official values you imported for those days, OpenHoop's own results for them, a `MANIFEST.json` and a `README.txt`. The band model is in the issue title and every file name.
+
+What stays out: your name and profile, the band's serial number, Bluetooth address and name (and every raw record that carries them), records from before you started wearing the band, journal answers, notes, GPS routes, coach chats, cycle tracking, lab results, body measurements and every other day.
+
+Dates and times are real, because every raw record carries the band's clock. The issue is public, linked to your GitHub account and cannot be taken back. Donated data is shared under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/): anyone may use it for anything.
 
 ## More documents
 
