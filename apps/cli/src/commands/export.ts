@@ -13,6 +13,7 @@ const TABLES: readonly ExportTable[] = [
   'sleeps',
   'workouts',
   'events',
+  'battery_pack_events',
   'console_log',
   'raw_chunks',
 ];

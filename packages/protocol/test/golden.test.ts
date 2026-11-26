@@ -32,6 +32,8 @@ function packetType(p: Packet): number {
       return 49;
     case 'console':
       return 50;
+    case 'packEvent':
+      return 54;
     default:
       return p.packetType;
   }

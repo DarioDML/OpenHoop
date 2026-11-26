@@ -26,7 +26,7 @@ import {
 import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample, SleepPeriod, StressWindow } from '@openhoop/analytics';
 import { FrameError, decodeFrame } from '@openhoop/protocol';
 import type { Packet } from '@openhoop/protocol';
-import { sampleFromPacket } from './mapping';
+import { packEventFromPacket, sampleFromPacket } from './mapping';
 import { applySleepEdits, editsTouching, measuredNight } from './sleepEdits';
 import type { MergedSleepPeriod } from './sleepEdits';
 import { bindStore } from './store/store';
@@ -34,6 +34,7 @@ import type {
   DayRecord,
   DeleteBeforeResult,
   Derived,
+  PackEventRow,
   SampleRow,
   SampleSource,
   SleepEdit,
@@ -618,14 +619,18 @@ export async function rebuildFromRaw(store: Store, deviceId: number): Promise<{ 
     let samples = 0;
     for (const chunkId of chunkIds) {
       const rows: SampleRow[] = [];
+      const packRows: PackEventRow[] = [];
       for (const frame of await inner.readChunkFrames(chunkId)) {
         const packet = tryDecode(frame);
         if (packet === null) continue;
+        const pack = packEventFromPacket(deviceId, packet);
+        if (pack !== null && (ownerSince === null || pack.t >= ownerSince)) packRows.push(pack);
         const row = sampleFromPacket(deviceId, packet, chunkId);
         if (row === null || (ownerSince !== null && row.t < ownerSince)) continue;
         rows.push({ ...row, source: 'history' });
       }
       samples += await inner.insertSamples(rows);
+      await inner.insertPackEvents(packRows, chunkId);
     }
     return { chunks: chunkIds.length, samples };
   });

@@ -1,10 +1,10 @@
 import { Command, isDataLockFirmware, toHex } from '@openhoop/protocol';
 import type { DataRange, Packet } from '@openhoop/protocol';
 import type { HeldChunk } from './lockProbe';
-import { sampleFromPacket } from './mapping';
+import { packEventFromPacket, sampleFromPacket } from './mapping';
 import type { Session } from './session';
 import { CommandFailedError, DisconnectedError, LINK_QUIET_MAX_MS, LINK_QUIET_MS } from './session';
-import type { ConsoleRow, EventRow, SampleRow, Store, SyncStateRow } from './store/types';
+import type { ConsoleRow, EventRow, PackEventRow, SampleRow, Store, SyncStateRow } from './store/types';
 
 export const MAX_CLOCK_OFFSET_S = 120;
 export const MAX_DAMAGED_ATTEMPTS = 3;
@@ -126,6 +126,7 @@ interface ChunkTally {
   frames: Uint8Array[];
   samples: SampleRow[];
   events: EventRow[];
+  packEvents: PackEventRow[];
   console: ConsoleRow[];
   unknownFrames: number;
   discarded: number;
@@ -134,7 +135,17 @@ interface ChunkTally {
 }
 
 function emptyTally(): ChunkTally {
-  return { frames: [], samples: [], events: [], console: [], unknownFrames: 0, discarded: 0, content: 0, spontaneous: [] };
+  return {
+    frames: [],
+    samples: [],
+    events: [],
+    packEvents: [],
+    console: [],
+    unknownFrames: 0,
+    discarded: 0,
+    content: 0,
+    spontaneous: [],
+  };
 }
 
 function isChunkMarker(packet: Packet): boolean {
@@ -183,6 +194,13 @@ function addFrameKind(tally: ChunkTally, deviceId: number, ownerFloor: number | 
         payloadHex: toHex(packet.payload),
       });
       return;
+    case 'packEvent': {
+      if (ownerFloor !== null && packet.unixS < ownerFloor) return;
+      tally.frames.push(raw);
+      const row = packEventFromPacket(deviceId, packet);
+      if (row !== null) tally.packEvents.push(row);
+      return;
+    }
     case 'console':
       if (ownerFloor !== null && packet.unixS < ownerFloor) return;
       tally.frames.push(raw);
@@ -271,7 +289,13 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
         receivedAt: Math.floor(session.clock.now() / 1000),
       },
       tally.samples,
-      { events: tally.events, console: tally.console, unknownFrames: tally.unknownFrames, syncState: state },
+      {
+        events: tally.events,
+        packEvents: tally.packEvents,
+        console: tally.console,
+        unknownFrames: tally.unknownFrames,
+        syncState: state,
+      },
     );
     newestSampleT = candidateNewest;
     if (endToken !== null) lastEndToken = endToken;

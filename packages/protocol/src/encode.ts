@@ -1,6 +1,7 @@
 import { concat } from './bytes';
 import type { FirmwareVersion } from './firmware';
 import { wrapFrame } from './framing';
+import type { PackInfo } from './batteryPack';
 import type { Biometric } from './records';
 import { BAND_STATES } from './records';
 import type { FieldIndex } from './schema';
@@ -186,11 +187,11 @@ export function encodeMetadata(i: {
   return body.frame();
 }
 
-export function encodeEvent(i: { event: number; unixS: number; payload?: Uint8Array }): Uint8Array {
+export function encodeEvent(i: { event: number; unixS: number; payload?: Uint8Array; packetType?: 48 | 54 }): Uint8Array {
   const payload = i.payload ?? new Uint8Array(0);
   const body = new FrameBody(schema.event.payloadOffset - FRAME_BODY_OFFSET + payload.length);
   const f = schema.event.fields;
-  body.at(8, 48);
+  body.at(8, i.packetType ?? 48);
   body.at(9, 3);
   body.at(11, 1);
   body.put(f, 'event', i.event);
@@ -206,6 +207,29 @@ export function encodeBatteryEvent(i: { unixS: number; socPercent: number; milli
   w.put(schema.event.battery, 'soc_percent', i.socPercent);
   w.put(schema.event.battery, 'millivolts', i.millivolts);
   return encodeEvent({ event: 3, unixS: i.unixS, payload: w.bytes });
+}
+
+export function encodePackSocPayload(socPercent: number): Uint8Array {
+  const w = bodyWriter(schema.pack.soc.length);
+  w.put(schema.pack.soc.fields, 'revision', schema.pack.revision);
+  w.put(schema.pack.soc.fields, 'soc_percent', socPercent);
+  return w.bytes;
+}
+
+export function encodePackInfoPayload(info: PackInfo, socPercent: number): Uint8Array {
+  const { fields: f, length, serialOffset, serialLength } = schema.pack.info;
+  const w = bodyWriter(length);
+  w.put(f, 'revision', schema.pack.revision);
+  w.put(f, 'hw_family', info.hwFamily);
+  w.put(f, 'hw_version', info.hwVersion);
+  w.put(f, 'fw_major', info.firmware.major);
+  w.put(f, 'fw_minor', info.firmware.minor);
+  w.put(f, 'fw_patch', info.firmware.patch);
+  w.put(f, 'fw_build', info.firmware.build);
+  w.put(f, 'colourway', info.colourway);
+  w.put(f, 'soc_percent', socPercent);
+  for (let i = 0; i < Math.min(info.serial.length, serialLength); i++) w.bytes[serialOffset + i] = info.serial.charCodeAt(i);
+  return w.bytes;
 }
 
 export function encodeConsole(i: { consoleSequence: number; unixS: number; text: string }): Uint8Array {

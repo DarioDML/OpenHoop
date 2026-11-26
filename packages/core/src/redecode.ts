@@ -1,8 +1,8 @@
 import { rebuildFromRaw } from './pipeline';
 import type { Store } from './store/types';
 
-// Bump when a decoder change alters the samples stored from the same frames; older samples are then re-decoded.
-export const SAMPLE_DECODER_VERSION = 1;
+// Bump when a decoder change alters what is stored from the same frames (samples or battery pack events); stored data is then re-decoded.
+export const SAMPLE_DECODER_VERSION = 2;
 export const SAMPLE_DECODER_VERSION_KEY = 'samples.decoderVersion';
 
 function storedVersion(text: string | null): number {

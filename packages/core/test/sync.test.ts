@@ -5,6 +5,7 @@ import {
   encodeConsole,
   encodeEvent,
   encodeMetadata,
+  encodePackSocPayload,
   encodeUnknownRecord,
   toHex,
 } from '@openhoop/protocol';
@@ -441,6 +442,39 @@ describe('syncHistory', () => {
     const lines = await store.driver.all<{ t: number }>('SELECT t FROM console_log');
     expect(events.map((e) => e.t)).toEqual([T0 + 2]);
     expect(lines.map((e) => e.t)).toEqual([T0 + 2]);
+  });
+
+  it('stores battery pack events apart from band events and does not count them as unknown', async () => {
+    const payload = encodePackSocPayload(22.9);
+    const chunk = [
+      encodeMetadata({ meta: 'HISTORY_START', unixS: T0 }),
+      encodeBiometric({ recordIndex: 1, unixS: T0 + 1, heartRate: 61 }),
+      encodeEvent({ packetType: 54, event: 20, unixS: T0 + 2, payload }),
+      encodeEvent({ event: 20, unixS: T0 + 2, payload }),
+      encodeMetadata({ meta: 'HISTORY_END', unixS: T0 + 4, endToken: token(0) }),
+    ];
+    const { session } = await band({ chunks: [chunk], complete: historyComplete(T0 + 5) });
+    const result = await syncHistory(session, store, { deviceId });
+    expect(result).toMatchObject({ frames: 5, unknownFrames: 0, samples: 1 });
+    expect(await store.listPackEvents(deviceId, 10)).toEqual([
+      { deviceId, t: T0 + 2, event: 20, name: 'BPK_HW_INFORMATION', payloadHex: toHex(payload) },
+    ]);
+    const events = await store.driver.all<{ name: string }>('SELECT name FROM events');
+    expect(events.map((e) => e.name)).toEqual(['SERIAL_HEAD_REMOVED']);
+  });
+
+  it('drops battery pack events dated before ownerSince', async () => {
+    const payload = encodePackSocPayload(40);
+    const pack = [
+      encodeEvent({ packetType: 54, event: 2, unixS: T0 - 10, payload }),
+      encodeEvent({ packetType: 54, event: 2, unixS: T0 + 3, payload }),
+    ];
+    const { session } = await band({
+      chunks: [[...biometricChunk(0, { firstT: T0 + 1, count: 1 }).slice(0, 2), ...pack, ...biometricChunk(0, { firstT: T0 + 1, count: 1 }).slice(2)]],
+      complete: historyComplete(T0 + 50),
+    });
+    await syncHistory(session, store, { deviceId });
+    expect((await store.listPackEvents(deviceId, 10)).map((e) => e.t)).toEqual([T0 + 3]);
   });
 
   describe('band clock', () => {
