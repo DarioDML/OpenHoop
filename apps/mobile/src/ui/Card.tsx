@@ -64,7 +64,6 @@ interface CardHeaderProps {
 }
 
 export function CardHeader({ title, action, onAction, href, chevron = false }: CardHeaderProps) {
-  const { colors } = useTheme();
   const press = onAction ?? (href ? () => router.push(href) : undefined);
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }}>

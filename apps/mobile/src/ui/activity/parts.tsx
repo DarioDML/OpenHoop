@@ -5,17 +5,15 @@ import { Pressable, View } from 'react-native';
 import { useAppData } from '@/data/context';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
-import { formatClock, formatDuration } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Icon } from '@/ui/Icon';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { Num } from '@/ui/Num';
 import { NotBuilt, type IssueKey } from '@/ui/NotBuilt';
 import { Screen } from '@/ui/Screen';
 import { TopBar } from '@/ui/TopBar';
 import { radius, spacing, useTheme, type Tint } from '@/ui/theme';
-import type { DayRecord, WorkoutRecord } from '@openhoop/core';
+import type { DayRecord } from '@openhoop/core';
 
 interface StatTileProps {
   label: string;

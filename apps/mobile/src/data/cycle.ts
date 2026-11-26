@@ -24,7 +24,7 @@ export const FLOW_OPTIONS = [1, 2, 3] as const satisfies readonly FlowLevel[];
 export const INTENSITY_OPTIONS = [1, 2, 3] as const satisfies readonly Intensity[];
 
 type AssertNever<T extends never> = T;
-type CompleteOptions = [
+type _CompleteOptions = [
   AssertNever<Exclude<Symptom, (typeof SYMPTOM_OPTIONS)[number]>>,
   AssertNever<Exclude<FlowLevel, (typeof FLOW_OPTIONS)[number]>>,
   AssertNever<Exclude<Intensity, (typeof INTENSITY_OPTIONS)[number]>>,

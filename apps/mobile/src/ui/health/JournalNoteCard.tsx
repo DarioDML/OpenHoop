@@ -1,6 +1,5 @@
 import type { JournalNote } from '@openhoop/core';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
 
 import { findQuestion } from '@/data/journalQuestions';
 import { useT } from '@/i18n/useT';

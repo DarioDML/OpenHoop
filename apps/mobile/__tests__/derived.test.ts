@@ -1,6 +1,7 @@
 import { createFixtureDays } from '@/data/fixtureSource';
 import { addDays, baselineAt, daysInWeek, percentFromBaseline, rangeStatus, wearStreak, weekStart } from '@/data/derived';
 import { defaultUserData, initialOf, parseUserData, serializeUserData } from '@/data/userData';
+import type * as JournalQuestions from '@/data/journalQuestions';
 
 const days = createFixtureDays(new Date('2026-11-25T12:00:00Z'));
 
@@ -63,7 +64,7 @@ describe('user data codec', () => {
 
 describe('journal question selection', () => {
   it('keeps an explicitly empty selection apart from the defaults', () => {
-    const { activeQuestions, DEFAULT_JOURNAL_QUESTIONS } = jest.requireActual<typeof import('@/data/journalQuestions')>('@/data/journalQuestions');
+    const { activeQuestions, DEFAULT_JOURNAL_QUESTIONS } = jest.requireActual<typeof JournalQuestions>('@/data/journalQuestions');
     expect(activeQuestions(null)).toHaveLength(DEFAULT_JOURNAL_QUESTIONS.length);
     expect(activeQuestions([])).toHaveLength(0);
     expect(parseUserData(JSON.stringify({ journalQuestions: [] })).journalQuestions).toEqual([]);

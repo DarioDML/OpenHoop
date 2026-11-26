@@ -52,7 +52,7 @@ export default function BiomarkerScreen() {
   const hidden = entries.length - history.points.length;
   const first = history.points[0];
   const newestFirst = [...entries].reverse();
-  const addHref = history.ref.kind === 'catalogue' ? { pathname: '/health/labs-upload', params: { biomarker: history.ref.id } } : '/health/labs-upload';
+  const addHref = history.ref.kind === 'catalogue' ? { pathname: '/health/labs-upload' as const, params: { biomarker: history.ref.id } } : '/health/labs-upload';
 
   const remove = async (resultId: number): Promise<void> => {
     setConfirmId(null);

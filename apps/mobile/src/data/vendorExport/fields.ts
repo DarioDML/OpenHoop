@@ -110,7 +110,7 @@ export function parseTime(text: string, zoneColumn: string): ParsedTime | null {
 
 export function normalizeHeader(header: string): string {
   return header
-    .replace(/^﻿/, '')
+    .replace(/^\uFEFF/, '')
     .toLowerCase()
     .replace(/\([^)]*\)/g, ' ')
     .replace(/[^a-z0-9]/g, '');

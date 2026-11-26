@@ -67,7 +67,7 @@ export default function PairScanScreen() {
     }
   };
 
-  const useDemo = async (): Promise<void> => {
+  const startDemo = async (): Promise<void> => {
     setFailure(null);
     try {
       await updateSettings({ dataSource: 'demo' });
@@ -89,7 +89,7 @@ export default function PairScanScreen() {
           : { label: bonding ? t('pairing.bonding') : t('pairing.bondStart'), onPress: () => void runPair(), disabled: bonding || !sinceValid, testID: 'bond-button' }
       }
       secondary={selected === null ? undefined : { label: t('onboarding.pair.scanAgain'), onPress: () => void runScan(), disabled: scanning }}
-      tertiary={{ label: t('onboarding.pair.useDemo'), onPress: () => void useDemo(), testID: 'pair-demo' }}>
+      tertiary={{ label: t('onboarding.pair.useDemo'), onPress: () => void startDemo(), testID: 'pair-demo' }}>
       {failure ? (
         <Card tone="warning" testID="pair-failure">
           <AppText variant="body">{t(failure.key, failure.params)}</AppText>

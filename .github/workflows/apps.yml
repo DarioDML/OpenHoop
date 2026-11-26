@@ -64,7 +64,7 @@ jobs:
           echo "Release version $version"
 
   android:
-    name: Android APK
+    name: Android APK and emulator check
     runs-on: ubuntu-latest
     timeout-minutes: 60
     defaults:
@@ -98,7 +98,8 @@ jobs:
         working-directory: apps/mobile/android
         env:
           OPENHOOP_UNSIGNED_RELEASE: ${{ env.RELEASE_BUILD == 'true' && '1' || '' }}
-        run: ./gradlew assembleRelease --build-cache -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+          ABIS: ${{ env.RELEASE_BUILD == 'true' && 'arm64-v8a,armeabi-v7a' || 'arm64-v8a,armeabi-v7a,x86_64' }}
+        run: ./gradlew assembleRelease --build-cache "-PreactNativeArchitectures=$ABIS"
       - name: Collect the APK
         run: |
           if [ "$RELEASE_BUILD" = true ]; then
@@ -118,6 +119,29 @@ jobs:
           name: openhoop-android
           path: ${{ runner.temp }}/OpenHoop-android.apk
           if-no-files-found: error
+      - name: Let the emulator use KVM
+        if: env.RELEASE_BUILD != 'true'
+        working-directory: .
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Launch on an emulator and check the app stays up
+        if: env.RELEASE_BUILD != 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash apps/mobile/scripts/android-smoke.sh "$RUNNER_TEMP/OpenHoop-android.apk" "$RUNNER_TEMP/android-smoke"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && env.RELEASE_BUILD != 'true'
+        with:
+          name: android-emulator-check
+          path: ${{ runner.temp }}/android-smoke
+          if-no-files-found: ignore
 
   sign-android:
     name: Sign Android APK

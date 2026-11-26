@@ -43,6 +43,7 @@ export default function GpsActivityScreen() {
   const { points, progress } = gps;
   const shown = useMemo(
     () => visibleRoute([...points], userData.hideRouteEnds ? HIDDEN_ZONE_M : 0, 0, markerStepM(progress.distanceM)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- points is a mutable ref that keeps its identity; progress.version changes on every new fix
     [points, progress.version, progress.distanceM, userData.hideRouteEnds],
   );
 

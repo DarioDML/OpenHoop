@@ -1,8 +1,5 @@
 import { buildNumberFor } from '../app.config';
-
-const { applyReleaseSigning } = require('../plugins/withReleaseSigning') as {
-  applyReleaseSigning: (gradle: string) => string;
-};
+import { applyReleaseSigning } from '../plugins/withReleaseSigning';
 
 const GENERATED_GRADLE = `
 android {
