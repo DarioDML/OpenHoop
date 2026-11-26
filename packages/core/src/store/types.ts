@@ -165,6 +165,7 @@ export interface DayRecord {
   workouts: WorkoutRecord[];
   activeMinutes?: ActiveMinutes | null;
   stress?: StressDay | null;
+  worn?: Derived;
 }
 
 export type ExportTable =
