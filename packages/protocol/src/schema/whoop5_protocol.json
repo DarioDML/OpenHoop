@@ -300,7 +300,7 @@
         "states": {"0": "boot", "1": "onWristUnconfirmed", "2": "onWrist", "3": "offWrist"},
         "note": "The binary form of the console line 'SIGPROC-WEAR-DETECT V5: moving from state A to state B (debug = R), state_cnt = ...'; every field above matched that line exactly on 16 of 16 pairs. Sent on each change and every 7,200 s while the state holds. Every 3->1 coincided with WRIST_ON and every move to 3 with WRIST_OFF. Values below 0 or above 255 after scaling are clamped by the band; skin temperature 0 means 10 C or less. State 4 (seen once, off the wrist) and bytes 15, 17, 18, 21 and 26 are not understood."}
     },
-    "unnamed_events_seen": [48, 61, 62, 110, 112, 115, 116, 120],
+    "unnamed_events_seen": [48, 115, 116],
     "evidence": ["noop", "goose", "corpus"]
   },
   "puffin_54": {
