@@ -1,86 +1,83 @@
-import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { useState } from 'react';
+import { Platform, View } from 'react-native';
+import { requestPinWidget } from 'react-native-android-widget';
 
 import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
-import { formatAgo, formatDuration, formatNumber } from '@/lib/format';
+import type { TranslationKey } from '@/i18n';
+import { todayIso } from '@/lib/format';
+import { buildWidgetFile, widgetView, type WidgetName } from '@/lib/widgetSnapshot';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
+import { Button, Toggle } from '@/ui/controls';
 import { Page } from '@/ui/daily/bits';
-import { NotBuilt } from '@/ui/NotBuilt';
-import { Num } from '@/ui/Num';
-import { Ring } from '@/ui/Ring';
-import { radius, readinessColor, spacing, useTheme } from '@/ui/theme';
+import { WidgetPreview } from '@/ui/daily/WidgetPreview';
+import { spacing } from '@/ui/theme';
 
-function Preview({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <View style={{ gap: spacing.sm }}>
-      <AppText variant="capSmall" muted>
-        {label}
-      </AppText>
-      {children}
-    </View>
-  );
-}
+const WIDGETS: ReadonlyArray<{ name: WidgetName; size: 'small' | 'wide'; label: TranslationKey }> = [
+  { name: 'OpenHoopScores', size: 'small', label: 'home.widgetScores' },
+  { name: 'OpenHoopOverview', size: 'wide', label: 'home.widgetOverview' },
+];
 
 export default function WidgetsScreen() {
-  const { days, device } = useAppData();
+  const { days, device, userData, updateUserData, refreshWidgetsAfterPin } = useAppData();
   const { t, language } = useT();
-  const { colors } = useTheme();
-  const day = days[days.length - 1];
-  const nowS = Math.floor(Date.now() / 1000);
-  const synced = device.lastSyncAt === null ? t('home.neverSynced') : t('home.syncedShort', { ago: formatAgo(t, nowS, device.lastSyncAt) });
-  const percent = (value: number | null): string => (value === null ? '–' : `${formatNumber(value, 0, language)}%`);
-  const loadText = (value: number | null): string => (value === null ? '–' : formatNumber(value, 1, language));
+  const [pinFailed, setPinFailed] = useState(false);
+  const android = Platform.OS === 'android';
+  const now = new Date();
+  const file = buildWidgetFile({ enabled: userData.widgetValues, day: days[days.length - 1], syncedAt: device.lastSyncAt, language });
+  const view = widgetView(file, { nowS: Math.floor(now.getTime() / 1000), today: todayIso(now), fallbackLanguage: language });
+
+  const pin = async (widgetName: WidgetName): Promise<void> => {
+    const pinned = await requestPinWidget({ widgetName }).catch(() => false);
+    setPinFailed(!pinned);
+    if (pinned) await refreshWidgetsAfterPin();
+  };
 
   return (
     <Page title={t('home.widgets')} testID="widgets">
       <AppText variant="body" muted>
         {t('home.widgetsIntro')}
       </AppText>
-      {day ? (
+      {android ? null : (
+        <Card tone="warning" testID="widgets-android-only">
+          <AppText variant="bodyStrong">{t('home.widgetsAndroidOnly')}</AppText>
+        </Card>
+      )}
+      {WIDGETS.map((widget) => (
+        <View key={widget.name} style={{ gap: spacing.sm }}>
+          <AppText variant="capSmall" muted>
+            {t(widget.label)}
+          </AppText>
+          <WidgetPreview view={view} size={widget.size} testID={`widget-preview-${widget.name}`} />
+          {android ? <Button label={t('home.widgetsAdd')} variant="secondary" onPress={() => void pin(widget.name)} testID={`widget-pin-${widget.name}`} /> : null}
+        </View>
+      ))}
+      {android ? (
         <>
-          <Preview label={t('home.widgetLockCircular')}>
-            <View style={{ alignItems: 'flex-start' }}>
-              <Ring size={84} strokeWidth={7} fraction={day.readiness.value === null ? null : day.readiness.value / 100} color={readinessColor(colors, day.readiness.value)}>
-                <Num size={30} testID="widget-lock-value">
-                  {day.readiness.value === null ? '–' : formatNumber(day.readiness.value, 0, language)}
-                </Num>
-              </Ring>
-            </View>
-          </Preview>
-          <Preview label={t('home.widgetLockRect')}>
-            <Card style={{ gap: 4, borderRadius: radius.md }}>
-              <AppText variant="bodyStrong">
-                {t('score.readiness')} {percent(day.readiness.value)}
-              </AppText>
+          <Card style={{ gap: 4 }} testID="widgets-how">
+            <AppText variant="bodyStrong">{t('home.widgetsHowTitle')}</AppText>
+            <AppText variant="label" muted>
+              {pinFailed ? `${t('home.widgetsPinFailed')} ${t('home.widgetsHow')}` : t('home.widgetsHow')}
+            </AppText>
+          </Card>
+          <Card style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <AppText variant="bodyStrong">{t('home.widgetsValues')}</AppText>
               <AppText variant="label" muted>
-                {t('score.sleep')} {day.sleep.asleepS === null ? '–' : formatDuration(t, day.sleep.asleepS)} · {t('score.load')} {loadText(day.load.value)}
+                {t('home.widgetsValuesBody')}
               </AppText>
-              <AppText variant="caption" muted>
-                {synced}
-              </AppText>
-            </Card>
-          </Preview>
-          <Preview label={t('home.widgetHomeSmall')}>
-            <Card style={{ gap: 6, width: 170 }}>
-              <AppText variant="label">
-                {t('score.sleep')} {percent(day.sleep.score.value)}
-              </AppText>
-              <AppText variant="label" color={readinessColor(colors, day.readiness.value)}>
-                {t('score.readiness')} {percent(day.readiness.value)}
-              </AppText>
-              <AppText variant="label">
-                {t('score.load')} {loadText(day.load.value)}
-              </AppText>
-              <AppText variant="caption" muted>
-                {synced}
-              </AppText>
-            </Card>
-          </Preview>
+            </View>
+            <Toggle value={userData.widgetValues} onChange={(on) => void updateUserData({ widgetValues: on })} label={t('home.widgetsValues')} testID="widgets-values-toggle" />
+          </Card>
+          <Card tone="outline" style={{ gap: 4 }} testID="widgets-privacy">
+            <AppText variant="bodyStrong">{t('home.widgetsPrivacyTitle')}</AppText>
+            <AppText variant="label" muted>
+              {t('home.widgetsPrivacy')}
+            </AppText>
+          </Card>
         </>
       ) : null}
-      <NotBuilt issue="widgets" />
       <AppText variant="caption" muted>
         {t('home.widgetsNote')}
       </AppText>

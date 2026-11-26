@@ -191,12 +191,11 @@ describe('Home sub-screens', () => {
     expect(screen.getByTestId('line-readiness')).toBeTruthy();
   });
 
-  it('marks widgets as not built and no longer notifications', async () => {
+  it('no longer marks notifications or widgets as not built', async () => {
     await render(withAppData(<NotificationsScreen />));
     expect(screen.queryByTestId('not-built-notifications')).toBeNull();
     await render(withAppData(<WidgetsScreen />));
-    expect(screen.getByTestId('not-built-widgets')).toBeTruthy();
-    expect(screen.getByTestId('widget-lock-value')).toBeTruthy();
+    expect(screen.queryByTestId('not-built-widgets')).toBeNull();
   });
 
   it('lists the quick actions and routes to them', async () => {
