@@ -217,6 +217,19 @@ async function writeSyncState(driver: SqlDriver, s: SyncStateRow): Promise<void>
   );
 }
 
+const RECORDING_TABLES = [
+  'events',
+  'console_log',
+  'optical_bursts',
+  'imu_blocks',
+  'ecg_recordings',
+  'sleep_stages',
+  'oracle_values',
+  'calibration',
+  'sleep_edits',
+  'sync_state',
+] as const;
+
 async function clearDerivedRaw(tx: SqlDriver, deviceId: number): Promise<void> {
   await tx.run('DELETE FROM daily_metrics WHERE device_id = ?', [deviceId]);
   await tx.run('DELETE FROM sleeps WHERE device_id = ?', [deviceId]);
@@ -532,6 +545,15 @@ export function bindStore(driver: SqlDriver): Store {
         for (const id of doomed) chunks += (await tx.run('DELETE FROM raw_chunks WHERE id = ?', [id])).changes;
         await clearDerivedRaw(tx, deviceId);
         return { samples: samples.changes, events: events.changes, console: consoleLines.changes, chunks };
+      });
+    },
+    async deleteRecordings(deviceId) {
+      return driver.transaction(async (tx) => {
+        const samples = await tx.run('DELETE FROM samples_1hz WHERE device_id = ?', [deviceId]);
+        for (const table of RECORDING_TABLES) await tx.run(`DELETE FROM ${table} WHERE device_id = ?`, [deviceId]);
+        await tx.run('DELETE FROM raw_chunks WHERE device_id = ?', [deviceId]);
+        await clearDerivedRaw(tx, deviceId);
+        return samples.changes;
       });
     },
   };

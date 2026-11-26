@@ -426,11 +426,18 @@ export class AppController {
       healthConnect: { ...this.snapshot.healthConnect, state: healthConnectState },
       strength,
     });
+    if (dataSource === 'band') await this.purgeDemoRecordings();
     await this.loadActiveDevice();
     this.patch({ ready: true });
     void this.refreshNotifications();
     void this.refreshHealthConnect();
     if (dataSource === 'demo') void this.sync();
+  }
+
+  private async purgeDemoRecordings(): Promise<void> {
+    const { store } = this.requireApp();
+    const demo = (await store.listDevices()).find((row) => row.bleId === DEMO_BLE_ID);
+    if (demo !== undefined) await store.deleteRecordings(demo.id);
   }
 
   private async activeBleId(): Promise<string | null> {
@@ -684,6 +691,7 @@ export class AppController {
       if (__DEV__) console.log(`openhoop sync timings: ${JSON.stringify(this.lastTimings)}`);
       if (conn.session.isConnected) this.battery = await conn.session.battery().catch(() => this.battery);
       if (result.stoppedBy === 'disconnect') throw new AppError('error.disconnected');
+      if (result.stoppedBy === 'idle' && result.chunks === 0) throw new AppError('sync.stop.idle');
       const stopNotice = STOP_NOTICES[result.stoppedBy];
       if (stopNotice !== undefined) throw new AppError(stopNotice);
     } catch (error) {
@@ -920,6 +928,7 @@ export class AppController {
       await store.setSetting(SETTING_KEYS.dataSource, source);
       this.patch({ settings: { ...this.snapshot.settings, dataSource: source }, notice: null });
       this.connection = 'disconnected';
+      if (source === 'band') await this.purgeDemoRecordings();
       await this.loadActiveDevice();
     });
     void this.refreshNotifications();
