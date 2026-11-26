@@ -1,4 +1,3 @@
-import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { Linking, View } from 'react-native';
 
@@ -9,31 +8,13 @@ import { Pill } from '@/ui/Chip';
 import { Button, Field, Segmented } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
+import { openInAppBrowser } from '@/ui/manage/inAppBrowser';
 import { DONATION_AMOUNTS_USD, donationUrl, parseDonationAmount, REPO_URL, type DonationFrequency } from '@/ui/manage/links';
 import { SettingsPage } from '@/ui/manage/SettingsPage';
 import { tile } from '@/ui/manage/tiles';
-import { spacing, useTheme, type ColorTokens } from '@/ui/theme';
+import { spacing, useTheme } from '@/ui/theme';
 
 type AmountChoice = (typeof DONATION_AMOUNTS_USD)[number] | 'other';
-
-async function openCheckout(url: string, colors: ColorTokens): Promise<boolean> {
-  try {
-    await WebBrowser.openBrowserAsync(url, {
-      presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-      toolbarColor: colors.background,
-      controlsColor: colors.primary,
-      dismissButtonStyle: 'done',
-      showTitle: true,
-      enableBarCollapsing: true,
-    });
-    return true;
-  } catch {
-    return Linking.openURL(url).then(
-      () => true,
-      () => false,
-    );
-  }
-}
 
 export default function SupportScreen() {
   const { t } = useT();
@@ -56,7 +37,7 @@ export default function SupportScreen() {
     if (amount === null || opening) return;
     setOpening(true);
     setOpenFailed(false);
-    const opened = await openCheckout(donationUrl(frequency, amount), colors);
+    const opened = await openInAppBrowser(donationUrl(frequency, amount), colors);
     setOpenFailed(!opened);
     setOpening(false);
   };
@@ -119,6 +100,13 @@ export default function SupportScreen() {
       </AppText>
 
       <ListGroup>
+        <ListRow
+          icon={tile(colors, 'export', 'purple')}
+          title={t('aboutx.donateData.row')}
+          subtitle={t('aboutx.donateData.rowBody')}
+          href="/settings/donate-data"
+          testID="support-donate-data"
+        />
         <ListRow
           icon={tile(colors, 'code', 'positive')}
           title={t('aboutx.support.contribute')}

@@ -1,10 +1,11 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, BandModel, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { HcDataType } from '@/lib/healthConnectMapping';
 import type { InboxEntry } from '@/lib/notificationPlan';
 
+import type { SaveOutcome } from './donation/files';
 import type { HcAvailability } from './healthConnectApi';
 import type { HealthConnectState } from './healthConnectState';
 import type { PermissionState } from './notifier';
@@ -140,6 +141,10 @@ export interface LiveDataStore {
   getSnapshot(): LiveData;
 }
 
+export interface BuiltDonation extends DonationResult {
+  workspaceUri: string;
+}
+
 export interface AppData {
   ready: boolean;
   days: DayRecord[];
@@ -168,6 +173,11 @@ export interface AppData {
   readBandConfig(): Promise<void>;
   stopLive(): Promise<void>;
   exportData(): Promise<void>;
+  listDonationDays(): Promise<DonationDay[]>;
+  buildDonation(days: readonly string[], onProgress: (progress: DonationProgress) => void, signal: AbortSignal): Promise<BuiltDonation>;
+  saveDonation(built: BuiltDonation): Promise<SaveOutcome>;
+  shareDonationPart(built: BuiltDonation, fileName: string): Promise<void>;
+  discardDonation(built: BuiltDonation): void;
   updateProfile(patch: Partial<Profile>): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
   updateUserData(patch: Partial<UserData>): Promise<boolean>;

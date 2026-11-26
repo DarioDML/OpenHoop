@@ -1,0 +1,31 @@
+name: Data donation
+description: Share raw band data and official values from the OpenHoop app to improve accuracy.
+title: "Data donation: "
+labels: ["data-donation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Everything in this issue is public and stays public. It is linked to your GitHub account.
+        Donated data is shared under CC0 1.0: anyone may use it for anything.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Filled in by the app. Please leave it as it is.
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files
+      description: Attach every openhoop-donation-…zip file the app saved. More files can go in comments.
+    validations:
+      required: true
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Consent
+      options:
+        - label: I understand this is public, linked to my GitHub account, cannot be taken back, and shared under CC0 1.0.
+          required: true

@@ -199,11 +199,15 @@ function cell(value: SqlValue | undefined): string {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+export function csvText(columns: readonly string[], rows: readonly Record<string, SqlValue>[]): string {
+  const lines = [columns.join(',')];
+  for (const row of rows) lines.push(columns.map((c) => cell(row[c])).join(','));
+  return `${lines.join('\r\n')}\r\n`;
+}
+
 export async function exportCsv(store: Store, table: ExportTable): Promise<string> {
   if (!Object.prototype.hasOwnProperty.call(EXPORTS, table)) throw new Error(`Table cannot be exported: ${String(table)}`);
   const spec = EXPORTS[table];
   const rows = await store.driver.all<Record<string, SqlValue>>(`SELECT ${spec.select} FROM ${table} ORDER BY ${spec.order}`);
-  const lines = [spec.columns.join(',')];
-  for (const row of rows) lines.push(spec.columns.map((c) => cell(row[c])).join(','));
-  return `${lines.join('\r\n')}\r\n`;
+  return csvText(spec.columns, rows);
 }
