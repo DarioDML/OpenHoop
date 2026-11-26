@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { encodeBiometric, toHex } from '@openhoop/protocol';
-import { ChunkIntegrityError, SAMPLE_DECODER_VERSION, SAMPLE_DECODER_VERSION_KEY, openStore, rebuildStaleSamples } from '../src/index';
+import {
+  ChunkIntegrityError,
+  DAY_RECORD_VERSION,
+  DAY_RECORD_VERSION_KEY,
+  SAMPLE_DECODER_VERSION,
+  SAMPLE_DECODER_VERSION_KEY,
+  openStore,
+  rebuildStaleSamples,
+  recomputeStaleDays,
+} from '../src/index';
 import type { DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 import { decodeRow, simulateDays, toFrame } from './sampleFactory';
@@ -114,6 +123,44 @@ describe('rebuildStaleSamples', () => {
     expect(await storedTemps(other)).toEqual(rows.map(() => null));
     expect(await storedTemps(deviceId)).toEqual(rows.map(() => 7.5));
     expect(await store.getSetting(SAMPLE_DECODER_VERSION_KEY)).toBeNull();
+  });
+});
+
+describe('recomputeStaleDays', () => {
+  let store: Store;
+  let deviceId: number;
+  let recomputed: number[];
+  const recompute = (id: number): Promise<void> => {
+    recomputed.push(id);
+    return Promise.resolve();
+  };
+
+  beforeEach(async () => {
+    store = await openStore(openStrictDriver());
+    deviceId = (await store.upsertDevice(DEVICE)).id;
+    await store.upsertDevice({ ...DEVICE, bleId: 'EMPTY' });
+    recomputed = [];
+    await store.insertSamples(simulateDays(deviceId, { days: 1 }).slice(0, 10));
+  });
+  afterEach(async () => {
+    await store.driver.close();
+  });
+
+  it('recomputes every device with samples once', async () => {
+    expect(await recomputeStaleDays(store, recompute)).toEqual([deviceId]);
+    expect(recomputed).toEqual([deviceId]);
+    expect(await store.getSetting(DAY_RECORD_VERSION_KEY)).toBe(String(DAY_RECORD_VERSION));
+  });
+
+  it('does nothing once the day records are current', async () => {
+    await store.setSetting(DAY_RECORD_VERSION_KEY, String(DAY_RECORD_VERSION));
+    expect(await recomputeStaleDays(store, recompute)).toEqual([]);
+    expect(recomputed).toEqual([]);
+  });
+
+  it('keeps the version stale when a recompute fails', async () => {
+    await expect(recomputeStaleDays(store, () => Promise.reject(new Error('killed')))).rejects.toThrow('killed');
+    expect(await store.getSetting(DAY_RECORD_VERSION_KEY)).toBeNull();
   });
 });
 

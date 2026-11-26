@@ -44,6 +44,7 @@ export const TILE_LABEL: Readonly<Record<DashboardTile, TranslationKey>> = {
   skinTemp: 'metric.skinTemp',
   sleepDebt: 'metric.debt',
   calories: 'daily.tile.calories',
+  wearTime: 'metric.wearTime',
 };
 
 export function slugForTile(tile: DashboardTile): MetricSlug | null {

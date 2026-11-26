@@ -25,6 +25,7 @@
   "metric.skinTemp": "Skin temperature",
   "metric.skinTempDeviation": "Skin temp. deviation",
   "metric.steps": "Steps",
+  "metric.wearTime": "Worn",
   "metric.asleep": "Asleep",
   "metric.inBed": "In bed",
   "metric.need": "Sleep need",

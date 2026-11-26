@@ -29,6 +29,8 @@ import type { Packet } from '@openhoop/protocol';
 import { packEventFromPacket, sampleFromPacket } from './mapping';
 import { applySleepEdits, editsTouching, measuredNight } from './sleepEdits';
 import type { MergedSleepPeriod } from './sleepEdits';
+import { loadWearChanges, phaseAt, wornSeconds } from './wear';
+import type { WearChange } from './wear';
 import { bindStore } from './store/store';
 import type {
   DayRecord,
@@ -44,6 +46,7 @@ import type {
 } from './store/types';
 
 const DAY_S = 86_400;
+const WEAR_ALGO = 'wear.time@1';
 const HOUR_S = 3_600;
 const MAIN_NIGHT_LATEST_TOD_S = 15 * HOUR_S;
 const BLOCK_S = HOUR_S;
@@ -85,6 +88,7 @@ interface Context {
   mains: Map<number, Night<MergedSleepPeriod> | null>;
   clockFlags: Map<number, boolean>;
   blocks: Map<number, Block>;
+  wear: WearChange[];
 }
 
 interface Block {
@@ -226,8 +230,21 @@ function pickMainNight<P extends SleepPeriod>(nights: Night<P>[], index: number,
   return best;
 }
 
+function withoutOffWristSleep(ctx: Context, samples: Sample[]): Sample[] {
+  if (ctx.wear.length === 0) return samples;
+  const lookup = phaseAt(ctx.wear);
+  return samples.map((s) => (s.state === 'SLEEP' && lookup(s.t) === 'off' ? { ...s, state: null } : s));
+}
+
 function mergedPeriods(ctx: Context, samples: Sample[], from: number, to: number): MergedSleepPeriod[] {
-  return applySleepEdits(sleepPeriods(samples), editsTouching(ctx.edits, from, to), samples);
+  const guarded = withoutOffWristSleep(ctx, samples);
+  return applySleepEdits(sleepPeriods(guarded), editsTouching(ctx.edits, from, to), guarded);
+}
+
+function wornDerived(ctx: Context, start: number, end: number): Derived {
+  const worn = wornSeconds(ctx.wear, start, end);
+  if (worn === null || end <= start) return missing('no-data', WEAR_ALGO);
+  return { value: worn.wornS, reason: null, coverage: worn.knownS / (end - start), algo: WEAR_ALGO };
 }
 
 function nightsOf(periods: MergedSleepPeriod[]): Night<MergedSleepPeriod>[] {
@@ -547,6 +564,7 @@ async function computeDay(
     workouts,
     activeMinutes: activeMinutes(minuteHr, rest, maxHr),
     stress,
+    worn: wornDerived(ctx, start, end),
   };
 }
 
@@ -578,6 +596,7 @@ export async function recomputeDays(store: Store, opts: RecomputeOptions): Promi
     mains: new Map(),
     clockFlags: new Map(),
     blocks: new Map(),
+    wear: await loadWearChanges(store, deviceId),
   };
   const to = Math.min(opts.to, last + 1);
   let from = Math.max(opts.from, range.first);

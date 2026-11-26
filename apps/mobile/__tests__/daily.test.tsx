@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
@@ -146,6 +146,21 @@ describe('Home', () => {
   it('shows the empty state without days', async () => {
     await render(withAppData(<HomeScreen />, 'en', { days: [] }));
     expect(screen.getByText('No data yet')).toBeTruthy();
+  });
+
+  it('shows how long the band was worn as a dashboard tile, measured by the band', async () => {
+    const worn = days.map((d, i) => (i === days.length - 1 ? { ...d, worn: { value: 54_720, reason: null, coverage: 1, algo: 'wear.time@1' } } : d));
+    await render(withAppData(<HomeScreen />, 'en', { days: worn, userData: { ...defaultUserData(), onboardingDone: true, dashboardTiles: ['wearTime'] } }));
+    expect(screen.getByTestId('tile-wearTime-value')).toHaveTextContent('15 h 12 min');
+    expect(within(screen.getByTestId('tile-wearTime')).getByText('Worn')).toBeTruthy();
+    expect(within(screen.getByTestId('tile-wearTime')).getByText('A')).toBeTruthy();
+  });
+
+  it('says why wear time is missing on a day without wear data', async () => {
+    const noWear = days.map((d, i) => (i === days.length - 1 ? { ...d, worn: undefined } : d));
+    await render(withAppData(<HomeScreen />, 'en', { days: noWear, userData: { ...defaultUserData(), onboardingDone: true, dashboardTiles: ['wearTime'] } }));
+    expect(screen.getByTestId('tile-wearTime-reason')).toBeTruthy();
+    expect(screen.queryByTestId('tile-wearTime-value')).toBeNull();
   });
 
   it('shows why calories are missing and the stress tile has a value instead of a not-built notice', async () => {

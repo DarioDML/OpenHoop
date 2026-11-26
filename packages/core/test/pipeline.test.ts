@@ -572,6 +572,57 @@ describe('pipeline', () => {
     });
   });
 
+  describe('wear', () => {
+    async function wearEvents(events: { t: number; event: 9 | 10 }[]): Promise<void> {
+      await store.commitChunk({ deviceId, endToken: null, frames: [Uint8Array.of(events.length)], clockOffsetS: 0, receivedAt: 1 }, [], {
+        events: events.map((e) => ({ deviceId, t: e.t, event: e.event, name: e.event === 9 ? 'WRIST_ON' : 'WRIST_OFF', payloadHex: '' })),
+        console: [],
+        unknownFrames: 0,
+        syncState: syncState(deviceId),
+      });
+    }
+
+    it('records how long the band was worn each day', async () => {
+      const rows = simulateDays(deviceId, { days: 2 });
+      await store.insertSamples(rows);
+      const on = (rows[0] as SampleRow).t;
+      const off = on + 30 * HOUR_S;
+      await wearEvents([
+        { t: on, event: 9 },
+        { t: off, event: 10 },
+      ]);
+      const days = await recompute(rows);
+      expect(days.length).toBeGreaterThan(0);
+      for (const day of days) {
+        const worn = Math.max(0, Math.min(off, day.end) - Math.max(on, day.start));
+        const known = day.end - Math.max(on, day.start);
+        expect(day.worn).toEqual({ value: worn, reason: null, coverage: known / (day.end - day.start), algo: 'wear.time@1' });
+      }
+    });
+
+    it('says there is no wear data for a day without wear events', async () => {
+      const rows = simulateDays(deviceId, { days: 1 });
+      await store.insertSamples(rows);
+      const [day] = await recompute(rows);
+      expect(day?.worn).toEqual({ value: null, reason: 'no-data', coverage: null, algo: 'wear.time@1' });
+    });
+
+    it('does not count SLEEP while the band says it is off the wrist', async () => {
+      const rows = simulateDays(deviceId, { days: 2 });
+      await store.insertSamples(rows);
+      const before = (await recompute(rows)).find((d) => (d.sleep.asleepS ?? 0) > 4 * HOUR_S);
+      const night = before?.sleep.periods[0];
+      if (before === undefined || night === undefined) throw new Error('no night to test');
+      await wearEvents([
+        { t: night.onset - 60, event: 10 },
+        { t: night.onset + 3 * HOUR_S, event: 9 },
+      ]);
+      await store.clearDerived(deviceId);
+      const after = (await recompute(rows)).find((d) => d.day === before.day);
+      expect(after?.sleep.asleepS ?? 0).toBeLessThanOrEqual((before.sleep.asleepS ?? 0) - 10_000);
+    });
+  });
+
   describe('deleteDataBefore', () => {
     it('removes older samples and wholly older raw chunks, keeps a straddling chunk, and rebuild stays clean', async () => {
       const rows = simulateDays(deviceId, { days: 1 }).slice(0, 30);
