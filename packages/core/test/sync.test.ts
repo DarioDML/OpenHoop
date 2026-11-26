@@ -11,7 +11,7 @@ import {
 import {
   MAX_CLOCK_OFFSET_S,
   MAX_DAMAGED_ATTEMPTS,
-  MAX_HISTORY_REREQUESTS,
+  MAX_LONE_HISTORY_ENDS,
   OwnerSinceRequiredError,
   Session,
   openStore,
@@ -168,6 +168,25 @@ describe('syncHistory after the lock probe', () => {
     expect(result.chunks).toBe(0);
     expect(result.stoppedBy).not.toBe('complete');
     expect(log.filter((l) => l.startsWith('ack'))).toEqual([]);
+  });
+
+  it('acknowledges a lone HISTORY_END for the chunk it already committed and carries on', async () => {
+    const { session } = await band({ onCommand: pendingAckBand(chunks(), historyComplete(T0 + 500)) });
+    const probe = await probeLock(session);
+    const held = probe.heldChunk;
+    if (held === null) throw new Error('probe held nothing');
+    const committed = await store.commitChunk(
+      { deviceId, endToken: held.endToken, frames: held.frames.map((f) => f.raw), clockOffsetS: null, receivedAt: 1 },
+      [],
+      { events: [], console: [], unknownFrames: 0, syncState: { deviceId, lastEndToken: held.endToken, lastSyncAt: 1, newestSampleT: null, readPage: null, writePage: null, trimPage: null, totalPages: null } },
+    );
+    expect(committed).toBeGreaterThan(0);
+    log.length = 0;
+
+    const result = await syncHistory(session, store, { deviceId });
+
+    expect(result).toMatchObject({ chunks: 2, stoppedBy: 'complete' });
+    expect(log.filter((l) => l.startsWith('ack'))).toEqual([0, 1, 2].map((n) => `ack:${toHex(token(n))}`));
   });
 
   it('ignores a held chunk whose token does not match the HISTORY_END', async () => {
@@ -391,12 +410,12 @@ describe('syncHistory', () => {
     await cleanStore.driver.close();
   });
 
-  it('gives up with corrupt after a bounded number of re-requests when no transfer ever opens', async () => {
+  it('stops with pending after a few requests that each bring only a lone HISTORY_END', async () => {
     const headless = (biometricChunk(0, { firstT: T0, count: 5 })).slice(1);
     const { session, transport } = await band({ chunks: [headless] });
     const result = await syncHistory(session, store, { deviceId });
-    expect(result.stoppedBy).toBe('corrupt');
-    expect(transport.commandsSent().filter((c) => c === 22)).toHaveLength(MAX_HISTORY_REREQUESTS + 1);
+    expect(result.stoppedBy).toBe('pending');
+    expect(transport.commandsSent().filter((c) => c === 22)).toHaveLength(MAX_LONE_HISTORY_ENDS);
     expect(transport.commandsSent()).not.toContain(23);
     expect(await store.listChunkIds(deviceId)).toEqual([]);
   });

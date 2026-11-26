@@ -180,6 +180,7 @@ const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 
 const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
   clock: 'sync.stop.clock',
   corrupt: 'sync.stop.corrupt',
+  pending: 'sync.stop.pending',
 };
 
 export interface Snapshot {

@@ -241,6 +241,7 @@
   "error.ownerSinceMissing": "OpenHoop doesn't know since when you have worn this band, so it won't sync. This keeps a previous owner's data out of your archive. Pair the band again via Band › Pair a band and enter the date there.",
   "sync.stop.clock": "The band's clock is wrong: it is not set, or it is more than two minutes off. OpenHoop therefore requested nothing and removed nothing from the band. The laptop workbench has an option to override this deliberately.",
   "sync.stop.idle": "The band did not send any history, so nothing was saved and nothing was removed from the band. Sync again in a moment with the band close to your phone.",
+  "sync.stop.pending": "The band kept sending only the end of a block of history it still holds, so that block was not saved and is still on the band. Wait a minute and sync again: the band then sends the whole block.",
   "sync.stop.corrupt": "A block of data kept arriving damaged. OpenHoop did not acknowledge that block, so it is still on the band. Everything received before it has been saved. Try again later with the band close to your phone.",
   "settings.ownerLaterTitle": "Delete older data?",
   "settings.ownerLaterBody": "You are choosing a later date. OpenHoop will delete all readings, events and log lines from before {date} and recompute your days. This cannot be undone. Raw blocks from the band are only kept whole, so a block that spans {date} stays and may still hold some readings from before it. Those no longer count anywhere.",
