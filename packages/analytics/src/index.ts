@@ -114,3 +114,5 @@ export type {
   Vo2Request,
   Vo2Result,
 } from './healthspan';
+export { PHENO_AGE, fitnessAge, fitnessAgeAt, fitnessAnchors, phenotypicAge } from './bodyAge';
+export type { FitnessAge, FitnessAgePoint, FitnessAnchor, PhenoAgeEstimate, PhenoAgeInputs, PhenoAgeReason, PhenoAgeResult } from './bodyAge';
