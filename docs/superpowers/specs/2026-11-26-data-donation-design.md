@@ -54,7 +54,8 @@ to any number of whole days.
 - Free text of any kind: notes, journal answers, workout labels, coach messages.
 - GPS (`route_points`), cycle tracking, pregnancy, symptoms, lab results, body measurements, strength logs.
 - A network request made by the app.
-- A flow where the donor goes through a share sheet once per file.
+- A normal flow where the donor goes through a share sheet once per file. That is allowed only as the
+  fallback when the folder picker fails (see the flow).
 
 ## Approaches considered
 
@@ -101,11 +102,13 @@ Donate your data
 1. **Entry.** A row "Donate your data" on the Support screen (`settings/support.tsx`), as in the design,
    and a second row on the Accuracy screen (`settings/accuracy.tsx`), where it is relevant. Both open a new
    screen `apps/mobile/src/app/settings/donate-data.tsx`. *(My call: the second entry point.)*
-2. **Choose days.** One row per finished day that has raw band data from the current owner, newest first.
-   Each row shows the date, OpenHoop's sleep duration, and "official values ✓ · most useful" when
-   `vendor_cycles` or `vendor_sleeps` has a row for that day. "Select all" selects every listed day. When
-   no day has official values, a row links to the official-export import (`settings/import.tsx`).
-   Today is not listed until it has finished. *(My call.)*
+2. **Choose days.** One row per day that has a stored day record (`daily_metrics.record`, a `DayRecord`
+   with `start`, `end` and `tzOffsetS`), whose `end` lies in the past, and that has raw band data from the
+   current owner. Newest first. Each row shows the date, OpenHoop's sleep duration (`sleep.asleepS` of the
+   record), and "official values ✓ · most useful" when a `vendor_cycles` or `vendor_sleeps` row overlaps
+   the day's window (see "Official values"). "Select all" selects every listed day. There is no maximum
+   (owner agreed). When no day has official values, a row links to the official-export import
+   (`settings/import.tsx`). *(My call: today is not listed until it has finished.)*
 3. **Summary.** Number of days, date range, estimated size and number of files, updated live. The estimate
    comes from stored frame counts. Exact numbers are shown after building.
 4. **Consent.** One checkbox, required before Donate is enabled: public, under the donor's GitHub account,
@@ -117,11 +120,14 @@ Donate your data
       (`Directory.pickDirectoryAsync(initialUri)` from `expo-file-system` 58, which takes a persistable
       permission), and the app remembers that folder for next time. If writing there fails later, it asks
       again. On iOS the picker opens every time (the picked URL is security-scoped and not bookmarked;
-      unverified on a device).
+      unverified on a device). *(My call:)* if the folder picker is unavailable or writing into the picked
+      folder fails on a platform, the app falls back to one share sheet per part ("Save part 1 of 3"),
+      reusing `shareAsync` as `exportData.ts` does.
    3. Open the prefilled GitHub issue form in the same in-app sheet as the money donation (`openCheckout`
       in `support.tsx`, which falls back to `Linking.openURL`).
 6. **Done state.** "3 files are in Downloads. Attach all 3 to the post, then submit." Buttons: "Open GitHub
-   again" and "Done". If saving was cancelled, the parts stay in the cache until the screen is left, so the
+   again" and "Done". *(My call:)* with more than 10 files, the text adds that the rest can be attached in
+   comments on the same issue after posting. If saving was cancelled, the parts stay in the cache until the screen is left, so the
    donor can try another folder without rebuilding.
 
 ## What goes in a part
@@ -148,7 +154,8 @@ README.txt
   once across the whole donation, in time order.
 - **Official CSVs**: every column of the `vendor_*` table except `source` and `imported_at`. These are the
   values the app imported, not the original export files: the app does not keep those. `vendor_workouts.activity`
-  is the sport type from the export and stays. `vendor_journal` never goes in.
+  is the sport type from the export and stays. `vendor_journal` never goes in. Which rows: see
+  "Official values" below.
 - **OpenHoop CSVs**: numeric and category columns only. Days: `day`, `readiness`, `load`, `sleep_score`
   (not the `record` JSON). Sleeps: `day`, `onset`, `offset`, `asleep_s`, `in_bed_s`, `nap`, `source`.
   Activities that are not deleted: times, `type`, `active_s`, `load`, `zone_seconds`, `avg_hr`, `max_hr`,
@@ -167,19 +174,36 @@ Never written: anything from `devices` except model and firmware (no `ble_id`, `
 
 ## Choosing the frames for a day
 
-- **Day window.** The same window the pipeline uses for a day record: from the main night's onset of that
-  day to the main night's onset of the next day, or local midnight when there is no main night
-  (`dayWindow` in `packages/core/src/pipeline.ts`, internal today). The builder exposes a helper from
-  core for this rather than computing a second definition.
-- **Which frames.** Frames come from `raw_chunks` (`decodeChunk(frames, sha256)`) of the chosen band.
-  A frame belongs to a day when its band time (`unixS` of the decoded packet) is inside the window, as
-  `samples_1hz` uses. A frame without a band time takes the time of the nearest earlier timed frame in the
+- **Day window.** The `start` and `end` of the stored day record, which the pipeline computed with
+  `dayWindow` in `packages/core/src/pipeline.ts`: from the main night's onset of that day to the main
+  night's onset of the next day, or local midnight when there is no main night. No second definition and
+  no recomputation.
+- **Which chunks.** The chunk ids for a window come from `samples_1hz.chunk_id` and `events.chunk_id` with
+  `t` inside the window, both indexed by `(device_id, t, …)`. No full scan of `raw_chunks` and no
+  migration. *(My call.)*
+- **Which frames.** Frames come from those chunks (`decodeChunk(frames, sha256)`). A frame belongs to a day
+  when its band time (`unixS` of the decoded packet) is inside the window, as `samples_1hz` uses. A chunk
+  that spans two days gives frames to both. A frame without a band time takes the time of the nearest earlier timed frame in the
   same chunk, or the nearest later one; a chunk without any timed frame is left out. *(My call.)*
 - **Owner.** Frames timed before `devices.owner_since` are left out, as `rebuildFromRaw` does.
 - **Corrupt chunks.** A chunk that fails `decodeChunk` (`ChunkIntegrityError`) is skipped and counted in
   `removed`; the donation continues.
 - **More than one band.** When the chosen days hold data from more than one band, each band gets its own
   set of parts, so every part has one band, one firmware line and one frame stream. *(My call.)*
+
+## Official values
+
+*(My call, all of this section.)* The `vendor_*` tables have no band column and their `day` can differ from
+OpenHoop's day, because the official app and OpenHoop each detect sleep themselves. So rows are matched by
+time, not by the `day` string:
+
+- An official row goes with every chosen day whose window it overlaps: `vendor_cycles` by
+  `start_t`..`end_t` (an open cycle, `end_t` null, counts until its `start_t` plus 24 hours),
+  `vendor_sleeps` by `onset`..`wake`, `vendor_workouts` by `start_t`..`end_t`.
+- A row that overlaps two days goes with both, so the same row can appear in two parts. README says so.
+- When a day has frames from two bands, its official rows go into the parts of both bands.
+- The CSVs keep the vendor `day` and all times, and the manifest gives every window, so anyone can redo
+  the matching their own way.
 
 ## Identity filter
 
@@ -191,7 +215,8 @@ Taken over from wearable5.0's `re/prepare_donation.py`, applied to every frame b
 - any frame whose bytes, read as Latin-1 text, match the serial pattern `(?:5A[GM]|MGB)[0-9]{6,}` or the
   address pattern `(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}`;
 - also any frame whose Latin-1 text contains the stored serial or Bluetooth name of any of the donor's
-  bands, when those are known. *(My call: a second net in case a firmware uses another serial format.)*
+  bands, when those are known and at least 6 characters long after trimming, so an empty or generic value
+  cannot match everything. *(My call: a second net in case a firmware uses another serial format.)*
 
 Each rule has its own count in `removed`.
 
@@ -205,14 +230,18 @@ Each rule has its own count in `removed`.
   about 9 MB zipped. The real size must be measured on a real database during the build; the limit holds
   either way because of splitting.
 - Parts are built one at a time and written to disk before the next starts, so memory does not grow with
-  the number of days.
+  the number of days. *(My call:)* a part is written with `fflate`'s streaming `Zip`/`ZipDeflate` into a
+  file handle, not with `zipSync`, so a whole part never has to sit in memory as one string.
+- *(My call:)* packing uses each day's compressed size, measured while building. The final size of every
+  part is checked after writing; a part over the limit is rebuilt with its last day moved to the next part.
 
 ## The GitHub side
 
 - New issue form `.github/ISSUE_TEMPLATE/data-donation.yml`: title prefix `Data donation: `, label
   `data-donation`, a short public-data warning, a textarea `summary` (prefilled by the app), a textarea
   `files` for the attachments (required), and a required consent checkbox repeating the in-app consent and
-  the licence. The label `data-donation` is created in the repo.
+  the licence. A template does not create labels, so the label `data-donation` is created on GitHub with
+  `gh label create` when the work merges. *(My call.)*
 - The app opens `https://github.com/DarioDML/OpenHoop/issues/new?template=data-donation.yml&title=…&summary=…`.
   The title gives the number of days and the date range. The summary gives the donation code, the number
   of parts, band model, firmware, app version, and which days have official values. Kept short enough that
