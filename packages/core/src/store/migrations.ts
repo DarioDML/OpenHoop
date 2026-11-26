@@ -511,3 +511,16 @@ export async function migrate(driver: SqlDriver): Promise<void> {
     });
   }
 }
+
+const SCHEMA_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+// sqlcipher_export copies tables but not user_version, and a copy left at 0 cannot be migrated again.
+export async function copySchemaVersion(driver: SqlDriver, schema: string): Promise<void> {
+  if (!SCHEMA_NAME.test(schema)) throw new Error(`Invalid schema name: ${schema}`);
+  const rows = await driver.all<{ user_version: number }>('PRAGMA main.user_version');
+  const version = rows[0]?.user_version;
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 0) {
+    throw new Error('Database has no readable schema version');
+  }
+  await driver.exec(`PRAGMA ${schema}.user_version = ${version}`);
+}
