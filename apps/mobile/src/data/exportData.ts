@@ -1,3 +1,4 @@
+import { copySchemaVersion } from '@openhoop/core';
 import type { ExportTable, Store } from '@openhoop/core';
 import { Directory, File, Paths } from 'expo-file-system';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
@@ -66,6 +67,7 @@ async function writePlaintextCopy(app: AppStore, target: File): Promise<boolean>
     await app.driver.exec(`ATTACH DATABASE '${path}' AS plaintext KEY ''`);
     try {
       await app.driver.exec("SELECT sqlcipher_export('plaintext')");
+      await copySchemaVersion(app.driver, 'plaintext');
     } finally {
       await app.driver.exec('DETACH DATABASE plaintext');
     }
