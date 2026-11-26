@@ -137,6 +137,8 @@ describe('lab import on the phone', () => {
     await fireEvent(screen.getByTestId('labs-import-row-2-select'), 'valueChange', true);
     await fireEvent.press(screen.getByTestId('labs-import-others-toggle'));
     await fireEvent(screen.getByTestId('labs-import-row-3-select'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('labs-import-others-toggle'));
+    expect(screen.queryByTestId('labs-import-row-3')).toBeNull();
     await fireEvent.press(screen.getByTestId('labs-import-save'));
     expect(save).not.toHaveBeenCalled();
     expect(screen.getByTestId('labs-import-notice')).toHaveTextContent(part('need a fix'));

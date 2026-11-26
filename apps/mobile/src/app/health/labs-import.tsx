@@ -288,6 +288,7 @@ function ReviewList({ rows, dropped, invalid, notice, saving, onChange, onDay, o
   const known = rows.filter((row) => row.matchedAs !== null);
   const others = rows.filter((row) => row.matchedAs === null);
   const folded = known.length > 0 && others.length > 0;
+  if (!showOthers && others.some((row) => invalid[row.id] !== undefined)) setShowOthers(true);
   const card = (row: ReviewRow) => <ReviewCard key={row.id} row={row} invalid={invalid[row.id] ?? []} onChange={(change) => onChange(row.id, change)} />;
   return (
     <View style={{ gap: spacing.lg }} testID="labs-import-review">
@@ -326,7 +327,7 @@ function ReviewList({ rows, dropped, invalid, notice, saving, onChange, onDay, o
           <Button
             label={showOthers ? t('health.labsImport.review.othersHide') : t('health.labsImport.review.othersShow')}
             variant="secondary"
-            onPress={() => setShowOthers((shown) => !shown)}
+            onPress={() => setShowOthers(!showOthers)}
             testID="labs-import-others-toggle"
           />
         </Card>
