@@ -176,6 +176,11 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'cycle_start, question, tz_offset_s, day, answered_yes, notes, source, imported_at',
     order: 'cycle_start, question',
   },
+  route_points: {
+    columns: ['activity_id', 'seq', 'segment', 't_ms', 'lat', 'lon', 'alt_m', 'accuracy_m'],
+    select: 'activity_id, seq, segment, t_ms, lat, lon, alt_m, accuracy_m',
+    order: 'activity_id, seq',
+  },
 };
 
 const FORMULA_START = /^[=+\-@\t\r]/;

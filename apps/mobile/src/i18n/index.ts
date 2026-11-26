@@ -14,9 +14,11 @@ import strengthEn from './sections/strength.en.json';
 import strengthNl from './sections/strength.nl.json';
 import manageEn from './sections/manage.en.json';
 import manageNl from './sections/manage.nl.json';
+import routeEn from './sections/route.en.json';
+import routeNl from './sections/route.nl.json';
 
-const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl };
-const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn };
+const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl, ...routeNl };
+const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn, ...routeEn };
 
 export type TranslationKey = keyof typeof nl;
 export type TranslationParams = Record<string, string | number>;

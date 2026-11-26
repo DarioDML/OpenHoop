@@ -38,7 +38,6 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import AddActivityScreen from '@/app/activity/add';
 import ActivityDetailsScreen from '@/app/activity/details';
-import GpsActivityScreen from '@/app/activity/gps';
 import LiveActivityScreen from '@/app/activity/live';
 import StartActivityScreen from '@/app/activity/start';
 import LoadScreen from '@/app/load/index';
@@ -174,7 +173,7 @@ describe('activity screens', () => {
     mockParams = { type: 'running' };
     await render(withAppData(<StartActivityScreen />));
     expect(screen.getByTestId('start-type').props.children).toBe('Running');
-    expect(screen.getByTestId('not-built-gps')).toBeTruthy();
+    expect(screen.getByTestId('start-route')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('start-begin'));
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'running' } });
   });
@@ -214,11 +213,6 @@ describe('activity screens', () => {
     mockParams = { day: 'x', index: '9' };
     await render(withAppData(<ActivityDetailsScreen />));
     expect(screen.getByText('Activity not found')).toBeTruthy();
-  });
-
-  it('marks gps as not built', async () => {
-    await render(withAppData(<GpsActivityScreen />));
-    expect(screen.getByTestId('not-built-gps')).toBeTruthy();
   });
 });
 

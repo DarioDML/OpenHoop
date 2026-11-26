@@ -8,7 +8,6 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Pill } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
-import { NotBuilt } from '@/ui/NotBuilt';
 import { Screen } from '@/ui/Screen';
 import { TopBar } from '@/ui/TopBar';
 import { spacing } from '@/ui/theme';
@@ -53,7 +52,13 @@ export default function StartActivityScreen() {
           {t('activity.start.saved')}
         </AppText>
       </Card>
-      <NotBuilt issue="gps" compact body={t('activity.start.gps')} />
+      <Card testID="start-route">
+        <AppText variant="cardTitle">{t('route.start.title')}</AppText>
+        <AppText variant="body" muted>
+          {t('route.start.body')}
+        </AppText>
+        <Button label={t('route.start.button')} variant="secondary" onPress={() => router.replace({ pathname: '/activity/gps', params: { type } })} testID="start-route-begin" />
+      </Card>
     </Screen>
   );
 }

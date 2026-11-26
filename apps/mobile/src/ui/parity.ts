@@ -22,4 +22,5 @@ export const PARITY = {
   jetLag: 'C',
   vo2max: 'C',
   pillars: 'C',
+  route: 'C',
 } as const satisfies Record<string, ParityLevel>;
