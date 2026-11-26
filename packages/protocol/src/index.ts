@@ -6,5 +6,6 @@ export * from './firmware';
 export * from './hrm';
 export * from './records';
 export * from './batteryPack';
+export * from './bandEvents';
 export * from './decode';
 export * from './encode';

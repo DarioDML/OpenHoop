@@ -104,6 +104,16 @@ function stringTable(source: Readonly<Record<string, unknown>>): ReadonlyMap<num
 
 const records = schemaJson.records;
 
+interface OwnPayload {
+  length: number;
+  revision: number;
+  fields: FieldIndex;
+}
+
+function ownPayload(source: { length: number; revision: number; fields: readonly FieldSpec[] }): OwnPayload {
+  return { length: source.length, revision: source.revision, fields: indexFields(source.fields) };
+}
+
 export const schema = {
   gatt: schemaJson.gatt,
   commandNames: stringTable(schemaJson.commands),
@@ -133,6 +143,18 @@ export const schema = {
     fields: indexFields(schemaJson.event_48.fields),
     payloadOffset: schemaJson.event_48.payload_offset,
     battery: indexFields(schemaJson.event_48.payloads['3'].fields),
+  },
+  bandEvents: {
+    ownNames: stringTable(schemaJson.event_48.own_names),
+    bootInfo: ownPayload(schemaJson.event_48.own_payloads['61']),
+    bootCounter: ownPayload(schemaJson.event_48.own_payloads['62']),
+    chargerReport: ownPayload(schemaJson.event_48.own_payloads['110']),
+    reboot: ownPayload(schemaJson.event_48.own_payloads['112']),
+    chargerStatus: ownPayload(schemaJson.event_48.own_payloads['117']),
+    wearDetect: {
+      ...ownPayload(schemaJson.event_48.own_payloads['120']),
+      states: stringTable(schemaJson.event_48.own_payloads['120'].states),
+    },
   },
   pack: {
     events: stringTable(schemaJson.puffin_54.events),

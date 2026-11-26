@@ -245,7 +245,62 @@
         {"name": "millivolts", "offset": 5, "type": "u16"}
       ], "evidence": ["corpus"]}
     },
-    "unnamed_events_seen": [48, 61, 62, 110, 112, 115, 116, 120],
+    "own_names": {"61": "BOOT_DEVICE_INFO", "62": "BOOT_COUNTER", "110": "CHARGER_STATUS_REPORT", "112": "REBOOT_REASON", "117": "CHARGER_STATUS_CHANGED", "120": "WEAR_DETECT_STATE"},
+    "own_names_note": "OpenHoop's descriptive names for events the vendor app does not name. Each layout below was matched against the band's own console log on an MG band (50.43.2.0).",
+    "own_payloads": {
+      "61": {"length": 40, "fields": [
+        {"name": "revision", "offset": 0, "type": "u8"},
+        {"name": "fw_major", "offset": 26, "type": "u8"},
+        {"name": "fw_minor", "offset": 27, "type": "u8"},
+        {"name": "fw_patch", "offset": 28, "type": "u8"},
+        {"name": "fw_build", "offset": 29, "type": "u8"},
+        {"name": "sigproc_major", "offset": 33, "type": "u8"},
+        {"name": "sigproc_minor", "offset": 34, "type": "u8"},
+        {"name": "sigproc_patch", "offset": 35, "type": "u8"}
+      ], "revision": 2, "note": "Sent once after boot. Bytes 1-10 hold the band serial and bytes 11-18 a 64-bit chip id from which the Bluetooth address is derived; both are identity and are not decoded. Firmware matched the hello reply, the signal processing version the console line 'Caching intial sigproc version 0x0c0006'."},
+      "62": {"length": 28, "fields": [
+        {"name": "revision", "offset": 0, "type": "u8"},
+        {"name": "boot_count", "offset": 20, "type": "u32"}
+      ], "revision": 2, "note": "Sent once after boot, after the same serial and chip id as event 61. The boot count went from 30 to 31 at a reboot, as did the first number of every console line. The u32 at 24 (817 on one band) is not understood."},
+      "110": {"length": 8, "fields": [
+        {"name": "revision", "offset": 0, "type": "u8"},
+        {"name": "charging", "offset": 2, "type": "u8"},
+        {"name": "charger_status", "offset": 3, "type": "u8"}
+      ], "revision": 1, "note": "Every 600 s, about 3 s after STRAP_CONDITION_REPORT. Byte 3 equals the code of the console line 'Charger Status : Constant Current Charging (2)'. Bytes 4-7 were 0c 00 08 00 before the band was set up, 00 03 00 00 while charging and zero otherwise; not understood."},
+      "112": {"length": 20, "fields": [
+        {"name": "revision", "offset": 0, "type": "u8"},
+        {"name": "pre_reboot_reason", "offset": 12, "type": "u16"}
+      ], "revision": 1, "note": "Sent once after boot. The u16 at 12 equals the console line 'Pre reboot reason: 0x1001'; the other bytes are not understood (one sample)."},
+      "117": {"length": 4, "fields": [
+        {"name": "revision", "offset": 0, "type": "u8"},
+        {"name": "charger_status", "offset": 1, "type": "u8"}
+      ], "revision": 1, "note": "Sent with every CHARGING_ON (2, 'Constant Current Charging (2)' in the console) and CHARGING_OFF (0); 9 of 9 on one band."},
+      "120": {"length": 32, "fields": [
+        {"name": "revision", "offset": 0, "type": "u8"},
+        {"name": "from_state", "offset": 1, "type": "u8"},
+        {"name": "to_state", "offset": 2, "type": "u8"},
+        {"name": "reason", "offset": 3, "type": "u8"},
+        {"name": "seconds_in_state", "offset": 4, "type": "u16"},
+        {"name": "opt_ir_near", "offset": 6, "type": "u8", "scale": 0.125},
+        {"name": "opt_ir_ratio", "offset": 7, "type": "u8", "scale": 0.25},
+        {"name": "opt_ambient", "offset": 8, "type": "u8", "scale": 0.0625},
+        {"name": "sleep_flag", "offset": 9, "type": "u8"},
+        {"name": "record_count", "offset": 10, "type": "u8"},
+        {"name": "range_stability", "offset": 11, "type": "f32"},
+        {"name": "orient_changes_60", "offset": 16, "type": "u8"},
+        {"name": "accel_x", "offset": 19, "type": "u8", "scale": 0.015625},
+        {"name": "accel_y", "offset": 20, "type": "u8", "scale": 0.015625},
+        {"name": "hr_window_count", "offset": 22, "type": "u8"},
+        {"name": "hr_peak", "offset": 23, "type": "u8", "scale": 0.5},
+        {"name": "hr_peak_deviation", "offset": 24, "type": "u8", "scale": 0.5},
+        {"name": "harmonic_share", "offset": 25, "type": "u8", "scale": 0.0078125},
+        {"name": "skin_temp_above_10c", "offset": 28, "type": "u8", "scale": 0.125},
+        {"name": "hr_count", "offset": 30, "type": "u8"}
+      ], "revision": 1,
+        "states": {"0": "boot", "1": "onWristUnconfirmed", "2": "onWrist", "3": "offWrist"},
+        "note": "The binary form of the console line 'SIGPROC-WEAR-DETECT V5: moving from state A to state B (debug = R), state_cnt = ...'; every field above matched that line exactly on 16 of 16 pairs. Sent on each change and every 7,200 s while the state holds. Every 3->1 coincided with WRIST_ON and every move to 3 with WRIST_OFF. Values below 0 or above 255 after scaling are clamped by the band; skin temperature 0 means 10 C or less. State 4 (seen once, off the wrist) and bytes 15, 17, 18, 21 and 26 are not understood."}
+    },
+    "unnamed_events_seen": [48, 115, 116],
     "evidence": ["noop", "goose", "corpus"]
   },
   "puffin_54": {

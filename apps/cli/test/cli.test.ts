@@ -316,6 +316,13 @@ describe.concurrent('decode', () => {
     expect(run.stdout).toContain('GET_HELLO');
   });
 
+  it('names a charger status event from an MG band and prints what it decoded', async () => {
+    const run = await cli('decode', 'aa011400010021b1303c7500fe65086b5118040001020000ba53f756');
+    expect(run.code).toBe(0);
+    expect(run.stdout).toContain('CHARGER_STATUS_CHANGED (117)');
+    expect(run.stdout).toContain('"chargerStatus":2');
+  });
+
   it('reads hex lines from a file and reports a bad frame', async () => {
     const { writeFileSync } = await import('node:fs');
     const file = join(dir, 'frames.txt');
