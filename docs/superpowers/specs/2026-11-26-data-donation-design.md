@@ -22,6 +22,9 @@ to any number of whole days.
   button, and the app builds the files, saves them, and opens the prefilled GitHub form. The only manual
   step left is attaching the files there and submitting, because GitHub only takes attachments through
   its own website.
+- **Licence: CC0 1.0.** Donated data is dedicated to the public domain, so anyone, the project included,
+  may use it for anything without conditions. The in-app consent, the GitHub form, every README and
+  every manifest say so.
 - **Approved earlier in the conversation:** same layout as wearable5.0's donation; dates stay in; identity
   data is taken out; no profile data (name, age, sex, weight); never journal, notes, GPS, coach, cycle
   tracking or anything outside the chosen days; days with official values are marked "most useful"; the
@@ -112,7 +115,7 @@ Donate your data
 3. **Summary.** Number of days, date range, estimated size and number of files, updated live. The estimate
    comes from stored frame counts. Exact numbers are shown after building.
 4. **Consent.** One checkbox, required before Donate is enabled: public, under the donor's GitHub account,
-   cannot be taken back. With more than one day, the text names the range: "14 days, from 3 Oct to
+   cannot be taken back, and shared under CC0 1.0 (anyone may use it for anything). With more than one day, the text names the range: "14 days, from 3 Oct to
    24 Nov".
 5. **Donate.** One button does the rest:
    1. Build the parts in the app's cache folder, with progress ("Packing day 3 of 14") and a Cancel button.
@@ -163,11 +166,11 @@ README.txt
 - **`MANIFEST.json`**: a superset of wearable5.0's manifest. Its keys `tool`, `frames`, `frame_types`,
   `record_time_span_utc`, `firmware`, `whoop_export_files` and `removed` keep their meaning, and
   `whoop_export_files` lists the official CSVs. Added: `format: "openhoop-donation/1"`, `donation_code`,
-  `part`, `parts`, `band_model`, `days` (each with `day`, `start`, `end`, `tz_offset_s`, `official`), and
-  `files`. `removed` counts each reason separately (identity frames, serial text, address text, before
+  `part`, `parts`, `band_model`, `days` (each with `day`, `start`, `end`, `tz_offset_s`, `official`),
+  `files`, and `licence: "CC0-1.0"`. `removed` counts each reason separately (identity frames, serial text, address text, before
   owner, invalid, duplicate, untimed).
-- **`README.txt`**: plain English: what this is, what was removed, that dates are real, the licence, and
-  how the parts belong together.
+- **`README.txt`**: plain English: what this is, what was removed, that dates are real, the CC0 1.0
+  dedication with a link to its text, and how the parts belong together.
 
 Never written: anything from `devices` except model and firmware (no `ble_id`, `serial`, `name`,
 `owner_since`), and no other table than those listed above.
@@ -240,7 +243,7 @@ Each rule has its own count in `removed`.
 - New issue form `.github/ISSUE_TEMPLATE/data-donation.yml`: title prefix `Data donation: `, label
   `data-donation`, a short public-data warning, a textarea `summary` (prefilled by the app), a textarea
   `files` for the attachments (required), and a required consent checkbox repeating the in-app consent and
-  the licence. A template does not create labels, so the label `data-donation` is created on GitHub with
+  the CC0 1.0 dedication. A template does not create labels, so the label `data-donation` is created on GitHub with
   `gh label create` when the work merges. *(My call.)*
 - The app opens `https://github.com/DarioDML/OpenHoop/issues/new?template=data-donation.yml&title=…&summary=…`.
   The title gives the number of days and the date range. The summary gives the donation code, the number
