@@ -10,6 +10,40 @@ export interface LockProbeResult {
   sawHistory: boolean;
   sawRealtime: boolean;
   waitedMs: number;
+  heldChunk: HeldChunk | null;
+}
+
+export interface HeldFrame {
+  packet: Packet;
+  raw: Uint8Array;
+}
+
+// A chunk the probe received whole but did not acknowledge. The band keeps it pending and answers the next
+// history request with only its HISTORY_END, so the sync that follows commits these frames for that token.
+export interface HeldChunk {
+  frames: HeldFrame[];
+  endToken: Uint8Array;
+}
+
+function holdFirstChunk(session: Session): { held: () => HeldChunk | null; stop: () => void } {
+  let frames: HeldFrame[] | null = null;
+  let baseline = 0;
+  let held: HeldChunk | null = null;
+  const stop = session.onPacket((packet, raw) => {
+    if (held !== null || packet.kind === 'commandResponse' || packet.kind === 'realtimeHr') return;
+    if (packet.kind === 'metadata' && packet.metaName === 'HISTORY_START') {
+      frames = [{ packet, raw }];
+      baseline = session.integrityErrors;
+      return;
+    }
+    if (frames === null) return;
+    frames.push({ packet, raw });
+    if (packet.kind !== 'metadata' || packet.metaName !== 'HISTORY_END') return;
+    const endToken = packet.endToken;
+    if (endToken !== undefined && session.integrityErrors === baseline) held = { frames, endToken };
+    frames = null;
+  });
+  return { held: () => held, stop };
 }
 
 export const HISTORY_WAIT_MS = 8_000;
@@ -97,19 +131,22 @@ export async function probeLock(session: Session): Promise<LockProbeResult> {
   const askedHistory = pagesBehind === null || pagesBehind > 0;
   let sawHistory = false;
   let sawRealtime = false;
+  let heldChunk: HeldChunk | null = null;
   try {
     if (askedHistory) {
       const firstData = waitForPacket(session, isHistoryData, HISTORY_WAIT_MS);
       const chunkEnd = waitForPacket(session, isChunkEnd, HISTORY_WAIT_MS + CHUNK_END_WAIT_MS);
+      const holder = holdFirstChunk(session);
       try {
         await session.post(Command.SEND_HISTORICAL_DATA, Uint8Array.of(0));
         sawHistory = await firstData.seen;
-        // An MG band (50.43.2.0) resumes a chunk aborted midway: every later request gets only its HISTORY_END,
-        // which a sync must not acknowledge, so the probe lets the chunk finish before it aborts.
+        // Aborting midway would leave a chunk whose head is gone; letting it end keeps every frame for the sync.
         if (sawHistory) await chunkEnd.seen;
       } finally {
         firstData.cancel();
         chunkEnd.cancel();
+        holder.stop();
+        heldChunk = holder.held();
       }
     } else {
       const wait = waitForPacket(session, (p) => p.kind === 'realtimeHr', REALTIME_WAIT_MS);
@@ -129,5 +166,5 @@ export async function probeLock(session: Session): Promise<LockProbeResult> {
   // Without a backlog, silence from realtime heart rate only means the band is not worn, not that it is locked.
   const locked = askedHistory && isDataLockFirmware(firmware);
   const state = sawHistory || sawRealtime ? 'open' : locked ? 'locked' : 'no-data';
-  return { state, firmware, pagesBehind, sawHistory, sawRealtime, waitedMs };
+  return { state, firmware, pagesBehind, sawHistory, sawRealtime, waitedMs, heldChunk };
 }

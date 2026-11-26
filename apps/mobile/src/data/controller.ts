@@ -65,6 +65,7 @@ import {
   upsertSymptom,
   updateJournalNote,
   type BandModel,
+  type HeldChunk,
   type BodyImportResult,
   type BodyMeasurement,
   type BodyMeasurementInput,
@@ -209,6 +210,7 @@ interface Connection {
   transport: Transport;
   session: Session;
   deviceId: number;
+  heldChunk: HeldChunk | null;
 }
 
 export interface SyncTimings {
@@ -579,7 +581,7 @@ export class AppController {
         this.connection = 'disconnected';
         this.patchDevice();
       });
-      const conn: Connection = { transport, session, deviceId: row.id };
+      const conn: Connection = { transport, session, deviceId: row.id, heldChunk: null };
       this.conn = conn;
       this.battery = await session.battery().catch(() => hello.batteryPercent);
       this.setConnection('connected');
@@ -614,6 +616,7 @@ export class AppController {
     this.patch({ syncProgress: this.progressView('probing', 0, null, 0, 0) });
     try {
       const result = await probeLock(conn.session);
+      conn.heldChunk = result.heldChunk;
       this.lockState = result.state;
       await this.requireApp().store.setSetting(this.lockKey(conn.deviceId), result.state);
       this.backlogPages = result.pagesBehind;
@@ -670,8 +673,11 @@ export class AppController {
       this.setConnection('syncing');
       const startedAt = Date.now();
       this.patch({ syncProgress: this.progressView('transfer', 0, 0, 0, 0) });
+      const heldChunk = conn.heldChunk;
+      conn.heldChunk = null;
       const result = await syncHistory(conn.session, store, {
         deviceId,
+        heldChunk,
         onProgress: (progress) => this.onTransferProgress(progress, backlogRecords),
       });
       const transferMs = Date.now() - startedAt;

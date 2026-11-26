@@ -1,5 +1,6 @@
 import { Command, isDataLockFirmware, toHex } from '@openhoop/protocol';
 import type { DataRange, Packet } from '@openhoop/protocol';
+import type { HeldChunk } from './lockProbe';
 import { sampleFromPacket } from './mapping';
 import type { Session } from './session';
 import { CommandFailedError, DisconnectedError, LINK_QUIET_MAX_MS, LINK_QUIET_MS } from './session';
@@ -35,6 +36,15 @@ export interface SyncOptions {
   signal?: AbortSignal;
   idleTimeoutMs?: number;
   clockPolicy?: 'strict' | 'store-all';
+  heldChunk?: HeldChunk | null;
+}
+
+function endTokenOf(packet: Packet): Uint8Array | undefined {
+  return packet.kind === 'metadata' ? packet.endToken : undefined;
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, i) => byte === b[i]);
 }
 
 export class OwnerSinceRequiredError extends Error {
@@ -306,6 +316,7 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
     }
   };
 
+  let held = opts.heldChunk ?? null;
   try {
     let reRequests = 0;
     let damagedAttempts = 0;
@@ -355,6 +366,27 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
           chunkBaseline = integrity;
           addFrame(tally, deviceId, ownerFloor, packet, raw);
         } else if (isMeta(packet, 'HISTORY_END')) {
+          const token = endTokenOf(event.packet);
+          if (held !== null && token !== undefined && sameBytes(token, held.endToken)) {
+            for (const frame of held.frames) addFrame(tally, deviceId, ownerFloor, frame.packet, frame.raw);
+            held = null;
+            try {
+              await commit(tally, token);
+            } catch (error) {
+              await abortTransfer();
+              throw error;
+            }
+            tally = emptyTally();
+            totals.chunks += 1;
+            progress();
+            try {
+              await session.acknowledgeHistory(token);
+            } catch (error) {
+              if (error instanceof DisconnectedError) return finish('disconnect');
+              throw error;
+            }
+            continue;
+          }
           // The head of this chunk was sent before our request opened the transfer, so acknowledging it would trim unread data.
           const stop = await restart();
           if (stop !== null) return finish(stop);
