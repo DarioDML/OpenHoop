@@ -204,7 +204,7 @@
   "aboutx.support.donateOnce": "Doneer eenmalig ${amount}",
   "aboutx.support.donateMonthly": "Doneer ${amount} per maand",
   "aboutx.support.donateOther": "Kies een bedrag op GitHub",
-  "aboutx.support.donateNote": "Opent GitHub Sponsors in je browser. Je betaalt in Amerikaanse dollar en hebt een GitHub-account nodig. GitHub houdt niets in bij individuele sponsors, dus alles gaat naar het project.",
+  "aboutx.support.donateNote": "Opent GitHub Sponsors in je browser. Je betaalt met een kaart in Amerikaanse dollar en hebt een GitHub-account nodig. GitHub houdt niets in op sponsoring vanuit een persoonlijk account.",
   "aboutx.support.contribute": "Bijdragen of een probleem melden",
   "aboutx.support.contributeBody": "Open een issue op GitHub",
   "aboutx.accuracy.title": "Nauwkeurigheidsrapport",

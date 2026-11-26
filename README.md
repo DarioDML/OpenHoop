@@ -177,14 +177,14 @@ OpenHoop is not a medical device. It does not diagnose, treat or monitor any con
 
 ## Support the project
 
-OpenHoop is free and has no paywalls. Donations help pay for test bands and reference devices. They go through [GitHub Sponsors](https://github.com/sponsors/DarioDML), once or every month, with any amount:
+OpenHoop is free and has no paywalls. Donations help pay for test bands and reference devices. They go through [GitHub Sponsors](https://github.com/sponsors/DarioDML), once or every month, with a preset or your own amount:
 
 | | $3 | $5 | $10 | Other |
 | --- | --- | --- | --- | --- |
 | Once | [$3](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=one-time&amount=3) | [$5](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=one-time&amount=5) | [$10](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=one-time&amount=10) | [Choose](https://github.com/sponsors/DarioDML?frequency=one-time) |
 | Monthly | [$3](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=recurring&amount=3) | [$5](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=recurring&amount=5) | [$10](https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=recurring&amount=10) | [Choose](https://github.com/sponsors/DarioDML?frequency=recurring) |
 
-GitHub takes no fee on sponsorships from personal accounts, so all of it reaches the project. Sponsorships paid by an organisation carry a fee of up to 6%. You pay by card in US dollars and need a GitHub account. A monthly sponsorship can be changed or cancelled at any time on GitHub.
+GitHub takes no fee on sponsorships from personal accounts; sponsorships paid by an organisation carry up to 6% ([GitHub's fee terms](https://docs.github.com/en/sponsors/sponsoring-open-source-contributors/about-sponsorships-fees-and-taxes)). You pay by card in US dollars and need a GitHub account. A monthly sponsorship can be changed or cancelled on GitHub.
 
 In the app the same choice is under More → Support the project. It opens GitHub in your browser; the app itself sends nothing.
 

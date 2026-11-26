@@ -170,6 +170,9 @@ describe('About, accuracy and support', () => {
   it('opens a one-off $5 donation by default', async () => {
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     await render(withAppData(<SupportScreen />));
+    expect(screen.getByTestId('donate-amount-5')).toHaveProperty('props.accessibilityState.selected', true);
+    expect(screen.getByTestId('donate-amount-3')).toHaveProperty('props.accessibilityState.selected', false);
+    expect(screen.getByRole('tab', { name: 'One-off', selected: true })).toBeTruthy();
     expect(screen.getByText('Donate $5 once')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('support-donate'));
     expect(open).toHaveBeenCalledWith(donationUrl('one-time', 5));
@@ -179,16 +182,27 @@ describe('About, accuracy and support', () => {
   it('opens a monthly donation with the chosen amount, or an open amount for Other', async () => {
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     await render(withAppData(<SupportScreen />));
-    await fireEvent.press(screen.getByText('Monthly'));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Monthly' }));
     await fireEvent.press(screen.getByTestId('donate-amount-10'));
+    expect(screen.getByTestId('donate-amount-10')).toHaveProperty('props.accessibilityState.selected', true);
+    expect(screen.getByTestId('donate-amount-5')).toHaveProperty('props.accessibilityState.selected', false);
     expect(screen.getByText('Donate $10 a month')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('support-donate'));
     expect(open).toHaveBeenLastCalledWith(donationUrl('monthly', 10));
     await fireEvent.press(screen.getByTestId('donate-amount-other'));
+    expect(screen.getByText('Choose an amount on GitHub')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('support-donate'));
     expect(open).toHaveBeenLastCalledWith(donationUrl('monthly', null));
-    expect(screen.getByTestId('support-repo')).toBeTruthy();
     open.mockRestore();
+  });
+
+  it('shows the donation choice in Dutch and keeps the GitHub links', async () => {
+    await render(withAppData(<SupportScreen />, 'nl'));
+    expect(screen.getByText('Doneer eenmalig $5')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Maandelijks' }));
+    expect(screen.getByText('Doneer $5 per maand')).toBeTruthy();
+    expect(screen.getByTestId('support-issues')).toBeTruthy();
+    expect(screen.getByTestId('support-repo')).toBeTruthy();
   });
 });
 

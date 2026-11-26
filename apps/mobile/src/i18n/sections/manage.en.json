@@ -204,7 +204,7 @@
   "aboutx.support.donateOnce": "Donate ${amount} once",
   "aboutx.support.donateMonthly": "Donate ${amount} a month",
   "aboutx.support.donateOther": "Choose an amount on GitHub",
-  "aboutx.support.donateNote": "Opens GitHub Sponsors in your browser. You pay in US dollars and need a GitHub account. GitHub takes no fee from individual sponsors, so all of it goes to the project.",
+  "aboutx.support.donateNote": "Opens GitHub Sponsors in your browser. You pay by card in US dollars and need a GitHub account. GitHub takes no fee on sponsorships from personal accounts.",
   "aboutx.support.contribute": "Contribute or report an issue",
   "aboutx.support.contributeBody": "Open an issue on GitHub",
   "aboutx.accuracy.title": "Accuracy report",
