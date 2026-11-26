@@ -1,10 +1,11 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BandStatus, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { HcDataType } from '@/lib/healthConnectMapping';
 import type { InboxEntry } from '@/lib/notificationPlan';
 
+import type { AlarmPlan, ArmedAlarm } from './alarm';
 import type { ConfigKind, WritableValue } from './bandConfig';
 import type { SaveOutcome } from './donation/files';
 import type { HcAvailability } from './healthConnectApi';
@@ -137,6 +138,20 @@ export interface BandActions {
   restoreConfig(kind: ConfigKind, key: string): Promise<boolean>;
 }
 
+export interface AlarmView {
+  plan: AlarmPlan;
+  armed: ArmedAlarm | null;
+  events: AlarmEvent[];
+  problem: Notice | null;
+}
+
+export type AlarmSaveOutcome = 'on-band' | 'pending';
+
+export interface AlarmActions {
+  save(plan: AlarmPlan): Promise<AlarmSaveOutcome>;
+  ring(): Promise<boolean>;
+}
+
 export interface HealthConnectView {
   availability: HcAvailability | 'checking';
   granted: string[];
@@ -186,6 +201,8 @@ export interface AppData {
   startLive(): Promise<void>;
   readBandConfig(): Promise<void>;
   bandActions: BandActions;
+  alarm: AlarmView;
+  alarmActions: AlarmActions;
   stopLive(): Promise<void>;
   exportData(): Promise<void>;
   listDonationDays(): Promise<DonationDay[]>;

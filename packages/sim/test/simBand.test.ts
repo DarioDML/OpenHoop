@@ -112,8 +112,8 @@ describe('commands', () => {
     const c = await TestClient.open(options());
     const unsupported = await c.command(Command.GET_ALL_HAPTICS_PATTERN);
     expect((await c.responseTo(Command.GET_ALL_HAPTICS_PATTERN, unsupported)).resultName).toBe('UNSUPPORTED');
-    const w = await c.command(Command.SET_ALARM_TIME, new Uint8Array(8));
-    expect((await c.responseTo(Command.SET_ALARM_TIME, w)).resultName).toBe('SUCCESS');
+    const w = await c.command(Command.SELECT_WRIST, new Uint8Array(8));
+    expect((await c.responseTo(Command.SELECT_WRIST, w)).resultName).toBe('SUCCESS');
     c.seq += 1;
     await c.band.write(
       GATT.service,

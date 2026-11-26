@@ -1,15 +1,150 @@
-import { useT } from '@/i18n/useT';
-import { NotBuiltPage } from '@/ui/daily/NotBuiltPage';
+import type { AlarmEvent } from '@openhoop/core';
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
+
+import { shiftMinutes, type AlarmPlan } from '@/data/alarm';
+import { useAppData } from '@/data/context';
+import { formatMinutes } from '@/data/dailyDerived';
+import { useT, type TFunction } from '@/i18n/useT';
+import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
+import { formatClock, formatShortDay } from '@/lib/format';
+import { AppText } from '@/ui/AppText';
+import { Card } from '@/ui/Card';
+import { Chip } from '@/ui/Chip';
+import { Button } from '@/ui/controls';
+import { Callout, Page } from '@/ui/daily/bits';
+import { ToggleRow } from '@/ui/manage/rows';
+import { NotBuilt } from '@/ui/NotBuilt';
+import { Num } from '@/ui/Num';
+import { spacing, useTheme } from '@/ui/theme';
+
+const STEP_MIN = 5;
+
+function localDay(unixS: number): string {
+  return unixToIsoDate(unixS, deviceTzOffsetS(new Date(unixS * 1000)));
+}
+
+export function wakeLabel(t: TFunction, language: 'nl' | 'en', unixS: number, nowS: number): string {
+  const time = formatClock(unixS, deviceTzOffsetS(new Date(unixS * 1000)));
+  const day = localDay(unixS);
+  if (day === localDay(nowS)) return t('alarm.today', { time });
+  if (day === localDay(nowS + 86_400)) return t('alarm.tomorrow', { time });
+  return t('alarm.onDay', { day: formatShortDay(day, language), time });
+}
+
+function lastRing(events: readonly AlarmEvent[]): { at: number; endedBy: AlarmEvent['endedBy'] } | null {
+  const fired = events.find((event) => event.kind === 'fired' || event.kind === 'haptics-fired');
+  if (fired === undefined) return null;
+  const ended = events.find((event) => event.kind === 'haptics-ended' && event.t >= fired.t);
+  return { at: fired.t, endedBy: ended?.endedBy ?? null };
+}
+
+function samePlan(a: AlarmPlan, b: AlarmPlan): boolean {
+  return a.enabled === b.enabled && a.minutes === b.minutes && a.mode === b.mode && a.windowMin === b.windowMin;
+}
 
 export default function HapticAlarmScreen() {
-  const { t } = useT();
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  const { alarm, alarmActions, device } = useAppData();
+  const [edit, setEdit] = useState<AlarmPlan | null>(null);
+  const draft = edit ?? alarm.plan;
+  const setDraft = (change: (plan: AlarmPlan) => AlarmPlan): void => setEdit(change(draft));
+  const [saving, setSaving] = useState(false);
+  const [ringing, setRinging] = useState(false);
+  const nowS = Math.floor(Date.now() / 1000);
+
+  const save = async (): Promise<void> => {
+    setSaving(true);
+    try {
+      await alarmActions.save(draft);
+      setEdit(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const ring = async (): Promise<void> => {
+    setRinging(true);
+    try {
+      await alarmActions.ring();
+    } finally {
+      setRinging(false);
+    }
+  };
+
+  const armed = alarm.armed !== null && alarm.armed.wakeAt > nowS ? alarm.armed : null;
+  const status = armed !== null ? t('alarm.status.armed', { when: wakeLabel(t, language, armed.wakeAt, nowS) }) : t(alarm.plan.enabled ? 'alarm.status.pending' : 'alarm.status.off');
+  const rang = lastRing(alarm.events);
+  const busy = saving || device.connection === 'syncing' || device.connection === 'connecting';
+
+  const stepper = (delta: number, glyph: string, testID: string, label: string) => (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={() => setDraft((plan) => ({ ...plan, minutes: shiftMinutes(plan.minutes, delta) }))}
+      style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
+      <AppText variant="title">{glyph}</AppText>
+    </Pressable>
+  );
+
   return (
-    <NotBuiltPage
-      testID="sleep-alarm"
-      title={t('sleepx.alarm')}
-      issue="alarm"
-      intro={t('sleepx.alarmIntro')}
-      points={[t('sleepx.alarmExact'), t('sleepx.alarmGoal'), t('sleepx.alarmWindow')]}
-    />
+    <Page title={t('sleepx.alarm')} tint="sleep" testID="sleep-alarm">
+      <AppText variant="body" muted>
+        {t('sleepx.alarmIntro')}
+      </AppText>
+
+      <Card style={{ gap: spacing.md }}>
+        <ToggleRow title={t('alarm.enabled')} value={draft.enabled} onChange={(enabled) => setDraft((plan) => ({ ...plan, enabled }))} testID="alarm-enabled" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, opacity: draft.enabled ? 1 : 0.5 }}>
+          {stepper(-STEP_MIN, '−', 'alarm-earlier', t('alarm.earlier'))}
+          <Num size={44} testID="alarm-time">
+            {formatMinutes(draft.minutes)}
+          </Num>
+          {stepper(STEP_MIN, '+', 'alarm-later', t('alarm.later'))}
+        </View>
+        <AppText variant="label" muted>
+          {t('sleepx.alarmExact')}
+        </AppText>
+        <Button label={saving ? t('alarm.saving') : t('alarm.save')} onPress={() => void save()} disabled={busy || samePlan(draft, alarm.plan)} testID="alarm-save" />
+      </Card>
+
+      <Card testID="alarm-status" style={{ gap: 6 }}>
+        <AppText variant="capSmall" muted>
+          {t('alarm.status.title')}
+        </AppText>
+        <AppText variant="bodyStrong" testID="alarm-status-text">
+          {status}
+        </AppText>
+        {alarm.problem !== null ? (
+          <AppText variant="label" color={colors.warning} testID="alarm-problem">
+            {t(alarm.problem.key, alarm.problem.params)}
+          </AppText>
+        ) : null}
+        {rang !== null ? (
+          <AppText variant="label" muted testID="alarm-last">
+            {t(rang.endedBy === 'double-tap' ? 'alarm.lastTapped' : rang.endedBy === 'expired' ? 'alarm.lastExpired' : 'alarm.last', {
+              when: wakeLabel(t, language, rang.at, nowS),
+            })}
+          </AppText>
+        ) : null}
+        <Chip label={t('bandConfig.unverified')} small testID="alarm-unverified" />
+      </Card>
+
+      <Button label={ringing ? t('alarm.ringing') : t('alarm.test')} variant="secondary" onPress={() => void ring()} disabled={busy || ringing} testID="alarm-test" />
+
+      <View style={{ gap: spacing.sm }}>
+        <AppText variant="bodyStrong">{t('alarm.smartTitle')}</AppText>
+        <AppText variant="label" muted>
+          {t('sleepx.alarmGoal')}
+        </AppText>
+        <AppText variant="label" muted>
+          {t('sleepx.alarmWindow')}
+        </AppText>
+        <NotBuilt issue="alarm" compact body={t('alarm.smartNotBuilt')} testID="alarm-smart-not-built" />
+      </View>
+
+      <Callout title={t('alarm.howTitle')} body={t('alarm.howBody')} />
+    </Page>
   );
 }

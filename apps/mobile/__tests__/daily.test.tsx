@@ -268,13 +268,13 @@ describe('Sleep', () => {
     expect(screen.getByTestId('plan-wake').props.children).not.toBe(before);
   });
 
-  it('renders the trend charts and the alarm placeholder', async () => {
+  it('renders the trend charts and the alarm screen', async () => {
     await render(withAppData(<SleepTrendsScreen />));
     expect(screen.getByTestId('chart-score')).toBeTruthy();
     await fireEvent.press(screen.getByText('6M'));
     expect(screen.getByTestId('chart-asleep')).toBeTruthy();
     await render(withAppData(<SleepAlarmScreen />));
-    expect(screen.getByTestId('not-built-alarm')).toBeTruthy();
+    expect(screen.getByTestId('alarm-status-text').props.children).toBe('Off');
   });
 });
 

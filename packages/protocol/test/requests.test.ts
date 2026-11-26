@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   Command,
   ConfirmationRequiredError,
+  alarmDisableBody,
+  alarmGetBody,
+  alarmRunBody,
+  alarmSetBody,
+  decodeAlarmReading,
+  decodeAlarmStatus,
+  decodeHapticsTermination,
+  fromHex,
+  isAlarmRejection,
   buildCommand,
   commandClass,
   configReadBody,
@@ -74,5 +83,52 @@ describe('write gates for band actions', () => {
       expect(commandClass(command)).toBe('write');
       expect(() => buildCommand(command, stopHapticsBody())).toThrow(ConfirmationRequiredError);
     }
+  });
+});
+
+describe('alarm bodies', () => {
+  it('builds the 21-byte revision 4 alarm with the band alarm buzz', () => {
+    const body = alarmSetBody(1, 1_800_000_000.5);
+    expect(body.length).toBe(21);
+    expect(toHex(body)).toBe('0401' + '00d2496b' + '0040' + '2f98000000000000' + '0000' + '07' + '1e' + '00');
+  });
+
+  it('refuses slots outside 1 to 6 and impossible times', () => {
+    expect(() => alarmSetBody(0, 1_800_000_000)).toThrow(RangeError);
+    expect(() => alarmSetBody(7, 1_800_000_000)).toThrow(RangeError);
+    expect(() => alarmSetBody(1, 0)).toThrow(RangeError);
+    expect(() => alarmSetBody(1, 2 ** 32)).toThrow(RangeError);
+    expect(() => alarmGetBody(0)).toThrow(RangeError);
+  });
+
+  it('reads, runs and disables a slot with the revision first', () => {
+    expect(toHex(alarmGetBody(1))).toBe('0401');
+    expect(toHex(alarmRunBody(2))).toBe('0202');
+    expect(toHex(alarmDisableBody(3))).toBe('0203');
+    expect(toHex(alarmDisableBody('all'))).toBe('02ff');
+  });
+
+  it('decodes an armed alarm reading and refuses other forms', () => {
+    expect(decodeAlarmReading(fromHex('040100d2496b0040'))).toEqual({ active: true, bandUnixS: 1_800_000_000 });
+    expect(decodeAlarmReading(fromHex('040000d2496b0000'))).toEqual({ active: false, bandUnixS: 1_800_000_000 });
+    expect(decodeAlarmReading(fromHex('0100d2496b00'))).toBeNull();
+    expect(decodeAlarmReading(fromHex('0401'))).toBeNull();
+  });
+
+  it('names the alarm status and spots input rejections', () => {
+    expect(decodeAlarmStatus(fromHex('0301'))).toBe('valid-input-pattern');
+    expect(decodeAlarmStatus(fromHex('030a'))).toBe('invalid-alarm-time');
+    expect(decodeAlarmStatus(fromHex('0363'))).toBe('code-99');
+    expect(decodeAlarmStatus(fromHex('03'))).toBeNull();
+    expect(isAlarmRejection('invalid-alarm-id')).toBe(true);
+    expect(isAlarmRejection('haptics-busy')).toBe(false);
+    expect(isAlarmRejection(null)).toBe(false);
+  });
+
+  it('names how the haptics ended', () => {
+    expect(decodeHapticsTermination(fromHex('0102'))).toBe('double-tap');
+    expect(decodeHapticsTermination(fromHex('0100'))).toBe('expired');
+    expect(decodeHapticsTermination(fromHex('0109'))).toBe('code-9');
+    expect(decodeHapticsTermination(fromHex('01'))).toBeNull();
   });
 });
