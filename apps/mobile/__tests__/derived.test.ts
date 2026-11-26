@@ -49,6 +49,13 @@ describe('user data codec', () => {
     expect(parseUserData(JSON.stringify({ heightCm: 9999, goals: ['nope'], journal: { bad: {} } }))).toMatchObject({ heightCm: null, goals: [], journal: {} });
   });
 
+  it('shows widget values unless turned off', () => {
+    expect(defaultUserData().widgetValues).toBe(true);
+    expect(parseUserData('{}').widgetValues).toBe(true);
+    expect(parseUserData(JSON.stringify({ widgetValues: false })).widgetValues).toBe(false);
+    expect(parseUserData(JSON.stringify({ widgetValues: 'no' })).widgetValues).toBe(true);
+  });
+
   it('makes an initial without hardcoding a name', () => {
     expect(initialOf(null)).toBeNull();
     expect(initialOf('élise')).toBe('É');
