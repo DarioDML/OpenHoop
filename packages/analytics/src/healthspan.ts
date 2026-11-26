@@ -1,5 +1,6 @@
 /**
- * Healthspan estimates, OpenHoop's own methods (parity C). No combined score and no "body age".
+ * Healthspan estimates, OpenHoop's own methods (parity C). No combined score. Body age is in bodyAge.ts, as two
+ * separate ages that are never merged.
  *
  * VO2 max: Uth N, Sørensen H, Overgaard K, Pedersen PK. "Estimation of VO2max from the ratio between HRmax and
  * HRrest - the Heart Rate Ratio Method." Eur J Appl Physiol 2004;91(1):111-115.
