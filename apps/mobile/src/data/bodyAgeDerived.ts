@@ -8,7 +8,7 @@ import { convertLabValue, parseBiomarkerKey, resultsFor, type BiomarkerId } from
 import type { Profile } from './types';
 import type { UserData } from './userData';
 
-export type FitnessAgeReason = 'no-sex' | 'other-sex';
+export type FitnessAgeReason = 'no-sex' | 'other-sex' | 'out-of-range';
 
 export interface FitnessAgeView {
   day: string | null;
@@ -25,7 +25,8 @@ export function latestFitnessAge(days: readonly DayRecord[], profile: Profile, s
   if (!result.ok) return { ...base, fitness: null, reason: null };
   if (sex === null) return { ...base, fitness: null, reason: 'no-sex' };
   if (sex === 'other') return { ...base, fitness: null, reason: 'other-sex' };
-  return { ...base, fitness: fitnessAge(result.value.vo2max, result.value.seeMlKgMin, sex), reason: null };
+  const fitness = fitnessAge(result.value.vo2max, result.value.seeMlKgMin, sex);
+  return { ...base, fitness, reason: fitness === null ? 'out-of-range' : null };
 }
 
 export type FitnessBand =

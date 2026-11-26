@@ -42,7 +42,8 @@ function bandText(t: TFunction, band: FitnessBand, fmt: Format): string {
 
 function fitnessReason(t: TFunction, view: FitnessAgeView): string {
   if (!view.vo2.ok) return t(`health.vo2max.reason.${view.vo2.reason}`, { min: VO2_MIN_NIGHTS, window: VO2_WINDOW_NIGHTS, nights: view.vo2.nights });
-  return t(`health.vo2max.norm.reason.${view.reason ?? 'no-sex'}`);
+  if (view.reason === 'out-of-range' || view.reason === null) return t('health.vo2max.reason.out-of-range');
+  return t(`health.vo2max.norm.reason.${view.reason}`);
 }
 
 function CardHeader({ title }: { title: string }) {

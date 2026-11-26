@@ -115,15 +115,18 @@ export type PhenoAgeReason = 'crp-not-positive' | 'invalid-input' | 'out-of-rang
 
 export type PhenoAgeResult = { ok: true; value: PhenoAgeEstimate } | { ok: false; reason: PhenoAgeReason };
 
-const PERCENT_INPUTS: ReadonlyArray<keyof PhenoAgeInputs> = ['lymphocytePct', 'rdwPct'];
+function positive(value: number, max = Number.POSITIVE_INFINITY): boolean {
+  return Number.isFinite(value) && value > 0 && value <= max;
+}
 
 export function phenotypicAge(inputs: PhenoAgeInputs): PhenoAgeResult {
   if (!Number.isFinite(inputs.crpMgDl) || inputs.crpMgDl <= 0) return { ok: false, reason: 'crp-not-positive' };
-  const keys = Object.keys(inputs) as Array<keyof PhenoAgeInputs>;
-  if (keys.some((key) => !Number.isFinite(inputs[key]) || inputs[key] <= 0 || (PERCENT_INPUTS.includes(key) && inputs[key] > 100))) {
-    return { ok: false, reason: 'invalid-input' };
-  }
   const c = PHENO_AGE;
+  const valid =
+    [inputs.albuminGL, inputs.creatinineUmolL, inputs.glucoseMmolL, inputs.mcvFl, inputs.alpUL, inputs.wbc10e3PerUl, inputs.ageYears].every((v) => positive(v)) &&
+    positive(inputs.lymphocytePct, 100) &&
+    positive(inputs.rdwPct, 100);
+  if (!valid) return { ok: false, reason: 'invalid-input' };
   const xb =
     c.intercept +
     c.albuminGL * inputs.albuminGL +
