@@ -479,5 +479,7 @@
   "aboutx.donateData.saveFiles": "Save files",
   "aboutx.donateData.errorEmpty": "None of the chosen days still has raw band data.",
   "aboutx.donateData.errorBuild": "The files could not be made. Check that there is enough free space and try again.",
-  "aboutx.donateData.githubFailed": "GitHub could not be opened. The files are in your folder; post them at github.com/DarioDML/OpenHoop/issues."
+  "aboutx.donateData.githubFailed": "GitHub could not be opened. The files are in your folder; post them at github.com/DarioDML/OpenHoop/issues.",
+  "aboutx.donateData.folderHint": "After you tap Donate, choose a folder for the files. On Android, Download itself cannot be chosen: create one inside it, for example OpenHoop.",
+  "aboutx.donateData.shareInstead": "Save each file instead"
 }

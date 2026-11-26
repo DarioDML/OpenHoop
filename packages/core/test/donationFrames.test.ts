@@ -48,6 +48,20 @@ describe('identity filter', () => {
     expect(identityReason(frame, decodeFrame(frame), known)).toBe('knownText');
   });
 
+  it('removes frames that carry the stored Bluetooth address as raw bytes, in either byte order', () => {
+    const known = knownIdentityValues([{ serial: null, name: null, bleId: 'AA:BB:CC:DD:EE:FF' }]);
+    for (const payload of [Uint8Array.of(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff), Uint8Array.of(0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa)]) {
+      const frame = encodeEvent({ event: 3, unixS: 1_700_000_000, payload });
+      expect(identityReason(frame, decodeFrame(frame), known)).toBe('knownText');
+    }
+    const other = encodeEvent({ event: 3, unixS: 1_700_000_000, payload: Uint8Array.of(1, 2, 3, 4, 5, 6) });
+    expect(identityReason(other, decodeFrame(other), known)).toBeNull();
+  });
+
+  it('does not treat a band id that is not a Bluetooth address as one', () => {
+    expect(knownIdentityValues([{ serial: null, name: null, bleId: '6F1C2A3B-0000-4000-8000-000000000000' }])).toEqual([]);
+  });
+
   it('keeps ordinary biometric frames', () => {
     const frame = encodeBiometric({ recordIndex: 1, unixS: 1_700_000_000, heartRate: 60 });
     expect(identityReason(frame, decodeFrame(frame), ['MyBand42'])).toBeNull();

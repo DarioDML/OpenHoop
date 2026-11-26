@@ -69,7 +69,7 @@ interface Sinks {
   bytes(name: string): Uint8Array;
 }
 
-function memorySinks(opts: { failWriteInPart?: number; overLimitOnce?: number } = {}): Sinks {
+function memorySinks(opts: { failWriteInPart?: number; overLimitOnce?: number; abortOnFinish?: AbortController } = {}): Sinks {
   const stored = new Map<string, Uint8Array[]>();
   const opened: string[] = [];
   const discarded: string[] = [];
@@ -98,6 +98,7 @@ function memorySinks(opts: { failWriteInPart?: number; overLimitOnce?: number } 
           chunks.push(chunk.slice());
         },
         async finish() {
+          opts.abortOnFinish?.abort();
           const size = chunks.reduce((n, c) => n + c.length, 0);
           if (opts.overLimitOnce !== undefined && !reportedOver) {
             reportedOver = true;
@@ -213,6 +214,22 @@ describe('buildDonation', () => {
     await expect(run).rejects.toBeInstanceOf(DonationAbortedError);
     expect(sinks.opened.length).toBeGreaterThan(0);
     expect([...sinks.discarded].sort()).toEqual([...sinks.opened].sort());
+  });
+
+  it('discards the parts when cancelled while the last part is being finished', async () => {
+    const controller = new AbortController();
+    const sinks = memorySinks({ abortOnFinish: controller });
+    await expect(buildDonation(input({ sinks, signal: controller.signal }))).rejects.toBeInstanceOf(DonationAbortedError);
+    expect(sinks.opened).toHaveLength(1);
+    expect(sinks.discarded).toEqual(sinks.opened);
+  });
+
+  it('responds to a cancel that arrives while a day is being measured', async () => {
+    const controller = new AbortController();
+    const sinks = memorySinks();
+    setTimeout(() => controller.abort(), 0);
+    await expect(buildDonation(input({ sinks, signal: controller.signal }))).rejects.toBeInstanceOf(DonationAbortedError);
+    expect(sinks.opened).toEqual([]);
   });
 
   it('discards written parts when a write fails', async () => {

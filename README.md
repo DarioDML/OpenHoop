@@ -196,7 +196,7 @@ You can also help by [reporting a problem or contributing code](https://github.c
 Raw band data next to the official values for the same days is what makes the scores more accurate. In the app, go to More → Support the project → Donate your data (it is also on the Accuracy page):
 
 1. Choose one or more days, or Select all. Days that also have official values are marked "most useful"; import the official export first to get those.
-2. Confirm that the data becomes public and tap Donate. The app packs the days into zip files of at most 24 MiB each and saves them in a folder you pick (Downloads on Android, which the app remembers).
+2. Confirm that the data becomes public and tap Donate. The app packs the days into zip files of at most 24 MiB each and saves them in a folder you pick. On Android, Download itself cannot be picked, so create a folder inside it, for example Download/OpenHoop; the app remembers that folder. If you skip the folder, you can save each file through the share menu instead.
 3. A prefilled "Data donation" issue opens on GitHub. Attach the files and submit. You need a free GitHub account.
 
 What goes in: the raw band records of the chosen days in the format of wearable5.0's donations (`frames.jsonl`), the official values you imported for those days, OpenHoop's own results for them, a `MANIFEST.json` and a `README.txt`. The band model is in the issue title and every file name.

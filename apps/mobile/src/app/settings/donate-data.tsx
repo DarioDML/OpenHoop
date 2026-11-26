@@ -121,8 +121,12 @@ export default function DonateDataScreen() {
         },
         controller.signal,
       );
+      if (!mounted.current || controller.signal.aborted) {
+        cleanup.current.discardDonation(built);
+        if (mounted.current) setPhase({ kind: 'choose' });
+        return;
+      }
       prepared.current = built;
-      if (!mounted.current) return;
       await save(built);
     } catch (error) {
       if (!mounted.current) return;
@@ -216,7 +220,16 @@ export default function DonateDataScreen() {
             ))
           : null}
         {phase.kind === 'pickCancelled' ? (
-          <Button label={t('aboutx.donateData.saveFiles')} icon="export" onPress={() => void save(built)} testID="donate-data-save-again" />
+          <>
+            <Button label={t('aboutx.donateData.saveFiles')} icon="export" onPress={() => void save(built)} testID="donate-data-save-again" />
+            <Button
+              label={t('aboutx.donateData.shareInstead')}
+              variant="secondary"
+              icon="share"
+              onPress={() => setPhase({ kind: 'shareEach', built })}
+              testID="donate-data-share-instead"
+            />
+          </>
         ) : (
           <Button
             label={t(phase.kind === 'saved' ? 'aboutx.donateData.openGithub' : 'aboutx.donateData.openGithubFirst')}
@@ -296,6 +309,9 @@ export default function DonateDataScreen() {
               {t(phase.message)}
             </AppText>
           ) : null}
+          <AppText variant="label" muted testID="donate-data-folder-hint">
+            {t('aboutx.donateData.folderHint')}
+          </AppText>
           <Button
             label={t('aboutx.donateData.donate')}
             icon="export"

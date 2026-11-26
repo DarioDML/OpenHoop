@@ -1,8 +1,8 @@
-import { Zip, ZipDeflate, deflateSync, strToU8 } from 'fflate';
+import { Deflate, Zip, ZipDeflate, strToU8 } from 'fflate';
 
 import type { BandModel, DeviceRow, Store } from '../store/types';
 import { collectBandDayFrames, listDonationDays, type DonationBandDay } from './days';
-import { REMOVAL_REASONS, emptyRemovalCounts, frameHex, knownIdentityValues, type RemovalCounts, type TimedFrame } from './frames';
+import { REMOVAL_REASONS, emptyRemovalCounts, frameHex, knownIdentityValues, type DayFrame, type RemovalCounts } from './frames';
 import {
   DONATION_FORMAT,
   DONATION_LICENCE,
@@ -118,7 +118,7 @@ interface Piece {
 
 interface DayCache {
   day: MeasuredDay | null;
-  frames: TimedFrame[];
+  frames: DayFrame[];
 }
 
 interface BandSet {
@@ -127,8 +127,26 @@ interface BandSet {
   days: MeasuredDay[];
 }
 
-function frameLine(frame: TimedFrame): string {
+function frameLine(frame: DayFrame): string {
   return `{"hex":"${frameHex(frame.frame)}"}\n`;
+}
+
+function nextTurn(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+async function compressedSize(frames: readonly DayFrame[], checkAbort: () => void): Promise<number> {
+  let size = 0;
+  const deflate = new Deflate({ level: LEVEL }, (chunk) => {
+    size += chunk.length;
+  });
+  for (let offset = 0; offset < frames.length; offset += LINE_BATCH) {
+    await nextTurn();
+    checkAbort();
+    deflate.push(strToU8(frames.slice(offset, offset + LINE_BATCH).map(frameLine).join('')));
+  }
+  deflate.push(new Uint8Array(0), true);
+  return size;
 }
 
 function planParts(days: readonly MeasuredDay[], budget: number): Piece[][] {
@@ -190,7 +208,7 @@ export async function buildDonation(input: BuildDonationInput): Promise<Donation
       input.onProgress?.({ phase: 'measure', done: measured, total });
       if (frames.length === 0) continue;
       withFrames.add(day.day);
-      const bytes = deflateSync(strToU8(frames.map(frameLine).join('')), { level: LEVEL }).length;
+      const bytes = await compressedSize(frames, checkAbort);
       const list = bandDays.get(band.deviceId) ?? [];
       list.push({ band, official: day.official, bytes });
       bandDays.set(band.deviceId, list);
@@ -220,6 +238,7 @@ export async function buildDonation(input: BuildDonationInput): Promise<Donation
     const removed = emptyRemovalCounts();
     try {
       const parts = await writeAll(input, sets, budget, limit, known, removed, opened, checkAbort);
+      checkAbort();
       return {
         code: input.code,
         parts,
@@ -322,6 +341,7 @@ async function writePart(
     const to = Math.floor(((piece.index + 1) * all.length) / piece.count);
     const frames = all.slice(from, to);
     for (let offset = 0; offset < frames.length; offset += LINE_BATCH) {
+      await nextTurn();
       checkAbort();
       const batch = frames.slice(offset, offset + LINE_BATCH);
       for (const frame of batch) {

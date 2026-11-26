@@ -131,6 +131,10 @@ Donate your data
       unverified on a device). *(My call:)* if the folder picker is unavailable or writing into the picked
       folder fails on a platform, the app falls back to one share sheet per part ("Save part 1 of 3"),
       reusing `shareAsync` as `exportData.ts` does.
+      Android 11 and later do not let an app pick the Download folder itself, only a folder inside it, so
+      the screen says before donating: choose a folder, and on Android create one inside Download, for
+      example OpenHoop. When the donor closes the picker, the screen offers "Save files" (the picker again)
+      and "Save each file instead" (the share sheets). *(Added after review.)*
    3. Open the prefilled GitHub issue form in the same in-app sheet as the money donation (`openCheckout`
       in `support.tsx`, which falls back to `Linking.openURL`).
 6. **Done state.** "3 files are in Downloads. Attach all 3 to the post, then submit." Buttons: "Open GitHub
@@ -224,9 +228,14 @@ Taken over from wearable5.0's `re/prepare_donation.py`, applied to every frame b
 - packet type 48 (event) with event in {61, 62, 109};
 - any frame whose bytes, read as Latin-1 text, match the serial pattern `(?:5A[GM]|MGB)[0-9]{6,}` or the
   address pattern `(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}`;
-- also any frame whose Latin-1 text contains the stored serial or Bluetooth name of any of the donor's
-  bands, when those are known and at least 6 characters long after trimming, so an empty or generic value
-  cannot match everything. *(My call: a second net in case a firmware uses another serial format.)*
+- also any frame whose Latin-1 text contains the stored serial or the stored device name of any of the
+  donor's bands, when those are known and at least 6 characters long after trimming, so an empty or generic
+  value cannot match everything. *(My call: a second net in case a firmware uses another serial format.)*
+  The stored device name is the model string the band reports over Bluetooth (`devices.name`); the name
+  the band advertises is not stored, so it is covered only by the identity frames and the serial pattern.
+- also any frame that holds the stored Bluetooth address (`devices.ble_id`) as 6 raw bytes, in either byte
+  order, when `ble_id` is a MAC address (on Android it is; on iOS it is a phone-local id and is skipped).
+  *(Added after review.)*
 
 Each rule has its own count in `removed`.
 

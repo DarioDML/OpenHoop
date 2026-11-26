@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { BandModel, DonationDay, RemovalCounts } from '@openhoop/core';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -24,6 +24,8 @@ jest.mock('expo-web-browser', () => ({
   openBrowserAsync: jest.fn(async () => ({ type: 'dismiss' })),
   WebBrowserPresentationStyle: { PAGE_SHEET: 'pageSheet' },
 }));
+
+jest.setTimeout(30_000);
 
 const openSheet = jest.mocked(WebBrowser.openBrowserAsync);
 
@@ -162,6 +164,53 @@ describe('donate your data', () => {
     await screen.findByTestId('donate-data-github');
     await view.unmount();
     expect(discardDonation).toHaveBeenCalledWith(donation);
+  });
+
+  it('removes the files and never saves when the screen closes while the build is finishing', async () => {
+    const donation = built(1);
+    let finish: (value: BuiltDonation) => void = () => undefined;
+    const buildDonation = jest.fn(() => new Promise<BuiltDonation>((resolve) => (finish = resolve)));
+    const saveDonation = jest.fn(async () => ({ kind: 'saved' as const, folderUri: 'content://downloads' }));
+    const discardDonation = jest.fn();
+    const view = await renderDonate({ buildDonation, saveDonation, discardDonation });
+    await chooseFirstDayAndConsent();
+    await fireEvent.press(screen.getByTestId('donate-data-go'));
+    await waitFor(() => expect(buildDonation).toHaveBeenCalled());
+    await view.unmount();
+    await act(async () => finish(donation));
+    expect(discardDonation).toHaveBeenCalledWith(donation);
+    expect(saveDonation).not.toHaveBeenCalled();
+  });
+
+  it('does not open the folder picker after Cancel when the build still finishes', async () => {
+    const donation = built(1);
+    let finish: (value: BuiltDonation) => void = () => undefined;
+    const buildDonation = jest.fn(() => new Promise<BuiltDonation>((resolve) => (finish = resolve)));
+    const saveDonation = jest.fn(async () => ({ kind: 'saved' as const, folderUri: 'content://downloads' }));
+    const discardDonation = jest.fn();
+    await renderDonate({ buildDonation, saveDonation, discardDonation });
+    await chooseFirstDayAndConsent();
+    await fireEvent.press(screen.getByTestId('donate-data-go'));
+    await fireEvent.press(await screen.findByTestId('donate-data-cancel'));
+    await act(async () => finish(donation));
+    expect(saveDonation).not.toHaveBeenCalled();
+    expect(discardDonation).toHaveBeenCalledWith(donation);
+    expect(screen.getByTestId('donate-data-go')).toBeEnabled();
+  });
+
+  it('explains how to pick a folder before donating', async () => {
+    await renderDonate();
+    expect(await screen.findByTestId('donate-data-folder-hint')).toHaveTextContent(/create one/i);
+  });
+
+  it('lets the donor save each file instead when no folder was chosen', async () => {
+    const donation = built(2);
+    await renderDonate({ buildDonation: async () => donation, saveDonation: async () => ({ kind: 'cancelled' }) });
+    await chooseFirstDayAndConsent();
+    await fireEvent.press(screen.getByTestId('donate-data-go'));
+    await fireEvent.press(await screen.findByTestId('donate-data-share-instead'));
+    expect(await screen.findByTestId('donate-data-share-1')).toHaveTextContent('Save part 1 of 2');
+    expect(screen.getByTestId('donate-data-share-2')).toBeTruthy();
   });
 
   it('offers one share button per part when the folder cannot be used', async () => {

@@ -1,6 +1,12 @@
 import { ChunkIntegrityError } from '../store/chunkCodec';
 import type { BandModel, SqlDriver, Store } from '../store/types';
-import { emptyRemovalCounts, frameHex, identityReason, timeChunkFrames, type RemovalCounts, type TimedFrame } from './frames';
+import { emptyRemovalCounts, frameHex, identityReason, timeChunkFrames, type DayFrame, type RemovalCounts } from './frames';
+
+const CRC_BYTES = 4;
+
+function duplicateKey(frame: Uint8Array, t: number): string {
+  return `${t}:${frame.length}:${frameHex(frame.subarray(frame.length - CRC_BYTES))}`;
+}
 
 const ALL_FROM = '0000-01-01';
 const ALL_TO = '9999-12-31';
@@ -109,9 +115,9 @@ export async function collectBandDayFrames(
   ownerSince: number | null,
   known: readonly string[],
   removed: RemovalCounts,
-): Promise<TimedFrame[]> {
+): Promise<DayFrame[]> {
   const seen = new Set<string>();
-  const kept: TimedFrame[] = [];
+  const kept: DayFrame[] = [];
   for (const chunkId of await chunkIdsIn(store.driver, band)) {
     let frames: Uint8Array[];
     try {
@@ -139,13 +145,13 @@ export async function collectBandDayFrames(
         removed[reason] += 1;
         continue;
       }
-      const key = frameHex(entry.frame);
+      const key = duplicateKey(entry.frame, entry.t);
       if (seen.has(key)) {
         removed.duplicate += 1;
         continue;
       }
       seen.add(key);
-      kept.push(entry);
+      kept.push({ frame: entry.frame, t: entry.t });
     }
   }
   return kept.sort((x, y) => x.t - y.t);

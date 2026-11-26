@@ -35,13 +35,25 @@ export function emptyRemovalCounts(): RemovalCounts {
   return counts;
 }
 
-export function knownIdentityValues(devices: readonly Pick<DeviceRow, 'serial' | 'name'>[]): string[] {
+const MAC_ADDRESS = /^[0-9A-Fa-f]{2}(?:[:-][0-9A-Fa-f]{2}){5}$/;
+
+function addressBytes(bleId: string | undefined): string[] {
+  if (bleId === undefined || !MAC_ADDRESS.test(bleId.trim())) return [];
+  const bytes = bleId
+    .trim()
+    .split(/[:-]/)
+    .map((pair) => Number.parseInt(pair, 16));
+  return [String.fromCharCode(...bytes), String.fromCharCode(...[...bytes].reverse())];
+}
+
+export function knownIdentityValues(devices: readonly (Pick<DeviceRow, 'serial' | 'name'> & { bleId?: string })[]): string[] {
   const values = new Set<string>();
   for (const device of devices) {
     for (const value of [device.serial, device.name]) {
       const trimmed = value?.trim() ?? '';
       if (trimmed.length >= KNOWN_MIN_LENGTH) values.add(trimmed);
     }
+    for (const bytes of addressBytes(device.bleId)) values.add(bytes);
   }
   return [...values];
 }
@@ -67,10 +79,13 @@ export function identityReason(frame: Uint8Array, packet: Packet, known: readonl
   return null;
 }
 
-export interface TimedFrame {
+export interface DayFrame {
   frame: Uint8Array;
-  packet: Packet;
   t: number;
+}
+
+export interface TimedFrame extends DayFrame {
+  packet: Packet;
 }
 
 function bandTime(packet: Packet): number | null {

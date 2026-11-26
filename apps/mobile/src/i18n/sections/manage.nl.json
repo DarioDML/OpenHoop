@@ -479,5 +479,7 @@
   "aboutx.donateData.saveFiles": "Bestanden bewaren",
   "aboutx.donateData.errorEmpty": "Geen van de gekozen dagen heeft nog ruwe banddata.",
   "aboutx.donateData.errorBuild": "De bestanden konden niet gemaakt worden. Kijk of er genoeg vrije ruimte is en probeer het opnieuw.",
-  "aboutx.donateData.githubFailed": "GitHub kon niet geopend worden. De bestanden staan in je map; plaats ze op github.com/DarioDML/OpenHoop/issues."
+  "aboutx.donateData.githubFailed": "GitHub kon niet geopend worden. De bestanden staan in je map; plaats ze op github.com/DarioDML/OpenHoop/issues.",
+  "aboutx.donateData.folderHint": "Na Doneren kies je een map voor de bestanden. Op Android kun je Download zelf niet kiezen: maak er een map in aan, bijvoorbeeld OpenHoop.",
+  "aboutx.donateData.shareInstead": "Elk bestand apart bewaren"
 }
