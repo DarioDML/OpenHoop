@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -7,6 +7,7 @@ import { useLayout } from './layout';
 import { radius, spacing, useTheme, type Tint } from './theme';
 
 export const TAB_BAR_SPACE = 120;
+const BUTTON_NAV_INSET = 32;
 
 interface GradientProps {
   from: string;
@@ -69,7 +70,12 @@ export function Screen({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { gutter } = useLayout();
+  const [scrolled, setScrolled] = useState(false);
   const bottom = insets.bottom + (withTabBar ? TAB_BAR_SPACE : spacing.xxl);
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
+    const next = event.nativeEvent.contentOffset.y > 4;
+    setScrolled((current) => (current === next ? current : next));
+  };
 
   const headerBlock = header ? (
     <View style={{ paddingTop: insets.top + spacing.lg, paddingHorizontal: gutter, paddingBottom: 40, gap: spacing.lg }}>
@@ -112,6 +118,8 @@ export function Screen({
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
+          onScroll={onScroll}
+          scrollEventThrottle={32}
           refreshControl={
             onRefresh ? <RefreshControl refreshing={refreshing ?? false} onRefresh={onRefresh} tintColor={colors.text} colors={[colors.accent]} /> : undefined
           }>
@@ -126,6 +134,12 @@ export function Screen({
       )}
       {footer ? (
         <View style={{ paddingHorizontal: gutter, paddingBottom: insets.bottom + spacing.lg, paddingTop: spacing.md, gap: spacing.md }}>{footer}</View>
+      ) : null}
+      {scroll && scrolled && insets.top > 0 ? (
+        <View pointerEvents="none" testID="status-bar-scrim" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: colors.background, opacity: 0.94 }} />
+      ) : null}
+      {!footer && insets.bottom >= BUTTON_NAV_INSET ? (
+        <View pointerEvents="none" testID="nav-bar-scrim" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: insets.bottom, backgroundColor: colors.background, opacity: 0.97 }} />
       ) : null}
     </View>
   );
