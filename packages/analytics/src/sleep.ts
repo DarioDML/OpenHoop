@@ -5,13 +5,20 @@ export const SLEEP_SMOOTH_S = 300;
 export const SLEEP_MAX_GAP_S = 600;
 export const SLEEP_MIN_DURATION_S = 1200;
 export const NIGHT_MERGE_GAP_S = 7200;
+export const SLEEP_MAX_HR = 100;
+
+// An MG band (50.43.2.0) worn before it was set up flagged a whole afternoon, a 178 bpm run included, as SLEEP.
+export function isAsleepSample(sample: Sample | undefined): boolean {
+  if (sample?.state !== 'SLEEP') return false;
+  return !(isValidHr(sample.hr) && sample.hr > SLEEP_MAX_HR);
+}
 
 export function sleepPeriods(samples: Sample[]): SleepPeriod[] {
   const rows = sortedUnique(samples);
   const n = rows.length;
   const half = SLEEP_SMOOTH_S / 2;
   const prefix = new Int32Array(n + 1);
-  for (let i = 0; i < n; i++) prefix[i + 1] = (prefix[i] ?? 0) + (rows[i]?.state === 'SLEEP' ? 1 : 0);
+  for (let i = 0; i < n; i++) prefix[i + 1] = (prefix[i] ?? 0) + (isAsleepSample(rows[i]) ? 1 : 0);
 
   const spans: [number, number][] = [];
   let lo = 0;
@@ -40,7 +47,7 @@ export function sleepPeriods(samples: Sample[]): SleepPeriod[] {
     for (; j < n; j++) {
       const r = rows[j];
       if (r === undefined || r.t > end) break;
-      if (r.state === 'SLEEP') asleepS++;
+      if (isAsleepSample(r)) asleepS++;
       if (isValidHr(r.hr)) {
         hrMin = hrMin === null ? r.hr : Math.min(hrMin, r.hr);
         hrSum += r.hr;

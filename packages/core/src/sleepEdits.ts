@@ -1,4 +1,4 @@
-import { lowerBound, sortedUnique } from '@openhoop/analytics';
+import { isAsleepSample, lowerBound, sortedUnique } from '@openhoop/analytics';
 import type { Night, Sample, SleepPeriod } from '@openhoop/analytics';
 import type { SleepEdit, SleepSource } from './store/types';
 
@@ -74,7 +74,7 @@ function summarize(rows: readonly Sample[], start: number, end: number): Summary
   for (let i = lowerBound(rows, start); i < rows.length; i++) {
     const row = rows[i];
     if (row === undefined || row.t >= end) break;
-    if (row.state === 'SLEEP') asleepS++;
+    if (isAsleepSample(row)) asleepS++;
     if (row.hr !== null && row.hr >= HR_MIN && row.hr <= HR_MAX) {
       hrMin = hrMin === null ? row.hr : Math.min(hrMin, row.hr);
       hrSum += row.hr;
