@@ -447,6 +447,7 @@ export class AppController {
     this.battery = null;
     this.backlogPages = null;
     this.lastSyncAt = null;
+    this.lastSyncCounts = null;
     let ownerSince: string | null = null;
     if (this.deviceRow !== null) {
       const state = await store.getSyncState(this.deviceRow.id);
@@ -644,6 +645,7 @@ export class AppController {
     const { store } = this.requireApp();
     let failed = false;
     try {
+      this.lastSyncCounts = null;
       this.patch({ notice: null, syncProgress: this.progressView('connecting', 0, null, 0, 0) });
       await this.requireOwnerSince();
       const conn = await this.ensureConnection();
