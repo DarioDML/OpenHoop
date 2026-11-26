@@ -73,6 +73,13 @@ export default function AccuracyScreen() {
           subtitle={t('aboutx.accuracy.importBody')}
           href="/settings/import"
         />
+        <ListRow
+          icon={tile(colors, 'export', 'purple')}
+          title={t('aboutx.donateData.row')}
+          subtitle={t('aboutx.donateData.rowBody')}
+          href="/settings/donate-data"
+          testID="accuracy-donate-data"
+        />
       </ListGroup>
     </SettingsPage>
   );

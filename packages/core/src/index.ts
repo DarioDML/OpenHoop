@@ -21,3 +21,4 @@ export * from './labResults';
 export * from './activities';
 export * from './coach';
 export * from './routes';
+export * from './donation';
