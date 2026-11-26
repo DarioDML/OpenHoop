@@ -46,6 +46,7 @@ import {
   probeLock,
   readDeviceInformation,
   readKeys,
+  rebuildStaleSamples,
   recomputeDays,
   recordHeartRate,
   setPregnancy,
@@ -91,10 +92,19 @@ import {
   type SyncProgress,
   type SyncStop,
   type Transport,
+  buildDonation as buildDonationParts,
+  donationCode,
+  listDonationDays as listStoredDonationDays,
+  type DonationDay,
+  type DonationProgress,
 } from '@openhoop/core';
 import { formatFirmware } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
+import Constants from 'expo-constants';
+import { getRandomBytes } from 'expo-crypto';
+import { Directory } from 'expo-file-system';
 import { getLocales } from 'expo-localization';
+import { Platform } from 'react-native';
 
 import { dayEntries } from './activities';
 import { BleManagerTransport } from '@/ble/bleManagerTransport';
@@ -141,9 +151,11 @@ import { summariseImport, type VendorImportResult } from './vendorExport/summary
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { changesAppData } from './liveData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
+import { createDonationWorkspace, filePartSink, removeLeftoverDonations, saveDonationParts, sharePartFile, type SaveOutcome } from './donation/files';
 import type {
   ActivityDraft,
   AppData,
+  BuiltDonation,
   ConnectionState,
   DataSource,
   DeleteTarget,
@@ -246,6 +258,17 @@ function toModel(text: string | null): BandModel | null {
   if (/MG/i.test(text)) return 'MG';
   if (/5\.0/.test(text)) return '5.0';
   return null;
+}
+
+const DONATION_FOLDER_KEY = 'donation.folderUri';
+
+function removeWorkspace(uri: string): void {
+  try {
+    const workspace = new Directory(uri);
+    if (workspace.exists) workspace.delete();
+  } catch {
+    // removeLeftoverDonations deletes it on the next start
+  }
 }
 
 function nowSeconds(): number {
@@ -386,6 +409,7 @@ export class AppController {
     try {
       removeLeftoverExports();
       removeLeftoverReports();
+      removeLeftoverDonations();
     } catch {
       // a leftover export or report is removed again before the next one
     }
@@ -433,9 +457,20 @@ export class AppController {
     if (dataSource === 'band') await this.purgeDemoRecordings();
     await this.loadActiveDevice();
     this.patch({ ready: true });
+    void this.exclusive(() => this.redecodeStoredSamples());
     void this.refreshNotifications();
     void this.refreshHealthConnect();
     if (dataSource === 'demo') void this.sync();
+  }
+
+  private async redecodeStoredSamples(): Promise<void> {
+    try {
+      const rebuilt = await rebuildStaleSamples(this.requireApp().store, (deviceId) => this.recompute(deviceId, null));
+      if (rebuilt.length > 0) this.patch({ syncProgress: null });
+    } catch (error) {
+      this.patch({ syncProgress: null });
+      this.fail(error);
+    }
   }
 
   private async purgeDemoRecordings(): Promise<void> {
@@ -1630,6 +1665,56 @@ export class AppController {
     }
   };
 
+  listDonationDays = async (): Promise<DonationDay[]> => {
+    if (this.app === null || this.snapshot.settings.dataSource !== 'band') return [];
+    return listStoredDonationDays(this.app.store, nowSeconds());
+  };
+
+  buildDonation = (days: readonly string[], onProgress: (progress: DonationProgress) => void, signal: AbortSignal): Promise<BuiltDonation> => {
+    const app = this.requireApp();
+    return this.exclusive(async () => {
+      const workspace = createDonationWorkspace(new Date());
+      try {
+        const result = await buildDonationParts({
+          store: app.store,
+          days,
+          nowS: nowSeconds(),
+          appVersion: Constants.expoConfig?.version ?? '0',
+          code: donationCode(getRandomBytes),
+          openPart: async (fileName) => filePartSink(workspace, fileName),
+          onProgress,
+          signal,
+        });
+        return { ...result, workspaceUri: workspace.uri };
+      } catch (error) {
+        removeWorkspace(workspace.uri);
+        throw error;
+      }
+    });
+  };
+
+  saveDonation = async (built: BuiltDonation): Promise<SaveOutcome> => {
+    const app = this.requireApp();
+    const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+    const remembered = platform === 'android' ? await app.store.getSetting(DONATION_FOLDER_KEY) : null;
+    const outcome = await saveDonationParts(
+      new Directory(built.workspaceUri),
+      built.parts.map((part) => part.fileName),
+      remembered,
+      platform,
+    );
+    if (outcome.kind === 'saved' && platform === 'android' && outcome.folderUri !== remembered) {
+      await app.store.setSetting(DONATION_FOLDER_KEY, outcome.folderUri);
+    }
+    return outcome;
+  };
+
+  shareDonationPart = (built: BuiltDonation, fileName: string): Promise<void> => sharePartFile(new Directory(built.workspaceUri), fileName);
+
+  discardDonation = (built: BuiltDonation): void => {
+    removeWorkspace(built.workspaceUri);
+  };
+
   private appData(): AppData {
     const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ...snapshot } = this.snapshot;
     return {
@@ -1642,6 +1727,11 @@ export class AppController {
       readBandConfig: this.readBandConfig,
       stopLive: this.stopLive,
       exportData: this.exportData,
+      listDonationDays: this.listDonationDays,
+      buildDonation: this.buildDonation,
+      saveDonation: this.saveDonation,
+      shareDonationPart: this.shareDonationPart,
+      discardDonation: this.discardDonation,
       updateProfile: this.updateProfile,
       updateSettings: this.updateSettings,
       updateUserData: this.updateUserData,

@@ -66,6 +66,13 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     readBandConfig: noop,
     stopLive: noop,
     exportData: noop,
+    listDonationDays: async () => [],
+    buildDonation: async () => {
+      throw new Error('buildDonation is not stubbed in this test');
+    },
+    saveDonation: async () => ({ kind: 'cancelled' }),
+    shareDonationPart: noop,
+    discardDonation: () => undefined,
     updateProfile: noop,
     updateSettings: noop,
     updateUserData: async () => true,
