@@ -325,6 +325,7 @@
   "bandConfig.restore": "Terugzetten naar {value}",
   "bandConfig.changedHere": "Hier gewijzigd, was {value}",
   "bandConfig.write.word": "WIJZIG",
+  "bandConfig.write.inputLabel": "Typ het woord",
   "bandConfig.write.title": "Een instelling wijzigen",
   "bandConfig.write.body": "Een wijziging wordt in het geheugen van de band geschreven en blijft na een herstart. Alleen de waarden 1 en 2 (aan en uit) zijn te wijzigen, omdat alleen die terug te zetten zijn. OpenHoop bewaart de oude waarde en biedt aan om ze terug te zetten. Sommige instellingen veranderen hoe de band meet, dus wijzig alleen wat je begrijpt.",
   "bandConfig.write.dialogTitle": "Een bandinstelling wijzigen",

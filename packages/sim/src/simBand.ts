@@ -10,6 +10,7 @@ import {
   encodeHelloBody,
   encodeMetadata,
   encodeRealtimeHr,
+  MAX_HAPTIC_LOOPS,
   parseFirmware,
   toHex,
 } from '@openhoop/protocol';
@@ -103,6 +104,8 @@ interface Pending {
 }
 
 const NO_GEN = -1;
+const HAPTIC_INVALID_LOOPS = 3;
+const HAPTIC_PLAYED = 5;
 
 function ascii(text: string): Uint8Array {
   const out = new Uint8Array(text.length);
@@ -576,8 +579,13 @@ export class SimBand implements Transport {
     switch (command) {
       case Command.RUN_HAPTIC_PATTERN_MAVERICK:
         this.writesReceived += 1;
+        if ((args[11] ?? 0) > MAX_HAPTIC_LOOPS) {
+          this.reply(command, seq, FAILURE, Uint8Array.of(1, HAPTIC_INVALID_LOOPS, 0));
+          return true;
+        }
         this.hapticsPlayed += 1;
-        this.reply(command, seq, SUCCESS);
+        this.reply(command, seq, PENDING, Uint8Array.of(1, 1, 0));
+        this.reply(command, seq, SUCCESS, Uint8Array.of(1, HAPTIC_PLAYED, 0));
         return true;
       case Command.STOP_HAPTICS:
         this.writesReceived += 1;
@@ -585,7 +593,7 @@ export class SimBand implements Transport {
         return true;
       case Command.TOGGLE_GENERIC_HR_PROFILE:
         this.writesReceived += 1;
-        this.hrProfileOn = args[1] === 1;
+        this.hrProfileOn = args[0] === 1;
         this.reply(command, seq, SUCCESS);
         return true;
       case Command.SET_FF_VALUE:

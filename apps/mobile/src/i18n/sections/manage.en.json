@@ -325,6 +325,7 @@
   "bandConfig.restore": "Put back {value}",
   "bandConfig.changedHere": "Changed here, was {value}",
   "bandConfig.write.word": "CHANGE",
+  "bandConfig.write.inputLabel": "Type the word",
   "bandConfig.write.title": "Changing a setting",
   "bandConfig.write.body": "A change is written to the band's memory and stays after a restart. Only the values 1 and 2 (on and off) can be changed, because only those can be put back. OpenHoop keeps the old value and offers to put it back. Some settings change how the band measures, so change only what you understand.",
   "bandConfig.write.dialogTitle": "Change a band setting",

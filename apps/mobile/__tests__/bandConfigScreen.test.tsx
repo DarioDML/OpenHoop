@@ -149,6 +149,19 @@ describe('BandConfigScreen', () => {
     expect(writeConfig).toHaveBeenCalledWith('flag', 'make_hrfm_visible', '1');
   });
 
+  it('writes from the keyboard Done key once the word matches', async () => {
+    const writeConfig = jest.fn(async () => true);
+    const bandActions = { ...fixtureBandActions(), writeConfig };
+    await render(withAppData(<BandConfigScreen />, 'en', appData(SNAPSHOT_JSON, { bandActions })));
+    await fireEvent.press(screen.getByTestId('config-change-enable_rfid'));
+    expect(screen.getByText('Type the word')).toBeTruthy();
+    await fireEvent(screen.getByTestId('danger-input'), 'submitEditing');
+    expect(writeConfig).not.toHaveBeenCalled();
+    await fireEvent.changeText(screen.getByTestId('danger-input'), 'CHANGE');
+    await fireEvent(screen.getByTestId('danger-input'), 'submitEditing');
+    expect(writeConfig).toHaveBeenCalledWith('config', 'enable_rfid', '1');
+  });
+
   it('marks a value changed here and puts it back in one tap', async () => {
     const restoreConfig = jest.fn(async () => true);
     const bandActions = { ...fixtureBandActions(), restoreConfig };

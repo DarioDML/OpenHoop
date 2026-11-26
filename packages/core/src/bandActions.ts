@@ -5,7 +5,7 @@ import { valueFromReply } from './config';
 import type { Session } from './session';
 
 export const TEST_BUZZ_LOOPS = 1;
-export const FIND_BAND_LOOPS = 12;
+export const FIND_BAND_LOOPS = 6;
 
 const WRITE = { confirmWrite: true } as const;
 

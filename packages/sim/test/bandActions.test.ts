@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CommandFailedError,
   ConfigWriteError,
   FIND_BAND_LOOPS,
   Session,
@@ -10,7 +11,7 @@ import {
   stopBuzz,
   writeConfigValue,
 } from '@openhoop/core';
-import { ConfirmationRequiredError } from '@openhoop/protocol';
+import { Command, ConfirmationRequiredError } from '@openhoop/protocol';
 import { SimBand } from '../src/index';
 
 const NOW_S = Date.UTC(2027, 0, 15, 12, 0, 0) / 1000;
@@ -39,11 +40,14 @@ describe('band actions on the simulated band', () => {
     const { band, session } = await openBand();
     await buzz(session, 1);
     await buzz(session, FIND_BAND_LOOPS);
+    await expect(session.send(Command.RUN_HAPTIC_PATTERN_MAVERICK, Uint8Array.of(1, 47, 152, 0, 0, 0, 0, 0, 0, 0, 0, 12), { confirmWrite: true })).rejects.toBeInstanceOf(
+      CommandFailedError,
+    );
     await stopBuzz(session);
     await setHeartRateProfile(session, false);
     expect(band.hapticsPlayed).toBe(2);
     expect(band.hrProfileOn).toBe(false);
-    expect(band.writesReceived).toBe(4);
+    expect(band.writesReceived).toBe(5);
     expect(band.dangerousReceived).toBe(0);
     await session.close();
   });

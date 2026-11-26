@@ -15,10 +15,10 @@ import {
 describe('hapticPatternBody', () => {
   it('plays the alert effects for the given loop count', () => {
     expect(toHex(hapticPatternBody(1))).toBe('012f980000000000000000' + '01');
-    expect(toHex(hapticPatternBody(5))).toBe('012f980000000000000000' + '05');
+    expect(toHex(hapticPatternBody(6))).toBe('012f980000000000000000' + '06');
   });
 
-  it.each([0, 256, 1.5, -1])('refuses %s loops', (loops) => {
+  it.each([0, 7, 12, 256, 1.5, -1])('refuses %s loops', (loops) => {
     expect(() => hapticPatternBody(loops)).toThrow(RangeError);
   });
 });
@@ -52,9 +52,9 @@ describe('configWriteBody', () => {
 });
 
 describe('hrProfileBody', () => {
-  it('is the revision byte and the state', () => {
-    expect(toHex(hrProfileBody(true))).toBe('0101');
-    expect(toHex(hrProfileBody(false))).toBe('0100');
+  it('is the bare state byte, without a revision', () => {
+    expect(toHex(hrProfileBody(true))).toBe('01');
+    expect(toHex(hrProfileBody(false))).toBe('00');
   });
 });
 

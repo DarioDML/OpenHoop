@@ -4,7 +4,7 @@ const ASCII_MAX = 0x7f;
 
 export const ALERT_EFFECTS: readonly number[] = [47, 152];
 const EFFECT_SLOTS = 8;
-export const MAX_HAPTIC_LOOPS = 0xff;
+export const MAX_HAPTIC_LOOPS = 6;
 
 export type ConfigWriteValue = '1' | '2';
 
@@ -58,5 +58,5 @@ export function configReadBody(key: string): Uint8Array {
 }
 
 export function hrProfileBody(on: boolean): Uint8Array {
-  return Uint8Array.of(REVISION_1, on ? 1 : 0);
+  return Uint8Array.of(on ? 1 : 0);
 }

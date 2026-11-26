@@ -190,7 +190,7 @@ export default function BandConfigScreen() {
                 word: confirmWord,
               })
         }
-        inputLabel={t('danger.inputLabel')}
+        inputLabel={t('bandConfig.write.inputLabel')}
         confirmLabel={t('bandConfig.write.confirm')}
         cancelLabel={t('common.cancel')}
         onCancel={() => setPending(null)}
