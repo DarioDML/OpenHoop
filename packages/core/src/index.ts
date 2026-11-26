@@ -1,6 +1,7 @@
 export type * from './store/types';
 export * from './store/index';
 export * from './export';
+export * from './consoleLines';
 export type * from './transport';
 export * from './mapping';
 export * from './session';
