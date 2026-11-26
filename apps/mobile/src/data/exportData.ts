@@ -17,6 +17,7 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'workouts',
   'activities',
   'events',
+  'battery_pack_events',
   'console_log',
   'raw_chunks',
   'body_measurements',

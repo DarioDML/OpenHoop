@@ -1,5 +1,11 @@
+import { toHex } from '@openhoop/protocol';
 import type { Packet } from '@openhoop/protocol';
-import type { SampleRow } from './store/types';
+import type { PackEventRow, SampleRow } from './store/types';
+
+export function packEventFromPacket(deviceId: number, packet: Packet): PackEventRow | null {
+  if (packet.kind !== 'packEvent') return null;
+  return { deviceId, t: packet.unixS, event: packet.event, name: packet.eventName, payloadHex: toHex(packet.payload) };
+}
 
 export function sampleFromPacket(deviceId: number, packet: Packet, chunkId: number | null = null): SampleRow | null {
   if (packet.kind !== 'record' || packet.record.type !== 'biometric') return null;

@@ -7,7 +7,8 @@
     "noop": "Documented by ryanbr/noop (docs/PROTOCOL_*.md); community, partly hardware-confirmed.",
     "goose": "Documented by b-nnett/goose.",
     "johga": "Johga/Gadgetbridgefork branch whoop; author-reported on own strap.",
-    "constructed": "Arithmetic/structural rule only; no physical validation."
+    "constructed": "Arithmetic/structural rule only; no physical validation.",
+    "own": "OpenHoop, on the author's own MG band (firmware 50.43.2.0): every decoded value matched the band's own console log line printed at the same timestamp."
   },
   "gatt": {
     "service": "fd4b0001-cce1-4033-93ce-002d5875f58a",
@@ -246,6 +247,31 @@
     },
     "unnamed_events_seen": [48, 61, 62, 110, 112, 115, 116, 120],
     "evidence": ["noop", "goose", "corpus"]
+  },
+  "puffin_54": {
+    "envelope": "event_48",
+    "events": {"2": "BPK_SOC", "20": "BPK_HW_INFORMATION"},
+    "events_note": "Battery pack events relayed by the strap, numbered apart from event_48. Names follow the band's console: 'Unwrapping BPK SoC' and 'Unwrapping BPK HW information event : 20'. Sent only while a pack is attached.",
+    "payloads": {
+      "2": {"length": 4, "fields": [
+        {"name": "revision", "offset": 0, "type": "u8"},
+        {"name": "soc_percent", "offset": 1, "type": "u16", "scale": 0.1, "valid": [0, 100]}
+      ]},
+      "20": {"length": 32, "serial_offset": 2, "serial_length": 16, "fields": [
+        {"name": "revision", "offset": 0, "type": "u8"},
+        {"name": "hw_family", "offset": 1, "type": "u8"},
+        {"name": "hw_version", "offset": 24, "type": "u8"},
+        {"name": "fw_major", "offset": 25, "type": "u8"},
+        {"name": "fw_minor", "offset": 26, "type": "u8"},
+        {"name": "fw_patch", "offset": 27, "type": "u8"},
+        {"name": "fw_build", "offset": 28, "type": "u8"},
+        {"name": "colourway", "offset": 29, "type": "u8"},
+        {"name": "soc_percent", "offset": 30, "type": "u16", "scale": 0.1, "valid": [0, 100]}
+      ], "note": "Bytes 18-23 hold the pack's Bluetooth address and are not decoded. Event 109 BATTERY_PACK_INFO (event_48) carries the same address, serial and charge."}
+    },
+    "revision": 1,
+    "experimental": true,
+    "evidence": ["own"]
   },
   "console_50": {
     "fields": [

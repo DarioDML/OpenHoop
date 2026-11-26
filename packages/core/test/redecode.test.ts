@@ -128,7 +128,7 @@ describe('SAMPLE_DECODER_VERSION', () => {
     ];
     const decoded = JSON.stringify(frames.map((frame) => decodeRow(1, frame)));
     expect({ version: SAMPLE_DECODER_VERSION, digest: toHex(sha256(new TextEncoder().encode(decoded))) }).toEqual({
-      version: 1,
+      version: 2,
       digest: 'f13fb44a73830f563164425c6dcc4f06779d58dd6c035ff2764553970c5b0c73',
     });
   });

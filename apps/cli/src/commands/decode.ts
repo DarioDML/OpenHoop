@@ -43,6 +43,8 @@ function packetText(packet: Packet): string {
       return `REALTIME HR: ${packet.heartRate} bpm, R-R ${packet.rrMs.length === 0 ? 'none' : packet.rrMs.join(', ')} ms, ${formatIso(packet.unixS)}`;
     case 'event':
       return `EVENT: ${packet.eventName} (${packet.event}), ${formatIso(packet.unixS)}, payload ${toHex(packet.payload)}`;
+    case 'packEvent':
+      return `BATTERY PACK EVENT: ${packet.eventName} (${packet.event}), ${formatIso(packet.unixS)}, payload ${toHex(packet.payload)}${packet.pack === undefined || packet.pack.socPercent === null ? '' : `, charge ${packet.pack.socPercent} %`}`;
     case 'console':
       return `CONSOLE #${packet.consoleSequence}: ${packet.text}`;
     case 'metadata':

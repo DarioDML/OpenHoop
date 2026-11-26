@@ -5,6 +5,7 @@ import type {
   DayRecord,
   DeviceRow,
   EventRow,
+  PackEventRow,
   SampleRow,
   SampleSource,
   SleepEditRow,
@@ -201,6 +202,15 @@ async function insertSamplesRaw(driver: SqlDriver, samples: SampleRow[], chunkId
   return bulkInsert(driver, `INSERT OR IGNORE INTO samples_1hz (${SAMPLE_COLUMNS})`, 11, rows);
 }
 
+async function insertPackEventsRaw(driver: SqlDriver, rows: PackEventRow[], chunkId: number | null): Promise<number> {
+  return bulkInsert(
+    driver,
+    'INSERT OR IGNORE INTO battery_pack_events (device_id, t, event, name, payload_hex, chunk_id)',
+    6,
+    rows.map((e) => [e.deviceId, e.t, e.event, e.name, e.payloadHex, chunkId]),
+  );
+}
+
 async function writeSyncState(driver: SqlDriver, s: SyncStateRow): Promise<void> {
   await driver.run(
     `INSERT INTO sync_state (device_id, last_end_token, last_sync_at, newest_sample_t, read_page, write_page, trim_page, total_pages)
@@ -219,6 +229,7 @@ async function writeSyncState(driver: SqlDriver, s: SyncStateRow): Promise<void>
 
 const RECORDING_TABLES = [
   'events',
+  'battery_pack_events',
   'console_log',
   'optical_bursts',
   'imu_blocks',
@@ -312,6 +323,7 @@ export function bindStore(driver: SqlDriver): Store {
           6,
           extras.events.map((e: EventRow) => [e.deviceId, e.t, e.event, e.name, e.payloadHex, chunkId]),
         );
+        await insertPackEventsRaw(tx, extras.packEvents ?? [], chunkId);
         await bulkInsert(
           tx,
           'INSERT OR IGNORE INTO console_log (device_id, t, sequence, text, chunk_id)',
@@ -347,6 +359,18 @@ export function bindStore(driver: SqlDriver): Store {
     async listChunkIds(deviceId) {
       const rows = await driver.all<{ id: number }>('SELECT id FROM raw_chunks WHERE device_id = ? ORDER BY id', [deviceId]);
       return rows.map((r) => r.id);
+    },
+
+    async insertPackEvents(rows, chunkId) {
+      return driver.transaction((tx) => insertPackEventsRaw(tx, rows, chunkId));
+    },
+
+    async listPackEvents(deviceId, limit) {
+      const rows = await driver.all<{ device_id: number; t: number; event: number; name: string; payload_hex: string }>(
+        'SELECT device_id, t, event, name, payload_hex FROM battery_pack_events WHERE device_id = ? ORDER BY t DESC, id DESC LIMIT ?',
+        [deviceId, limit],
+      );
+      return rows.map((r) => ({ deviceId: r.device_id, t: r.t, event: r.event, name: r.name, payloadHex: r.payload_hex }));
     },
 
     async insertSamples(samples) {
@@ -507,8 +531,9 @@ export function bindStore(driver: SqlDriver): Store {
             await tx.all<{ chunk_id: number }>(
               `SELECT chunk_id FROM samples_1hz WHERE device_id = ? AND t >= ? AND chunk_id IS NOT NULL
                UNION SELECT chunk_id FROM events WHERE device_id = ? AND t >= ? AND chunk_id IS NOT NULL
+               UNION SELECT chunk_id FROM battery_pack_events WHERE device_id = ? AND t >= ? AND chunk_id IS NOT NULL
                UNION SELECT chunk_id FROM console_log WHERE device_id = ? AND t >= ? AND chunk_id IS NOT NULL`,
-              [deviceId, t, deviceId, t, deviceId, t],
+              [deviceId, t, deviceId, t, deviceId, t, deviceId, t],
             )
           ).map((row) => row.chunk_id),
         );
@@ -537,7 +562,7 @@ export function bindStore(driver: SqlDriver): Store {
         const samples = await tx.run('DELETE FROM samples_1hz WHERE device_id = ? AND t < ?', [deviceId, t]);
         const events = await tx.run('DELETE FROM events WHERE device_id = ? AND t < ?', [deviceId, t]);
         const consoleLines = await tx.run('DELETE FROM console_log WHERE device_id = ? AND t < ?', [deviceId, t]);
-        for (const table of ['optical_bursts', 'imu_blocks', 'ecg_recordings', 'sleep_stages', 'oracle_values']) {
+        for (const table of ['battery_pack_events', 'optical_bursts', 'imu_blocks', 'ecg_recordings', 'sleep_stages', 'oracle_values']) {
           await tx.run(`DELETE FROM ${table} WHERE device_id = ? AND t < ?`, [deviceId, t]);
         }
         await tx.run('DELETE FROM sleep_edits WHERE device_id = ? AND onset < ?', [deviceId, t]);
