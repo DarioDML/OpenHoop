@@ -240,6 +240,8 @@
   "today.liveWaiting": "Wacht op R-R-interval",
   "error.ownerSinceMissing": "OpenHoop weet niet sinds wanneer je deze band draagt en synchroniseert daarom niet. Zo komt er geen data van een vorige eigenaar in je archief. Koppel de band opnieuw via Band › Een band koppelen en vul daar de datum in.",
   "sync.stop.clock": "De klok van de band staat niet goed: hij is niet ingesteld of loopt meer dan twee minuten voor of achter. OpenHoop heeft daarom niets opgevraagd en niets van de band verwijderd. Op de laptop-werkbank zit een optie om dit bewust te omzeilen.",
+  "sync.stop.idle": "De band stuurde geen geschiedenis, dus er is niets bewaard en niets van de band verwijderd. Synchroniseer zo opnieuw, met de band dicht bij je telefoon.",
+  "sync.stop.pending": "De band stuurde steeds alleen het einde van een blok geschiedenis dat hij nog vasthoudt. Dat blok is dus niet bewaard en staat nog op de band. Wacht een minuut en synchroniseer opnieuw: dan stuurt de band het hele blok.",
   "sync.stop.corrupt": "Een blok data kwam steeds beschadigd binnen. OpenHoop heeft dat blok niet bevestigd, dus het staat nog op de band. Wat daarvoor binnenkwam is bewaard. Probeer het straks opnieuw, met de band dicht bij je telefoon.",
   "settings.ownerLaterTitle": "Oudere data verwijderen?",
   "settings.ownerLaterBody": "Je kiest een latere datum. OpenHoop verwijdert dan alle metingen, gebeurtenissen en logregels van vóór {date} en berekent je dagen opnieuw. Dit is niet ongedaan te maken. Ruwe blokken van de band worden alleen in hun geheel bewaard, dus een blok dat over {date} heen loopt blijft staan en kan nog wat metingen van daarvoor bevatten. Die tellen nergens meer mee.",

@@ -86,6 +86,12 @@ export const CORRUPT_LINES = [
   'Next: move the band closer to this computer, away from other Bluetooth and Wi-Fi traffic, and run sync again.',
 ];
 
+export const PENDING_LINES = [
+  'Sync stopped: the band kept answering with only the end of a piece of history it still holds.',
+  'That piece was not stored and not acknowledged, so it stays on the band.',
+  'Next: wait a minute and run sync again; the band then sends the piece whole.',
+];
+
 export interface SyncReport {
   sync: SyncResult;
   recomputedDays: number;
@@ -121,6 +127,7 @@ export async function syncAndRecompute(
   );
   if (sync.stoppedBy === 'clock') for (const line of clockRefusalLines(session.clockOffsetS())) ctx.log(line);
   if (sync.stoppedBy === 'corrupt') for (const line of CORRUPT_LINES) ctx.log(line);
+  if (sync.stoppedBy === 'pending') for (const line of PENDING_LINES) ctx.log(line);
   const range = await store.sampleRange(deviceId);
   if (range === null || sync.samples === 0) return { sync, recomputedDays: 0, firstDay: null, lastDay: null };
   ctx.log('Recomputing days...');

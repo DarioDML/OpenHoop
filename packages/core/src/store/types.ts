@@ -231,6 +231,7 @@ export interface Store {
     t: number,
     newestInChunk: (frames: Uint8Array[]) => number | null,
   ): Promise<DeleteBeforeResult>;
+  deleteRecordings(deviceId: number): Promise<number>;
 }
 
 export interface DeleteBeforeResult {

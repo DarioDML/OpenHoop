@@ -44,7 +44,7 @@ export function ConfigFieldRow({ row }: { row: FieldRow }) {
             </AppText>
           ) : null}
         </View>
-        <AppText variant="bodyStrong" numeric style={{ flexShrink: 1, textAlign: 'right' }}>
+        <AppText variant="bodyStrong" numeric style={{ flexShrink: 1, maxWidth: '45%', textAlign: 'right' }}>
           {valueText(t, row)}
         </AppText>
       </View>

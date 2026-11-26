@@ -1,5 +1,6 @@
 import { Command, isDataLockFirmware, toHex } from '@openhoop/protocol';
 import type { DataRange, Packet } from '@openhoop/protocol';
+import type { HeldChunk } from './lockProbe';
 import { sampleFromPacket } from './mapping';
 import type { Session } from './session';
 import { CommandFailedError, DisconnectedError, LINK_QUIET_MAX_MS, LINK_QUIET_MS } from './session';
@@ -18,7 +19,10 @@ export interface SyncProgress {
   newestSampleT: number | null;
 }
 
-export type SyncStop = 'complete' | 'disconnect' | 'abort' | 'idle' | 'locked' | 'clock' | 'corrupt';
+export type SyncStop = 'complete' | 'disconnect' | 'abort' | 'idle' | 'locked' | 'clock' | 'corrupt' | 'pending';
+
+// The band answers every request with only the HISTORY_END of a chunk it still holds; after this many, stop asking.
+export const MAX_LONE_HISTORY_ENDS = 3;
 
 export interface SyncResult {
   chunks: number;
@@ -35,6 +39,15 @@ export interface SyncOptions {
   signal?: AbortSignal;
   idleTimeoutMs?: number;
   clockPolicy?: 'strict' | 'store-all';
+  heldChunk?: HeldChunk | null;
+}
+
+function endTokenOf(packet: Packet): Uint8Array | undefined {
+  return packet.kind === 'metadata' ? packet.endToken : undefined;
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, i) => byte === b[i]);
 }
 
 export class OwnerSinceRequiredError extends Error {
@@ -306,12 +319,15 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
     }
   };
 
+  let held = opts.heldChunk ?? null;
   try {
     let reRequests = 0;
     let damagedAttempts = 0;
     let open = false;
     let chunkBaseline = 0;
     let sawFrame = false;
+    let loneEnds = 0;
+    let reacknowledged = false;
     let tally = emptyTally();
 
     const restart = async (): Promise<SyncStop | null> => {
@@ -352,9 +368,50 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
       if (!open) {
         if (isMeta(packet, 'HISTORY_START')) {
           open = true;
+          loneEnds = 0;
           chunkBaseline = integrity;
           addFrame(tally, deviceId, ownerFloor, packet, raw);
         } else if (isMeta(packet, 'HISTORY_END')) {
+          const token = endTokenOf(event.packet);
+          if (held !== null && token !== undefined && sameBytes(token, held.endToken)) {
+            for (const frame of held.frames) addFrame(tally, deviceId, ownerFloor, frame.packet, frame.raw);
+            held = null;
+            try {
+              await commit(tally, token);
+            } catch (error) {
+              await abortTransfer();
+              throw error;
+            }
+            tally = emptyTally();
+            totals.chunks += 1;
+            progress();
+            try {
+              await session.acknowledgeHistory(token);
+            } catch (error) {
+              if (error instanceof DisconnectedError) return finish('disconnect');
+              throw error;
+            }
+            // Answering a request with only the pending HISTORY_END ends that transfer, so the next chunk needs a new one.
+            request();
+            continue;
+          }
+          if (!reacknowledged && token !== undefined && lastEndToken !== null && sameBytes(token, lastEndToken)) {
+            // Already committed by a sync that lost its acknowledgement, so acknowledging it trims nothing unread.
+            reacknowledged = true;
+            try {
+              await session.acknowledgeHistory(token);
+            } catch (error) {
+              if (error instanceof DisconnectedError) return finish('disconnect');
+              throw error;
+            }
+            request();
+            continue;
+          }
+          loneEnds += 1;
+          if (loneEnds >= MAX_LONE_HISTORY_ENDS) {
+            await abortTransfer();
+            return finish('pending');
+          }
           // The head of this chunk was sent before our request opened the transfer, so acknowledging it would trim unread data.
           const stop = await restart();
           if (stop !== null) return finish(stop);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GATT, encodeBiometric, encodeRealtimeHr } from '@openhoop/protocol';
-import { LINK_QUIET_MAX_MS, LINK_QUIET_MS, Session, probeLock } from '../src/index';
+import { GATT, encodeBiometric, encodeMetadata, encodeRealtimeHr } from '@openhoop/protocol';
+import { CHUNK_END_WAIT_MS, HISTORY_WAIT_MS, LINK_QUIET_MAX_MS, LINK_QUIET_MS, Session, probeLock } from '../src/index';
 import type { BandScript, Emit, Outgoing } from './fakeTransport';
 import { FakeTransport, VirtualClock, reply, scriptBand } from './fakeTransport';
 
@@ -20,6 +20,7 @@ function servesOneRecordThen(onAbort: (emit: Emit) => void): (out: Outgoing, emi
     if (out.command === 22) {
       emit(GATT.cmdFromStrap, reply(out));
       emit(GATT.dataFromStrap, encodeBiometric({ recordIndex: 1, unixS: 1_800_000_000, heartRate: 60 }));
+      emit(GATT.dataFromStrap, encodeMetadata({ meta: 'HISTORY_END', unixS: 1_800_000_000 }));
       return true;
     }
     if (out.command !== 20) return false;
@@ -51,20 +52,68 @@ describe('probeLock', () => {
     expectSafeWire(transport);
   });
 
-  it('reports open as soon as a record arrives and never acknowledges it', async () => {
+  it('reports open once a chunk arrives and never acknowledges it', async () => {
     const { transport, session } = await band({
       firmware: '50.43.2.0',
-      onCommand: (out, emit) => {
-        if (out.command !== 22) return false;
-        emit(GATT.cmdFromStrap, reply(out));
-        emit(GATT.dataFromStrap, encodeBiometric({ recordIndex: 1, unixS: 1_800_000_000, heartRate: 60 }));
-        return true;
-      },
+      onCommand: servesOneRecordThen(() => undefined),
     });
     const result = await probeLock(session);
     expect(result).toMatchObject({ state: 'open', sawHistory: true });
     expect(result.waitedMs).toBeLessThan(8_000);
     expectSafeWire(transport);
+  });
+
+  it('lets the chunk reach its HISTORY_END before aborting, so the band does not resume a cut-off chunk', async () => {
+    const clock = new VirtualClock();
+    let endSentAt: number | null = null;
+    const { transport, session } = await band(
+      {
+        firmware: '50.43.2.0',
+        onCommand: (out, emit) => {
+          if (out.command !== 22) return false;
+          emit(GATT.cmdFromStrap, reply(out));
+          emit(GATT.dataFromStrap, encodeMetadata({ meta: 'HISTORY_START', unixS: 1_800_000_000 }));
+          emit(GATT.dataFromStrap, encodeBiometric({ recordIndex: 1, unixS: 1_800_000_000, heartRate: 60 }));
+          clock.schedule(3_000, () => {
+            endSentAt = clock.now();
+            emit(GATT.dataFromStrap, encodeMetadata({ meta: 'HISTORY_END', unixS: 1_800_000_001 }));
+          });
+          return true;
+        },
+      },
+      clock,
+    );
+    let abortAt: number | null = null;
+    transport.onWrite = (out) => {
+      if (out.command === 20) abortAt = clock.now();
+    };
+    const result = await probeLock(session);
+    expect(result.state).toBe('open');
+    expect(endSentAt).not.toBeNull();
+    expect(abortAt).not.toBeNull();
+    expect(abortAt ?? 0).toBeGreaterThanOrEqual(endSentAt ?? Infinity);
+    expectSafeWire(transport);
+  });
+
+  it('aborts after 10 s when a started chunk never ends', async () => {
+    const clock = new VirtualClock();
+    const { transport, session } = await band(
+      {
+        firmware: '50.43.2.0',
+        onCommand: (out, emit) => {
+          if (out.command !== 22) return false;
+          emit(GATT.cmdFromStrap, reply(out));
+          emit(GATT.dataFromStrap, encodeMetadata({ meta: 'HISTORY_START', unixS: 1_800_000_000 }));
+          return true;
+        },
+      },
+      clock,
+    );
+    const result = await probeLock(session);
+    expect(result.state).toBe('open');
+    expect(result.waitedMs).toBeGreaterThanOrEqual(HISTORY_WAIT_MS + CHUNK_END_WAIT_MS);
+    expect(result.waitedMs).toBeLessThan(HISTORY_WAIT_MS + CHUNK_END_WAIT_MS + LINK_QUIET_MAX_MS);
+    expect(transport.commandsSent()).toContain(20);
   });
 
   it('uses realtime heart rate when nothing is behind', async () => {

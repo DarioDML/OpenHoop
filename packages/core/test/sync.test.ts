@@ -11,15 +11,16 @@ import {
 import {
   MAX_CLOCK_OFFSET_S,
   MAX_DAMAGED_ATTEMPTS,
-  MAX_HISTORY_REREQUESTS,
+  MAX_LONE_HISTORY_ENDS,
   OwnerSinceRequiredError,
   Session,
   openStore,
+  probeLock,
   syncHistory,
 } from '../src/index';
 import type { DeviceRow, SampleRow, SqlDriver, SqlValue, Store } from '../src/index';
 import { openNodeDriver } from '../src/node/index';
-import type { BandScript } from './fakeTransport';
+import type { BandScript, Emit, Outgoing } from './fakeTransport';
 import { FakeTransport, VirtualClock, biometricChunk, historyComplete, reply, scriptBand, token } from './fakeTransport';
 
 const T0 = 1_799_990_000;
@@ -100,6 +101,106 @@ async function band(script: Omit<BandScript, 'clock'>): Promise<{ transport: Fak
 async function sampleCount(): Promise<number> {
   return (await store.sampleRange(deviceId))?.count ?? 0;
 }
+
+// An MG band (50.43.2.0) keeps a served chunk pending until it is acknowledged: every later history request,
+// aborted or not, gets only that chunk's HISTORY_END again, and acknowledging that lone HISTORY_END does not
+// start the next chunk on its own.
+function pendingAckBand(chunks: Uint8Array[][], complete: Uint8Array): (out: Outgoing, emit: Emit) => boolean {
+  let next = 0;
+  let pending: number | null = null;
+  let serving = false;
+  const serve = (emit: Emit): void => {
+    const chunk = chunks[next];
+    if (chunk === undefined) {
+      emit(GATT.dataFromStrap, complete);
+      return;
+    }
+    pending = next;
+    for (const frame of chunk) emit(GATT.dataFromStrap, frame);
+  };
+  return (out, emit) => {
+    if (out.command === 22) {
+      emit(GATT.cmdFromStrap, reply(out));
+      serving = pending === null;
+      if (pending === null) serve(emit);
+      else emit(GATT.dataFromStrap, encodeMetadata({ meta: 'HISTORY_END', unixS: T0 + 900, endToken: token(pending) }));
+      return true;
+    }
+    if (out.command === 23) {
+      if (pending !== null && toHex(out.args.subarray(1, 9)) === toHex(token(pending))) {
+        pending = null;
+        next += 1;
+        if (serving) serve(emit);
+      }
+      return true;
+    }
+    if (out.command === 20) {
+      serving = false;
+      emit(GATT.cmdFromStrap, reply(out));
+      return true;
+    }
+    return false;
+  };
+}
+
+describe('syncHistory after the lock probe', () => {
+  const chunks = (): Uint8Array[][] => [0, 1, 2].map((n) => biometricChunk(n, { firstT: T0 + n * 100, count: 10 }));
+
+  it('commits the chunk the probe held when the band answers with only its HISTORY_END', async () => {
+    const { session } = await band({ onCommand: pendingAckBand(chunks(), historyComplete(T0 + 500)) });
+    const probe = await probeLock(session);
+    expect(probe.state).toBe('open');
+    expect(probe.heldChunk?.endToken).toEqual(token(0));
+
+    const result = await syncHistory(session, store, { deviceId, heldChunk: probe.heldChunk });
+
+    expect(result).toMatchObject({ chunks: 3, samples: 30, stoppedBy: 'complete' });
+    expect(log.filter((l) => l.startsWith('ack'))).toEqual([0, 1, 2].map((n) => `ack:${toHex(token(n))}`));
+    expect(await sampleCount()).toBe(30);
+  });
+
+  it('without the held chunk it cannot get past the pending chunk and acknowledges nothing', async () => {
+    const { session } = await band({ onCommand: pendingAckBand(chunks(), historyComplete(T0 + 500)) });
+    await probeLock(session);
+
+    const result = await syncHistory(session, store, { deviceId });
+
+    expect(result.chunks).toBe(0);
+    expect(result.stoppedBy).not.toBe('complete');
+    expect(log.filter((l) => l.startsWith('ack'))).toEqual([]);
+  });
+
+  it('acknowledges a lone HISTORY_END for the chunk it already committed and carries on', async () => {
+    const { session } = await band({ onCommand: pendingAckBand(chunks(), historyComplete(T0 + 500)) });
+    const probe = await probeLock(session);
+    const held = probe.heldChunk;
+    if (held === null) throw new Error('probe held nothing');
+    const committed = await store.commitChunk(
+      { deviceId, endToken: held.endToken, frames: held.frames.map((f) => f.raw), clockOffsetS: null, receivedAt: 1 },
+      [],
+      { events: [], console: [], unknownFrames: 0, syncState: { deviceId, lastEndToken: held.endToken, lastSyncAt: 1, newestSampleT: null, readPage: null, writePage: null, trimPage: null, totalPages: null } },
+    );
+    expect(committed).toBeGreaterThan(0);
+    log.length = 0;
+
+    const result = await syncHistory(session, store, { deviceId });
+
+    expect(result).toMatchObject({ chunks: 2, stoppedBy: 'complete' });
+    expect(log.filter((l) => l.startsWith('ack'))).toEqual([0, 1, 2].map((n) => `ack:${toHex(token(n))}`));
+  });
+
+  it('ignores a held chunk whose token does not match the HISTORY_END', async () => {
+    const { session } = await band({ onCommand: pendingAckBand(chunks(), historyComplete(T0 + 500)) });
+    const probe = await probeLock(session);
+    const held = probe.heldChunk;
+    if (held === null) throw new Error('probe held nothing');
+
+    const result = await syncHistory(session, store, { deviceId, heldChunk: { ...held, endToken: token(7) } });
+
+    expect(result.chunks).toBe(0);
+    expect(log.filter((l) => l.startsWith('ack'))).toEqual([]);
+  });
+});
 
 describe('syncHistory', () => {
   it('stores three chunks with three acknowledgements, each after its commit', async () => {
@@ -309,12 +410,12 @@ describe('syncHistory', () => {
     await cleanStore.driver.close();
   });
 
-  it('gives up with corrupt after a bounded number of re-requests when no transfer ever opens', async () => {
+  it('stops with pending after a few requests that each bring only a lone HISTORY_END', async () => {
     const headless = (biometricChunk(0, { firstT: T0, count: 5 })).slice(1);
     const { session, transport } = await band({ chunks: [headless] });
     const result = await syncHistory(session, store, { deviceId });
-    expect(result.stoppedBy).toBe('corrupt');
-    expect(transport.commandsSent().filter((c) => c === 22)).toHaveLength(MAX_HISTORY_REREQUESTS + 1);
+    expect(result.stoppedBy).toBe('pending');
+    expect(transport.commandsSent().filter((c) => c === 22)).toHaveLength(MAX_LONE_HISTORY_ENDS);
     expect(transport.commandsSent()).not.toContain(23);
     expect(await store.listChunkIds(deviceId)).toEqual([]);
   });

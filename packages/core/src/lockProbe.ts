@@ -10,21 +10,63 @@ export interface LockProbeResult {
   sawHistory: boolean;
   sawRealtime: boolean;
   waitedMs: number;
+  heldChunk: HeldChunk | null;
+}
+
+export interface HeldFrame {
+  packet: Packet;
+  raw: Uint8Array;
+}
+
+// A chunk the probe received whole but did not acknowledge. The band keeps it pending and answers the next
+// history request with only its HISTORY_END, so the sync that follows commits these frames for that token.
+export interface HeldChunk {
+  frames: HeldFrame[];
+  endToken: Uint8Array;
+}
+
+function holdFirstChunk(session: Session): { held: () => HeldChunk | null; stop: () => void } {
+  let frames: HeldFrame[] | null = null;
+  let baseline = 0;
+  let held: HeldChunk | null = null;
+  const stop = session.onPacket((packet, raw) => {
+    if (held !== null || packet.kind === 'commandResponse' || packet.kind === 'realtimeHr') return;
+    if (packet.kind === 'metadata' && packet.metaName === 'HISTORY_START') {
+      frames = [{ packet, raw }];
+      baseline = session.integrityErrors;
+      return;
+    }
+    if (frames === null) return;
+    frames.push({ packet, raw });
+    if (packet.kind !== 'metadata' || packet.metaName !== 'HISTORY_END') return;
+    const endToken = packet.endToken;
+    if (endToken !== undefined && session.integrityErrors === baseline) held = { frames, endToken };
+    frames = null;
+  });
+  return { held: () => held, stop };
 }
 
 export const HISTORY_WAIT_MS = 8_000;
 export const REALTIME_WAIT_MS = 6_000;
+export const CHUNK_END_WAIT_MS = 10_000;
 
-function waitForPacket(session: Session, match: (packet: Packet) => boolean, timeoutMs: number): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
+interface PacketWait {
+  seen: Promise<boolean>;
+  cancel: () => void;
+}
+
+function waitForPacket(session: Session, match: (packet: Packet) => boolean, timeoutMs: number): PacketWait {
+  let cancel: () => void = () => undefined;
+  const seen = new Promise<boolean>((resolve) => {
     const cleanups: (() => void)[] = [];
     let settled = false;
-    const settle = (seen: boolean): void => {
+    const settle = (result: boolean): void => {
       if (settled) return;
       settled = true;
       for (const cleanup of cleanups) cleanup();
-      resolve(seen);
+      resolve(result);
     };
+    cancel = () => settle(false);
     cleanups.push(
       session.onPacket((packet) => {
         if (match(packet)) settle(true);
@@ -33,6 +75,7 @@ function waitForPacket(session: Session, match: (packet: Packet) => boolean, tim
       session.clock.schedule(timeoutMs, () => settle(false)),
     );
   });
+  return { seen, cancel };
 }
 
 export function waitForQuiet(session: Session, quietMs = LINK_QUIET_MS, maxMs = LINK_QUIET_MAX_MS): Promise<void> {
@@ -67,6 +110,10 @@ function isHistoryData(packet: Packet): boolean {
   return packet.kind === 'record' || packet.kind === 'metadata';
 }
 
+function isChunkEnd(packet: Packet): boolean {
+  return packet.kind === 'metadata' && (packet.metaName === 'HISTORY_END' || packet.metaName === 'HISTORY_COMPLETE');
+}
+
 async function tolerateNoReply(run: () => Promise<unknown>): Promise<void> {
   try {
     await run();
@@ -84,15 +131,27 @@ export async function probeLock(session: Session): Promise<LockProbeResult> {
   const askedHistory = pagesBehind === null || pagesBehind > 0;
   let sawHistory = false;
   let sawRealtime = false;
+  let heldChunk: HeldChunk | null = null;
   try {
     if (askedHistory) {
-      const wait = waitForPacket(session, isHistoryData, HISTORY_WAIT_MS);
-      await session.post(Command.SEND_HISTORICAL_DATA, Uint8Array.of(0));
-      sawHistory = await wait;
+      const firstData = waitForPacket(session, isHistoryData, HISTORY_WAIT_MS);
+      const chunkEnd = waitForPacket(session, isChunkEnd, HISTORY_WAIT_MS + CHUNK_END_WAIT_MS);
+      const holder = holdFirstChunk(session);
+      try {
+        await session.post(Command.SEND_HISTORICAL_DATA, Uint8Array.of(0));
+        sawHistory = await firstData.seen;
+        // Aborting midway would leave a chunk whose head is gone; letting it end keeps every frame for the sync.
+        if (sawHistory) await chunkEnd.seen;
+      } finally {
+        firstData.cancel();
+        chunkEnd.cancel();
+        holder.stop();
+        heldChunk = holder.held();
+      }
     } else {
       const wait = waitForPacket(session, (p) => p.kind === 'realtimeHr', REALTIME_WAIT_MS);
       await tolerateNoReply(() => session.send(Command.TOGGLE_REALTIME_HR, Uint8Array.of(1)));
-      sawRealtime = await wait;
+      sawRealtime = await wait.seen;
       await tolerateNoReply(() => session.send(Command.TOGGLE_REALTIME_HR, Uint8Array.of(0)));
     }
   } finally {
@@ -107,5 +166,5 @@ export async function probeLock(session: Session): Promise<LockProbeResult> {
   // Without a backlog, silence from realtime heart rate only means the band is not worn, not that it is locked.
   const locked = askedHistory && isDataLockFirmware(firmware);
   const state = sawHistory || sawRealtime ? 'open' : locked ? 'locked' : 'no-data';
-  return { state, firmware, pagesBehind, sawHistory, sawRealtime, waitedMs };
+  return { state, firmware, pagesBehind, sawHistory, sawRealtime, waitedMs, heldChunk };
 }

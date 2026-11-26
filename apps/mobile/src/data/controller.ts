@@ -65,6 +65,7 @@ import {
   upsertSymptom,
   updateJournalNote,
   type BandModel,
+  type HeldChunk,
   type BodyImportResult,
   type BodyMeasurement,
   type BodyMeasurementInput,
@@ -179,6 +180,7 @@ const NO_METRICS: ActivityMetricsRecord = { activeS: 0, load: null, loadReason: 
 const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
   clock: 'sync.stop.clock',
   corrupt: 'sync.stop.corrupt',
+  pending: 'sync.stop.pending',
 };
 
 export interface Snapshot {
@@ -209,6 +211,7 @@ interface Connection {
   transport: Transport;
   session: Session;
   deviceId: number;
+  heldChunk: HeldChunk | null;
 }
 
 export interface SyncTimings {
@@ -426,11 +429,18 @@ export class AppController {
       healthConnect: { ...this.snapshot.healthConnect, state: healthConnectState },
       strength,
     });
+    if (dataSource === 'band') await this.purgeDemoRecordings();
     await this.loadActiveDevice();
     this.patch({ ready: true });
     void this.refreshNotifications();
     void this.refreshHealthConnect();
     if (dataSource === 'demo') void this.sync();
+  }
+
+  private async purgeDemoRecordings(): Promise<void> {
+    const { store } = this.requireApp();
+    const demo = (await store.listDevices()).find((row) => row.bleId === DEMO_BLE_ID);
+    if (demo !== undefined) await store.deleteRecordings(demo.id);
   }
 
   private async activeBleId(): Promise<string | null> {
@@ -572,7 +582,7 @@ export class AppController {
         this.connection = 'disconnected';
         this.patchDevice();
       });
-      const conn: Connection = { transport, session, deviceId: row.id };
+      const conn: Connection = { transport, session, deviceId: row.id, heldChunk: null };
       this.conn = conn;
       this.battery = await session.battery().catch(() => hello.batteryPercent);
       this.setConnection('connected');
@@ -607,6 +617,7 @@ export class AppController {
     this.patch({ syncProgress: this.progressView('probing', 0, null, 0, 0) });
     try {
       const result = await probeLock(conn.session);
+      conn.heldChunk = result.heldChunk;
       this.lockState = result.state;
       await this.requireApp().store.setSetting(this.lockKey(conn.deviceId), result.state);
       this.backlogPages = result.pagesBehind;
@@ -663,8 +674,11 @@ export class AppController {
       this.setConnection('syncing');
       const startedAt = Date.now();
       this.patch({ syncProgress: this.progressView('transfer', 0, 0, 0, 0) });
+      const heldChunk = conn.heldChunk;
+      conn.heldChunk = null;
       const result = await syncHistory(conn.session, store, {
         deviceId,
+        heldChunk,
         onProgress: (progress) => this.onTransferProgress(progress, backlogRecords),
       });
       const transferMs = Date.now() - startedAt;
@@ -684,6 +698,7 @@ export class AppController {
       if (__DEV__) console.log(`openhoop sync timings: ${JSON.stringify(this.lastTimings)}`);
       if (conn.session.isConnected) this.battery = await conn.session.battery().catch(() => this.battery);
       if (result.stoppedBy === 'disconnect') throw new AppError('error.disconnected');
+      if (result.stoppedBy === 'idle' && result.chunks === 0) throw new AppError('sync.stop.idle');
       const stopNotice = STOP_NOTICES[result.stoppedBy];
       if (stopNotice !== undefined) throw new AppError(stopNotice);
     } catch (error) {
@@ -920,6 +935,7 @@ export class AppController {
       await store.setSetting(SETTING_KEYS.dataSource, source);
       this.patch({ settings: { ...this.snapshot.settings, dataSource: source }, notice: null });
       this.connection = 'disconnected';
+      if (source === 'band') await this.purgeDemoRecordings();
       await this.loadActiveDevice();
     });
     void this.refreshNotifications();

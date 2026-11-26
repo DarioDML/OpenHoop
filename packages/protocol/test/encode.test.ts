@@ -232,8 +232,11 @@ describe('SpO2 and skin temperature rules', () => {
   });
 
   it.each([
-    [4.99, null],
-    [5, 5],
+    [4.94, null],
+    [12.48, null],
+    [19.99, null],
+    [20, 20],
+    [28.61, 28.61],
     [45, 45],
     [45.01, null],
     [0, null],

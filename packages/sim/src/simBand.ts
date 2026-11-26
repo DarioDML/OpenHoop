@@ -673,6 +673,6 @@ export class SimBand implements Transport {
   private keyValue(command: number, seq: number, args: Uint8Array, table: KeyTable): void {
     const key = readKey(args.subarray(1, 1 + KEY_LENGTH));
     const entry = table.find(([name]) => name === key);
-    this.reply(command, seq, SUCCESS, concat(Uint8Array.of(1), padded(entry?.[1] ?? '')));
+    this.reply(command, seq, SUCCESS, concat(Uint8Array.of(1), padded(key), padded(entry?.[1] ?? '')));
   }
 }

@@ -225,6 +225,31 @@ describe('store', () => {
     expect(await store.sampleRange(other.id)).toEqual({ first: 5, last: 5, count: 1 });
   });
 
+  it('deleteRecordings empties one device and keeps the device row and the other device', async () => {
+    await store.commitChunk(
+      { deviceId: device.id, endToken: null, frames: [new Uint8Array([10])], clockOffsetS: null, receivedAt: 1 },
+      [sample(device.id, 10), sample(device.id, 11)],
+      {
+        events: [{ deviceId: device.id, t: 10, event: 1, name: 'x', payloadHex: '' }],
+        console: [{ deviceId: device.id, t: 10, sequence: 1, text: 'line' }],
+        unknownFrames: 0,
+        syncState: syncState(device.id),
+      },
+    );
+    await store.replaceDay(dayRecord(device.id, '2026-11-25'));
+    const other = await store.upsertDevice({ ...DEVICE, bleId: 'CC:DD' });
+    await store.insertSamples([sample(other.id, 5)]);
+
+    expect(await store.deleteRecordings(device.id)).toBe(2);
+
+    for (const table of ['samples_1hz', 'raw_chunks', 'events', 'console_log', 'daily_metrics']) {
+      expect(await count(store, table)).toBe(table === 'samples_1hz' ? 1 : 0);
+    }
+    expect(await store.getSyncState(device.id)).toBeNull();
+    expect(await store.getDevice(device.id)).not.toBeNull();
+    expect(await store.sampleRange(other.id)).toEqual({ first: 5, last: 5, count: 1 });
+  });
+
   it('deleteBefore rolls back completely when it fails', async () => {
     await store.commitChunk(
       { deviceId: device.id, endToken: null, frames: [new Uint8Array([10])], clockOffsetS: null, receivedAt: 1 },

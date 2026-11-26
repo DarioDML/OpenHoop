@@ -69,6 +69,20 @@ describe('sleep periods and nights', () => {
     expect(periods[0]?.hrMean).toBe(55);
   });
 
+  it('does not count seconds above 100 bpm as sleep even when the band flags them SLEEP', () => {
+    const samples: Sample[] = [];
+    for (let i = 0; i < 6000; i++) {
+      const running = i >= 2000 && i < 4000;
+      samples.push(sample(T0 + i, { state: 'SLEEP', hr: running ? 160 : 55 }));
+    }
+    const periods = sleepPeriods(samples);
+    expect(periods.map((p) => [p.onset, p.offset])).toEqual([
+      [T0, T0 + 1999],
+      [T0 + 4000, T0 + 5999],
+    ]);
+    expect(periods.every((p) => (p.hrMean ?? 0) < 100)).toBe(true);
+  });
+
   it('merges a 500 s awakening and splits at a 900 s one', () => {
     const build = (wake: number): Sample[] => {
       const out: Sample[] = [];
