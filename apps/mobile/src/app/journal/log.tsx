@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
+import { appendDictation } from '@/data/dictation';
 import { NOTE_LIMITS, noteLength, searchNotes, validateNoteDraft, type NoteDraft, type NoteField } from '@/data/journalNotes';
 import { activeQuestions, findQuestion, type JournalQuestion } from '@/data/journalQuestions';
 import { parseIsoDate } from '@/lib/dates';
@@ -14,7 +15,7 @@ import { Card } from '@/ui/Card';
 import { Button, Field } from '@/ui/controls';
 import { HealthPage } from '@/ui/health/HealthPage';
 import { JournalNoteCard } from '@/ui/health/JournalNoteCard';
-import { NotBuilt } from '@/ui/NotBuilt';
+import { NoteDictation } from '@/ui/health/NoteDictation';
 import { Section } from '@/ui/Section';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
@@ -55,6 +56,11 @@ export default function JournalLogScreen() {
 
   const toggleTag = (id: string): void => {
     patchDraft({ tags: draft.tags.includes(id) ? draft.tags.filter((tag) => tag !== id) : [...draft.tags, id] });
+  };
+
+  const appendText = (transcript: string): void => {
+    setDraft((current) => ({ ...current, text: appendDictation(current.text, transcript) }));
+    setInvalid([]);
   };
 
   const reset = (): void => {
@@ -128,6 +134,7 @@ export default function JournalLogScreen() {
           style={{ minHeight: 120, paddingTop: 14, paddingBottom: 14 }}
           testID="note-input-text"
         />
+        <NoteDictation onText={appendText} />
         <View style={{ gap: spacing.sm }}>
           <AppText variant="capSmall" muted>
             {t('journal.log.tags')}
@@ -170,8 +177,6 @@ export default function JournalLogScreen() {
         <Button label={editingId === null ? t('journal.log.save') : t('journal.log.saveEdit')} onPress={() => void submit()} disabled={saving} testID="note-save" />
         {editingId !== null ? <Button label={t('common.cancel')} variant="tertiary" onPress={reset} testID="note-cancel" /> : null}
       </Card>
-
-      <NotBuilt issue="voice" compact body={t('journal.log.voiceNotBuilt')} testID="note-voice-not-built" />
 
       <Section title={t('journal.log.listTitle')}>
         <Field

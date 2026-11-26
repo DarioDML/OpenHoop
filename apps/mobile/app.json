@@ -104,8 +104,14 @@
         "expo-image-picker",
         {
           "photosPermission": false,
-          "cameraPermission": "OpenHoop uses the camera only when you take a photo of your lab report to read its results. The photo is not kept.",
-          "microphonePermission": false
+          "cameraPermission": "OpenHoop uses the camera only when you take a photo of your lab report to read its results. The photo is not kept."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "OpenHoop uses the microphone only while you dictate a journal note, to turn your speech into text on the phone. The audio is not saved or sent.",
+          "speechRecognitionPermission": "OpenHoop turns a dictated journal note into text with the speech recogniser on the phone. The audio is not saved or sent."
         }
       ],
       "./plugins/withLocalNotificationsOnly",

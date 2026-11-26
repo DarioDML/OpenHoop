@@ -68,3 +68,9 @@ Native library added by the donation sheet (`expo-web-browser`):
 | --- | --- | --- | --- |
 | `expo-web-browser` | 58.1.0 | MIT | Opening the GitHub Sponsors checkout in a Chrome Custom Tab or Safari view over the app |
 | `androidx.browser:browser` | 1.6.0 | Apache-2.0 | Chrome Custom Tabs on Android, pulled in by `expo-web-browser` |
+
+Native library added by journal dictation (`expo-speech-recognition`):
+
+| Library | Version | Licence | Used for |
+| --- | --- | --- | --- |
+| `expo-speech-recognition` | 58.0.1 | MIT (Copyright (c) 2024 jamsch) | Turning a dictated journal note into text with the phone's own on-device speech recogniser (Android 13 and later) |

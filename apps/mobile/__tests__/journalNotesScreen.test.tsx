@@ -19,6 +19,8 @@ jest.mock('expo-router', () => ({
   Link: ({ children }: { children: ReactNode }) => children,
 }));
 
+jest.mock('expo-speech-recognition', () => jest.requireActual<{ speechRecognitionMock: object }>('./support/speech').speechRecognitionMock);
+
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -41,11 +43,10 @@ describe('journal notes screen', () => {
     jest.restoreAllMocks();
   });
 
-  it('shows an empty list and an honest not-built note for voice input', async () => {
+  it('shows an empty list and the typed note form', async () => {
     await render(withAppData(<JournalLogScreen />, 'en', { userData }));
     expect(screen.getByTestId('notes-empty')).toBeTruthy();
-    expect(screen.getByTestId('note-voice-not-built')).toBeTruthy();
-    expect(screen.getByText(/Dictating a note needs a speech recogniser/)).toBeTruthy();
+    expect(screen.queryByTestId('note-voice-not-built')).toBeNull();
     expect(screen.getByTestId('note-input-day').props.value).toBe('2026-11-25');
   });
 

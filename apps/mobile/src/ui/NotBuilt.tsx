@@ -26,7 +26,6 @@ export const ISSUES = {
   labs: 19,
   bodyComp: 20,
   report: 21,
-  voice: 22,
   community: 23,
   integrations: 24,
   import: 25,
