@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { decodeFrame, encodeBiometric, encodeCommandResponse, encodeConsole, encodeEvent } from '@openhoop/protocol';
+import {
+  decodeFrame,
+  encodeBiometric,
+  encodeCommandResponse,
+  encodeConsole,
+  encodeEvent,
+  encodePackInfoPayload,
+  encodePackSocPayload,
+} from '@openhoop/protocol';
 import { emptyRemovalCounts, frameHex, identityReason, knownIdentityValues, timeChunkFrames } from '../src/index';
 
 describe('identity filter', () => {
@@ -28,6 +36,16 @@ describe('identity filter', () => {
     }
     const battery = encodeEvent({ event: 3, unixS: 1_700_000_000 });
     expect(identityReason(battery, decodeFrame(battery), [])).toBeNull();
+  });
+
+  it('removes battery pack events that can carry the pack identity and keeps its charge reports', () => {
+    const info = { serial: 'TESTPACK0000001', hwFamily: 12, hwVersion: 13, firmware: { major: 3, minor: 30, patch: 5, build: 0 }, colourway: 1 };
+    const hardware = encodeEvent({ packetType: 54, event: 20, unixS: 1_700_000_000, payload: encodePackInfoPayload(info, 50) });
+    const unknown = encodeEvent({ packetType: 54, event: 9, unixS: 1_700_000_000, payload: Uint8Array.of(1, 2) });
+    const charge = encodeEvent({ packetType: 54, event: 2, unixS: 1_700_000_000, payload: encodePackSocPayload(50) });
+    expect(identityReason(hardware, decodeFrame(hardware), [])).toBe('identityEvent');
+    expect(identityReason(unknown, decodeFrame(unknown), [])).toBe('identityEvent');
+    expect(identityReason(charge, decodeFrame(charge), [])).toBeNull();
   });
 
   it('removes frames whose text holds a serial or a Bluetooth address', () => {
