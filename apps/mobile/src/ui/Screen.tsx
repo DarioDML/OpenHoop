@@ -118,6 +118,8 @@ export function Screen({
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
           testID="screen-scroll"
           onScroll={onScroll}
           scrollEventThrottle={32}

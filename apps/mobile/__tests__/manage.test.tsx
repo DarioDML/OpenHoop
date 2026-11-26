@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { Linking } from 'react-native';
 
 import { createFixtureDevice } from '@/data/fixtureSource';
 import { pickDeviceState } from '@/ui/manage/deviceState';
-import { donationUrl } from '@/ui/manage/links';
+import { donationUrl, parseDonationAmount } from '@/ui/manage/links';
 import { checkMeasure, checkProfile, defaultMaxHr } from '@/ui/manage/validation';
 import { PARITY } from '@/ui/parity';
 
@@ -24,6 +25,13 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { version: '1.2.3' } } }));
 
 jest.mock('@/selftest/runSelfTest', () => ({ runSelfTest: async () => [] }));
+
+jest.mock('expo-web-browser', () => ({
+  openBrowserAsync: jest.fn(async () => ({ type: 'dismiss' })),
+  WebBrowserPresentationStyle: { PAGE_SHEET: 'pageSheet' },
+}));
+
+const openSheet = jest.mocked(WebBrowser.openBrowserAsync);
 
 import CommunityScreen from '@/app/(tabs)/community';
 import MoreScreen from '@/app/(tabs)/more';
@@ -160,27 +168,33 @@ describe('About, accuracy and support', () => {
     expect(screen.queryByText(/±/)).toBeNull();
   });
 
-  it('builds GitHub Sponsors links for a preset or open amount', () => {
+  it('builds GitHub Sponsors checkout links', () => {
     expect(donationUrl('one-time', 5)).toBe('https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=one-time&amount=5');
     expect(donationUrl('monthly', 10)).toBe('https://github.com/sponsors/DarioDML/sponsorships?preview=false&frequency=recurring&amount=10');
-    expect(donationUrl('monthly', null)).toBe('https://github.com/sponsors/DarioDML?frequency=recurring');
-    expect(donationUrl('one-time', null)).toBe('https://github.com/sponsors/DarioDML?frequency=one-time');
   });
 
-  it('opens a one-off $5 donation by default', async () => {
-    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+  it('accepts only whole dollar amounts from 1 to 12000', () => {
+    expect(parseDonationAmount('7')).toBe(7);
+    expect(parseDonationAmount(' 25 ')).toBe(25);
+    expect(parseDonationAmount('12000')).toBe(12000);
+    for (const bad of ['', '0', '12001', '7.5', '7,5', '-3', 'abc', '1e3', '123456']) expect(parseDonationAmount(bad)).toBeNull();
+  });
+
+  it('opens a one-off $5 checkout in a sheet over the app by default', async () => {
+    openSheet.mockClear();
     await render(withAppData(<SupportScreen />));
     expect(screen.getByTestId('donate-amount-5')).toHaveProperty('props.accessibilityState.selected', true);
     expect(screen.getByTestId('donate-amount-3')).toHaveProperty('props.accessibilityState.selected', false);
     expect(screen.getByRole('tab', { name: 'One-off', selected: true })).toBeTruthy();
+    expect(screen.queryByTestId('donate-custom-amount')).toBeNull();
     expect(screen.getByText('Donate $5 once')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('support-donate'));
-    expect(open).toHaveBeenCalledWith(donationUrl('one-time', 5));
-    open.mockRestore();
+    await waitFor(() => expect(openSheet).toHaveBeenCalledTimes(1));
+    expect(openSheet).toHaveBeenCalledWith(donationUrl('one-time', 5), expect.objectContaining({ presentationStyle: 'pageSheet' }));
   });
 
-  it('opens a monthly donation with the chosen amount, or an open amount for Other', async () => {
-    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+  it('opens a monthly checkout for a preset or a typed amount', async () => {
+    openSheet.mockClear();
     await render(withAppData(<SupportScreen />));
     await fireEvent.press(screen.getByRole('tab', { name: 'Monthly' }));
     await fireEvent.press(screen.getByTestId('donate-amount-10'));
@@ -188,11 +202,46 @@ describe('About, accuracy and support', () => {
     expect(screen.getByTestId('donate-amount-5')).toHaveProperty('props.accessibilityState.selected', false);
     expect(screen.getByText('Donate $10 a month')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('support-donate'));
-    expect(open).toHaveBeenLastCalledWith(donationUrl('monthly', 10));
+    await waitFor(() => expect(openSheet).toHaveBeenLastCalledWith(donationUrl('monthly', 10), expect.anything()));
+
     await fireEvent.press(screen.getByTestId('donate-amount-other'));
-    expect(screen.getByText('Choose an amount on GitHub')).toBeTruthy();
+    expect(screen.getByTestId('support-donate')).toHaveProperty('props.accessibilityState.disabled', true);
+    expect(screen.getByText('Whole dollars, from $1 to $12,000.')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('donate-custom-amount'), '0');
+    expect(screen.getByText('That amount cannot be used. Enter whole dollars, from $1 to $12,000.')).toBeTruthy();
+    expect(screen.getByTestId('donate-custom-amount')).toHaveProperty(
+      'props.accessibilityHint',
+      'That amount cannot be used. Enter whole dollars, from $1 to $12,000.',
+    );
+    expect(screen.getByTestId('support-donate')).toHaveProperty('props.accessibilityState.disabled', true);
+    await fireEvent.changeText(screen.getByTestId('donate-custom-amount'), '7');
+    expect(screen.getByText('Donate $7 a month')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('support-donate'));
-    expect(open).toHaveBeenLastCalledWith(donationUrl('monthly', null));
+    await waitFor(() => expect(openSheet).toHaveBeenLastCalledWith(donationUrl('monthly', 7), expect.anything()));
+    expect(openSheet).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back to the browser when the in-app sheet cannot open', async () => {
+    openSheet.mockClear();
+    openSheet.mockRejectedValueOnce(new Error('no browser supports custom tabs'));
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    await render(withAppData(<SupportScreen />));
+    await fireEvent.press(screen.getByTestId('support-donate'));
+    await waitFor(() => expect(open).toHaveBeenCalledWith(donationUrl('one-time', 5)));
+    expect(screen.queryByTestId('support-open-failed')).toBeNull();
+    open.mockRestore();
+  });
+
+  it('says so when neither the sheet nor the browser can open', async () => {
+    openSheet.mockClear();
+    openSheet.mockRejectedValueOnce(new Error('no browser supports custom tabs'));
+    const open = jest.spyOn(Linking, 'openURL').mockRejectedValueOnce(new Error('no handler'));
+    await render(withAppData(<SupportScreen />));
+    await fireEvent.press(screen.getByTestId('support-donate'));
+    expect(await screen.findByText('GitHub could not be opened. Check that a web browser is installed and try again.')).toBeTruthy();
+    expect(screen.getByTestId('support-donate')).toHaveProperty('props.accessibilityState.disabled', false);
+    await fireEvent.press(screen.getByTestId('support-donate'));
+    await waitFor(() => expect(screen.queryByTestId('support-open-failed')).toBeNull());
     open.mockRestore();
   });
 
@@ -201,6 +250,9 @@ describe('About, accuracy and support', () => {
     expect(screen.getByText('Doneer eenmalig $5')).toBeTruthy();
     await fireEvent.press(screen.getByRole('tab', { name: 'Maandelijks' }));
     expect(screen.getByText('Doneer $5 per maand')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('donate-amount-other'));
+    await fireEvent.changeText(screen.getByTestId('donate-custom-amount'), '15');
+    expect(screen.getByText('Doneer $15 per maand')).toBeTruthy();
     expect(screen.getByTestId('support-issues')).toBeTruthy();
     expect(screen.getByTestId('support-repo')).toBeTruthy();
   });
