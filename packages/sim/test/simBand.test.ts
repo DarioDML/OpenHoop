@@ -92,7 +92,8 @@ describe('commands', () => {
     const v = await c.command(Command.GET_FF_VALUE, keyArgs('enable_r22_v4_packets'));
     const value = await c.responseTo(Command.GET_FF_VALUE, v);
     expect(value.body[0]).toBe(1);
-    expect(utf8(value.body.subarray(1, 33)).replace(/\0+$/, '')).toBe('1');
+    expect(utf8(value.body.subarray(1, 33)).replace(/\0+$/, '')).toBe('enable_r22_v4_packets');
+    expect(utf8(value.body.subarray(33, 65)).replace(/\0+$/, '')).toBe('1');
   });
 
   it('enumerates device config keys', async () => {
