@@ -8,10 +8,11 @@ import { normalizeUnit } from './units';
 export interface ReviewRow {
   id: string;
   printedName: string;
+  printedValue: string;
+  printedUnit: string;
   matchedAs: BiomarkerId | null;
   selected: boolean;
   censored: Censor | null;
-  printedValue: string;
   draft: LabDraft;
 }
 
@@ -19,28 +20,42 @@ function plain(value: number): string {
   return Number(value.toFixed(4)).toString();
 }
 
-export function rowsFromCandidates(candidates: readonly LabCandidate[], fallbackDay: string, censoredNote: (printed: string) => string): ReviewRow[] {
+export function rowsFromCandidates(candidates: readonly LabCandidate[], censoredNote: (printed: string) => string): ReviewRow[] {
+  const chosen = new Set<string>();
   return candidates.map((candidate, index) => {
     const printedValue = `${candidate.censored ?? ''}${plain(candidate.value)}`;
+    const day = candidate.day ?? '';
+    const slot = `${candidate.biomarker ?? ''}|${day}`;
+    const selected = candidate.biomarker !== null && candidate.censored === null && !chosen.has(slot);
+    if (selected) chosen.add(slot);
     return {
       id: `row-${index}`,
       printedName: candidate.name,
-      matchedAs: candidate.biomarker,
-      selected: candidate.biomarker !== null && candidate.censored === null,
-      censored: candidate.censored,
       printedValue,
+      printedUnit: candidate.unit,
+      matchedAs: candidate.biomarker,
+      selected,
+      censored: candidate.censored,
       draft: {
         biomarker: candidate.biomarker ?? '',
         customName: candidate.biomarker === null ? candidate.name.slice(0, LAB_LIMITS.nameLength) : '',
         unit: candidate.unit,
         value: plain(candidate.value),
-        day: candidate.day ?? fallbackDay,
+        day,
         refLow: candidate.refLow === null ? '' : plain(candidate.refLow),
         refHigh: candidate.refHigh === null ? '' : plain(candidate.refHigh),
         note: candidate.censored === null ? '' : censoredNote(printedValue).slice(0, LAB_LIMITS.noteLength),
       },
     };
   });
+}
+
+export function sharedDay(rows: readonly ReviewRow[]): string {
+  return rows.find((row) => row.draft.day !== '')?.draft.day ?? '';
+}
+
+export function withDay(rows: readonly ReviewRow[], day: string): ReviewRow[] {
+  return rows.map((row) => ({ ...row, draft: { ...row.draft, day } }));
 }
 
 export function remapRow(row: ReviewRow, biomarker: string): ReviewRow {

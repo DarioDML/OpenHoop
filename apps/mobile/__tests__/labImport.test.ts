@@ -1,7 +1,7 @@
 import { BIOMARKER_IDS, validateLabDraft } from '@/data/labs';
 import { BIOMARKER_ALIASES, matchBiomarker } from '@/data/labImport/aliases';
 import { findDate, findReportDay, parseLabText, parseRange, parseResultLine, type LabCandidate } from '@/data/labImport/parse';
-import { remapRow, rowsFromCandidates, validateSelected } from '@/data/labImport/review';
+import { remapRow, rowsFromCandidates, sharedDay, validateSelected, withDay } from '@/data/labImport/review';
 import { assembleRows, readNativeText, textLines, type OcrLine } from '@/data/labImport/rows';
 import { normalizeUnit, printedUnit } from '@/data/labImport/units';
 
@@ -184,6 +184,14 @@ describe('result lines', () => {
     expect(parseResultLine('Hb 8,9 mmol/l 8,5-11,0')).toMatchObject({ name: 'Hb', biomarker: null, unit: 'mmol/L', value: 8.9 });
   });
 
+  it('never takes a number from the name or the range as the value', () => {
+    expect(parseResultLine('Vitamine D (25 OH) 75 nmol/L 50 - 125')).toMatchObject({ biomarker: 'vitaminD', value: 75, unit: 'nmol/L', refLow: 50, refHigh: 125 });
+    expect(parseResultLine('Vitamine D 25(OH) 75 nmol/L')).toMatchObject({ biomarker: 'vitaminD', value: 75 });
+    expect(parseResultLine('Glucose 3.9 - 6.1 mmol/L')).toBeNull();
+    expect(parseResultLine('Glucose 3,9 tot 6,1 mmol/L')).toBeNull();
+    expect(parseResultLine('Glucose 5 4 mmol/L')).toMatchObject({ biomarker: null, value: 4 });
+  });
+
   it('skips long prose lines that are not in the catalogue', () => {
     expect(parseResultLine('Your result was within the usual limits of 5.0 mmol/L for most people')).toBeNull();
   });
@@ -202,6 +210,14 @@ describe('report dates', () => {
     expect(findDate('31/02/2026', TODAY)).toBeNull();
     expect(findDate('01/12/2026', TODAY)).toBeNull();
     expect(findDate('01/01/1999', TODAY)).toBeNull();
+  });
+
+  it('reads the date after the sample keyword on a shared header line', () => {
+    expect(findReportDay(['Geboortedatum: 05/06/2001   Datum staalname: 18/11/2026'], TODAY)).toBe('2026-11-18');
+    expect(findReportDay(['Datum afdruk 19/11/2026  Afname 18/11/2026'], TODAY)).toBe('2026-11-18');
+    expect(findReportDay(['Afname 18/11/2026 Datum afdruk 19/11/2026'], TODAY)).toBe('2026-11-18');
+    expect(findReportDay(['Geb. 03/04/80 Afname 18/11/26'], TODAY)).toBe('2026-11-18');
+    expect(findReportDay(['Afname', 'Geboortedatum 05/06/2001'], TODAY)).toBeNull();
   });
 
   it('prefers the sample date over the print date and date of birth', () => {
@@ -267,7 +283,7 @@ describe('lab report text', () => {
   });
 
   it('turns every catalogue candidate into a draft that validates', () => {
-    const rows = rowsFromCandidates(parseLabText(BELGIAN_PDF, TODAY).candidates, TODAY, (v) => `report ${v}`);
+    const rows = rowsFromCandidates(parseLabText(BELGIAN_PDF, TODAY).candidates, (v) => `report ${v}`);
     for (const row of rows.filter((r) => r.matchedAs !== null)) expect(validateLabDraft(row.draft, TODAY).ok).toBe(true);
   });
 });
@@ -315,14 +331,27 @@ describe('review rows', () => {
   ];
 
   it('selects catalogue matches, leaves flagged and unmatched rows off', () => {
-    const rows = rowsFromCandidates(candidates, TODAY, (v) => `On the report: ${v}`);
+    const rows = rowsFromCandidates(candidates, (v) => `On the report: ${v}`);
     expect(rows.map((r) => r.selected)).toEqual([true, false, false]);
-    expect(rows[1]?.draft).toMatchObject({ value: '0.5', day: TODAY, refHigh: '5', note: 'On the report: <0.5' });
+    expect(rows[1]?.draft).toMatchObject({ value: '0.5', day: '', refHigh: '5', note: 'On the report: <0.5' });
     expect(rows[2]?.draft).toMatchObject({ biomarker: '', customName: 'Hb', unit: 'mmol/L' });
+    expect(rows[2]?.printedUnit).toBe('mmol/L');
+  });
+
+  it('never fills in a missing date and sets one date for every row', () => {
+    const rows = rowsFromCandidates(candidates, (v) => v);
+    expect(sharedDay(rows)).toBe('2026-11-18');
+    expect(sharedDay(rows.slice(1, 2))).toBe('');
+    expect(withDay(rows, '2026-11-01').map((r) => r.draft.day)).toEqual(['2026-11-01', '2026-11-01', '2026-11-01']);
+  });
+
+  it('pre-selects only one result per biomarker and day', () => {
+    const rows = rowsFromCandidates(parseLabText(BELGIAN_PDF, TODAY).candidates, (v) => v);
+    expect(rows.filter((r) => r.matchedAs === 'hba1c').map((r) => r.selected)).toEqual([true, false]);
   });
 
   it('remaps an unmatched row, keeping the unit only when it fits', () => {
-    const rows = rowsFromCandidates(candidates, TODAY, (v) => v);
+    const rows = rowsFromCandidates(candidates, (v) => v);
     const hb = rows[2];
     if (hb === undefined) throw new Error('missing row');
     expect(remapRow(hb, 'haemoglobin').draft).toMatchObject({ biomarker: 'haemoglobin', unit: '' });
@@ -332,10 +361,10 @@ describe('review rows', () => {
   });
 
   it('validates only selected rows and reports every invalid one', () => {
-    const rows = rowsFromCandidates(candidates, TODAY, (v) => v).map((r) => ({ ...r, selected: true }));
+    const rows = rowsFromCandidates(candidates, (v) => v).map((r) => ({ ...r, selected: true }));
     const checked = validateSelected(rows, TODAY);
-    expect(checked).toEqual({ ok: false, invalid: { 'row-2': ['biomarker'] } });
-    const fixed = rows.map((r) => (r.id === 'row-2' ? remapRow(r, 'custom') : r));
+    expect(checked).toEqual({ ok: false, invalid: { 'row-1': ['day'], 'row-2': ['biomarker'] } });
+    const fixed = withDay(rows, '2026-11-18').map((r) => (r.id === 'row-2' ? remapRow(r, 'custom') : r));
     const ok = validateSelected(fixed, TODAY);
     expect(ok.ok && ok.inputs.map((i) => i.input.biomarker)).toEqual(['glucose', 'crp', 'custom:Hb']);
     expect(validateSelected(rows.map((r) => ({ ...r, selected: false })), TODAY)).toEqual({ ok: true, inputs: [] });

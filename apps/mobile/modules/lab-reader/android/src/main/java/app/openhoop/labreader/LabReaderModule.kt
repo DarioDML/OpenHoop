@@ -38,9 +38,14 @@ private const val MAX_OCR_PAGES = 20
 private const val MAX_TEXT_PAGES = 50
 private const val MIN_TEXT_CHARS = 40
 private const val MAX_TEXT_LINES = 20000
+private const val MAX_FILE_BYTES = 20L * 1024 * 1024
+private const val MAX_PDF_MEMORY = 96L * 1024 * 1024
 
 class UnreadableReportException(cause: Throwable? = null) :
   CodedException("ERR_LAB_UNREADABLE", "The report could not be read", cause)
+
+class TooLargeReportException :
+  CodedException("ERR_LAB_TOO_LARGE", "The report file is too large", null)
 
 class EncryptedReportException :
   CodedException("ERR_LAB_ENCRYPTED", "The PDF is protected with a password", null)
@@ -56,7 +61,7 @@ class LabReaderModule : Module() {
       withContext(Dispatchers.IO) {
         guarded {
           withRecognizer { recognizer ->
-            mapOf("source" to "ocr", "pages" to listOf(recognize(recognizer, InputImage.fromFilePath(context, parse(uri)))))
+            mapOf("source" to "ocr", "pages" to listOf(recognize(recognizer, InputImage.fromFilePath(context, checkSize(parse(uri))))))
           }
         }
       }
@@ -65,7 +70,7 @@ class LabReaderModule : Module() {
     AsyncFunction("readPdf") Coroutine { uri: String, maxOcrPages: Int, forceOcr: Boolean ->
       withContext(Dispatchers.IO) {
         guarded {
-          val source = parse(uri)
+          val source = checkSize(parse(uri))
           val lines = if (forceOcr) null else extractText(source)
           if (lines != null) {
             mapOf("source" to "text", "lines" to lines)
@@ -78,7 +83,7 @@ class LabReaderModule : Module() {
 
     AsyncFunction("prepareImage") Coroutine { uri: String, maxEdge: Int, quality: Int ->
       withContext(Dispatchers.IO) {
-        guarded { prepareImage(parse(uri), maxEdge.coerceIn(256, 4096), quality.coerceIn(40, 95)) }
+        guarded { prepareImage(checkSize(parse(uri)), maxEdge.coerceIn(256, 4096), quality.coerceIn(40, 95)) }
       }
     }
   }
@@ -100,6 +105,12 @@ class LabReaderModule : Module() {
       throw UnreadableReportException()
     }
     return parsed
+  }
+
+  private fun checkSize(uri: Uri): Uri {
+    val length = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: throw UnreadableReportException()
+    if (length > MAX_FILE_BYTES) throw TooLargeReportException()
+    return uri
   }
 
   private fun open(uri: Uri): InputStream =
@@ -139,7 +150,7 @@ class LabReaderModule : Module() {
     open(uri).use { input ->
       val document =
         try {
-          PDDocument.load(input, MemoryUsageSetting.setupTempFileOnly())
+          PDDocument.load(input, MemoryUsageSetting.setupMainMemoryOnly(MAX_PDF_MEMORY))
         } catch (error: InvalidPasswordException) {
           throw EncryptedReportException()
         }

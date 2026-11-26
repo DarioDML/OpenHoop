@@ -19,7 +19,7 @@ export function onDeviceAvailable(): boolean {
   return native !== null;
 }
 
-export type DeviceReadError = 'unavailable' | 'unreadable' | 'encrypted' | 'no-text';
+export type DeviceReadError = 'unavailable' | 'unreadable' | 'encrypted' | 'too-large' | 'no-text';
 export type DeviceReadResult = { ok: true; lines: string[]; source: 'text' | 'ocr' } | { ok: false; error: DeviceReadError };
 
 function nativeCode(error: unknown): string | null {
@@ -32,7 +32,8 @@ async function readNative(module: LabReaderModule, file: ReportFile, forceOcr: b
   try {
     raw = file.kind === 'pdf' ? await module.readPdf(file.uri, FILE_LIMITS.maxOcrPages, forceOcr) : await module.recognizeImage(file.uri);
   } catch (error) {
-    return { ok: false, error: nativeCode(error) === 'ERR_LAB_ENCRYPTED' ? 'encrypted' : 'unreadable' };
+    const code = nativeCode(error);
+    return { ok: false, error: code === 'ERR_LAB_ENCRYPTED' ? 'encrypted' : code === 'ERR_LAB_TOO_LARGE' ? 'too-large' : 'unreadable' };
   }
   const read = readNativeText(raw);
   if (read === null) return { ok: false, error: 'unreadable' };

@@ -38,6 +38,8 @@ const FLAG = /^(\*{1,3}|\+{1,2}|!{1,2}|h{1,2}|l{1,2}|↑{1,2}|↓{1,2}|hoog|laag
 const OCR_DIGIT = /^(<=?|>=?)?[\dOoIl]+(?:[.,][\dOoIl]+)?$/;
 const BETWEEN = new RegExp(`(${NUMBER})\\s*(?:-|tot|to)\\s*(${NUMBER})`, 'i');
 const UPPER = new RegExp(`(?:<=?|max\\.?|maximum|tot|up to)\\s*(${NUMBER})`, 'i');
+const RANGE_CONNECTOR = /^(-|tot|to)$/;
+const FULL_RANGE = new RegExp(`^(?:${NUMBER}\\s*(?:-|tot|to)\\s*${NUMBER}|(?:<=?|>=?)\\s*${NUMBER})$`, 'i');
 const LOWER = new RegExp(`(?:>=?|min\\.?|minimum|vanaf|from)\\s*(${NUMBER})`, 'i');
 const LETTERS = /[A-Za-zÀ-ÿ]/;
 const CONTROL = /[\u0000-\u001f\u007f]/g;
@@ -94,17 +96,22 @@ function readValue(tokens: readonly string[], index: number): ValueHit | null {
   return { index, next: index + 1, value, censored: censorOf(match[1]), rest: FLAG.test(rest) ? '' : rest };
 }
 
-function findValue(tokens: readonly string[]): ValueHit | null {
+function* valueHits(tokens: readonly string[]): Generator<ValueHit> {
   let sawLetters = false;
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i] ?? '';
     if (sawLetters) {
       const hit = readValue(tokens, i);
-      if (hit !== null) return hit;
+      if (hit !== null) yield hit;
     }
     if (LETTERS.test(token) && !COMPARATOR.test(token)) sawLetters = true;
   }
-  return null;
+}
+
+function startsRange(tokens: readonly string[], hit: ValueHit): boolean {
+  if (hit.censored !== null || hit.rest !== '') return false;
+  const connector = (tokens[hit.next] ?? '').toLowerCase();
+  return RANGE_CONNECTOR.test(connector) && parseNumber(fixOcrDigits(tokens[hit.next + 1] ?? '')) !== null;
 }
 
 interface UnitHit {
@@ -160,21 +167,29 @@ function cleanName(tokens: readonly string[]): string | null {
   return name;
 }
 
+function onlyFlagsOrRange(tokens: readonly string[]): boolean {
+  const text = tokens.filter((token) => !FLAG.test(token)).join(' ');
+  return text === '' || FULL_RANGE.test(text);
+}
+
 export function parseResultLine(line: string): Omit<LabCandidate, 'day'> | null {
   const tokens = cleanLine(line).split(' ').filter((token) => token !== '');
-  const hit = findValue(tokens);
-  if (hit === null) return null;
-  const name = cleanName(tokens.slice(0, hit.index));
-  if (name === null) return null;
-  const tail = [hit.rest, ...tokens.slice(hit.next)].filter((token) => token !== '');
-  const unit = findUnit(tail);
-  if (unit === null) return null;
-  const rangeText = [...tail.slice(0, unit.start), ...tail.slice(unit.start + unit.length)].filter((token) => !FLAG.test(token)).join(' ');
-  const range = parseRange(rangeText);
-  let biomarker = matchBiomarker(name);
-  if (biomarker !== null && !(unit.known && unitFits(biomarker, unit.label))) biomarker = null;
-  if (biomarker === null && nameKey(name).split(' ').length > IMPORT_LIMITS.maxNameTokens) return null;
-  return { name, biomarker, value: hit.value, censored: hit.censored, unit: unit.label, ...range };
+  for (const hit of valueHits(tokens)) {
+    if (startsRange(tokens, hit)) return null;
+    const tail = [hit.rest, ...tokens.slice(hit.next)].filter((token) => token !== '');
+    const unit = findUnit(tail);
+    if (unit === null) return null;
+    if (!onlyFlagsOrRange(tail.slice(0, unit.start))) continue;
+    const name = cleanName(tokens.slice(0, hit.index));
+    if (name === null) return null;
+    const rangeText = [...tail.slice(0, unit.start), ...tail.slice(unit.start + unit.length)].filter((token) => !FLAG.test(token)).join(' ');
+    const range = parseRange(rangeText);
+    let biomarker = matchBiomarker(name);
+    if (biomarker !== null && !(unit.known && unitFits(biomarker, unit.label))) biomarker = null;
+    if (biomarker === null && nameKey(name).split(' ').length > IMPORT_LIMITS.maxNameTokens) return null;
+    return { name, biomarker, value: hit.value, censored: hit.censored, unit: unit.label, ...range };
+  }
+  return null;
 }
 
 const MONTHS: Readonly<Record<string, number>> = {
@@ -204,44 +219,57 @@ function fullYear(text: string): number {
   return text.length === 2 ? 2000 + year : year;
 }
 
+const DATE_PATTERNS: readonly RegExp[] = [
+  /\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/g,
+  /\b(\d{1,2})[./-](\d{1,2})[./-](20\d{2}|\d{2})\b/g,
+  /\b(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(20\d{2})\b/g,
+];
+
+function dateFromMatch(pattern: number, match: RegExpExecArray, today: string): string | null {
+  if (pattern === 0) return isoOf(Number(match[1]), Number(match[2]), Number(match[3]), today);
+  if (pattern === 1) return isoOf(fullYear(match[3] ?? ''), Number(match[2]), Number(match[1]), today);
+  const month = MONTHS[(match[2] ?? '').toLowerCase()];
+  return month === undefined ? null : isoOf(Number(match[3]), month, Number(match[1]), today);
+}
+
 export function findDate(text: string, today: string): string | null {
-  const iso = /\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/.exec(text);
-  if (iso !== null) {
-    const day = isoOf(Number(iso[1]), Number(iso[2]), Number(iso[3]), today);
-    if (day !== null) return day;
-  }
-  const dmy = /\b(\d{1,2})[./-](\d{1,2})[./-](20\d{2}|\d{2})\b/.exec(text);
-  if (dmy !== null) {
-    const day = isoOf(fullYear(dmy[3] ?? ''), Number(dmy[2]), Number(dmy[1]), today);
-    if (day !== null) return day;
-  }
-  const named = /\b(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(20\d{2})\b/.exec(text);
-  if (named !== null) {
-    const month = MONTHS[(named[2] ?? '').toLowerCase()];
-    if (month !== undefined) return isoOf(Number(named[3]), month, Number(named[1]), today);
-  }
-  return null;
+  const found: Array<{ index: number; day: string }> = [];
+  DATE_PATTERNS.forEach((pattern, kind) => {
+    for (const match of text.matchAll(pattern)) {
+      const day = dateFromMatch(kind, match, today);
+      if (day !== null) found.push({ index: match.index, day });
+    }
+  });
+  found.sort((a, b) => a.index - b.index);
+  return found[0]?.day ?? null;
 }
 
 const COLLECTION = /(afname|staalname|monstername|prelevement|prélèvement|afgenomen|collect|sample|specimen|drawn)/i;
 const DATE_WORD = /(datum|date)/i;
-const NOT_COLLECTION = /(geboorte|birth|born|dob|print|afdruk|ontvang|receiv|rapport|report|valid|aanvraag|request)/i;
+const NOT_COLLECTION = /(geboorte|geb\.|birth|born|dob|print|afdruk|ontvang|receiv|rapport|report|valid|aanvraag|request)/i;
 
-function dateNear(lines: readonly string[], index: number, today: string): string | null {
-  return findDate(lines[index] ?? '', today) ?? findDate(lines[index + 1] ?? '', today);
+function dateAfter(lines: readonly string[], index: number, keyword: RegExp, today: string): string | null {
+  const line = lines[index] ?? '';
+  const match = keyword.exec(line);
+  const rest = match === null ? line : line.slice(match.index);
+  const cut = NOT_COLLECTION.exec(rest.slice(1));
+  const own = findDate(cut === null ? rest : rest.slice(0, cut.index + 1), today);
+  if (own !== null) return own;
+  const next = lines[index + 1] ?? '';
+  return NOT_COLLECTION.test(next) ? null : findDate(next, today);
 }
 
 export function findReportDay(lines: readonly string[], today: string): string | null {
   for (let i = 0; i < lines.length; i++) {
     if (COLLECTION.test(lines[i] ?? '')) {
-      const day = dateNear(lines, i, today);
+      const day = dateAfter(lines, i, COLLECTION, today);
       if (day !== null) return day;
     }
   }
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
     if (DATE_WORD.test(line) && !NOT_COLLECTION.test(line)) {
-      const day = dateNear(lines, i, today);
+      const day = dateAfter(lines, i, DATE_WORD, today);
       if (day !== null) return day;
     }
   }

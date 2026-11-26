@@ -10,7 +10,7 @@ import { requestLabExtraction } from '@/data/labImport/claude';
 import { discardReport, pickReportFile, takeReportPhoto, type PickOutcome, type ReportFile } from '@/data/labImport/files';
 import { parseLabText } from '@/data/labImport/parse';
 import { onDeviceAvailable, readOnDevice, uploadFor, type DeviceReadError, type UploadError } from '@/data/labImport/reader';
-import { remapRow, rowsFromCandidates, validateSelected, type ReviewRow } from '@/data/labImport/review';
+import { remapRow, rowsFromCandidates, sharedDay, validateSelected, withDay, type ReviewRow } from '@/data/labImport/review';
 import { BIOMARKER_IDS, BIOMARKER_UNITS, CUSTOM_PICK, LAB_LIMITS, isBiomarkerId, type LabDraft, type LabField } from '@/data/labs';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
@@ -73,6 +73,7 @@ export default function LabsImportScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const mounted = useRef(true);
+  const busy = useRef(false);
 
   useEffect(() => {
     mounted.current = true;
@@ -96,7 +97,7 @@ export default function LabsImportScreen() {
         if (!read.ok) return show({ step: 'failed', failure: { kind: 'device', error: read.error } });
         const parsed = parseLabText(read.lines, day);
         if (parsed.candidates.length === 0) return show({ step: 'failed', failure: { kind: 'nothing' } });
-        return show({ step: 'review', rows: rowsFromCandidates(parsed.candidates, day, note), dropped: 0 });
+        return show({ step: 'review', rows: rowsFromCandidates(parsed.candidates, note), dropped: 0 });
       }
       const upload = await uploadFor(file);
       if (!upload.ok) return show({ step: 'failed', failure: { kind: 'upload', error: upload.error } });
@@ -110,7 +111,7 @@ export default function LabsImportScreen() {
       const reply = await requestLabExtraction(netFetch, { apiKey, model: userData.coach.model, upload: upload.upload, today: day });
       if (!reply.ok) return show({ step: 'failed', failure: { kind: 'claude', error: reply.error } });
       if (reply.candidates.length === 0) return show({ step: 'failed', failure: { kind: 'nothing' } });
-      return show({ step: 'review', rows: rowsFromCandidates(reply.candidates, day, note), dropped: reply.dropped });
+      return show({ step: 'review', rows: rowsFromCandidates(reply.candidates, note), dropped: reply.dropped });
     } finally {
       discardReport(file.uri);
     }
@@ -138,20 +139,32 @@ export default function LabsImportScreen() {
     setNotice(null);
   };
 
+  const setDay = (day: string): void => {
+    setPhase((current) => (current.step === 'review' ? { ...current, rows: withDay(current.rows, day) } : current));
+    setInvalid({});
+    setNotice(null);
+  };
+
   const save = async (rows: readonly ReviewRow[]): Promise<void> => {
+    if (busy.current) return;
     const checked = validateSelected(rows, today());
     if (!checked.ok) {
       setInvalid(checked.invalid);
       setNotice(t('health.labsImport.review.invalid'));
       return;
     }
+    busy.current = true;
     setSaving(true);
     const saved = new Set<string>();
-    for (const { id, input } of checked.inputs) {
-      if (await saveLabResult(null, input)) saved.add(id);
+    try {
+      for (const { id, input } of checked.inputs) {
+        if (await saveLabResult(null, input)) saved.add(id);
+      }
+    } finally {
+      busy.current = false;
+      if (mounted.current) setSaving(false);
     }
     if (!mounted.current) return;
-    setSaving(false);
     const failed = checked.inputs.length - saved.size;
     if (failed === 0) {
       router.replace('/health/labs');
@@ -245,6 +258,7 @@ export default function LabsImportScreen() {
           notice={notice}
           saving={saving}
           onChange={updateRow}
+          onDay={setDay}
           onSave={() => void save(phase.rows)}
           onReset={reset}
         />
@@ -260,14 +274,16 @@ interface ReviewListProps {
   notice: string | null;
   saving: boolean;
   onChange: (id: string, change: (row: ReviewRow) => ReviewRow) => void;
+  onDay: (day: string) => void;
   onSave: () => void;
   onReset: () => void;
 }
 
-function ReviewList({ rows, dropped, invalid, notice, saving, onChange, onSave, onReset }: ReviewListProps) {
+function ReviewList({ rows, dropped, invalid, notice, saving, onChange, onDay, onSave, onReset }: ReviewListProps) {
   const { t } = useT();
   const { colors } = useTheme();
   const selected = rows.filter((row) => row.selected).length;
+  const day = sharedDay(rows);
   return (
     <View style={{ gap: spacing.lg }} testID="labs-import-review">
       <Card>
@@ -283,6 +299,17 @@ function ReviewList({ rows, dropped, invalid, notice, saving, onChange, onSave, 
             {t('health.labsImport.review.dropped', { count: dropped })}
           </AppText>
         ) : null}
+        <Field
+          label={t('health.labsImport.review.date')}
+          hint={day === '' ? t('health.labsImport.review.noDate') : t('health.labsImport.review.dateHint')}
+          error={day === ''}
+          value={day}
+          onChangeText={onDay}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="YYYY-MM-DD"
+          testID="labs-import-day"
+        />
       </Card>
       {rows.map((row) => (
         <ReviewCard key={row.id} row={row} invalid={invalid[row.id] ?? []} onChange={(change) => onChange(row.id, change)} />
@@ -330,9 +357,14 @@ function ReviewCard({ row, invalid, onChange }: ReviewCardProps) {
         <View style={{ flex: 1, gap: 4 }}>
           <AppText variant="bodyStrong">{row.printedName}</AppText>
           <AppText variant="caption" muted testID={`${prefix}-status`}>
-            {row.matchedAs !== null
-              ? t('health.labsImport.review.matched', { marker: markerName({ kind: 'catalogue', id: row.matchedAs }, t) })
-              : t('health.labsImport.review.unmatched')}
+            {draft.biomarker === ''
+              ? t('health.labsImport.review.unmatched')
+              : row.matchedAs !== null && row.matchedAs === draft.biomarker
+                ? t('health.labsImport.review.matched', { marker: markerName({ kind: 'catalogue', id: row.matchedAs }, t) })
+                : t('health.labsImport.review.changed')}
+          </AppText>
+          <AppText variant="caption" muted numeric testID={`${prefix}-printed`}>
+            {t('health.labsImport.review.printed', { value: shown, unit: row.printedUnit })}
           </AppText>
         </View>
         <Toggle label={t('health.labsImport.review.select')} value={row.selected} onChange={(selected) => onChange((current) => ({ ...current, selected }))} testID={`${prefix}-select`} />

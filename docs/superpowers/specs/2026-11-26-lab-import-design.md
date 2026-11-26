@@ -43,17 +43,22 @@ Pure TypeScript, unit-tested with Dutch/Belgian and English PDF-text fixtures an
   becomes an unmatched row. Unknown units are never converted.
 - `parse.ts`: value (comma or dot, OCR `O`/`l` fixed inside numbers), `<`/`>` bounds flagged as
   censored, reference ranges (`3.9 - 5.5`, `70 tot 99`, `< 5.0`, `> 1.0`), and the sample date
-  (lines with `staalname`, `afname`, `collected`, … first; birth and print dates ignored;
-  day-first dates).
+  (the date after `staalname`, `afname`, `collected`, … first; birth and print dates ignored, also
+  when they share a header line; day-first dates). A number only counts as the value when the unit
+  follows it with nothing but flags or a reference range in between, so `Vitamine D (25 OH) 75
+  nmol/L` gives 75 and a line that starts with a range (`Glucose 3.9 - 6.1 mmol/L`) gives nothing.
 - `claude.ts`: request body, schema and validation of every field of Claude's answer (catalogue id
   or null, name length and control characters, finite non-negative numbers, range order, real past
   date, at most 200 results). Invalid entries are dropped and counted.
 
 ## Review screen (`src/app/health/labs-import.tsx`)
 
-Every candidate is a card with an on/off switch, editable value, unit, date and range. Catalogue
-matches start switched on, except censored values (`<0.5`), which start off and get a note
-"On the report: <0.5" when saved. Unmatched rows start off and must be mapped to a catalogue marker
+Every candidate is a card with an on/off switch, the value and unit as printed, and editable value,
+unit, date and range. Catalogue matches start switched on, except censored values (`<0.5`), which
+start off and get a note "On the report: <0.5" when saved, and except a second result for the same
+marker and day (for example HbA1c in both % and mmol/mol). One "date of the test" field at the top
+sets the date for every row; when no date was found it stays empty and saving asks for it, so an
+old report is never saved under today. Unmatched rows start off and must be mapped to a catalogue marker
 (the unit is kept only if it belongs to that marker, otherwise the user must pick one) or kept as
 the user's own marker. "Save selected" runs every row through `validateLabDraft`; nothing is saved
 while any switched-on row is invalid. Rows that fail to save stay in the list.
@@ -62,6 +67,7 @@ while any switched-on row is invalid. Rows that fail to save stay in the list.
 
 - The picked file is copied to the app cache by the picker and deleted right after reading
   (`discardReport`), on success and on failure. The file is never written to the database.
+  PdfBox reads the PDF in memory (no scratch file), and the Kotlin side refuses files over 20 MB.
 - On-device reading uses no network. ML Kit's bundled model ships inside the APK
   (`libmlkit_google_ocr_pipeline.so`, about 11 MB per ABI); nothing is downloaded.
 - ML Kit does phone home by design: `com.google.mlkit:common` logs usage metrics through Google's

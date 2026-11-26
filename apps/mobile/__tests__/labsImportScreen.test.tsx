@@ -150,8 +150,15 @@ describe('lab import on the phone', () => {
     const save = await open();
     await fireEvent.press(screen.getByTestId('labs-import-pick'));
     await waitFor(() => expect(screen.getByTestId('labs-import-review')).toBeTruthy());
+    expect(screen.getByTestId('labs-import-row-0-printed')).toHaveTextContent(part('On the report: 8.9 mmol/L'));
+    expect(screen.getByTestId('labs-import-day').props.value).toBe('');
+    expect(screen.getByText(part('No test date was found'))).toBeTruthy();
     await fireEvent.press(screen.getByTestId('labs-import-row-0-pick-haemoglobin'));
+    expect(screen.getByTestId('labs-import-row-0-status')).toHaveTextContent(part('Biomarker chosen by you'));
     await fireEvent(screen.getByTestId('labs-import-row-0-select'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('labs-import-save'));
+    expect(save).not.toHaveBeenCalled();
+    await fireEvent.changeText(screen.getByTestId('labs-import-day'), '2026-11-20');
     await fireEvent.press(screen.getByTestId('labs-import-save'));
     expect(save).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByText('g/dL'));
@@ -159,7 +166,7 @@ describe('lab import on the phone', () => {
     await fireEvent.changeText(screen.getByTestId('labs-import-row-0-low'), '13,7');
     await fireEvent.changeText(screen.getByTestId('labs-import-row-0-high'), '17,7');
     await fireEvent.press(screen.getByTestId('labs-import-save'));
-    await waitFor(() => expect(save).toHaveBeenCalledWith(null, expect.objectContaining({ biomarker: 'haemoglobin', unit: 'g/dL', value: 14.3 })));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(null, expect.objectContaining({ biomarker: 'haemoglobin', unit: 'g/dL', value: 14.3, day: '2026-11-20' })));
   });
 
   it('keeps rows that failed to save', async () => {
