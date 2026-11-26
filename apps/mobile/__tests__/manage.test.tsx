@@ -206,8 +206,13 @@ describe('About, accuracy and support', () => {
 
     await fireEvent.press(screen.getByTestId('donate-amount-other'));
     expect(screen.getByTestId('support-donate')).toHaveProperty('props.accessibilityState.disabled', true);
+    expect(screen.getByText('Whole dollars, from $1 to $12,000.')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('donate-custom-amount'), '0');
-    expect(screen.getByText('Enter whole dollars, from $1 to $12,000.')).toBeTruthy();
+    expect(screen.getByText('That amount cannot be used. Enter whole dollars, from $1 to $12,000.')).toBeTruthy();
+    expect(screen.getByTestId('donate-custom-amount')).toHaveProperty(
+      'props.accessibilityHint',
+      'That amount cannot be used. Enter whole dollars, from $1 to $12,000.',
+    );
     expect(screen.getByTestId('support-donate')).toHaveProperty('props.accessibilityState.disabled', true);
     await fireEvent.changeText(screen.getByTestId('donate-custom-amount'), '7');
     expect(screen.getByText('Donate $7 a month')).toBeTruthy();
@@ -223,6 +228,20 @@ describe('About, accuracy and support', () => {
     await render(withAppData(<SupportScreen />));
     await fireEvent.press(screen.getByTestId('support-donate'));
     await waitFor(() => expect(open).toHaveBeenCalledWith(donationUrl('one-time', 5)));
+    expect(screen.queryByTestId('support-open-failed')).toBeNull();
+    open.mockRestore();
+  });
+
+  it('says so when neither the sheet nor the browser can open', async () => {
+    openSheet.mockClear();
+    openSheet.mockRejectedValueOnce(new Error('no browser supports custom tabs'));
+    const open = jest.spyOn(Linking, 'openURL').mockRejectedValueOnce(new Error('no handler'));
+    await render(withAppData(<SupportScreen />));
+    await fireEvent.press(screen.getByTestId('support-donate'));
+    expect(await screen.findByText('GitHub could not be opened. Check that a web browser is installed and try again.')).toBeTruthy();
+    expect(screen.getByTestId('support-donate')).toHaveProperty('props.accessibilityState.disabled', false);
+    await fireEvent.press(screen.getByTestId('support-donate'));
+    await waitFor(() => expect(screen.queryByTestId('support-open-failed')).toBeNull());
     open.mockRestore();
   });
 

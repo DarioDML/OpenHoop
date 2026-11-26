@@ -186,7 +186,7 @@ OpenHoop is free and has no paywalls. Donations help pay for test bands and refe
 
 GitHub takes no fee on sponsorships from personal accounts; sponsorships paid by an organisation carry up to 6% ([GitHub's fee terms](https://docs.github.com/en/sponsors/sponsoring-open-source-contributors/about-sponsorships-fees-and-taxes)). You pay by card in US dollars and need a GitHub account. A monthly sponsorship can be changed or cancelled on GitHub.
 
-In the app, go to More → Support the project. Pick $3, $5, $10 or type any whole-dollar amount up to $12,000, choose one-off or monthly, and tap Donate. The GitHub Sponsors checkout opens in a sheet over the app with that amount filled in (a Chrome Custom Tab on Android, a Safari view on iOS). Closing it brings you back to the app. If you are already signed in to GitHub in your phone's browser, the sheet uses that sign-in.
+In the app, go to More → Support the project. Pick $3, $5, $10 or type any whole-dollar amount up to $12,000, choose one-off or monthly, and tap Donate. The GitHub Sponsors checkout opens in a sheet over the app with that amount filled in (a Chrome Custom Tab on Android, a Safari view on iOS). Closing it brings you back to the app. On Android the sheet uses your default browser, so if you are signed in to GitHub there you are signed in here too. On iOS the sheet keeps its own sign-in, separate from Safari, so you sign in to GitHub in the sheet the first time.
 
 You can also help by [reporting a problem or contributing code](https://github.com/DarioDML/OpenHoop/issues).
 

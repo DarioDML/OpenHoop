@@ -16,7 +16,7 @@ import { spacing, useTheme, type ColorTokens } from '@/ui/theme';
 
 type AmountChoice = (typeof DONATION_AMOUNTS_USD)[number] | 'other';
 
-async function openCheckout(url: string, colors: ColorTokens): Promise<void> {
+async function openCheckout(url: string, colors: ColorTokens): Promise<boolean> {
   try {
     await WebBrowser.openBrowserAsync(url, {
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
@@ -26,8 +26,12 @@ async function openCheckout(url: string, colors: ColorTokens): Promise<void> {
       showTitle: true,
       enableBarCollapsing: true,
     });
+    return true;
   } catch {
-    await Linking.openURL(url);
+    return Linking.openURL(url).then(
+      () => true,
+      () => false,
+    );
   }
 }
 
@@ -38,9 +42,11 @@ export default function SupportScreen() {
   const [customText, setCustomText] = useState('');
   const [frequency, setFrequency] = useState<DonationFrequency>('one-time');
   const [opening, setOpening] = useState(false);
+  const [openFailed, setOpenFailed] = useState(false);
 
   const amount = choice === 'other' ? parseDonationAmount(customText) : choice;
   const customInvalid = choice === 'other' && customText.trim() !== '' && amount === null;
+  const customHint = t(customInvalid ? 'aboutx.support.customAmountError' : 'aboutx.support.customAmountHint');
   const donateLabel =
     amount === null
       ? t('aboutx.support.donateOther')
@@ -49,11 +55,10 @@ export default function SupportScreen() {
   const donate = async () => {
     if (amount === null || opening) return;
     setOpening(true);
-    try {
-      await openCheckout(donationUrl(frequency, amount), colors);
-    } finally {
-      setOpening(false);
-    }
+    setOpenFailed(false);
+    const opened = await openCheckout(donationUrl(frequency, amount), colors);
+    setOpenFailed(!opened);
+    setOpening(false);
   };
 
   return (
@@ -81,7 +86,8 @@ export default function SupportScreen() {
       {choice === 'other' ? (
         <Field
           label={t('aboutx.support.customAmount')}
-          hint={t('aboutx.support.customAmountHint')}
+          hint={customHint}
+          accessibilityHint={customHint}
           error={customInvalid}
           suffix="USD"
           value={customText}
@@ -103,6 +109,11 @@ export default function SupportScreen() {
         testID="donate-frequency"
       />
       <Button label={donateLabel} icon="gift" disabled={amount === null || opening} onPress={() => void donate()} testID="support-donate" />
+      {openFailed ? (
+        <AppText variant="caption" color={colors.negative} accessibilityRole="alert" accessibilityLiveRegion="polite" testID="support-open-failed">
+          {t('aboutx.support.openFailed')}
+        </AppText>
+      ) : null}
       <AppText variant="caption" muted>
         {t('aboutx.support.donateNote')}
       </AppText>
