@@ -97,6 +97,16 @@ describe('dailyDerived', () => {
 });
 
 describe('Home', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({
+      now: FIXTURE_NOW,
+      doNotFake: ['hrtime', 'nextTick', 'performance', 'queueMicrotask', 'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback', 'cancelIdleCallback', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'],
+    });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('shows the three rings with real values and the home cards', async () => {
     await render(withAppData(<HomeScreen />));
     expect(screen.getByTestId('ring-sleep')).toBeTruthy();
