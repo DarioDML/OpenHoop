@@ -488,13 +488,11 @@ export class AppController {
   }
 
   private async refreshActivityMetrics(deviceId: number, from: number | null): Promise<void> {
-    const { store } = this.requireApp();
     const activities = this.activityStore();
-    const days = await store.listDays(deviceId, EARLIEST_DAY, LATEST_DAY);
-    for (const row of await activities.list(deviceId)) {
-      if (row.deletedAt !== null || (from !== null && row.end < from)) continue;
-      await activities.setMetrics(row.id, await this.metricsFor(deviceId, row, days));
-    }
+    const stale = (await activities.list(deviceId)).filter((row) => row.deletedAt === null && (from === null || row.end >= from));
+    if (stale.length === 0) return;
+    const days = await this.requireApp().store.listDays(deviceId, EARLIEST_DAY, LATEST_DAY);
+    for (const row of stale) await activities.setMetrics(row.id, await this.metricsFor(deviceId, row, days));
   }
 
   private analyticsProfile(): { maxHr: number | null; birthYear: number | null; restingHr: number | null } {
