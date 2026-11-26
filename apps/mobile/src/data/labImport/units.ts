@@ -46,6 +46,14 @@ const UNIT_LABELS: Readonly<Record<string, string>> = {
   '10³/ul': '10^3/µL',
   'x10^3/ul': '10^3/µL',
   'k/ul': '10^3/µL',
+  'x1.000/µl': '10^3/µL',
+  'x1000/µl': '10^3/µL',
+  'x1.000/ul': '10^3/µL',
+  'x1000/ul': '10^3/µL',
+  '/µl': '/µL',
+  '/ul': '/µL',
+  '/mm3': '/µL',
+  '/mm³': '/µL',
 };
 
 function unitKey(raw: string): string {

@@ -112,8 +112,12 @@ describe('lab import on the phone', () => {
     expect(screen.getByTestId('labs-import-row-0-select').props.value).toBe(true);
     expect(screen.getByTestId('labs-import-row-2-select').props.value).toBe(false);
     expect(screen.getByTestId('labs-import-row-2-censored')).toHaveTextContent(part('Your report says <0.5'));
+    expect(screen.queryByTestId('labs-import-row-3')).toBeNull();
+    expect(screen.getByTestId('labs-import-others')).toHaveTextContent(part('1 other result not recognised'));
+    await fireEvent.press(screen.getByTestId('labs-import-others-toggle'));
     expect(screen.getByTestId('labs-import-row-3-status')).toHaveTextContent(part('Not recognised'));
     expect(screen.getByTestId('labs-import-row-3-select').props.value).toBe(false);
+    expect(screen.queryByTestId('labs-import-row-3-pick-custom')).toBeNull();
     expect(save).not.toHaveBeenCalled();
 
     await fireEvent.changeText(screen.getByTestId('labs-import-row-1-value'), '46');
@@ -131,6 +135,7 @@ describe('lab import on the phone', () => {
     await fireEvent(screen.getByTestId('labs-import-row-0-select'), 'valueChange', false);
     await fireEvent(screen.getByTestId('labs-import-row-1-select'), 'valueChange', false);
     await fireEvent(screen.getByTestId('labs-import-row-2-select'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('labs-import-others-toggle'));
     await fireEvent(screen.getByTestId('labs-import-row-3-select'), 'valueChange', true);
     await fireEvent.press(screen.getByTestId('labs-import-save'));
     expect(save).not.toHaveBeenCalled();
@@ -153,6 +158,8 @@ describe('lab import on the phone', () => {
     expect(screen.getByTestId('labs-import-row-0-printed')).toHaveTextContent(part('On the report: 8.9 mmol/L'));
     expect(screen.getByTestId('labs-import-day').props.value).toBe('');
     expect(screen.getByText(part('No test date was found'))).toBeTruthy();
+    expect(screen.queryByTestId('labs-import-others')).toBeNull();
+    await fireEvent.press(screen.getByTestId('labs-import-row-0-change'));
     await fireEvent.press(screen.getByTestId('labs-import-row-0-pick-haemoglobin'));
     expect(screen.getByTestId('labs-import-row-0-status')).toHaveTextContent(part('Biomarker chosen by you'));
     await fireEvent(screen.getByTestId('labs-import-row-0-select'), 'valueChange', true);
