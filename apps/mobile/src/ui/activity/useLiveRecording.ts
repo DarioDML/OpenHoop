@@ -2,7 +2,7 @@ import { loadReference } from '@openhoop/analytics';
 import { useEffect, useReducer, useRef, useState } from 'react';
 
 import type { ActivityType } from '@/data/activityDerived';
-import { useAppData } from '@/data/context';
+import { useAppData, useLive } from '@/data/context';
 import { activeSeconds, hudFor, IDLE_SESSION, liveReducer, type LiveEvent, type LiveSession } from '@/data/liveSession';
 import type { RoutePoint } from '@/data/route';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
@@ -16,7 +16,8 @@ export function nowSeconds(): number {
 }
 
 export function useLiveRecording(type: ActivityType) {
-  const { live, profile, days, startLive, stopLive, saveActivity } = useAppData();
+  const { profile, days, startLive, stopLive, saveActivity } = useAppData();
+  const live = useLive();
   const [session, dispatch] = useReducer(liveReducer, IDLE_SESSION);
   const [now, setNow] = useState(nowSeconds);
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });

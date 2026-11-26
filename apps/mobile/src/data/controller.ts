@@ -137,6 +137,7 @@ import type { FileReport } from './vendorExport/parse';
 import type { SourceFile } from './vendorExport/sources';
 import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
+import { changesAppData } from './liveData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
   ActivityDraft,
@@ -273,6 +274,7 @@ export class AppController {
   private healthConnectChain: Promise<void> = Promise.resolve();
   private healthConnectRun: Promise<void> | null = null;
   lastTimings: SyncTimings | null = null;
+  private appDataCache: AppData | null = null;
 
   constructor(
     private readonly notifier: Notifier = expoNotifier,
@@ -314,8 +316,14 @@ export class AppController {
 
   getSnapshot = (): Snapshot => this.snapshot;
 
+  getAppData = (): AppData => {
+    this.appDataCache ??= this.appData();
+    return this.appDataCache;
+  };
+
   private patch(change: Partial<Snapshot>): void {
     this.snapshot = { ...this.snapshot, ...change };
+    if (changesAppData(change)) this.appDataCache = null;
     for (const listener of [...this.listeners]) listener();
   }
 
@@ -1609,8 +1617,8 @@ export class AppController {
     }
   };
 
-  appData(): AppData {
-    const snapshot = this.snapshot;
+  private appData(): AppData {
+    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ...snapshot } = this.snapshot;
     return {
       ...snapshot,
       sleepEditLimits: { napMaxS: MANUAL_NAP_MAX_S, sleepMaxS: EDITED_SLEEP_MAX_S },

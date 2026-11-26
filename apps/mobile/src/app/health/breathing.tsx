@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, View } from 'react-native';
 
-import { useAppData } from '@/data/context';
+import { useLive } from '@/data/context';
 import { BREATH_PATTERNS, breathPositionAt, type BreathPatternId, type BreathPhase } from '@/data/healthDerived';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
@@ -45,7 +45,7 @@ type DurationKey = (typeof DURATIONS)[number];
 export default function BreathingScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const { live } = useAppData();
+  const live = useLive();
   const [patternId, setPatternId] = useState<BreathPatternId>('calm');
   const [minutes, setMinutes] = useState<DurationKey>('3');
   const [running, setRunning] = useState(false);

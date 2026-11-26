@@ -37,12 +37,15 @@ function RootStack() {
 
 export default function RootLayout() {
   const fontsReady = useAppFonts();
-  if (!fontsReady) return <View style={{ flex: 1, backgroundColor: darkColors.background }} />;
   return (
     <LiveProvider>
-      <CoachProvider>
-        <RootStack />
-      </CoachProvider>
+      {fontsReady ? (
+        <CoachProvider>
+          <RootStack />
+        </CoachProvider>
+      ) : (
+        <View style={{ flex: 1, backgroundColor: darkColors.background }} />
+      )}
     </LiveProvider>
   );
 }

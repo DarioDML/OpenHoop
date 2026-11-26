@@ -1,8 +1,8 @@
 import type { ReactElement, ReactNode } from 'react';
 
-import { AppDataContext } from '@/data/context';
+import { AppDataContext, LiveDataContext } from '@/data/context';
 import { createFixtureDays, createFixtureDevice, createFixtureSettings } from '@/data/fixtureSource';
-import type { AppData, Language, StrengthActions } from '@/data/types';
+import type { AppData, Language, LiveData, LiveDataStore, StrengthActions } from '@/data/types';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 
@@ -24,18 +24,31 @@ export function fixtureStrengthActions(): StrengthActions {
   };
 }
 
-export function fixtureAppData(language: Language = 'en', overrides: Partial<AppData> = {}): AppData {
+export type AppDataOverrides = Partial<AppData & LiveData>;
+
+export function fixtureLiveData(overrides: AppDataOverrides = {}): LiveData {
+  return {
+    live: overrides.live ?? { active: false, heartRate: null, lastRrMs: null, updatedAt: null },
+    syncProgress: overrides.syncProgress ?? null,
+    pendingDelete: overrides.pendingDelete ?? null,
+  };
+}
+
+export function staticLiveStore(data: LiveData): LiveDataStore {
+  return { subscribe: () => () => undefined, getSnapshot: () => data };
+}
+
+export function fixtureAppData(language: Language = 'en', overrides: AppDataOverrides = {}): AppData {
+  const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ...appOverrides } = overrides;
   const noop = async (): Promise<void> => undefined;
   return {
     ready: true,
-    syncProgress: null,
     notice: null,
     clearNotice: () => undefined,
     days: createFixtureDays(FIXTURE_NOW),
     sleepEdits: [],
     sleepEditLimits: { napMaxS: 4 * 3_600, sleepMaxS: 16 * 3_600 },
     device: createFixtureDevice(FIXTURE_NOW),
-    live: { active: false, heartRate: null, lastRrMs: null, updatedAt: null },
     profile: { birthYear: null, maxHeartRate: null },
     settings: createFixtureSettings(language, FIXTURE_NOW),
     userData: { ...defaultUserData(), onboardingDone: true },
@@ -92,14 +105,17 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     openHealthConnectSettings: () => undefined,
     installHealthConnect: noop,
     activities: [],
-    pendingDelete: null,
     saveActivity: async () => 1,
     deleteActivity: async () => true,
     undoDelete: noop,
-    ...overrides,
+    ...appOverrides,
   };
 }
 
-export function withAppData(children: ReactNode, language: Language = 'en', overrides: Partial<AppData> = {}): ReactElement {
-  return <AppDataContext.Provider value={fixtureAppData(language, overrides)}>{children}</AppDataContext.Provider>;
+export function withAppData(children: ReactNode, language: Language = 'en', overrides: AppDataOverrides = {}): ReactElement {
+  return (
+    <LiveDataContext.Provider value={staticLiveStore(fixtureLiveData(overrides))}>
+      <AppDataContext.Provider value={fixtureAppData(language, overrides)}>{children}</AppDataContext.Provider>
+    </LiveDataContext.Provider>
+  );
 }

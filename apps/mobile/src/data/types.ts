@@ -122,13 +122,23 @@ export interface HealthConnectView {
   syncing: boolean;
 }
 
+export interface LiveData {
+  live: LiveState;
+  syncProgress: SyncProgressView | null;
+  pendingDelete: PendingDelete | null;
+}
+
+export interface LiveDataStore {
+  subscribe(listener: () => void): () => void;
+  getSnapshot(): LiveData;
+}
+
 export interface AppData {
   ready: boolean;
   days: DayRecord[];
   sleepEdits: SleepEditRow[];
   sleepEditLimits: SleepEditLimits;
   device: DeviceStatus;
-  live: LiveState;
   profile: Profile;
   settings: Settings;
   userData: UserData;
@@ -139,13 +149,11 @@ export interface AppData {
   strengthActions: StrengthActions;
   journalNotes: JournalNote[];
   vendorData: VendorData;
-  syncProgress: SyncProgressView | null;
   notice: Notice | null;
   inbox: InboxEntry[];
   notificationPermission: PermissionState;
   healthConnect: HealthConnectView;
   activities: ActivityRow[];
-  pendingDelete: PendingDelete | null;
   scan(): Promise<DiscoveredBand[]>;
   pair(bandId: string, ownerSince: string): Promise<void>;
   sync(): Promise<void>;

@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { useAppData } from '@/data/context';
+import { useAppData, useLive, useSyncProgress } from '@/data/context';
 import type { HomeSection } from '@/data/userData';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
@@ -27,7 +27,8 @@ interface Props {
 
 export function Notices({ day }: { day: DayRecord }) {
   const { t } = useT();
-  const { device, days, syncProgress } = useAppData();
+  const { device, days } = useAppData();
+  const syncProgress = useSyncProgress();
   const state = pickDeviceState({ device, days, syncProgress, nowS: Math.floor(Date.now() / 1000) });
   return (
     <>
@@ -45,7 +46,8 @@ export function Notices({ day }: { day: DayRecord }) {
 }
 
 export function LiveHeartRateCard() {
-  const { live, startLive, stopLive } = useAppData();
+  const { startLive, stopLive } = useAppData();
+  const live = useLive();
   const { t, language } = useT();
   return (
     <Card testID="card-live" style={{ gap: spacing.md }}>

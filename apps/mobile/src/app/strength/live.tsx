@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { useAppData } from '@/data/context';
+import { useAppData, useLive } from '@/data/context';
 import {
   REST_OPTIONS_S,
   STRENGTH_LIMITS,
@@ -43,7 +43,8 @@ function useNowMs(): number {
 export default function StrengthLiveScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const { strength, strengthActions, live, startLive, stopLive } = useAppData();
+  const { strength, strengthActions, startLive, stopLive } = useAppData();
+  const live = useLive();
   const labels = useStrengthLabels();
   const nowMs = useNowMs();
   const session = activeSession(strength.sessions);

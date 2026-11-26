@@ -1,13 +1,14 @@
 import { router } from 'expo-router';
 
-import { useAppData } from '@/data/context';
+import { useAppData, useSyncProgress } from '@/data/context';
 import { useT } from '@/i18n/useT';
 import { StateCard } from '@/ui/StateCard';
 
 import { daysSinceSync, pickDeviceState, type DeviceStateId } from './deviceState';
 
 export function DeviceStateCard() {
-  const { device, days, syncProgress, sync } = useAppData();
+  const { device, days, sync } = useAppData();
+  const syncProgress = useSyncProgress();
   const { t } = useT();
   const nowS = Math.floor(Date.now() / 1000);
   const state: DeviceStateId | null = pickDeviceState({ device, days, syncProgress, nowS });

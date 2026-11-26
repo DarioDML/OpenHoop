@@ -3,10 +3,10 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import type { ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
-import type { AppData, StrengthActions } from '@/data/types';
+import type { StrengthActions } from '@/data/types';
 import { WeekCard } from '@/ui/daily/cards';
 
-import { FIXTURE_NOW, fixtureStrengthActions, withAppData } from './support/appData';
+import { FIXTURE_NOW, fixtureStrengthActions, withAppData, type AppDataOverrides } from './support/appData';
 
 let mockParams: Record<string, string | string[] | undefined> = {};
 const mockPush = jest.fn();
@@ -68,7 +68,7 @@ function actions(overrides: Partial<StrengthActions> = {}): StrengthActions {
   return { ...fixtureStrengthActions(), ...overrides };
 }
 
-function app(strength: StrengthData, strengthActions: StrengthActions, extra: Partial<AppData> = {}): Partial<AppData> {
+function app(strength: StrengthData, strengthActions: StrengthActions, extra: AppDataOverrides = {}): AppDataOverrides {
   return { strength, strengthActions, ...extra };
 }
 

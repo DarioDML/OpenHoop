@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
-import { useAppData } from '@/data/context';
+import { useAppData, useSyncProgress } from '@/data/context';
 import type { SyncPhase } from '@/data/types';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
@@ -32,7 +32,8 @@ type StepStatus = 'done' | 'active' | 'pending';
 export default function SetupScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const { sync, syncProgress, notice } = useAppData();
+  const { sync, notice } = useAppData();
+  const syncProgress = useSyncProgress();
   const [finished, setFinished] = useState(false);
   const started = useRef(false);
 
