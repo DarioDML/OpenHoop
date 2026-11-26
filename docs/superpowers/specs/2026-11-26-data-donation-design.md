@@ -236,9 +236,10 @@ Each rule has its own count in `removed`.
 - Whole days are packed in date order, filling each part before starting the next. A day is split across
   parts, by time, only when it alone is larger than the limit.
 - Each part is self-contained: its own manifest, README and CSV rows for its own days.
-- Estimate (unverified): a biometric record is 124 bytes per second, so about 22 MB of JSON lines per day,
-  about 9 MB zipped. The real size must be measured on a real database during the build; the limit holds
-  either way because of splitting.
+- Measured on simulated data: one day is 86,400 records, 22.4 MB of JSON lines and 1.4 MB zipped
+  (16.6 bytes per record). Real band data is noisier and compresses less well, so real days will be larger;
+  that is not measured yet. The on-screen estimate uses 20 bytes per record and is a lower bound; the exact
+  sizes are shown after building. The limit holds either way because of splitting.
 - Parts are built one at a time and written to disk before the next starts, so memory does not grow with
   the number of days. *(My call:)* a part is written with `fflate`'s streaming `Zip`/`ZipDeflate` into a
   file handle, not with `zipSync`, so a whole part never has to sit in memory as one string.
