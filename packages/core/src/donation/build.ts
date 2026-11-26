@@ -1,7 +1,7 @@
 import { Zip, ZipDeflate, deflateSync, strToU8 } from 'fflate';
 
 import type { BandModel, DeviceRow, Store } from '../store/types';
-import { collectBandDayFrames, listDonationDays, type DonationBandDay, type DonationDay } from './days';
+import { collectBandDayFrames, listDonationDays, type DonationBandDay } from './days';
 import { REMOVAL_REASONS, emptyRemovalCounts, frameHex, knownIdentityValues, type RemovalCounts, type TimedFrame } from './frames';
 import {
   DONATION_FORMAT,
@@ -11,11 +11,8 @@ import {
   type DonationManifest,
   type ManifestDay,
 } from './manifest';
+import { PART_LIMIT_BYTES, modelLabel, modelSlug, partMargin } from './info';
 import { DONATION_TABLE_FILES, donationTables, type DonationWindow } from './tables';
-
-export const PART_LIMIT_BYTES = 25_165_824;
-export const PART_MARGIN_BYTES = 1_048_576;
-export const ESTIMATED_ZIPPED_BYTES_PER_FRAME = 20;
 
 const CODE_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 const CODE_LENGTH = 8;
@@ -101,38 +98,9 @@ export function donationCode(randomBytes: (count: number) => Uint8Array): string
   return [...randomBytes(CODE_LENGTH)].map((byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]).join('');
 }
 
-export function modelSlug(model: BandModel | null): '5.0' | 'mg' | 'unknown' {
-  return model === '5.0' ? '5.0' : model === 'MG' ? 'mg' : 'unknown';
-}
-
-export function modelLabel(model: BandModel | null): '5.0' | 'MG' | 'unknown' {
-  return model ?? 'unknown';
-}
-
 export function partFileName(code: string, slug: string, bandIndex: number, part: number, parts: number): string {
   const band = bandIndex > 1 ? `-band-${bandIndex}` : '';
   return `openhoop-donation-${code}-${slug}${band}-part-${part}-of-${parts}.zip`;
-}
-
-function marginFor(limit: number): number {
-  return Math.min(PART_MARGIN_BYTES, Math.floor(limit / 8));
-}
-
-export function estimateDonation(days: readonly DonationDay[], limitBytes: number = PART_LIMIT_BYTES): { bytes: number; files: number } {
-  const perBand = new Map<number, number>();
-  for (const day of days) {
-    for (const band of day.bands) {
-      perBand.set(band.deviceId, (perBand.get(band.deviceId) ?? 0) + band.frameEstimate * ESTIMATED_ZIPPED_BYTES_PER_FRAME);
-    }
-  }
-  const budget = limitBytes - marginFor(limitBytes);
-  let bytes = 0;
-  let files = 0;
-  for (const bandBytes of perBand.values()) {
-    bytes += bandBytes;
-    if (bandBytes > 0) files += Math.ceil(bandBytes / budget);
-  }
-  return { bytes, files };
 }
 
 interface MeasuredDay {
@@ -245,7 +213,7 @@ export async function buildDonation(input: BuildDonationInput): Promise<Donation
       return { device, bandIndex, days };
     });
 
-  let budget = limit - marginFor(limit);
+  let budget = limit - partMargin(limit);
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     if (budget <= 0) break;
     const opened: PartSink[] = [];
@@ -268,7 +236,7 @@ export async function buildDonation(input: BuildDonationInput): Promise<Donation
       await Promise.allSettled(opened.map((sink) => sink.discard()));
       if (signal?.aborted === true) throw new DonationAbortedError();
       if (!(error instanceof PartOverLimit)) throw error;
-      budget -= error.overBy + marginFor(limit);
+      budget -= error.overBy + partMargin(limit);
     }
   }
   throw new DonationTooLargeError();
