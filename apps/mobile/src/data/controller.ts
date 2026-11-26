@@ -157,6 +157,7 @@ import type {
   Settings,
   SleepEditOutcome,
   StrengthActions,
+  SyncCounts,
   SyncProgressView,
 } from './types';
 
@@ -229,6 +230,7 @@ function emptyDevice(): DeviceStatus {
     batteryPercent: null,
     lastSyncAt: null,
     backlogPages: null,
+    lastSyncCounts: null,
     lockState: 'unknown',
     connection: 'disconnected',
     configSnapshot: null,
@@ -259,6 +261,7 @@ export class AppController {
   private battery: number | null = null;
   private backlogPages: number | null = null;
   private lastSyncAt: number | null = null;
+  private lastSyncCounts: SyncCounts | null = null;
   private chain: Promise<unknown> = Promise.resolve();
   private userDataChain: Promise<void> = Promise.resolve();
   private syncRun: Promise<void> | null = null;
@@ -339,6 +342,7 @@ export class AppController {
         batteryPercent: this.battery,
         lastSyncAt: this.lastSyncAt,
         backlogPages: this.backlogPages,
+        lastSyncCounts: this.lastSyncCounts,
         lockState: this.lockState,
         connection: this.connection,
         configSnapshot: row?.configSnapshot ?? null,
@@ -443,6 +447,7 @@ export class AppController {
     this.battery = null;
     this.backlogPages = null;
     this.lastSyncAt = null;
+    this.lastSyncCounts = null;
     let ownerSince: string | null = null;
     if (this.deviceRow !== null) {
       const state = await store.getSyncState(this.deviceRow.id);
@@ -640,6 +645,7 @@ export class AppController {
     const { store } = this.requireApp();
     let failed = false;
     try {
+      this.lastSyncCounts = null;
       this.patch({ notice: null, syncProgress: this.progressView('connecting', 0, null, 0, 0) });
       await this.requireOwnerSince();
       const conn = await this.ensureConnection();
@@ -662,6 +668,7 @@ export class AppController {
         onProgress: (progress) => this.onTransferProgress(progress, backlogRecords),
       });
       const transferMs = Date.now() - startedAt;
+      this.lastSyncCounts = { saved: result.samples, discarded: result.discardedBeforeOwner };
       if (result.stoppedBy === 'locked') {
         this.lockState = 'locked';
         await store.setSetting(this.lockKey(deviceId), 'locked');

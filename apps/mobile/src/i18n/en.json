@@ -154,6 +154,7 @@
   "pairing.sinceBody": "Readings from before this date are never stored. That keeps data from a previous owner or a second-hand band out of your archive.",
   "pairing.sinceLabel": "Date (YYYY-MM-DD)",
   "pairing.sinceInvalid": "Enter a valid date that is not in the future.",
+  "pairing.sinceWarning": "Once the app has read the band, the band clears that history. Readings from before this date are then gone for good, also from the band. Keep today only for a second-hand band or a fresh start; otherwise pick the day you started wearing it.",
   "pairing.bondTitle": "Pair",
   "pairing.bondBody": "OpenHoop now asks your phone to pair with the band. Confirm the request if your phone shows one.",
   "pairing.bondStart": "Pair the band",

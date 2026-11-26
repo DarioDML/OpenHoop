@@ -154,6 +154,7 @@
   "pairing.sinceBody": "Metingen van vóór deze datum worden nooit opgeslagen. Zo komt er geen data van een vorige eigenaar of een tweedehands band in je archief.",
   "pairing.sinceLabel": "Datum (JJJJ-MM-DD)",
   "pairing.sinceInvalid": "Geef een geldige datum op die niet in de toekomst ligt.",
+  "pairing.sinceWarning": "Zodra de app de band heeft uitgelezen, wist de band die geschiedenis. Metingen van vóór deze datum zijn dan definitief weg, ook op de band. Laat vandaag alleen staan bij een tweedehands band of als je opnieuw wilt beginnen; kies anders de dag waarop je hem begon te dragen.",
   "pairing.bondTitle": "Koppelen",
   "pairing.bondBody": "OpenHoop vraagt je telefoon nu om de band te koppelen. Bevestig het verzoek als je telefoon erom vraagt.",
   "pairing.bondStart": "Band koppelen",
