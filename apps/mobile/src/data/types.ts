@@ -20,6 +20,11 @@ export type DataSource = 'demo' | 'band';
 export type LockState = 'open' | 'locked' | 'no-data' | 'unknown';
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'syncing';
 
+export interface SyncCounts {
+  saved: number;
+  discarded: number;
+}
+
 export interface DeviceStatus {
   name: string | null;
   model: BandModel | null;
@@ -27,6 +32,7 @@ export interface DeviceStatus {
   batteryPercent: number | null;
   lastSyncAt: number | null;
   backlogPages: number | null;
+  lastSyncCounts: SyncCounts | null;
   lockState: LockState;
   connection: ConnectionState;
   configSnapshot: string | null;

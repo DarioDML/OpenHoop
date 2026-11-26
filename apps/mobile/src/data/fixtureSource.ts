@@ -245,6 +245,7 @@ export function createFixtureDevice(now: Date = new Date(), lockState: LockState
     batteryPercent: 72,
     lastSyncAt: Math.floor(now.getTime() / 1000) - 18 * 60,
     backlogPages: 0,
+    lastSyncCounts: null,
     lockState,
     connection: 'connected',
     configSnapshot: null,

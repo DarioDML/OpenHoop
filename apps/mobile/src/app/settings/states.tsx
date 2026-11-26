@@ -22,6 +22,7 @@ interface Example {
 
 const EXAMPLES: readonly Example[] = [
   { id: 'notConnected', icon: 'bluetooth', tone: 'warning', title: 'states.notConnected.title', body: 'states.notConnected.body', action: { label: 'band.pair', route: '/onboarding/pair' } },
+  { id: 'waitingForData', icon: 'moon', tone: 'purple', title: 'states.waitingForData.title', body: 'states.waitingForData.body' },
   { id: 'syncing', icon: 'sync', tone: 'info', title: 'states.syncing.title', body: 'states.syncing.body' },
   { id: 'lowBattery', icon: 'battery', tone: 'warning', title: 'states.lowBattery.title', body: 'states.lowBattery.body', params: { percent: 12 } },
   { id: 'charging', icon: 'plug', tone: 'positive', title: 'states.charging.title', body: 'states.charging.body' },

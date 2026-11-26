@@ -49,6 +49,18 @@ export function DeviceStateCard() {
           onAction={() => router.push('/onboarding/pair')}
         />
       );
+    case 'waitingForData':
+      return (
+        <StateCard
+          testID="device-state-waitingForData"
+          icon="moon"
+          tone="purple"
+          title={t('states.waitingForData.title')}
+          body={t('states.waitingForData.body')}
+          actionLabel={t('band.sync')}
+          onAction={() => void sync()}
+        />
+      );
     case 'lowBattery':
       return (
         <StateCard

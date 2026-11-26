@@ -36,6 +36,7 @@ const openSheet = jest.mocked(WebBrowser.openBrowserAsync);
 import CommunityScreen from '@/app/(tabs)/community';
 import MoreScreen from '@/app/(tabs)/more';
 import CalibrationScreen from '@/app/onboarding/calibration';
+import SetupScreen from '@/app/onboarding/setup';
 import WelcomeScreen from '@/app/onboarding/index';
 import AboutScreen from '@/app/settings/about';
 import AccuracyScreen from '@/app/settings/accuracy';
@@ -261,10 +262,10 @@ describe('About, accuracy and support', () => {
 describe('System states', () => {
   it('shows every example state labelled as an example', async () => {
     await render(withAppData(<StatesGalleryScreen />));
-    for (const id of ['notConnected', 'syncing', 'lowBattery', 'charging', 'calibrating', 'noData', 'needsMg', 'offline', 'dataAtRisk', 'firstDay']) {
+    for (const id of ['notConnected', 'waitingForData', 'syncing', 'lowBattery', 'charging', 'calibrating', 'noData', 'needsMg', 'offline', 'dataAtRisk', 'firstDay']) {
       expect(screen.getByTestId(`state-example-${id}`)).toBeTruthy();
     }
-    expect(screen.getAllByText('Example')).toHaveLength(10);
+    expect(screen.getAllByText('Example')).toHaveLength(11);
   });
 
   it('picks the right device state', () => {
@@ -274,7 +275,9 @@ describe('System states', () => {
     expect(pickDeviceState(base)).toBeNull();
     expect(pickDeviceState({ ...base, device: { ...base.device, lastSyncAt: NOW_S - 8 * 86400 } })).toBe('dataAtRisk');
     expect(pickDeviceState({ ...base, device: { ...base.device, batteryPercent: 10 } })).toBe('lowBattery');
-    expect(pickDeviceState({ ...base, device: { ...base.device, lastSyncAt: null }, days: [] })).toBe('notConnected');
+    expect(pickDeviceState({ ...base, device: { ...base.device, name: null, lastSyncAt: null }, days: [] })).toBe('notConnected');
+    expect(pickDeviceState({ ...base, device: { ...base.device, lastSyncAt: null }, days: [] })).toBe('waitingForData');
+    expect(pickDeviceState({ ...base, days: [] })).toBe('waitingForData');
     expect(pickDeviceState({ ...base, days: days.slice(0, 1) })).toBe('firstDay');
     expect(pickDeviceState({ ...base, device: { ...base.device, connection: 'syncing' } })).toBe('syncing');
   });
@@ -289,6 +292,14 @@ describe('Onboarding', () => {
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/'));
     expect(updateSettings).toHaveBeenCalledWith({ dataSource: 'demo' });
     expect(updateUserData).toHaveBeenCalledWith({ onboardingDone: true });
+  });
+
+  it('says how many readings the first sync saved and how many it left out', async () => {
+    const device = { ...createFixtureDevice(FIXTURE_NOW), lastSyncCounts: { saved: 0, discarded: 5200 } };
+    await render(withAppData(<SetupScreen />, 'en', { device, sync: jest.fn(async () => undefined) }));
+    await waitFor(() => expect(screen.getByTestId('setup-counts')).toBeTruthy());
+    expect(screen.getByTestId('setup-counts')).toHaveTextContent(/No readings were saved yet/);
+    expect(screen.getByTestId('setup-discarded')).toHaveTextContent('5200 readings were from before the date you entered and were not kept.');
   });
 
   it('marks onboarding done on the calibration screen', async () => {

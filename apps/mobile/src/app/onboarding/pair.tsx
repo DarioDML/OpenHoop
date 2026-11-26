@@ -146,6 +146,9 @@ export default function PairScanScreen() {
             hint={sinceValid ? undefined : t('pairing.sinceInvalid')}
             testID="since-input"
           />
+          <AppText variant="label" color={colors.warning} testID="since-warning">
+            {t('pairing.sinceWarning')}
+          </AppText>
           <AppText variant="caption" muted>
             {t('pairing.bondBody')}
           </AppText>

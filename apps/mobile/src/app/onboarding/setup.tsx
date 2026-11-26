@@ -32,7 +32,7 @@ type StepStatus = 'done' | 'active' | 'pending';
 export default function SetupScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const { sync, notice } = useAppData();
+  const { sync, notice, device } = useAppData();
   const syncProgress = useSyncProgress();
   const [finished, setFinished] = useState(false);
   const started = useRef(false);
@@ -102,6 +102,18 @@ export default function SetupScreen() {
           );
         })}
       </Card>
+      {finished && !failed && device.lastSyncCounts !== null ? (
+        <Card style={{ gap: spacing.sm }} testID="setup-counts">
+          <AppText variant="body">
+            {device.lastSyncCounts.saved > 0 ? t('onboarding.setup.saved', { count: device.lastSyncCounts.saved }) : t('onboarding.setup.savedNone')}
+          </AppText>
+          {device.lastSyncCounts.discarded > 0 ? (
+            <AppText variant="label" color={colors.warning} testID="setup-discarded">
+              {t('onboarding.setup.discarded', { count: device.lastSyncCounts.discarded })}
+            </AppText>
+          ) : null}
+        </Card>
+      ) : null}
       <AppText variant="label" muted>
         {t('onboarding.setup.noFirmware')}
       </AppText>

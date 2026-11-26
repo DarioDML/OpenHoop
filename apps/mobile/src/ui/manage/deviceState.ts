@@ -2,7 +2,7 @@ import type { DayRecord } from '@openhoop/core';
 
 import type { DeviceStatus, SyncProgressView } from '@/data/types';
 
-export type DeviceStateId = 'syncing' | 'dataAtRisk' | 'notConnected' | 'lowBattery' | 'firstDay';
+export type DeviceStateId = 'syncing' | 'dataAtRisk' | 'notConnected' | 'waitingForData' | 'lowBattery' | 'firstDay';
 
 export const LOW_BATTERY_PERCENT = 15;
 export const DATA_AT_RISK_DAYS = 7;
@@ -24,7 +24,8 @@ export function pickDeviceState({ device, days, syncProgress, nowS }: DeviceStat
   if (syncProgress !== null || device.connection === 'syncing') return 'syncing';
   const since = daysSinceSync(device, nowS);
   if (since !== null && since >= DATA_AT_RISK_DAYS) return 'dataAtRisk';
-  if (device.lastSyncAt === null && days.length === 0) return 'notConnected';
+  if (days.length === 0 && device.name === null && device.lastSyncAt === null) return 'notConnected';
+  if (days.length === 0) return 'waitingForData';
   if (device.batteryPercent !== null && device.batteryPercent <= LOW_BATTERY_PERCENT) return 'lowBattery';
   if (days.length === 1) return 'firstDay';
   return null;
