@@ -1,5 +1,6 @@
 import { FrameError, PACK_SOC_EVENT, decodeFrame, type Packet } from '@openhoop/protocol';
 
+import { consoleSpans, type ConsolePiece, type ConsoleSpan } from '../consoleLines';
 import type { DeviceRow } from '../store/types';
 
 export const REMOVAL_REASONS = [
@@ -8,6 +9,8 @@ export const REMOVAL_REASONS = [
   'serialText',
   'addressText',
   'knownText',
+  'consoleIdentity',
+  'consolePartial',
   'beforeOwner',
   'invalid',
   'duplicate',
@@ -28,6 +31,20 @@ const SERIAL_TEXT = /(?:5A[GM]|MGB)[0-9]{6,}/;
 const ADDRESS_TEXT = /(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}/;
 const KNOWN_MIN_LENGTH = 6;
 const TEXT_SLICE = 4_096;
+const CRC_BYTES = 4;
+const CONSOLE_LINE_START = /^\d+,\s/;
+const CONSOLE_IDENTITY_TEXT: readonly RegExp[] = [
+  new RegExp(SERIAL_TEXT.source, 'i'),
+  /[A-Z]{3}[0-9][A-Z]{2}[0-9]{7}/i,
+  /(?:[0-9A-F]{2}[:-]){2,}[0-9A-F]{2}/i,
+  /\b(?:[0-9A-F]{2} ){5}[0-9A-F]{2}\b/i,
+  /\b[0-9A-F]{4}\.[0-9A-F]{4}\.[0-9A-F]{4}\b/i,
+  /(?:\b|0x)[0-9A-F]{12,}\b/i,
+  /(?:addr(?:ess)?|mac|\b(?:uu)?id|\bs\/?n)\s*[:=]/i,
+  /advertising name|name\s*[:=]/i,
+  /serial/i,
+  /whoop[\s_-]+\w/i,
+];
 
 export function emptyRemovalCounts(): RemovalCounts {
   const counts = {} as RemovalCounts;
@@ -37,13 +54,16 @@ export function emptyRemovalCounts(): RemovalCounts {
 
 const MAC_ADDRESS = /^[0-9A-Fa-f]{2}(?:[:-][0-9A-Fa-f]{2}){5}$/;
 
-function addressBytes(bleId: string | undefined): string[] {
+function addressForms(bleId: string | undefined): string[] {
   if (bleId === undefined || !MAC_ADDRESS.test(bleId.trim())) return [];
   const bytes = bleId
     .trim()
     .split(/[:-]/)
     .map((pair) => Number.parseInt(pair, 16));
-  return [String.fromCharCode(...bytes), String.fromCharCode(...[...bytes].reverse())];
+  return [bytes, [...bytes].reverse()].flatMap((order) => {
+    const hex = order.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    return [String.fromCharCode(...order), hex, hex.toUpperCase()];
+  });
 }
 
 export function knownIdentityValues(devices: readonly (Pick<DeviceRow, 'serial' | 'name'> & { bleId?: string })[]): string[] {
@@ -53,7 +73,7 @@ export function knownIdentityValues(devices: readonly (Pick<DeviceRow, 'serial' 
       const trimmed = value?.trim() ?? '';
       if (trimmed.length >= KNOWN_MIN_LENGTH) values.add(trimmed);
     }
-    for (const bytes of addressBytes(device.bleId)) values.add(bytes);
+    for (const form of addressForms(device.bleId)) values.add(form);
   }
   return [...values];
 }
@@ -78,6 +98,52 @@ export function identityReason(frame: Uint8Array, packet: Packet, known: readonl
   if (ADDRESS_TEXT.test(text)) return 'addressText';
   if (known.some((value) => text.includes(value))) return 'knownText';
   return null;
+}
+
+export function duplicateKey(frame: Uint8Array, t: number): string {
+  return `${t}:${frame.length}:${frameHex(frame.subarray(frame.length - CRC_BYTES))}`;
+}
+
+interface ConsoleEntry extends ConsolePiece {
+  copies: TimedFrame[];
+}
+
+function spanReason(span: ConsoleSpan<ConsoleEntry>, known: readonly string[]): RemovalReason | null {
+  const lower = span.text.toLowerCase();
+  if (CONSOLE_IDENTITY_TEXT.some((pattern) => pattern.test(span.text)) || known.some((value) => lower.includes(value))) {
+    return 'consoleIdentity';
+  }
+  if (span.end !== 'newline' || (!span.startSeen && !CONSOLE_LINE_START.test(span.text))) return 'consolePartial';
+  return null;
+}
+
+export function consoleLineReasons(frames: readonly TimedFrame[], known: readonly string[]): Map<TimedFrame, RemovalReason> {
+  const byKey = new Map<string, ConsoleEntry>();
+  const stream: ConsoleEntry[] = [];
+  for (const entry of frames) {
+    if (entry.packet.kind !== 'console') continue;
+    const key = duplicateKey(entry.frame, entry.t);
+    const first = byKey.get(key);
+    if (first !== undefined) {
+      first.copies.push(entry);
+      continue;
+    }
+    const piece: ConsoleEntry = { t: entry.t, sequence: entry.packet.consoleSequence, text: entry.packet.text, copies: [entry] };
+    byKey.set(key, piece);
+    stream.push(piece);
+  }
+  const lowered = known.map((value) => value.toLowerCase());
+  const reasons = new Map<TimedFrame, RemovalReason>();
+  for (const span of consoleSpans(stream)) {
+    const reason = spanReason(span, lowered);
+    if (reason === null) continue;
+    for (const piece of span.fragments) {
+      for (const copy of piece.copies) {
+        if (reasons.get(copy) !== 'consoleIdentity') reasons.set(copy, reason);
+      }
+    }
+  }
+  return reasons;
 }
 
 export interface DayFrame {

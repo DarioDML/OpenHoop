@@ -447,7 +447,7 @@
   "aboutx.donateData.rowBody": "Deel ruwe banddata en officiële waarden om de nauwkeurigheid te verbeteren",
   "aboutx.donateData.intro": "Help OpenHoop nauwkeuriger te maken. Kies dagen, en de app pakt de ruwe banddata samen met de officiële waarden van die dagen in. Daarna plaats je de bestanden zelf in een openbaar GitHub-issue.",
   "aboutx.donateData.goesIn": "Gaat mee: ruwe bandrecords, de officiële waarden die je importeerde, en de resultaten van OpenHoop voor die dagen.",
-  "aboutx.donateData.staysOut": "Blijft weg: je naam en profiel, het serienummer, het Bluetooth-adres en de naam van je band, dagboek, notities, GPS, coachgesprekken en cyclusgegevens.",
+  "aboutx.donateData.staysOut": "Blijft weg: je naam en profiel, het serienummer, het Bluetooth-adres en de naam van je band en van het batterijpack, logregels van de band die ze noemen, dagboek, notities, GPS, coachgesprekken en cyclusgegevens.",
   "aboutx.donateData.realDates": "Datums en tijden blijven echt. Je hebt een gratis GitHub-account nodig.",
   "aboutx.donateData.demo": "Demodata kun je niet doneren. Koppel eerst je band.",
   "aboutx.donateData.empty": "Nog geen afgeronde dag heeft ruwe banddata. Synchroniseer je band en kom morgen terug.",

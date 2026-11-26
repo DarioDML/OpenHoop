@@ -201,7 +201,7 @@ Raw band data next to the official values for the same days is what makes the sc
 
 What goes in: the raw band records of the chosen days in the format of wearable5.0's donations (`frames.jsonl`), the official values you imported for those days, OpenHoop's own results for them, a `MANIFEST.json` and a `README.txt`. The band model is in the issue title and every file name.
 
-What stays out: your name and profile, the band's serial number, Bluetooth address and name (and every raw record that carries them), records from before you started wearing the band, journal answers, notes, GPS routes, coach chats, cycle tracking, lab results, body measurements and every other day.
+What stays out: your name and profile, the serial number, Bluetooth address and name of the band and its battery pack (and every raw record that carries them), every piece of a band log line that names one of them or that cannot be read whole, records from before you started wearing the band, journal answers, notes, GPS routes, coach chats, cycle tracking, lab results, body measurements and every other day.
 
 Dates and times are real, because every raw record carries the band's clock. The issue is public, linked to your GitHub account and cannot be taken back. Donated data is shared under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/): anyone may use it for anything.
 

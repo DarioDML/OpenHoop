@@ -447,7 +447,7 @@
   "aboutx.donateData.rowBody": "Share raw band data and official values to improve accuracy",
   "aboutx.donateData.intro": "Help make OpenHoop more accurate. Choose days, and the app packs the raw band data with the official values for those days. You then post the files yourself in a public GitHub issue.",
   "aboutx.donateData.goesIn": "Goes in: raw band records, the official values you imported, and OpenHoop's own results for those days.",
-  "aboutx.donateData.staysOut": "Stays out: your name and profile, the band's serial number, Bluetooth address and name, journal, notes, GPS, coach chats and cycle tracking.",
+  "aboutx.donateData.staysOut": "Stays out: your name and profile, the serial number, Bluetooth address and name of the band and of its battery pack, band log lines that mention them, journal, notes, GPS, coach chats and cycle tracking.",
   "aboutx.donateData.realDates": "Dates and times stay real. You need a free GitHub account.",
   "aboutx.donateData.demo": "Demo data cannot be donated. Connect your band first.",
   "aboutx.donateData.empty": "No finished day has raw band data yet. Sync your band and come back tomorrow.",
