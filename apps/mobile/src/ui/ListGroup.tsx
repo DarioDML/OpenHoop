@@ -76,7 +76,7 @@ export function ListRow({ title, subtitle, icon, leading, right, value, href, on
         ) : null}
       </View>
       {value ? (
-        <AppText variant="label" muted numeric style={{ flexShrink: 1, textAlign: 'right' }}>
+        <AppText variant="label" muted numeric style={{ flexShrink: 1, maxWidth: '45%', textAlign: 'right' }}>
           {value}
         </AppText>
       ) : null}

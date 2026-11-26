@@ -86,7 +86,7 @@ export function HomeBody({ days, index }: Props) {
   if (!day) return null;
   const sections: Record<HomeSection, ReactNode> = {
     summary: (
-      <View style={{ flexDirection: 'row', gap: spacing.md }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
         <VitalsCard days={days} index={index} />
         <StressCard days={days} index={index} />
       </View>

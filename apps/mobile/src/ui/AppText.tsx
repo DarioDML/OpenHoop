@@ -1,6 +1,6 @@
 import { Text, type TextProps, type TextStyle } from 'react-native';
 
-import { fontForWeight, typeScale, useTheme, type TypeVariant } from './theme';
+import { fontForWeight, maxFontScale, typeScale, useTheme, type TypeVariant } from './theme';
 
 interface Props extends TextProps {
   variant?: TypeVariant;
@@ -10,7 +10,7 @@ interface Props extends TextProps {
   numeric?: boolean;
 }
 
-export function AppText({ variant = 'body', muted = false, soft = false, color, numeric = false, style, ...rest }: Props) {
+export function AppText({ variant = 'body', muted = false, soft = false, color, numeric = false, style, maxFontSizeMultiplier, ...rest }: Props) {
   const { colors } = useTheme();
   const scale = typeScale[variant];
   const base: TextStyle = {
@@ -19,5 +19,5 @@ export function AppText({ variant = 'body', muted = false, soft = false, color, 
     color: color ?? (muted ? colors.textMuted : soft ? colors.textSoft : colors.text),
     ...(numeric ? { fontVariant: ['tabular-nums'] } : null),
   };
-  return <Text {...rest} style={[base, style]} />;
+  return <Text maxFontSizeMultiplier={maxFontSizeMultiplier ?? maxFontScale[variant]} {...rest} style={[base, style]} />;
 }

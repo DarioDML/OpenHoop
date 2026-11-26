@@ -3,6 +3,7 @@ import { RefreshControl, ScrollView, StyleSheet, View, type LayoutChangeEvent, t
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { useLayout } from './layout';
 import { radius, spacing, useTheme, type Tint } from './theme';
 
 export const TAB_BAR_SPACE = 120;
@@ -67,10 +68,11 @@ export function Screen({
 }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { gutter } = useLayout();
   const bottom = insets.bottom + (withTabBar ? TAB_BAR_SPACE : spacing.xxl);
 
   const headerBlock = header ? (
-    <View style={{ paddingTop: insets.top + spacing.lg, paddingHorizontal: 20, paddingBottom: 40, gap: spacing.lg }}>
+    <View style={{ paddingTop: insets.top + spacing.lg, paddingHorizontal: gutter, paddingBottom: 40, gap: spacing.lg }}>
       <GradientFill id="screen-header" from={tint ? colors.tint[tint] : colors.backgroundTop} to={colors.background} angle="diagonal" />
       {header}
     </View>
@@ -85,7 +87,7 @@ export function Screen({
           borderTopRightRadius: radius.lg,
           backgroundColor: colors.sheet,
           paddingTop: spacing.xl,
-          paddingHorizontal: 20,
+          paddingHorizontal: gutter,
           paddingBottom: bottom,
           gap,
           flexGrow: 1,
@@ -95,7 +97,7 @@ export function Screen({
       {children}
     </View>
   ) : (
-    <View style={[{ paddingTop: insets.top + spacing.lg, paddingHorizontal: 20, paddingBottom: bottom, gap, flexGrow: 1 }, contentStyle]}>
+    <View style={[{ paddingTop: insets.top + spacing.lg, paddingHorizontal: gutter, paddingBottom: bottom, gap, flexGrow: 1 }, contentStyle]}>
       {children}
     </View>
   );
@@ -123,7 +125,7 @@ export function Screen({
         </View>
       )}
       {footer ? (
-        <View style={{ paddingHorizontal: 20, paddingBottom: insets.bottom + spacing.lg, paddingTop: spacing.md, gap: spacing.md }}>{footer}</View>
+        <View style={{ paddingHorizontal: gutter, paddingBottom: insets.bottom + spacing.lg, paddingTop: spacing.md, gap: spacing.md }}>{footer}</View>
       ) : null}
     </View>
   );

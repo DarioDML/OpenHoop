@@ -1,6 +1,6 @@
 import type { DayRecord } from '@openhoop/core';
 import { router, type Href } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type ViewStyle } from 'react-native';
 
 import { dayEntries } from '@/data/activities';
 import { activeCheckIns } from '@/coach/checkIns';
@@ -16,6 +16,7 @@ import { AppText } from '@/ui/AppText';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Icon, type IconName } from '@/ui/Icon';
+import { useLayout } from '@/ui/layout';
 import { MetricTile } from '@/ui/MetricTile';
 import { ISSUES, type IssueKey } from '@/ui/NotBuilt';
 import { ParityBadge } from '@/ui/ParityBadge';
@@ -58,12 +59,17 @@ export function PendingCard({ label, issue, href, testID }: PendingProps) {
   );
 }
 
+function halfCard(compact: boolean): ViewStyle {
+  return { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: compact ? '100%' : 0 };
+}
+
 export function VitalsCard({ days, index }: DayProps) {
   const { t, reason } = useT();
+  const { compact } = useLayout();
   const summary = vitalsSummary(days, index);
   const allIn = summary.inRange === summary.measured;
   return (
-    <Card href="/health/vitals" testID="card-vitals" accessibilityLabel={t('home.vitals')} style={{ flex: 1, gap: 8 }}>
+    <Card href="/health/vitals" testID="card-vitals" accessibilityLabel={t('home.vitals')} style={[halfCard(compact), { gap: 8 }]}>
       <AppText variant="capSmall" muted>
         {t('home.vitals')} ›
       </AppText>
@@ -85,12 +91,13 @@ export function VitalsCard({ days, index }: DayProps) {
 
 export function StressCard({ days, index }: DayProps) {
   const { t, language, reason } = useT();
+  const { compact } = useLayout();
   const { colors } = useTheme();
   const day = days[index];
   const view = stressForDay(day);
   const latest = view.latest;
   return (
-    <Card href="/health/stress" testID="card-stress" accessibilityLabel={t('home.stress')} style={{ flex: 1, gap: 8 }}>
+    <Card href="/health/stress" testID="card-stress" accessibilityLabel={t('home.stress')} style={[halfCard(compact), { gap: 8 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
         <AppText variant="capSmall" muted numberOfLines={1} style={{ flexShrink: 1 }}>
           {t('home.stress')} ›
