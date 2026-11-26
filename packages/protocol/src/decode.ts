@@ -2,6 +2,8 @@ import { ByteReader, attempt } from './bytes';
 import { commandName } from './commands';
 import type { FirmwareVersion } from './firmware';
 import { validateFrame } from './framing';
+import type { EventDetail } from './bandEvents';
+import { decodeEventDetail } from './bandEvents';
 import type { PackReading } from './batteryPack';
 import { decodePackPayload } from './batteryPack';
 import type { RecordBody } from './records';
@@ -49,6 +51,7 @@ export type Packet =
       unixS: number;
       payload: Uint8Array;
       battery?: { socPercent: number; millivolts: number };
+      detail?: EventDetail;
     }
   | {
       kind: 'packEvent';
@@ -249,10 +252,12 @@ function decodeEvent(r: ByteReader): Packet {
   const packet: Extract<Packet, { kind: 'event' }> = {
     kind: 'event',
     event,
-    eventName: schema.events.get(event) ?? `UNKNOWN_${event}`,
+    eventName: schema.events.get(event) ?? schema.bandEvents.ownNames.get(event) ?? `UNKNOWN_${event}`,
     unixS,
     payload,
   };
+  const detail = decodeEventDetail(event, payload);
+  if (detail !== null) packet.detail = detail;
   if (event === 3) {
     const pr = new ByteReader(payload);
     const soc = attempt(() => readValue(pr, spec(schema.event.battery, 'soc_percent')));

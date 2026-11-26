@@ -17,8 +17,8 @@ export function isAsleepSample(sample: Sample | undefined): boolean {
 export function sleepPeriods(samples: Sample[]): SleepPeriod[] {
   const rows = sortedUnique(samples);
   const n = rows.length;
-  // The same pre-setup afternoon read 5-13 C, so its skin temperature was rejected; a band that reports skin
-  // temperature elsewhere but not through a SLEEP stretch was not reading a worn wrist.
+  // The same pre-setup afternoon read 5-13 C while its wear detector (event 120) said worn, so its skin temperature was
+  // rejected; a SLEEP stretch without skin temperature, from a band that reports it elsewhere, is not trusted as sleep.
   const reportsSkinTemp = rows.some((r) => r.skinTempC !== null);
   const half = SLEEP_SMOOTH_S / 2;
   const prefix = new Int32Array(n + 1);
