@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GATT, concat, toHex } from '@openhoop/protocol';
-import { DisconnectedError, Session, readKeys } from '../src/index';
+import { GATT, concat, fromHex, toHex } from '@openhoop/protocol';
+import { DisconnectedError, Session, readKeys, valueFromReply } from '../src/index';
 import { FakeTransport, VirtualClock, reply, scriptBand } from './fakeTransport';
 
 function ascii(text: string, length: number): Uint8Array {
@@ -35,7 +35,7 @@ async function band(failKey: string | null): Promise<{ transport: FakeTransport;
       if (out.command === 128) {
         const key = String.fromCharCode(...out.args.subarray(1, 33)).replace(/\0+$/, '');
         if (key === failKey) emit(GATT.cmdFromStrap, reply(out, 3));
-        else emit(GATT.cmdFromStrap, reply(out, 1, concat(Uint8Array.of(1), ascii(key.endsWith('v4_packets') ? '1' : '2', 32))));
+        else emit(GATT.cmdFromStrap, reply(out, 1, concat(Uint8Array.of(1), ascii(key, 32), ascii(key.endsWith('v4_packets') ? '1' : '2', 35))));
         return true;
       }
       return false;
@@ -46,6 +46,24 @@ async function band(failKey: string | null): Promise<{ transport: FakeTransport;
   return { transport, session };
 }
 
+describe('valueFromReply', () => {
+  it('reads the value after the echoed key, as an MG band on 50.43.2.0 replies', () => {
+    const hrSwitching = fromHex(
+      '0168725f63685f737769746368696e67000000000000000000000000000000000031000000000000000000000000000000000000000000000000000000000000000000',
+    );
+    const backlog = fromHex(
+      '016d61785f636f6c6c656374696f6e5f6261636b6c6f6700000000000000000000382e3300000000000000000000000000000000000000000000000000000000000000',
+    );
+    expect(valueFromReply(hrSwitching, 'hr_ch_switching')).toBe('1');
+    expect(valueFromReply(backlog, 'max_collection_backlog')).toBe('8.3');
+  });
+
+  it('refuses a reply that does not echo the key', () => {
+    expect(valueFromReply(concat(Uint8Array.of(1), ascii('other_key', 32), ascii('1', 32)), 'hr_ch_switching')).toBeNull();
+    expect(valueFromReply(concat(Uint8Array.of(1), ascii('1', 32)), 'hr_ch_switching')).toBeNull();
+  });
+});
+
 describe('readKeys', () => {
   it('enumerates feature flags and reads their values with read-class commands only', async () => {
     const { transport, session } = await band(null);
@@ -55,7 +73,7 @@ describe('readKeys', () => {
       [4, 'enable_r22_v4_packets', '1'],
       [8, 'make_hrfm_visible', '2'],
     ]);
-    expect(keys[1]?.valueHex?.startsWith(toHex(concat(Uint8Array.of(1), ascii('1', 32))))).toBe(true);
+    expect(keys[1]?.valueHex?.startsWith(toHex(concat(Uint8Array.of(1), ascii('enable_r22_v4_packets', 32), ascii('1', 1))))).toBe(true);
     const valueRead = transport.writes.find((w) => w.command === 128);
     expect(valueRead?.args.subarray(0, 33)).toEqual(concat(Uint8Array.of(1), ascii('enable_r22_packets', 32)));
     expect(transport.classesSent().every((c) => c === 'read')).toBe(true);

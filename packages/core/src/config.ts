@@ -31,6 +31,17 @@ function keyField(key: string): Uint8Array {
   return out;
 }
 
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, i) => byte === b[i]);
+}
+
+// A band (MG, 50.43.2.0) replies [rev][key, NUL-padded to 32][value, NUL-padded ASCII].
+export function valueFromReply(body: Uint8Array, key: string): string | null {
+  const echo = body.subarray(1, 1 + KEY_FIELD);
+  if (!sameBytes(echo, keyField(key))) return null;
+  return printableAscii(body.subarray(1 + KEY_FIELD));
+}
+
 function rethrowDisconnect(error: unknown): void {
   if (error instanceof DisconnectedError) throw error;
 }
@@ -57,10 +68,9 @@ export async function readKeys(session: Session, kind: KeyKind): Promise<ConfigK
 
   const out: ConfigKey[] = [];
   for (const { index, key } of keys) {
-    // The value reply shape [rev][value, NUL-padded ASCII] is a guess not yet seen on a band: keep the raw hex.
     try {
       const reply = await session.send(commands.get, concat(REVISION, keyField(key)));
-      out.push({ index, key, valueText: printableAscii(reply.body.subarray(1)), valueHex: toHex(reply.body) });
+      out.push({ index, key, valueText: valueFromReply(reply.body, key), valueHex: toHex(reply.body) });
     } catch (error) {
       rethrowDisconnect(error);
       out.push({ index, key, valueText: null, valueHex: null });
