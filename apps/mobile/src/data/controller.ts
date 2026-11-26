@@ -45,6 +45,7 @@ import {
   probeLock,
   readDeviceInformation,
   readKeys,
+  rebuildStaleSamples,
   recomputeDays,
   recordHeartRate,
   setPregnancy,
@@ -432,9 +433,21 @@ export class AppController {
     if (dataSource === 'band') await this.purgeDemoRecordings();
     await this.loadActiveDevice();
     this.patch({ ready: true });
+    void this.exclusive(() => this.redecodeStoredSamples());
     void this.refreshNotifications();
     void this.refreshHealthConnect();
     if (dataSource === 'demo') void this.sync();
+  }
+
+  private async redecodeStoredSamples(): Promise<void> {
+    try {
+      const rebuilt = await rebuildStaleSamples(this.requireApp().store);
+      for (const deviceId of rebuilt) await this.recompute(deviceId, null);
+      if (rebuilt.length > 0) this.patch({ syncProgress: null });
+    } catch (error) {
+      this.patch({ syncProgress: null });
+      this.fail(error);
+    }
   }
 
   private async purgeDemoRecordings(): Promise<void> {
