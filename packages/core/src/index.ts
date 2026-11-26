@@ -10,6 +10,7 @@ export * from './sync';
 export * from './live';
 export * from './deviceInfo';
 export * from './config';
+export * from './bandActions';
 export * from './pipeline';
 export * from './redecode';
 export * from './batteryPack';

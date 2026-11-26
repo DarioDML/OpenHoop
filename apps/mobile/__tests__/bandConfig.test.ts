@@ -6,7 +6,10 @@ import {
   FLAG_KEYS,
   MAX_ENTRIES,
   PROVENANCE_FACTS,
+  applyConfigWrite,
   buildSnapshot,
+  carryOver,
+  changeFor,
   describeFields,
   parseBandConfig,
   serializeSnapshot,
@@ -138,5 +141,48 @@ describe('labels', () => {
       expect(allTranslations.en[`bandConfig.config.${key}`]).toBeTruthy();
       expect(allTranslations.nl[`bandConfig.config.${key}`]).toBeTruthy();
     }
+  });
+});
+
+describe('changes made from OpenHoop', () => {
+  it('records the original value once and drops it when the value is put back', () => {
+    const once = applyConfigWrite(SNAPSHOT, 'flag', 'make_hrfm_visible', '2', '1', 1_700_000_100);
+    expect(once.flags.find((entry) => entry.key === 'make_hrfm_visible')?.valueText).toBe('1');
+    expect(changeFor(once, 'flag', 'make_hrfm_visible')).toEqual({ kind: 'flag', key: 'make_hrfm_visible', original: '2', at: 1_700_000_100 });
+    expect(changeFor(once, 'config', 'make_hrfm_visible')).toBeNull();
+    const back = applyConfigWrite(once, 'flag', 'make_hrfm_visible', '1', '2', 1_700_000_200);
+    expect(back.changes).toEqual([]);
+  });
+
+  it('round-trips changes and still parses snapshots stored without them', () => {
+    const changed = applyConfigWrite(SNAPSHOT, 'config', 'enable_rfid', '2', '1', 1_700_000_100);
+    expect(parseBandConfig(serializeSnapshot(changed))).toEqual({ status: 'ok', snapshot: changed });
+    const { changes: _changes, ...legacy } = SNAPSHOT;
+    expect(parseBandConfig(JSON.stringify(legacy))).toEqual({ status: 'ok', snapshot: SNAPSHOT });
+  });
+
+  it.each([
+    ['a change with an unknown kind', { kind: 'other', key: 'enable_rfid', original: '1', at: 1 }],
+    ['a change with a value that cannot be put back', { kind: 'config', key: 'enable_rfid', original: '0', at: 1 }],
+    ['a change without a time', { kind: 'config', key: 'enable_rfid', original: '1' }],
+  ])('rejects %s as malformed', (_name, change) => {
+    expect(parseBandConfig(JSON.stringify({ ...SNAPSHOT, changes: [change] }))).toEqual({ status: 'malformed' });
+  });
+
+  it('keeps changes over a new read unless the band shows the original again', () => {
+    const changed = applyConfigWrite(applyConfigWrite(SNAPSHOT, 'config', 'enable_rfid', '2', '1', 5), 'flag', 'make_hrfm_visible', '2', '1', 6);
+    const reread = buildSnapshot(1_700_000_900, 'demo', [flag('enable_r22_v4_packets', '1'), flag('make_hrfm_visible', '2')], [flag('enable_rfid', '1')]);
+    expect(carryOver(changed, reread).changes).toEqual([{ kind: 'config', key: 'enable_rfid', original: '2', at: 5 }]);
+    expect(carryOver(changed, buildSnapshot(1_700_000_900, 'band', [], [flag('enable_rfid', '1')])).changes).toEqual([]);
+    expect(carryOver(null, reread)).toBe(reread);
+  });
+
+  it('marks only known on/off values as writable', () => {
+    const rows = describeFields('flag', [flag('enable_sig12', '2'), flag('make_hrfm_visible', '0'), flag('mystery', '1')]);
+    expect(rows.known.map((row) => [row.entry.key, row.writable])).toEqual([
+      ['enable_sig12', true],
+      ['make_hrfm_visible', false],
+    ]);
+    expect(rows.unknown.every((row) => !row.writable)).toBe(true);
   });
 });

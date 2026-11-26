@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
-import { buildSnapshot, serializeSnapshot, type ConfigEntry } from '@/data/bandConfig';
+import { applyConfigWrite, buildSnapshot, parseBandConfig, serializeSnapshot, type BandConfigSnapshot, type ConfigEntry } from '@/data/bandConfig';
 import { createFixtureDevice } from '@/data/fixtureSource';
 import type { AppData, DeviceStatus } from '@/data/types';
 
-import { withAppData } from './support/appData';
+import { fixtureBandActions, withAppData } from './support/appData';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
@@ -35,6 +35,12 @@ const SNAPSHOT_JSON = serializeSnapshot(
     [entry('enable_rfid', '2'), entry('enable_raw_data_w_ecg', null, null), entry('new_setting', '5')],
   ),
 );
+
+function parsedSnapshot(): BandConfigSnapshot {
+  const state = parseBandConfig(SNAPSHOT_JSON);
+  if (state.status !== 'ok') throw new Error('fixture snapshot does not parse');
+  return state.snapshot;
+}
 
 describe('BandConfigScreen', () => {
   it('shows an honest not-read-yet state without a snapshot', async () => {
@@ -118,10 +124,40 @@ describe('BandConfigScreen', () => {
     await waitFor(() => expect(screen.getByTestId('read-config-button').props.accessibilityState.disabled).toBe(false));
   });
 
-  it('has no way to write settings and keeps the not-built notice', async () => {
+  it('offers a change only for known on/off values', async () => {
     await render(withAppData(<BandConfigScreen />, 'en', appData(SNAPSHOT_JSON)));
-    expect(screen.getByTestId('not-built-bandConfig')).toBeTruthy();
-    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.getByTestId('config-change-enable_r22_v4_packets')).toBeTruthy();
+    expect(screen.getByTestId('config-change-make_hrfm_visible')).toBeTruthy();
+    expect(screen.getByTestId('config-change-enable_rfid')).toBeTruthy();
+    expect(screen.queryByTestId('config-change-enable_sig12')).toBeNull();
+    expect(screen.queryByTestId('config-change-future_flag')).toBeNull();
+    expect(screen.queryByTestId('config-change-new_setting')).toBeNull();
+    expect(screen.queryByTestId('not-built-bandConfig')).toBeNull();
+  });
+
+  it('writes only after the confirmation word is typed', async () => {
+    const writeConfig = jest.fn(async () => true);
+    const bandActions = { ...fixtureBandActions(), writeConfig };
+    await render(withAppData(<BandConfigScreen />, 'en', appData(SNAPSHOT_JSON, { bandActions })));
+    await fireEvent.press(screen.getByTestId('config-change-make_hrfm_visible'));
+    expect(screen.getByText(/This writes On to make_hrfm_visible \(now Off\)/)).toBeTruthy();
+    expect(screen.getByTestId('danger-confirm').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('danger-input'), 'change');
+    expect(screen.getByTestId('danger-confirm').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('danger-input'), 'CHANGE');
+    await fireEvent.press(screen.getByTestId('danger-confirm'));
+    expect(writeConfig).toHaveBeenCalledWith('flag', 'make_hrfm_visible', '1');
+  });
+
+  it('marks a value changed here and puts it back in one tap', async () => {
+    const restoreConfig = jest.fn(async () => true);
+    const bandActions = { ...fixtureBandActions(), restoreConfig };
+    const changed = applyConfigWrite(parsedSnapshot(), 'config', 'enable_rfid', '2', '1', NOW_S);
+    await render(withAppData(<BandConfigScreen />, 'en', appData(serializeSnapshot(changed), { bandActions })));
+    expect(screen.getByText('Changed here, was 2')).toBeTruthy();
+    expect(screen.queryByTestId('config-change-enable_rfid')).toBeNull();
+    await fireEvent.press(screen.getByTestId('config-restore-enable_rfid'));
+    expect(restoreConfig).toHaveBeenCalledWith('config', 'enable_rfid');
   });
 
   it('renders in Dutch', async () => {
