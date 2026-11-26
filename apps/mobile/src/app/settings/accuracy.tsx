@@ -34,6 +34,7 @@ const LABELS: Readonly<Record<keyof typeof PARITY, TranslationKey>> = {
   jetLag: 'sleepx.jetLag',
   vo2max: 'health.metrics.vo2max',
   pillars: 'health.hub.pillars',
+  bodyAge: 'health.hub.bodyAge',
   route: 'route.accuracyLabel',
 };
 

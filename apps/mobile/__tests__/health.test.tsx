@@ -114,9 +114,11 @@ describe('health screens', () => {
     expect(screen.getAllByText('No data').length).toBeGreaterThan(0);
   });
 
-  it('shows the NotBuilt notice on unbuilt screens', async () => {
+  it('shows body age as two separate cards, not as a NotBuilt page', async () => {
     await render(withAppData(<BodyAgeScreen />));
-    expect(screen.getByTestId('not-built-healthspan')).toBeTruthy();
+    expect(screen.getByTestId('body-age-fitness')).toBeTruthy();
+    expect(screen.getByTestId('body-age-pheno')).toBeTruthy();
+    expect(screen.queryByTestId('not-built-healthspan')).toBeNull();
   });
 
   it('flags MG-only screens on a 5.0 band and never shows a verdict', async () => {

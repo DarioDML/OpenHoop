@@ -168,7 +168,7 @@ export const CATALOGUE: readonly CatalogueItem[] = [
       return avg === null ? { kind: 'none' } : { kind: 'number', value: avg, decimals: 0, unitKey: 'unit.bpm' };
     },
   },
-  { id: 'bodyAge', labelKey: 'health.metrics.bodyAge', category: 'health', level: null, href: '/health/body-age', read: none },
+  { id: 'bodyAge', labelKey: 'health.metrics.bodyAge', category: 'health', level: 'C', href: '/health/body-age', read: none },
   {
     id: 'vo2max',
     labelKey: 'health.metrics.vo2max',

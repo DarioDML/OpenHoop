@@ -24,7 +24,6 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-import BodyAgeScreen from '@/app/health/body-age';
 import PillarScreen from '@/app/health/pillar';
 import Vo2maxScreen from '@/app/health/vo2max';
 
@@ -214,15 +213,5 @@ describe('Healthspan pillar screen', () => {
     mockParams.id = 'age';
     await render(withAppData(<PillarScreen />, 'en'));
     expect(screen.getByTestId('health-pillar')).toBeTruthy();
-  });
-});
-
-describe('Body age screen', () => {
-  it('stays an honest not built page that explains why and links to the pillars', async () => {
-    await render(withAppData(<BodyAgeScreen />, 'en', { profile: PROFILE, userData: MAN }));
-    expect(screen.getByTestId('not-built-healthspan')).toBeTruthy();
-    expect(screen.getByText('Why there is no number')).toBeTruthy();
-    expect(screen.getByTestId('body-age-pillars')).toBeTruthy();
-    expect(screen.getByTestId('body-age-vo2max')).toBeTruthy();
   });
 });
