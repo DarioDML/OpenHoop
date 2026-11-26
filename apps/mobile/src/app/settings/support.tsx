@@ -101,6 +101,13 @@ export default function SupportScreen() {
 
       <ListGroup>
         <ListRow
+          icon={tile(colors, 'export', 'purple')}
+          title={t('aboutx.donateData.row')}
+          subtitle={t('aboutx.donateData.rowBody')}
+          href="/settings/donate-data"
+          testID="support-donate-data"
+        />
+        <ListRow
           icon={tile(colors, 'code', 'positive')}
           title={t('aboutx.support.contribute')}
           subtitle={t('aboutx.support.contributeBody')}
