@@ -11,6 +11,9 @@ import {
   decodeHapticsTermination,
   fromHex,
   isAlarmRejection,
+  labradorGenerationBody,
+  labradorSwitchBody,
+  wristBody,
   buildCommand,
   commandClass,
   configReadBody,
@@ -130,5 +133,26 @@ describe('alarm bodies', () => {
     expect(decodeHapticsTermination(fromHex('0100'))).toBe('expired');
     expect(decodeHapticsTermination(fromHex('0109'))).toBe('code-9');
     expect(decodeHapticsTermination(fromHex('01'))).toBeNull();
+  });
+});
+
+describe('ECG reading bodies', () => {
+  it('selects the wrist and switches the filtered trace and its save', () => {
+    expect(toHex(wristBody('right'))).toBe('0101');
+    expect(toHex(wristBody('left'))).toBe('0102');
+    expect(toHex(labradorSwitchBody(true))).toBe('0101');
+    expect(toHex(labradorSwitchBody(false))).toBe('0100');
+  });
+
+  it('uses operation bytes, not booleans, for data generation', () => {
+    expect(toHex(labradorGenerationBody('stop'))).toBe('0101');
+    expect(toHex(labradorGenerationBody('start'))).toBe('0102');
+    expect(toHex(labradorGenerationBody('restart'))).toBe('0103');
+  });
+
+  it('needs a write grant for every ECG command', () => {
+    for (const command of [Command.SELECT_WRIST, Command.TOGGLE_LABRADOR_FILTERED, Command.TOGGLE_LABRADOR_RAW_SAVE, Command.TOGGLE_LABRADOR_DATA_GENERATION]) {
+      expect(commandClass(command)).toBe('write');
+    }
   });
 });

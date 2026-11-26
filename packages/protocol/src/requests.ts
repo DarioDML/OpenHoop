@@ -174,3 +174,21 @@ export function decodeHapticsTermination(payload: Uint8Array): HapticsTerminatio
   if (code === undefined) return null;
   return HAPTICS_TERMINATION[code] ?? `code-${code}`;
 }
+
+export type Wrist = 'left' | 'right';
+export type LabradorOperation = 'stop' | 'start' | 'restart';
+
+const WRIST_CODE: Readonly<Record<Wrist, number>> = { right: 1, left: 2 };
+const LABRADOR_OPERATION: Readonly<Record<LabradorOperation, number>> = { stop: 1, start: 2, restart: 3 };
+
+export function wristBody(wrist: Wrist): Uint8Array {
+  return Uint8Array.of(REVISION_1, WRIST_CODE[wrist]);
+}
+
+export function labradorSwitchBody(on: boolean): Uint8Array {
+  return Uint8Array.of(REVISION_1, on ? 1 : 0);
+}
+
+export function labradorGenerationBody(operation: LabradorOperation): Uint8Array {
+  return Uint8Array.of(REVISION_1, LABRADOR_OPERATION[operation]);
+}

@@ -1,5 +1,6 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
+import type { Wrist } from '@openhoop/protocol';
+import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, EcgSummary, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { HcDataType } from '@/lib/healthConnectMapping';
@@ -159,10 +160,25 @@ export interface HealthConnectView {
   syncing: boolean;
 }
 
+export interface EcgLiveState {
+  active: boolean;
+  elapsedMs: number;
+  samples: number;
+  tail: readonly number[];
+}
+
+export interface EcgActions {
+  start(wrist: Wrist): Promise<number | null>;
+  stop(): void;
+  samples(id: number): Promise<number[] | null>;
+  remove(id: number): Promise<boolean>;
+}
+
 export interface LiveData {
   live: LiveState;
   syncProgress: SyncProgressView | null;
   pendingDelete: PendingDelete | null;
+  ecgLive: EcgLiveState;
 }
 
 export interface LiveDataStore {
@@ -203,6 +219,8 @@ export interface AppData {
   bandActions: BandActions;
   alarm: AlarmView;
   alarmActions: AlarmActions;
+  ecgRecordings: EcgSummary[];
+  ecgActions: EcgActions;
   stopLive(): Promise<void>;
   exportData(): Promise<void>;
   listDonationDays(): Promise<DonationDay[]>;

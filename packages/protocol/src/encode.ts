@@ -251,9 +251,10 @@ export function encodeConsole(i: { consoleSequence: number; unixS: number; text:
   return body.frame();
 }
 
-export function encodeEcgFiltered(i: { recordIndex: number; unixS: number; samples: number[] }): Uint8Array {
+export function encodeEcgFiltered(i: { recordIndex: number; unixS: number; subsec?: number; samples: number[] }): Uint8Array {
   if (i.samples.length > schema.ecgFiltered.sampleCapacity) throw new RangeError('too many ECG samples');
   const body = recordBody(schema.ecgFiltered.length, 17, 0, { ...i, packetType: 43 });
+  body.put(schema.recordHeader, 'subsec', i.subsec ?? 0);
   const status = schema.ecgRaw.status;
   body.put(status, 'quality', ECG_QUALITY);
   body.put(status, 'state_bits', ECG_STATE_BITS);
