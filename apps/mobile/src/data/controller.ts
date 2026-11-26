@@ -137,6 +137,7 @@ import type { FileReport } from './vendorExport/parse';
 import type { SourceFile } from './vendorExport/sources';
 import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
+import { changesAppData } from './liveData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
 import type {
   ActivityDraft,
@@ -273,6 +274,7 @@ export class AppController {
   private healthConnectChain: Promise<void> = Promise.resolve();
   private healthConnectRun: Promise<void> | null = null;
   lastTimings: SyncTimings | null = null;
+  private appDataCache: AppData | null = null;
 
   constructor(
     private readonly notifier: Notifier = expoNotifier,
@@ -314,8 +316,14 @@ export class AppController {
 
   getSnapshot = (): Snapshot => this.snapshot;
 
+  getAppData = (): AppData => {
+    this.appDataCache ??= this.appData();
+    return this.appDataCache;
+  };
+
   private patch(change: Partial<Snapshot>): void {
     this.snapshot = { ...this.snapshot, ...change };
+    if (changesAppData(change)) this.appDataCache = null;
     for (const listener of [...this.listeners]) listener();
   }
 
@@ -480,13 +488,11 @@ export class AppController {
   }
 
   private async refreshActivityMetrics(deviceId: number, from: number | null): Promise<void> {
-    const { store } = this.requireApp();
     const activities = this.activityStore();
-    const days = await store.listDays(deviceId, EARLIEST_DAY, LATEST_DAY);
-    for (const row of await activities.list(deviceId)) {
-      if (row.deletedAt !== null || (from !== null && row.end < from)) continue;
-      await activities.setMetrics(row.id, await this.metricsFor(deviceId, row, days));
-    }
+    const stale = (await activities.list(deviceId)).filter((row) => row.deletedAt === null && (from === null || row.end >= from));
+    if (stale.length === 0) return;
+    const days = await this.requireApp().store.listDays(deviceId, EARLIEST_DAY, LATEST_DAY);
+    for (const row of stale) await activities.setMetrics(row.id, await this.metricsFor(deviceId, row, days));
   }
 
   private analyticsProfile(): { maxHr: number | null; birthYear: number | null; restingHr: number | null } {
@@ -1192,17 +1198,7 @@ export class AppController {
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
-    const samples = await this.app.store.samplesBetween(row.id, fromS, toS);
-    const buckets = new Map<number, { sum: number; count: number }>();
-    for (const sample of samples) {
-      if (sample.hr === null || sample.hr <= 0) continue;
-      const key = Math.floor(sample.t / bucketS) * bucketS;
-      const bucket = buckets.get(key) ?? { sum: 0, count: 0 };
-      bucket.sum += sample.hr;
-      bucket.count += 1;
-      buckets.set(key, bucket);
-    }
-    return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([t, b]) => ({ t, hr: b.sum / b.count }));
+    return this.app.store.heartRateBuckets(row.id, fromS, toS, bucketS);
   };
 
   private digestFacts(now: Date): (day: string) => DigestFacts | null {
@@ -1609,8 +1605,8 @@ export class AppController {
     }
   };
 
-  appData(): AppData {
-    const snapshot = this.snapshot;
+  private appData(): AppData {
+    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ...snapshot } = this.snapshot;
     return {
       ...snapshot,
       sleepEditLimits: { napMaxS: MANUAL_NAP_MAX_S, sleepMaxS: EDITED_SLEEP_MAX_S },

@@ -23,6 +23,43 @@ export interface RespiratoryOptions {
   stepHz?: number;
 }
 
+interface SpectralTables {
+  n: number;
+  count: number;
+  freqs: Float64Array;
+  hann: Float64Array;
+  cos: Float64Array;
+  sin: Float64Array;
+}
+
+let tables: { key: string; value: SpectralTables } | null = null;
+
+// The twiddles and window depend only on these parameters, so one entry serves every window of a night.
+function spectralTables(windowS: number, fs: number, loHz: number, hiHz: number, stepHz: number): SpectralTables {
+  const key = `${windowS}|${fs}|${loHz}|${hiHz}|${stepHz}`;
+  if (tables !== null && tables.key === key) return tables.value;
+  const n = Math.trunc(windowS * fs);
+  let count = 0;
+  while (loHz + count * stepHz <= hiHz + 1e-9) count++;
+  const freqs = new Float64Array(count);
+  const cos = new Float64Array(count * n);
+  const sin = new Float64Array(count * n);
+  for (let s = 0; s < count; s++) {
+    const f = loHz + s * stepHz;
+    freqs[s] = f;
+    const w = (2 * Math.PI * f) / fs;
+    for (let m = 0; m < n; m++) {
+      cos[s * n + m] = Math.cos(w * m);
+      sin[s * n + m] = Math.sin(w * m);
+    }
+  }
+  const hann = new Float64Array(n);
+  for (let m = 0; m < n; m++) hann[m] = 0.5 - 0.5 * Math.cos((2 * Math.PI * m) / (n - 1));
+  const value = { n, count, freqs, hann, cos, sin };
+  tables = { key, value };
+  return value;
+}
+
 function spectralPeak(
   selT: number[],
   selV: number[],
@@ -33,7 +70,8 @@ function spectralPeak(
   hiHz: number,
   stepHz: number,
 ): { f: number; fraction: number } | null {
-  const n = Math.trunc(windowS * fs);
+  const tab = spectralTables(windowS, fs, loHz, hiHz, stepHz);
+  const n = tab.n;
   const ys = new Float64Array(n);
   let k = 0;
   for (let m = 0; m < n; m++) {
@@ -56,19 +94,20 @@ function spectralPeak(
   for (let m = 0; m < n; m++) den += (m - xm) ** 2;
   const slope = num / den;
   for (let m = 0; m < n; m++) {
-    ys[m] = ((ys[m] ?? 0) - mean - slope * (m - xm)) * (0.5 - 0.5 * Math.cos((2 * Math.PI * m) / (n - 1)));
+    ys[m] = ((ys[m] ?? 0) - mean - slope * (m - xm)) * (tab.hann[m] ?? 0);
   }
   const top = Math.min(hiHz, (0.5 * selT.length) / windowS);
   let bestF: number | null = null;
   let bestP = -1;
   let total = 0;
-  for (let s = 0; loHz + s * stepHz <= top + 1e-9; s++) {
-    const f = loHz + s * stepHz;
-    const w = (2 * Math.PI * f) / fs;
+  for (let s = 0; s < tab.count; s++) {
+    const f = tab.freqs[s] ?? 0;
+    if (f > top + 1e-9) break;
+    const base = s * n;
     let re = 0;
     let im = 0;
-    for (let m = 0; m < n; m++) re += (ys[m] ?? 0) * Math.cos(w * m);
-    for (let m = 0; m < n; m++) im += (ys[m] ?? 0) * Math.sin(w * m);
+    for (let m = 0; m < n; m++) re += (ys[m] ?? 0) * (tab.cos[base + m] ?? 0);
+    for (let m = 0; m < n; m++) im += (ys[m] ?? 0) * (tab.sin[base + m] ?? 0);
     const p = (re * re + im * im) * f * f;
     total += p;
     if (p > bestP) {

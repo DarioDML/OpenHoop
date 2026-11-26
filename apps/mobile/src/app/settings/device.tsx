@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
-import { useAppData } from '@/data/context';
+import { useAppData, useSyncProgress } from '@/data/context';
 import type { LockState } from '@/data/types';
 import { useT } from '@/i18n/useT';
 import { formatAgo } from '@/lib/format';
@@ -18,7 +18,8 @@ import { SyncBanner } from '@/ui/SyncBanner';
 import { spacing, useTheme } from '@/ui/theme';
 
 export default function DeviceSettingsScreen() {
-  const { device, sync, syncProgress } = useAppData();
+  const { device, sync } = useAppData();
+  const syncProgress = useSyncProgress();
   const { t } = useT();
   const { colors } = useTheme();
 

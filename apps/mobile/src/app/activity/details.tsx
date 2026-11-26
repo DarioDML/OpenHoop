@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { formatWeekday } from '@/data/activityDerived';
-import { useAppData } from '@/data/context';
+import { useAppData, usePendingDelete } from '@/data/context';
 import { caloriesForActivity } from '@/data/energyDerived';
 import { useT } from '@/i18n/useT';
 import { unixToIsoDate } from '@/lib/dates';
@@ -22,7 +22,8 @@ import { IconButton, TopBar } from '@/ui/TopBar';
 import { displayedZones, ZoneBar } from '@/ui/ZoneBar';
 
 export default function ActivityDetailsScreen() {
-  const { deleteActivity, pendingDelete, userData, profile } = useAppData();
+  const { deleteActivity, userData, profile } = useAppData();
+  const pendingDelete = usePendingDelete();
   const { t, language, reason } = useT();
   const resolved = useResolvedEntry();
   const [deleting, setDeleting] = useState(false);

@@ -293,6 +293,31 @@ describe('store', () => {
     expect(await store.sampleRange(device.id)).toBeNull();
   });
 
+  it('heartRateBuckets averages heart rate per bucket like a JS pass over samplesBetween', async () => {
+    const rows: SampleRow[] = [];
+    for (let t = -125; t < 3_700; t++) {
+      rows.push(sample(device.id, t, { hr: t % 17 === 0 ? null : t % 23 === 0 ? 0 : 50 + ((t * 7) % 61) }));
+      if (t % 5 === 0) rows.push(sample(device.id, t, { source: 'live', hr: 120 + (t % 9) }));
+    }
+    await store.insertSamples(rows);
+    for (const bucketS of [1, 60, 300, 7]) {
+      const expected = new Map<number, { sum: number; count: number }>();
+      for (const s of await store.samplesBetween(device.id, -100, 3_650)) {
+        if (s.hr === null || s.hr <= 0) continue;
+        const key = Math.floor(s.t / bucketS) * bucketS;
+        const b = expected.get(key) ?? { sum: 0, count: 0 };
+        b.sum += s.hr;
+        b.count += 1;
+        expected.set(key, b);
+      }
+      const want = [...expected.entries()].sort((a, b) => a[0] - b[0]).map(([t, b]) => ({ t, hr: b.sum / b.count }));
+      expect(await store.heartRateBuckets(device.id, -100, 3_650, bucketS)).toEqual(want);
+    }
+    expect(await store.heartRateBuckets(device.id, 10_000, 20_000, 60)).toEqual([]);
+    await expect(store.heartRateBuckets(device.id, 0, 60, 0)).rejects.toThrow(RangeError);
+    await expect(store.heartRateBuckets(device.id, 0, 60, 1.5)).rejects.toThrow(RangeError);
+  });
+
   it('inserts a full day of samples quickly', async () => {
     const day = Array.from({ length: 86_400 }, (_, i) => sample(device.id, 100_000 + i));
     const started = performance.now();

@@ -5,7 +5,7 @@ import { View } from 'react-native';
 
 import { ACTIVITY_TYPES, resolveWorkout } from '@/data/activityDerived';
 import { dayOfActivity, entryById, entryForWorkout, parseIdParam, type ActivityEntry, type ActivityForm, type EntryKind, type FormError } from '@/data/activities';
-import { useAppData } from '@/data/context';
+import { useAppData, usePendingDelete } from '@/data/context';
 import type { TranslationKey } from '@/i18n';
 import { reasonKey } from '@/i18n';
 import { useT, type TFunction } from '@/i18n/useT';
@@ -81,7 +81,8 @@ export function EntryRow({ entry, href, tzOffsetS, testID }: EntryRowProps) {
 }
 
 export function UndoBar() {
-  const { pendingDelete, undoDelete } = useAppData();
+  const { undoDelete } = useAppData();
+  const pendingDelete = usePendingDelete();
   const { t } = useT();
   const { colors } = useTheme();
   const [now, setNow] = useState(() => Date.now());

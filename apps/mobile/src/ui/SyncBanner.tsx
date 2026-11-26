@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 
-import { useAppData } from '@/data/context';
+import { useSyncProgress } from '@/data/context';
 import { useT } from '@/i18n/useT';
 
 import { AppText } from './AppText';
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function SyncBanner({ detailed = false }: Props) {
-  const { syncProgress } = useAppData();
+  const syncProgress = useSyncProgress();
   const { t } = useT();
   const { colors } = useTheme();
   if (!syncProgress) return null;

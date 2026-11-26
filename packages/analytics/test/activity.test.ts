@@ -142,6 +142,41 @@ describe('activity metrics', () => {
   });
 });
 
+describe('activity metrics on ordered input', () => {
+  it('match the result for the same points out of order', () => {
+    let seed = 11;
+    const next = (): number => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return seed / 2_147_483_648;
+    };
+    const points: HrPoint[] = [];
+    for (let i = 0; i < 4_000; i++) {
+      const hr = i % 97 === 0 ? null : 70 + Math.floor(next() * 110);
+      points.push({ t: T0 + i, hr });
+      if (i % 250 === 0) points.push({ t: T0 + i, hr });
+    }
+    const shuffled = [...points];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(next() * (i + 1));
+      const a = shuffled[i];
+      const b = shuffled[j];
+      if (a === undefined || b === undefined) throw new Error('index out of range');
+      shuffled[i] = b;
+      shuffled[j] = a;
+    }
+    const window = { start: T0 + 100, end: T0 + 3_900 };
+    const paused = [
+      { start: T0 + 500, end: T0 + 800 },
+      { start: T0 + 800, end: T0 + 800 },
+      { start: T0 + 2_000, end: T0 + 2_400 },
+      { start: T0 + 3_800, end: T0 + 4_500 },
+    ];
+    const ordered = activityMetrics(points, window, paused, 60, 190);
+    expect(ordered.hrSeconds).toBeGreaterThan(2_500);
+    expect(ordered).toEqual(activityMetrics(shuffled, window, paused, 60, 190));
+  });
+});
+
 describe('activity calories', () => {
   const body = { weightKg: 70, heightCm: 178, sex: 'male' as const, ageYears: 35 };
 

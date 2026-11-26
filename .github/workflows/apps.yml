@@ -108,6 +108,32 @@ jobs:
           else
             cp android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/OpenHoop-android.apk"
           fi
+      - name: Report the APK size
+        env:
+          APK_WARN_MB: 70
+        run: |
+          apk=$(ls "$RUNNER_TEMP"/OpenHoop-android*.apk)
+          python3 - "$apk" <<'PY'
+          import collections, os, sys, zipfile
+          path = sys.argv[1]
+          size = os.path.getsize(path) / 1e6
+          entries = zipfile.ZipFile(path).infolist()
+          abis = collections.Counter()
+          for e in entries:
+              parts = e.filename.split('/')
+              if parts[0] == 'lib' and len(parts) > 2:
+                  abis[parts[1]] += e.compress_size
+          lines = [f'### APK size: {size:.1f} MB', '', '| Part | MB |', '| --- | ---: |']
+          lines += [f'| native libs {abi} | {b / 1e6:.1f} |' for abi, b in sorted(abis.items())]
+          lines += ['', '| Largest entries | MB |', '| --- | ---: |']
+          for e in sorted(entries, key=lambda e: e.compress_size, reverse=True)[:12]:
+              lines.append(f'| `{e.filename}` | {e.compress_size / 1e6:.2f} |')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('\n'.join(lines) + '\n')
+          limit = float(os.environ['APK_WARN_MB'])
+          if size > limit:
+              print(f'::warning::The APK is {size:.1f} MB, above {limit:.0f} MB. See the job summary for what grew.')
+          PY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: env.RELEASE_BUILD == 'true'
         with:

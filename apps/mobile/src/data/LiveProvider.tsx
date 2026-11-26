@@ -4,7 +4,7 @@ import { AppState, View } from 'react-native';
 import { darkColors } from '@/ui/theme';
 
 import { AppController } from './controller';
-import { AppDataContext } from './context';
+import { AppDataContext, LiveDataContext } from './context';
 import { expoNotifier } from './notifier';
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
 
 export function LiveProvider({ children }: Props) {
   const controller = useMemo(() => new AppController(), []);
-  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
+  const value = useSyncExternalStore(controller.subscribe, controller.getAppData);
 
   useEffect(() => {
     void controller.start();
@@ -34,9 +34,10 @@ export function LiveProvider({ children }: Props) {
     };
   }, [controller]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- appData() reads the controller's latest snapshot, so a new snapshot must rebuild it
-  const value = useMemo(() => controller.appData(), [controller, snapshot]);
-
-  if (!snapshot.ready) return <View style={{ flex: 1, backgroundColor: darkColors.background }} />;
-  return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
+  if (!value.ready) return <View style={{ flex: 1, backgroundColor: darkColors.background }} />;
+  return (
+    <LiveDataContext.Provider value={controller}>
+      <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
+    </LiveDataContext.Provider>
+  );
 }

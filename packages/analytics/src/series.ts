@@ -1,6 +1,6 @@
 import type { Night, Reason, Sample } from './types';
 
-export function sortedUnique(samples: readonly Sample[]): Sample[] {
+export function sortedUnique(samples: readonly Sample[]): readonly Sample[] {
   let ordered = true;
   for (let i = 1; i < samples.length; i++) {
     const a = samples[i - 1];
@@ -10,7 +10,7 @@ export function sortedUnique(samples: readonly Sample[]): Sample[] {
       break;
     }
   }
-  if (ordered) return samples.slice();
+  if (ordered) return samples;
   const sorted = samples.slice().sort((a, b) => a.t - b.t);
   const out: Sample[] = [];
   let last = Number.NaN;
