@@ -48,6 +48,7 @@ import {
   latestBatteryPack,
   readKeys,
   rebuildStaleSamples,
+  recomputeStaleDays,
   recomputeDays,
   recordHeartRate,
   setPregnancy,
@@ -472,7 +473,8 @@ export class AppController {
     try {
       const { store } = this.requireApp();
       const rebuilt = await rebuildStaleSamples(store, (deviceId) => this.recompute(deviceId, null));
-      if (rebuilt.length === 0) return;
+      const recomputed = await recomputeStaleDays(store, (deviceId) => this.recompute(deviceId, null));
+      if (rebuilt.length === 0 && recomputed.length === 0) return;
       if (this.deviceRow !== null) this.batteryPack = await latestBatteryPack(store, this.deviceRow.id);
       this.patch({ syncProgress: null });
       this.patchDevice();
