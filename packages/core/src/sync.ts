@@ -385,6 +385,8 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
               if (error instanceof DisconnectedError) return finish('disconnect');
               throw error;
             }
+            // Answering a request with only the pending HISTORY_END ends that transfer, so the next chunk needs a new one.
+            request();
             continue;
           }
           // The head of this chunk was sent before our request opened the transfer, so acknowledging it would trim unread data.

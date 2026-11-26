@@ -103,10 +103,12 @@ async function sampleCount(): Promise<number> {
 }
 
 // An MG band (50.43.2.0) keeps a served chunk pending until it is acknowledged: every later history request,
-// aborted or not, gets only that chunk's HISTORY_END again.
+// aborted or not, gets only that chunk's HISTORY_END again, and acknowledging that lone HISTORY_END does not
+// start the next chunk on its own.
 function pendingAckBand(chunks: Uint8Array[][], complete: Uint8Array): (out: Outgoing, emit: Emit) => boolean {
   let next = 0;
   let pending: number | null = null;
+  let serving = false;
   const serve = (emit: Emit): void => {
     const chunk = chunks[next];
     if (chunk === undefined) {
@@ -119,6 +121,7 @@ function pendingAckBand(chunks: Uint8Array[][], complete: Uint8Array): (out: Out
   return (out, emit) => {
     if (out.command === 22) {
       emit(GATT.cmdFromStrap, reply(out));
+      serving = pending === null;
       if (pending === null) serve(emit);
       else emit(GATT.dataFromStrap, encodeMetadata({ meta: 'HISTORY_END', unixS: T0 + 900, endToken: token(pending) }));
       return true;
@@ -127,11 +130,12 @@ function pendingAckBand(chunks: Uint8Array[][], complete: Uint8Array): (out: Out
       if (pending !== null && toHex(out.args.subarray(1, 9)) === toHex(token(pending))) {
         pending = null;
         next += 1;
-        serve(emit);
+        if (serving) serve(emit);
       }
       return true;
     }
     if (out.command === 20) {
+      serving = false;
       emit(GATT.cmdFromStrap, reply(out));
       return true;
     }
