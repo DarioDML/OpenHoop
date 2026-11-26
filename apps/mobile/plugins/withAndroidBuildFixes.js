@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { withDangerousMod } = require('expo/config-plugins');
+const { withDangerousMod, withGradleProperties } = require('expo/config-plugins');
 
 const INTERNET = '<uses-permission android:name="android.permission.INTERNET"/>';
 const MIN_CMAKE = [3, 31];
@@ -44,8 +44,21 @@ function useLongPathAwareCmake(platformRoot) {
   fs.writeFileSync(propertiesPath, `${existing}${existing && !existing.endsWith('\n') ? '\n' : ''}cmake.dir=${dir}\n`);
 }
 
+const UNUSED_IMAGE_CODECS = ['expo.gif.enabled', 'expo.webp.enabled'];
+
+function withoutUnusedImageCodecs(config) {
+  return withGradleProperties(config, (modConfig) => {
+    for (const key of UNUSED_IMAGE_CODECS) {
+      const existing = modConfig.modResults.find((item) => item.type === 'property' && item.key === key);
+      if (existing) existing.value = 'false';
+      else modConfig.modResults.push({ type: 'property', key, value: 'false' });
+    }
+    return modConfig;
+  });
+}
+
 module.exports = function withAndroidBuildFixes(config) {
-  return withDangerousMod(config, [
+  return withDangerousMod(withoutUnusedImageCodecs(config), [
     'android',
     (modConfig) => {
       const root = modConfig.modRequest.platformProjectRoot;
