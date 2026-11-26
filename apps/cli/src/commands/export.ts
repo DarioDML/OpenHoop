@@ -1,6 +1,6 @@
 import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { exportCsv } from '@openhoop/core';
+import { consoleLinesCsv, exportCsv } from '@openhoop/core';
 import type { ExportTable } from '@openhoop/core';
 import { CliError, UsageError } from '../args';
 import type { Command, CommandResult } from '../command';
@@ -37,6 +37,10 @@ async function run(ctx: Context): Promise<CommandResult> {
     await writeFile(file, csv, 'utf8');
     files.push({ file, bytes: Buffer.byteLength(csv) });
   }
+  const linesCsv = await consoleLinesCsv(store);
+  const linesFile = join(dir, 'console_lines.csv');
+  await writeFile(linesFile, linesCsv, 'utf8');
+  files.push({ file: linesFile, bytes: Buffer.byteLength(linesCsv) });
   for (const { file, bytes } of files) ctx.log(`${file}  ${bytes} bytes`);
   ctx.log(`Exported ${files.length} files to ${dir}`);
   return { json: { dir, files } };

@@ -23,6 +23,7 @@ import {
   deleteJournalNote,
   deleteDataBefore,
   deleteLabResult,
+  consoleLinesCsv,
   exportCsv,
   importBodyMeasurements,
   emptyVendorData,
@@ -1617,8 +1618,9 @@ export class AppController {
   exportData = async (): Promise<void> => {
     const app = this.requireApp();
     try {
-      await this.exclusive(() =>
+      await this.exclusive(async () =>
         exportAll(app, exportCsv, {
+          'console_lines.csv': await consoleLinesCsv(app.store),
           'notifications.json': this.notificationsExport(),
           'health-connect.json': JSON.stringify(this.snapshot.healthConnect.state, null, 2),
         }),

@@ -1,3 +1,4 @@
+import { consoleLines } from './consoleLines';
 import type { ExportTable, SqlValue, Store } from './store/types';
 
 interface ExportSpec {
@@ -200,5 +201,14 @@ export async function exportCsv(store: Store, table: ExportTable): Promise<strin
   const rows = await store.driver.all<Record<string, SqlValue>>(`SELECT ${spec.select} FROM ${table} ORDER BY ${spec.order}`);
   const lines = [spec.columns.join(',')];
   for (const row of rows) lines.push(spec.columns.map((c) => cell(row[c])).join(','));
+  return `${lines.join('\r\n')}\r\n`;
+}
+
+export async function consoleLinesCsv(store: Store): Promise<string> {
+  const devices = await store.driver.all<{ id: number }>('SELECT DISTINCT device_id AS id FROM console_log ORDER BY device_id');
+  const lines = ['device_id,t,text'];
+  for (const { id } of devices) {
+    for (const line of await consoleLines(store, id)) lines.push([id, line.t, line.text].map(cell).join(','));
+  }
   return `${lines.join('\r\n')}\r\n`;
 }
