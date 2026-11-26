@@ -25,6 +25,11 @@ to any number of whole days.
 - **Licence: CC0 1.0.** Donated data is dedicated to the public domain, so anyone, the project included,
   may use it for anything without conditions. The in-app consent, the GitHub form, every README and
   every manifest say so.
+- **The band model is visible at a glance**, so the owner sees whether a donation is from a 5.0 or an MG
+  without opening it: in the issue title, the first line of the summary, every file name, the manifest
+  and the README, and on the screen before donating. The model comes from `devices.model` (`'5.0'` or
+  `'MG'`). When it is not known it says "unknown"; it is never guessed. A 4.0 cannot appear, because
+  OpenHoop cannot read a 4.0 band.
 - **Approved earlier in the conversation:** same layout as wearable5.0's donation; dates stay in; identity
   data is taken out; no profile data (name, age, sex, weight); never journal, notes, GPS, coach, cycle
   tracking or anything outside the chosen days; days with official values are marked "most useful"; the
@@ -96,7 +101,7 @@ Donate your data
    ☑ Tue 24 Nov · slept 7 h 12 m · official values ✓   most useful
    ☑ Mon 23 Nov · slept 6 h 40 m · band data only
    ☐ Sun 22 Nov · slept 8 h 05 m · official values ✓   most useful
-   2 days · about 18 MB · 1 file
+   Band 5.0 · 2 days · about 18 MB · 1 file
   ☐ I understand this becomes public on GitHub, under my account,
     and cannot be taken back.
   [ DONATE ]
@@ -112,7 +117,7 @@ Donate your data
    the day's window (see "Official values"). "Select all" selects every listed day. There is no maximum
    (owner agreed). When no day has official values, a row links to the official-export import
    (`settings/import.tsx`). *(My call: today is not listed until it has finished.)*
-3. **Summary.** Number of days, date range, estimated size and number of files, updated live. The estimate
+3. **Summary.** Band model, number of days, date range, estimated size and number of files, updated live. The estimate
    comes from stored frame counts. Exact numbers are shown after building.
 4. **Consent.** One checkbox, required before Donate is enabled: public, under the donor's GitHub account,
    cannot be taken back, and shared under CC0 1.0 (anyone may use it for anything). With more than one day, the text names the range: "14 days, from 3 Oct to
@@ -135,8 +140,10 @@ Donate your data
 
 ## What goes in a part
 
-Each part is a zip named `openhoop-donation-<code>-part-<i>-of-<n>.zip`. *(My call: English names, because
-the files end up in the repo, which is all English.)* `<code>` is 8 random characters, the same for all parts
+Each part is a zip named `openhoop-donation-<code>-<model>-part-<i>-of-<n>.zip`, where `<model>` is `5.0`,
+`mg` or `unknown`, for example `openhoop-donation-k3f9x2ab-5.0-part-1-of-3.zip`. With two bands of the same
+model, the second set gets `-band-2` after the model, so names never collide. *(My call: English names,
+because the files end up in the repo, which is all English.)* `<code>` is 8 random characters, the same for all parts
 of one donation, so the parts stay together. It is generated at random and derived from nothing about the
 donor or the band.
 
@@ -246,8 +253,11 @@ Each rule has its own count in `removed`.
   the CC0 1.0 dedication. A template does not create labels, so the label `data-donation` is created on GitHub with
   `gh label create` when the work merges. *(My call.)*
 - The app opens `https://github.com/DarioDML/OpenHoop/issues/new?template=data-donation.yml&title=…&summary=…`.
-  The title gives the number of days and the date range. The summary gives the donation code, the number
-  of parts, band model, firmware, app version, and which days have official values. Kept short enough that
+  The title starts with the band model, then the number of days and the date range:
+  `Data donation: 5.0 · 14 days · 2026-10-03 to 2026-11-24` (with two bands: `5.0 + MG`). The summary
+  starts with the band model, then the donation code, the number of parts, firmware, app version, and
+  which days have official values. Labels per model are not set from the app, because a link can only
+  add labels for people with write access to the repo. Kept short enough that
   the URL stays well under GitHub's length limit.
 
 ## Privacy and texts
