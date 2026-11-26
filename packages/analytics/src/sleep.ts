@@ -6,6 +6,7 @@ export const SLEEP_MAX_GAP_S = 600;
 export const SLEEP_MIN_DURATION_S = 1200;
 export const NIGHT_MERGE_GAP_S = 7200;
 export const SLEEP_MAX_HR = 100;
+export const SLEEP_MIN_SKIN_TEMP_SHARE = 0.5;
 
 // An MG band (50.43.2.0) worn before it was set up flagged a whole afternoon, a 178 bpm run included, as SLEEP.
 export function isAsleepSample(sample: Sample | undefined): boolean {
@@ -16,6 +17,9 @@ export function isAsleepSample(sample: Sample | undefined): boolean {
 export function sleepPeriods(samples: Sample[]): SleepPeriod[] {
   const rows = sortedUnique(samples);
   const n = rows.length;
+  // The same pre-setup afternoon read 5-13 C, so its skin temperature was rejected; a band that reports skin
+  // temperature elsewhere but not through a SLEEP stretch was not reading a worn wrist.
+  const reportsSkinTemp = rows.some((r) => r.skinTempC !== null);
   const half = SLEEP_SMOOTH_S / 2;
   const prefix = new Int32Array(n + 1);
   for (let i = 0; i < n; i++) prefix[i + 1] = (prefix[i] ?? 0) + (isAsleepSample(rows[i]) ? 1 : 0);
@@ -43,10 +47,14 @@ export function sleepPeriods(samples: Sample[]): SleepPeriod[] {
     let hrMin: number | null = null;
     let hrSum = 0;
     let hrCount = 0;
+    let seconds = 0;
+    let warmSeconds = 0;
     let j = k;
     for (; j < n; j++) {
       const r = rows[j];
       if (r === undefined || r.t > end) break;
+      seconds++;
+      if (r.skinTempC !== null) warmSeconds++;
       if (isAsleepSample(r)) asleepS++;
       if (isValidHr(r.hr)) {
         hrMin = hrMin === null ? r.hr : Math.min(hrMin, r.hr);
@@ -55,6 +63,7 @@ export function sleepPeriods(samples: Sample[]): SleepPeriod[] {
       }
     }
     k = j;
+    if (reportsSkinTemp && warmSeconds < SLEEP_MIN_SKIN_TEMP_SHARE * seconds) continue;
     out.push({
       onset: start,
       offset: end,
