@@ -87,9 +87,20 @@ describe('unit normalisation', () => {
     expect(normalizeUnit(raw)).toBe(label);
   });
 
+  it.each([
+    ['umol/L', 'µmol/L'],
+    ['fl', 'fL'],
+    ['U/L', 'U/L'],
+    ['IU/L', 'U/L'],
+    ['x10^9/L', '10^9/L'],
+    ['10*3/uL', '10^3/µL'],
+  ])('normalises the blood count and chemistry unit %s to %s', (raw, label) => {
+    expect(normalizeUnit(raw)).toBe(label);
+  });
+
   it('does not guess unknown units', () => {
-    expect(normalizeUnit('U/L')).toBeNull();
-    expect(normalizeUnit('10^9/L')).toBeNull();
+    expect(normalizeUnit('mEq/L')).toBeNull();
+    expect(normalizeUnit('g/24u')).toBeNull();
     expect(normalizeUnit('')).toBeNull();
   });
 
@@ -125,11 +136,20 @@ describe('biomarker aliases', () => {
     ['C-reactief proteïne', 'crp'],
     ['Hemoglobine', 'haemoglobin'],
     ['Triglyceriden', 'triglycerides'],
+    ['Albumine', 'albumin'],
+    ['S-Creatinine', 'creatinine'],
+    ['Kreatinine', 'creatinine'],
+    ['Lymfocyten', 'lymphocytePct'],
+    ['MCV', 'mcv'],
+    ['RDW-CV', 'rdw'],
+    ['Alkalische fosfatase', 'alp'],
+    ['Leukocyten', 'wbc'],
+    ['White Blood Cell Count', 'wbc'],
   ])('matches %s to %s', (printed, id) => {
     expect(matchBiomarker(printed)).toBe(id);
   });
 
-  it.each(['Cholesterol/HDL ratio', 'Non-HDL cholesterol', 'U-Glucose', 'Glucose urine', 'Vitamine B12', 'Hematocriet', 'Uw glucose', 'LDL/HDL'])(
+  it.each(['Cholesterol/HDL ratio', 'Non-HDL cholesterol', 'U-Glucose', 'Glucose urine', 'Vitamine B12', 'Hematocriet', 'Uw glucose', 'LDL/HDL', 'U-Albumine', 'Creatinine klaring', 'RDW-SD'])(
     'does not guess for %s',
     (printed) => {
       expect(matchBiomarker(printed)).toBeNull();
@@ -235,6 +255,7 @@ describe('lab report text', () => {
     const matched = candidates.filter((c) => c.biomarker !== null).map((c) => [c.biomarker, c.value, c.unit, c.refLow, c.refHigh, c.censored]);
     expect(matched).toEqual([
       ['haemoglobin', 14.2, 'g/dL', 13, 17, null],
+      ['wbc', 6.8, '10^3/µL', 4, 10, null],
       ['glucose', 92, 'mg/dL', 70, 99, null],
       ['hba1c', 38, 'mmol/mol', 20, 42, null],
       ['hba1c', 5.6, '%', 4, 6, null],
@@ -246,12 +267,9 @@ describe('lab report text', () => {
       ['vitaminD', 28.5, 'ng/mL', 30, 100, null],
       ['tsh', 1.85, 'mIU/L', 0.27, 4.2, null],
       ['crp', 0.5, 'mg/L', null, 5, '<'],
+      ['creatinine', 0.98, 'mg/dL', 0.7, 1.2, null],
     ]);
-    expect(candidates.filter((c) => c.biomarker === null).map((c) => [c.name, c.unit])).toEqual([
-      ['Hematocriet', '%'],
-      ['Leukocyten', '10^3/µL'],
-      ['Creatinine', 'mg/dL'],
-    ]);
+    expect(candidates.filter((c) => c.biomarker === null).map((c) => [c.name, c.unit])).toEqual([['Hematocriet', '%']]);
     expect(candidates.every((c) => c.day === '2026-11-18')).toBe(true);
   });
 

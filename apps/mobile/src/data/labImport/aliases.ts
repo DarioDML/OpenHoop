@@ -12,6 +12,13 @@ export const BIOMARKER_ALIASES: Readonly<Partial<Record<BiomarkerId, readonly st
   tsh: ['tsh', 'thyreotropine', 'thyrotropine', 'thyrotropin', 'thyroid stimulating hormone', 'schildklierstimulerend hormoon', 'schildklier stimulerend hormoon'],
   crp: ['crp', 'hs crp', 'hscrp', 'c reactief proteine', 'c reactief eiwit', 'c reactive protein', 'high sensitivity crp'],
   haemoglobin: ['hemoglobine', 'haemoglobine', 'hemoglobin', 'haemoglobin', 'hb', 'hgb'],
+  albumin: ['albumine', 'albumin', 'alb'],
+  creatinine: ['creatinine', 'kreatinine', 'creat', 'crea', 'kreat'],
+  lymphocytePct: ['lymfocyten', 'lymphocyten', 'lymphocytes', 'lymfocyten percentage', 'lymphocytes percentage', 'lymfo', 'lymph', 'lym'],
+  mcv: ['mcv', 'gemiddeld celvolume', 'gemiddeld corpusculair volume', 'mean corpuscular volume', 'mean cell volume'],
+  rdw: ['rdw', 'rdw cv', 'red cell distribution width', 'erytrocytenverdelingsbreedte', 'erythrocyte distribution width'],
+  alp: ['alkalische fosfatase', 'alkalisch fosfatase', 'alkaline phosphatase', 'alk fosf', 'alk phos', 'alp'],
+  wbc: ['leukocyten', 'leucocyten', 'witte bloedcellen', 'wbc', 'white blood cells', 'white blood cell count', 'leukocytes', 'leucocytes', 'leuco', 'leuko'],
 };
 
 const QUALIFIERS = new Set([

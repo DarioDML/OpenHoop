@@ -55,6 +55,13 @@ const MARKER_HINTS: Readonly<Partial<Record<BiomarkerId, string>>> = {
   tsh: 'TSH, thyroid-stimulating hormone',
   crp: 'C-reactive protein, including hs-CRP',
   haemoglobin: 'haemoglobin in blood (not HbA1c)',
+  albumin: 'albumin in serum or plasma (not urine albumin)',
+  creatinine: 'creatinine in serum or plasma (not urine, not clearance or eGFR)',
+  lymphocytePct: 'lymphocytes as a percentage of white blood cells (not the absolute count)',
+  mcv: 'MCV, mean corpuscular volume',
+  rdw: 'RDW-CV in percent (not RDW-SD in fL)',
+  alp: 'alkaline phosphatase',
+  wbc: 'white blood cell (leukocyte) count',
 };
 
 function catalogueText(): string {
