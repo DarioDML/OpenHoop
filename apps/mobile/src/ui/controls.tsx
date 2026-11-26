@@ -1,6 +1,7 @@
 import { Pressable, Switch, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 
 import { AppText } from './AppText';
+import { Chip } from './Chip';
 import { Icon, type IconName } from './Icon';
 import { fonts, radius, spacing, useTheme } from './theme';
 
@@ -171,5 +172,51 @@ export function Toggle({ value, onChange, label, disabled = false, testID }: Tog
       trackColor={{ false: colors.surface3, true: colors.positive }}
       thumbColor={value ? colors.primaryOn : colors.textMuted}
     />
+  );
+}
+
+interface CheckRowProps {
+  label: string;
+  subtitle?: string;
+  badge?: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  testID?: string;
+}
+
+export function CheckRow({ label, subtitle, badge, checked, onChange, testID }: CheckRowProps) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      onPress={() => onChange(!checked)}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56, paddingVertical: spacing.sm, opacity: pressed ? 0.7 : 1 })}>
+      <View
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: radius.sm,
+          borderWidth: 2,
+          borderColor: checked ? colors.primary : colors.borderStrong,
+          backgroundColor: checked ? colors.primary : 'transparent',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+        {checked ? <Icon name="check" color={colors.primaryOn} size={16} /> : null}
+      </View>
+      <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
+        <AppText variant="body" style={{ fontWeight: '500' }}>
+          {label}
+        </AppText>
+        {subtitle ? (
+          <AppText variant="label" muted>
+            {subtitle}
+          </AppText>
+        ) : null}
+      </View>
+      {badge ? <Chip label={badge} tone="positive" small /> : null}
+    </Pressable>
   );
 }
