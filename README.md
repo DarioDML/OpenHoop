@@ -82,7 +82,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 
 | Level | Values |
 | --- | --- |
-| A | SpO2, skin temperature |
+| A | SpO2, skin temperature, battery pack charge (experimental, as the band relays it from the pack) |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
 | C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training), jet lag plan (rule-based guidance), VO2 max (estimate), healthspan pillars, body age (fitness age and Phenotypic Age, two estimates), route distance, pace, speed and elevation gain from the phone GPS (estimates) |
