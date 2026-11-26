@@ -368,6 +368,14 @@ describe('System states', () => {
     expect(pickDeviceState({ device: { ...charging, lastSyncAt: NOW_S - 901 }, days, syncProgress: null, nowS: NOW_S })).toBe('lowBattery');
     expect(pickDeviceState({ device: { ...charging, band: { ...band, charging: { charging: false, at: NOW_S - 650 } } }, days, syncProgress: null, nowS: NOW_S })).toBe('lowBattery');
   });
+
+  it('does not show Charging from an old charging report after a fresh but partial sync', () => {
+    const device = createFixtureDevice(FIXTURE_NOW);
+    const days = fixtureAppData().days;
+    const band = { wear: null, charging: { charging: true, at: NOW_S - 86_400 }, boot: { lastBootAt: null, bootCount: null, rebootReason: null, signalProcessingVersion: null } };
+    const stale = { ...device, connection: 'connected' as const, batteryPercent: 10, lastSyncAt: NOW_S - 60, band };
+    expect(pickDeviceState({ device: stale, days, syncProgress: null, nowS: NOW_S })).toBe('lowBattery');
+  });
 });
 
 describe('Onboarding', () => {
