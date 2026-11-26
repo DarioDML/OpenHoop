@@ -168,6 +168,10 @@ describe('band console lines', () => {
       '0,    731: adv WHOOP ROBIN',
       '30, 1: id 5AG1234567',
       '30, 1: hello MyBand42',
+      '30, 1: peer 02 1A 2B 3C 4D 5E',
+      '30, 1: peer 0a1b.2c3d.4e5f',
+      '0,    731: adv WHOOP-ROBIN',
+      '0,    731: adv whoop_robin',
     ];
     for (const line of lines) {
       for (let cut = 1; cut < line.length; cut += 1) {

@@ -37,11 +37,13 @@ const CONSOLE_IDENTITY_TEXT: readonly RegExp[] = [
   new RegExp(SERIAL_TEXT.source, 'i'),
   /[A-Z]{3}[0-9][A-Z]{2}[0-9]{7}/i,
   /(?:[0-9A-F]{2}[:-]){2,}[0-9A-F]{2}/i,
+  /\b(?:[0-9A-F]{2} ){5}[0-9A-F]{2}\b/i,
+  /\b[0-9A-F]{4}\.[0-9A-F]{4}\.[0-9A-F]{4}\b/i,
   /(?:\b|0x)[0-9A-F]{12,}\b/i,
   /(?:addr(?:ess)?|mac|\b(?:uu)?id|\bs\/?n)\s*[:=]/i,
   /advertising name|name\s*[:=]/i,
   /serial/i,
-  /whoop\s+\w/i,
+  /whoop[\s_-]+\w/i,
 ];
 
 export function emptyRemovalCounts(): RemovalCounts {
