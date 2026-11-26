@@ -69,6 +69,30 @@ describe('sleep periods and nights', () => {
     expect(periods[0]?.hrMean).toBe(55);
   });
 
+  it('drops a SLEEP stretch without a worn-wrist skin temperature when the band reports one elsewhere', () => {
+    const samples: Sample[] = [];
+    for (let i = 0; i < 9000; i++) {
+      const unworn = i >= 1000 && i < 4000;
+      const asleep = unworn || (i >= 5000 && i < 8000);
+      samples.push(sample(T0 + i, { state: asleep ? 'SLEEP' : 'WAKE', hr: 60, skinTempC: unworn ? null : 33.1 }));
+    }
+    expect(sleepPeriods(samples).map((p) => [p.onset, p.offset])).toEqual([[T0 + 5000, T0 + 7999]]);
+  });
+
+  it('keeps a sleep whose skin temperature is mostly present', () => {
+    const samples: Sample[] = [];
+    for (let i = 0; i < 4000; i++) {
+      samples.push(sample(T0 + i, { state: 'SLEEP', hr: 55, skinTempC: i % 3 === 0 ? null : 33.4 }));
+    }
+    expect(sleepPeriods(samples)).toHaveLength(1);
+  });
+
+  it('keeps sleep from data that carries no skin temperature at all', () => {
+    const samples: Sample[] = [];
+    for (let i = 0; i < 4000; i++) samples.push(sample(T0 + i, { state: 'SLEEP', hr: 55 }));
+    expect(sleepPeriods(samples)).toHaveLength(1);
+  });
+
   it('does not count seconds above 100 bpm as sleep even when the band flags them SLEEP', () => {
     const samples: Sample[] = [];
     for (let i = 0; i < 6000; i++) {
