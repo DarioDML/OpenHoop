@@ -295,6 +295,37 @@ describe('buildDonation with other bands', () => {
     await store.driver.close();
   });
 
+  it('never writes a fragment of a band log line that names an identity, and counts it in the manifest', async () => {
+    const store = await openStore(openStrictDriver());
+    const deviceId = await seedBand(store, device({ model: 'MG', name: 'WHOOP ROBIN', bleId: '02:1A:2B:3C:4D:5E' }));
+    const listed = await listDonationDays(store, FAR_FUTURE);
+    const band = listed[0]?.bands[0];
+    if (band === undefined) throw new Error('needs a day');
+    const texts = [
+      '\n 30, 2372293640: Address          = 02:1A:2B',
+      ':3C:4D:5E\n',
+      ' 0,    730: Advertising name: WHO',
+      'OP ROBIN\n',
+      ' 30, 2372467560: NFC COMMS: BT addr : 0a1b2c',
+      '3d4e5f\n',
+      ' 30, 2372467562: NFC COMMS: Serial : XYZ9QR',
+      '1234567\n',
+      ' 30, 2372467563: NFC COMMS: HW family : 12\n',
+    ];
+    const frames = texts.map((text, i) => encodeConsole({ consoleSequence: i + 1, unixS: band.start + 10 + i, text }));
+    await addFramesAt(store, deviceId, frames, band.start + 30);
+    const sinks = memorySinks();
+    const result = await buildDonation({ store, days: listed.map((d) => d.day), nowS: FAR_FUTURE, appVersion: '1.4.0', code: CODE, openPart: sinks.openPart });
+    const jsonl = framesText(sinks, result);
+    const leaked = frames.slice(0, -1).filter((frame) => jsonl.includes(frameHex(frame)));
+    expect(leaked).toEqual([]);
+    expect(jsonl).toContain(frameHex(frames[frames.length - 1] ?? new Uint8Array(0)));
+    expect(result.removed).toMatchObject({ consoleIdentity: 8, consolePartial: 0 });
+    expect(result.parts).toHaveLength(1);
+    expect(manifestOf(sinks, result.parts[0]?.fileName ?? '')).toMatchObject({ removed: { consoleIdentity: 8, consolePartial: 0 } });
+    await store.driver.close();
+  });
+
   it('says unknown when model, serial, name and firmware are all null', async () => {
     const store = await openStore(openStrictDriver());
     await seedBand(store, device({ model: null, serial: null, name: null, firmware: null }));

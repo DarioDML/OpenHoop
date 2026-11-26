@@ -1,12 +1,16 @@
 import { ChunkIntegrityError } from '../store/chunkCodec';
 import type { BandModel, SqlDriver, Store } from '../store/types';
-import { emptyRemovalCounts, frameHex, identityReason, timeChunkFrames, type DayFrame, type RemovalCounts } from './frames';
-
-const CRC_BYTES = 4;
-
-function duplicateKey(frame: Uint8Array, t: number): string {
-  return `${t}:${frame.length}:${frameHex(frame.subarray(frame.length - CRC_BYTES))}`;
-}
+import {
+  consoleLineReasons,
+  duplicateKey,
+  emptyRemovalCounts,
+  identityReason,
+  timeChunkFrames,
+  type DayFrame,
+  type RemovalCounts,
+  type RemovalReason,
+  type TimedFrame,
+} from './frames';
 
 const ALL_FROM = '0000-01-01';
 const ALL_TO = '9999-12-31';
@@ -109,6 +113,11 @@ async function chunkIdsIn(driver: SqlDriver, band: DonationBandDay): Promise<num
   return rows.map((row) => row.chunk_id);
 }
 
+interface Candidate extends DayFrame {
+  reason: RemovalReason | null;
+  console: TimedFrame | null;
+}
+
 export async function collectBandDayFrames(
   store: Store,
   band: DonationBandDay,
@@ -116,8 +125,8 @@ export async function collectBandDayFrames(
   known: readonly string[],
   removed: RemovalCounts,
 ): Promise<DayFrame[]> {
-  const seen = new Set<string>();
-  const kept: DayFrame[] = [];
+  const consoleFrames: TimedFrame[] = [];
+  const candidates: Candidate[] = [];
   for (const chunkId of await chunkIdsIn(store.driver, band)) {
     let frames: Uint8Array[];
     try {
@@ -135,24 +144,33 @@ export async function collectBandDayFrames(
       removed.untimed += chunkCounts.untimed;
     }
     for (const entry of timed) {
+      const isConsole = entry.packet.kind === 'console';
+      if (isConsole) consoleFrames.push(entry);
       if (entry.t < band.start || entry.t >= band.end) continue;
       if (ownerSince !== null && entry.t < ownerSince) {
         removed.beforeOwner += 1;
         continue;
       }
       const reason = identityReason(entry.frame, entry.packet, known);
-      if (reason !== null) {
-        removed[reason] += 1;
-        continue;
-      }
-      const key = duplicateKey(entry.frame, entry.t);
-      if (seen.has(key)) {
-        removed.duplicate += 1;
-        continue;
-      }
-      seen.add(key);
-      kept.push({ frame: entry.frame, t: entry.t });
+      candidates.push({ frame: entry.frame, t: entry.t, reason, console: isConsole ? entry : null });
     }
+  }
+  const consoleReasons = consoleLineReasons(consoleFrames, known);
+  const seen = new Set<string>();
+  const kept: DayFrame[] = [];
+  for (const candidate of candidates) {
+    const reason = candidate.reason ?? (candidate.console === null ? null : (consoleReasons.get(candidate.console) ?? null));
+    if (reason !== null) {
+      removed[reason] += 1;
+      continue;
+    }
+    const key = duplicateKey(candidate.frame, candidate.t);
+    if (seen.has(key)) {
+      removed.duplicate += 1;
+      continue;
+    }
+    seen.add(key);
+    kept.push({ frame: candidate.frame, t: candidate.t });
   }
   return kept.sort((x, y) => x.t - y.t);
 }

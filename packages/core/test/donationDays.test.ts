@@ -191,4 +191,35 @@ describe('the frames of one day', () => {
     expect(removed.serialText).toBe(1);
     expect(frames.some((f) => frameHex(f.frame) === frameHex(leak))).toBe(false);
   });
+
+  it('drops every fragment of a console line that names an identity, across chunks, and counts each frame once', async () => {
+    const at = record.start + 400;
+    const line = (sequence: number, text: string, offset: number): Uint8Array =>
+      encodeConsole({ consoleSequence: sequence, unixS: at + offset, text });
+    const head = line(1, '\n 30, 2372293640: Address          = 02:1A:2B', 0);
+    const tail = line(2, ':3C:4D:5E\n 30, 2372467563: NFC COMMS: HW family : 12\n', 1);
+    const harmless = line(3, ' 30, 2372467564: NFC COMMS: FW version: 3.30.5.0\n', 2);
+    const serial = line(4, ' 30, 5: id 5AG1234567\n', 3);
+    const afterGap = line(9, '3d4e5f\n', 4);
+    const whole = line(10, ' 30, 6: WEAR: moving\n', 5);
+    await extraChunk([head], at + 10);
+    await extraChunk([tail, harmless, serial, afterGap, whole], at + 11);
+    const removed = emptyRemovalCounts();
+    const frames = await collectBandDayFrames(store, band, null, [], removed);
+    const donated = new Set(frames.map((f) => frameHex(f.frame)));
+    expect([head, tail, harmless, serial, afterGap, whole].map((f) => donated.has(frameHex(f)))).toEqual([false, false, true, false, false, true]);
+    expect(removed).toMatchObject({ consoleIdentity: 2, serialText: 1, consolePartial: 1, duplicate: 0 });
+  });
+
+  it('counts a repeated copy of a dropped console fragment once per copy, under one reason', async () => {
+    const at = record.start + 500;
+    const head = encodeConsole({ consoleSequence: 1, unixS: at, text: '\n 30, 5: peer 0a1b2c' });
+    const tail = encodeConsole({ consoleSequence: 2, unixS: at + 1, text: '3d4e5f\n' });
+    await extraChunk([head], at + 10);
+    await extraChunk([head, tail], at + 11);
+    const removed = emptyRemovalCounts();
+    const frames = await collectBandDayFrames(store, band, null, [], removed);
+    expect(frames.some((f) => [frameHex(head), frameHex(tail)].includes(frameHex(f.frame)))).toBe(false);
+    expect(removed).toMatchObject({ consoleIdentity: 3, consolePartial: 0, duplicate: 0 });
+  });
 });
