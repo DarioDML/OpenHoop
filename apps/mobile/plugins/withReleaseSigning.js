@@ -25,7 +25,7 @@ function applyReleaseSigning(gradle) {
     .replace(DEBUG_SIGNING, `$1${RELEASE_SIGNING}`)
     .replace(
       RELEASE_BUILD_TYPE,
-      `$1signingConfig System.getenv('${MARKER}') ? signingConfigs.release : signingConfigs.debug`,
+      `$1signingConfig System.getenv('${MARKER}') ? signingConfigs.release : (System.getenv('OPENHOOP_UNSIGNED_RELEASE') ? null : signingConfigs.debug)`,
     );
 }
 
