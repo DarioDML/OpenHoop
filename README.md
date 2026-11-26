@@ -145,7 +145,7 @@ The health report is a PDF of the last 30 or 90 days that you can share with you
 ## Privacy
 
 - No account, no OpenHoop server and no telemetry.
-- The Donate button and the GitHub links on the support page open your browser. The app sends no request for them, and the link carries only the amount and whether it is once or monthly.
+- The Donate button opens the GitHub Sponsors checkout in the system browser, shown as a sheet over the app; the GitHub links on the support page open the browser itself. The app sends no request for them and does not see what you enter on GitHub. The link carries only the amount and whether it is once or monthly.
 - No network access by default. Every request goes through one gate in the app that refuses it unless you switch on "Network features" and the specific feature under Privacy, and the address is https on that feature's fixed host. Both switches start off.
 - Opt-in network features and what leaves the phone:
   - **Coach** sends your question, the current conversation, a summary of the last 7 days of Readiness, Sleep score, Load, HRV and resting heart rate (with their levels) and your coach memory notes to Anthropic (`api.anthropic.com`), using your own API key. No name, band identifiers or raw readings are sent. Coach settings show the exact text. The key stays in the device's secure storage and is never written to the database or the export. Anthropic's own terms apply to what you send.
@@ -186,7 +186,7 @@ OpenHoop is free and has no paywalls. Donations help pay for test bands and refe
 
 GitHub takes no fee on sponsorships from personal accounts; sponsorships paid by an organisation carry up to 6% ([GitHub's fee terms](https://docs.github.com/en/sponsors/sponsoring-open-source-contributors/about-sponsorships-fees-and-taxes)). You pay by card in US dollars and need a GitHub account. A monthly sponsorship can be changed or cancelled on GitHub.
 
-In the app the same choice is under More → Support the project. It opens GitHub in your browser; the app itself sends nothing.
+In the app, go to More → Support the project. Pick $3, $5, $10 or type any whole-dollar amount up to $12,000, choose one-off or monthly, and tap Donate. The GitHub Sponsors checkout opens in a sheet over the app with that amount filled in (a Chrome Custom Tab on Android, a Safari view on iOS). Closing it brings you back to the app. If you are already signed in to GitHub in your phone's browser, the sheet uses that sign-in.
 
 You can also help by [reporting a problem or contributing code](https://github.com/DarioDML/OpenHoop/issues).
 

@@ -61,3 +61,10 @@ Native libraries added by the lab report import (`apps/mobile/modules/lab-reader
 | `com.tom-roush:pdfbox-android` | 2.0.27.0 | Apache-2.0 | Reading the text layer of a PDF on the phone |
 | `androidx.exifinterface:exifinterface` | 1.3.7 | Apache-2.0 | Reading photo orientation before downscaling |
 | `expo-image-picker` | 58.0.10 | MIT | Taking a photo of a report with the camera |
+
+Native library added by the donation sheet (`expo-web-browser`):
+
+| Library | Version | Licence | Used for |
+| --- | --- | --- | --- |
+| `expo-web-browser` | 58.1.0 | MIT | Opening the GitHub Sponsors checkout in a Chrome Custom Tab or Safari view over the app |
+| `androidx.browser:browser` | 1.6.0 | Apache-2.0 | Chrome Custom Tabs on Android, pulled in by `expo-web-browser` |

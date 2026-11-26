@@ -1,3 +1,4 @@
+import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { Linking, View } from 'react-native';
 
@@ -5,26 +6,55 @@ import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Pill } from '@/ui/Chip';
-import { Button, Segmented } from '@/ui/controls';
+import { Button, Field, Segmented } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
-import { DONATION_AMOUNTS_USD, donationUrl, REPO_URL, type DonationFrequency } from '@/ui/manage/links';
+import { DONATION_AMOUNTS_USD, donationUrl, parseDonationAmount, REPO_URL, type DonationFrequency } from '@/ui/manage/links';
 import { SettingsPage } from '@/ui/manage/SettingsPage';
 import { tile } from '@/ui/manage/tiles';
-import { spacing, useTheme } from '@/ui/theme';
+import { spacing, useTheme, type ColorTokens } from '@/ui/theme';
 
-const DEFAULT_AMOUNT_USD = 5;
+type AmountChoice = (typeof DONATION_AMOUNTS_USD)[number] | 'other';
+
+async function openCheckout(url: string, colors: ColorTokens): Promise<void> {
+  try {
+    await WebBrowser.openBrowserAsync(url, {
+      presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+      toolbarColor: colors.background,
+      controlsColor: colors.primary,
+      dismissButtonStyle: 'done',
+      showTitle: true,
+      enableBarCollapsing: true,
+    });
+  } catch {
+    await Linking.openURL(url);
+  }
+}
 
 export default function SupportScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const [amount, setAmount] = useState<number | null>(DEFAULT_AMOUNT_USD);
+  const [choice, setChoice] = useState<AmountChoice>(5);
+  const [customText, setCustomText] = useState('');
   const [frequency, setFrequency] = useState<DonationFrequency>('one-time');
+  const [opening, setOpening] = useState(false);
 
+  const amount = choice === 'other' ? parseDonationAmount(customText) : choice;
+  const customInvalid = choice === 'other' && customText.trim() !== '' && amount === null;
   const donateLabel =
     amount === null
       ? t('aboutx.support.donateOther')
       : t(frequency === 'monthly' ? 'aboutx.support.donateMonthly' : 'aboutx.support.donateOnce', { amount });
+
+  const donate = async () => {
+    if (amount === null || opening) return;
+    setOpening(true);
+    try {
+      await openCheckout(donationUrl(frequency, amount), colors);
+    } finally {
+      setOpening(false);
+    }
+  };
 
   return (
     <SettingsPage title={t('aboutx.support')} tint="neutral" testID="support">
@@ -41,13 +71,28 @@ export default function SupportScreen() {
           <Pill
             key={value}
             label={t('aboutx.support.amount', { amount: value })}
-            selected={amount === value}
-            onPress={() => setAmount(value)}
+            selected={choice === value}
+            onPress={() => setChoice(value)}
             testID={`donate-amount-${value}`}
           />
         ))}
-        <Pill label={t('aboutx.support.other')} selected={amount === null} onPress={() => setAmount(null)} testID="donate-amount-other" />
+        <Pill label={t('aboutx.support.other')} selected={choice === 'other'} onPress={() => setChoice('other')} testID="donate-amount-other" />
       </View>
+      {choice === 'other' ? (
+        <Field
+          label={t('aboutx.support.customAmount')}
+          hint={t('aboutx.support.customAmountHint')}
+          error={customInvalid}
+          suffix="USD"
+          value={customText}
+          onChangeText={setCustomText}
+          keyboardType="number-pad"
+          inputMode="numeric"
+          maxLength={5}
+          autoFocus
+          testID="donate-custom-amount"
+        />
+      ) : null}
       <Segmented
         options={[
           { value: 'one-time', label: t('aboutx.support.oneTime') },
@@ -57,7 +102,7 @@ export default function SupportScreen() {
         onChange={setFrequency}
         testID="donate-frequency"
       />
-      <Button label={donateLabel} icon="gift" onPress={() => void Linking.openURL(donationUrl(frequency, amount))} testID="support-donate" />
+      <Button label={donateLabel} icon="gift" disabled={amount === null || opening} onPress={() => void donate()} testID="support-donate" />
       <AppText variant="caption" muted>
         {t('aboutx.support.donateNote')}
       </AppText>
