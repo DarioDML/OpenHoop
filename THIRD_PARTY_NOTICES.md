@@ -52,3 +52,12 @@ These packages have their own dependencies. Those are not inventoried here.
 ## Mobile app
 
 The dependencies of `apps/mobile` are listed in `apps/mobile/package.json`. Their licences have not been inventoried yet.
+
+Native libraries added by the lab report import (`apps/mobile/modules/lab-reader`, `expo-image-picker`):
+
+| Library | Version | Licence | Used for |
+| --- | --- | --- | --- |
+| `com.google.mlkit:text-recognition` | 16.0.1 | Google ML Kit Terms of Service (closed-source binary) | On-device text recognition of photos and scanned PDF pages |
+| `com.tom-roush:pdfbox-android` | 2.0.27.0 | Apache-2.0 | Reading the text layer of a PDF on the phone |
+| `androidx.exifinterface:exifinterface` | 1.3.7 | Apache-2.0 | Reading photo orientation before downscaling |
+| `expo-image-picker` | 58.0.10 | MIT | Taking a photo of a report with the camera |

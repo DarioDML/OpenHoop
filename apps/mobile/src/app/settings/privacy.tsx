@@ -21,6 +21,7 @@ type SaveState = 'idle' | 'saved' | 'invalid';
 const FEATURE_TEXT: Record<NetworkFeature, { title: TranslationKey; sends: TranslationKey; to: TranslationKey }> = {
   coach: { title: 'network.coach.title', sends: 'network.coach.sends', to: 'network.coach.to' },
   maps: { title: 'network.maps.title', sends: 'network.maps.sends', to: 'network.maps.to' },
+  labs: { title: 'network.labs.title', sends: 'network.labs.sends', to: 'network.labs.to' },
 };
 
 const PROMISES: ReadonlyArray<{ icon: IconName; key: TranslationKey }> = [

@@ -32,7 +32,7 @@ import PrivacyScreen from '@/app/settings/privacy';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const latest = days[days.length - 1];
-const NETWORK_ON = { enabled: true, features: { coach: true, maps: false } };
+const NETWORK_ON = { enabled: true, features: { coach: true, maps: false, labs: false } };
 
 function userData(network = NETWORK_ON, coach = defaultCoachPrefs()) {
   return { ...fixtureAppData().userData, network, coach };
@@ -266,16 +266,18 @@ describe('privacy network settings', () => {
     expect(screen.getByTestId('network-global-toggle').props.value).toBe(false);
     expect(screen.getByTestId('network-feature-coach').props.value).toBe(false);
     expect(screen.getByTestId('network-feature-coach').props.disabled).toBe(true);
-    expect(screen.getByText(/api\.anthropic\.com/)).toBeTruthy();
+    expect(screen.getAllByText(/api\.anthropic\.com/)).toHaveLength(2);
+    expect(screen.getByTestId('network-feature-labs').props.value).toBe(false);
+    expect(screen.getByText('Read lab reports with Claude')).toBeTruthy();
     fireEvent(screen.getByTestId('network-global-toggle'), 'valueChange', true);
-    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: false, maps: false } } });
+    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: false, maps: false, labs: false } } });
   });
 
   it('switches the coach feature on once network features are on', async () => {
     const updateUserData = jest.fn(async () => true);
     const { controller } = makeController();
-    await render(withCoach(<PrivacyScreen />, controller, { updateUserData, userData: userData({ enabled: true, features: { coach: false, maps: false } }) }));
+    await render(withCoach(<PrivacyScreen />, controller, { updateUserData, userData: userData({ enabled: true, features: { coach: false, maps: false, labs: false } }) }));
     fireEvent(screen.getByTestId('network-feature-coach'), 'valueChange', true);
-    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: true, maps: false } } });
+    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: true, maps: false, labs: false } } });
   });
 });

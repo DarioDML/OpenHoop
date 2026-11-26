@@ -164,10 +164,18 @@ describe('lab entry screen', () => {
     await render(withAppData(<LabsUploadScreen />, 'en', { saveLabResult: save, ...extra }));
   }
 
-  it('keeps file import as an honest not-built note', async () => {
+  it('offers importing a report instead of a not-built note', async () => {
     await open(jest.fn<Promise<boolean>, [number | null, LabResultInput]>(async () => true));
-    expect(screen.getByTestId('labs-file-not-built')).toBeTruthy();
-    expect(screen.getByText(/not built yet/)).toBeTruthy();
+    expect(screen.queryByTestId('labs-file-not-built')).toBeNull();
+    expect(screen.queryByText(/not built yet/)).toBeNull();
+    await fireEvent.press(screen.getByTestId('labs-import-open'));
+    expect(router.push).toHaveBeenCalledWith('/health/labs-import');
+  });
+
+  it('hides the import entry while editing an existing result', async () => {
+    mockParams.entry = '2';
+    await open(jest.fn<Promise<boolean>, [number | null, LabResultInput]>(async () => true), { labResults: glucoseHistory });
+    expect(screen.queryByTestId('labs-import-entry')).toBeNull();
   });
 
   it('does not save invalid input', async () => {
