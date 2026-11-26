@@ -71,8 +71,8 @@ export function CardHeader({ title, action, onAction, href, chevron = false }: C
         {title}
       </AppText>
       {action && press ? (
-        <Pressable accessibilityRole="link" onPress={press} hitSlop={10} style={{ minHeight: 32, justifyContent: 'center' }}>
-          <AppText variant="capSmall" muted>
+        <Pressable accessibilityRole="link" onPress={press} hitSlop={10} style={{ minHeight: 32, justifyContent: 'center', flexShrink: 1, maxWidth: '50%' }}>
+          <AppText variant="capSmall" muted numberOfLines={2} style={{ textAlign: 'right' }}>
             {action}
           </AppText>
         </Pressable>

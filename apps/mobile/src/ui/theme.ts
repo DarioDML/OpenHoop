@@ -226,6 +226,24 @@ export const typeScale = {
 
 export type TypeVariant = keyof typeof typeScale;
 
+export const maxFontScale: Readonly<Record<TypeVariant, number>> = {
+  caption: 2,
+  label: 2,
+  body: 2,
+  bodyStrong: 2,
+  lead: 2,
+  cardTitle: 1.8,
+  title: 1.6,
+  h2: 1.5,
+  h1: 1.5,
+  value: 1.4,
+  display: 1.3,
+  cap: 1.4,
+  capSmall: 1.4,
+  capLarge: 1.4,
+  screenTitle: 1.4,
+};
+
 export interface Theme {
   dark: boolean;
   colors: ColorTokens;

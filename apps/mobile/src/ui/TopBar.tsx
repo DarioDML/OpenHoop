@@ -40,9 +40,9 @@ export function TopBar({ title, back = true, onBack, close = false, right, cente
       ) : (
         <View style={{ width: 44 }} />
       )}
-      <View style={{ flex: 1, alignItems: 'center' }}>
+      <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 4 }}>
         {center ?? (title ? (
-          <AppText variant="screenTitle" accessibilityRole="header" numberOfLines={1}>
+          <AppText variant="screenTitle" accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {title}
           </AppText>
         ) : null)}

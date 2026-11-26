@@ -13,9 +13,11 @@ interface Props {
   style?: StyleProp<TextStyle>;
   testID?: string;
   accessibilityLabel?: string;
+  maxFontSizeMultiplier?: number;
+  adjustsFontSizeToFit?: boolean;
 }
 
-export function Num({ children, size = 44, color, unit, unitSize, unitColor, style, testID, accessibilityLabel }: Props) {
+export function Num({ children, size = 44, color, unit, unitSize, unitColor, style, testID, accessibilityLabel, maxFontSizeMultiplier = 1.3, adjustsFontSizeToFit = false }: Props) {
   const { colors } = useTheme();
   const base: TextStyle = {
     fontFamily: fonts.numeric,
@@ -27,7 +29,13 @@ export function Num({ children, size = 44, color, unit, unitSize, unitColor, sty
     includeFontPadding: false,
   };
   return (
-    <Text style={[base, style]} testID={testID} accessibilityLabel={accessibilityLabel}>
+    <Text
+      style={[base, style]}
+      testID={testID}
+      accessibilityLabel={accessibilityLabel}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
+      numberOfLines={adjustsFontSizeToFit ? 1 : undefined}
+      adjustsFontSizeToFit={adjustsFontSizeToFit}>
       {children}
       {unit ? (
         <Text style={{ fontSize: unitSize ?? Math.round(size * 0.42), color: unitColor ?? color ?? colors.text }}>
