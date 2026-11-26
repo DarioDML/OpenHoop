@@ -116,8 +116,15 @@ export function minuteMeans(points: readonly HrPoint[], start: number, end: numb
   return out;
 }
 
+function nonDecreasing(points: readonly HrPoint[]): boolean {
+  for (let i = 1; i < points.length; i++) {
+    if (!((points[i]?.t ?? Number.NaN) >= (points[i - 1]?.t ?? Number.NaN))) return false;
+  }
+  return true;
+}
+
 function segmentMinutes(points: readonly HrPoint[], segments: readonly Interval[]): (number | null)[] {
-  const sorted = [...points].sort((a, b) => a.t - b.t);
+  const sorted = nonDecreasing(points) ? points : [...points].sort((a, b) => a.t - b.t);
   const out: (number | null)[] = [];
   let k = 0;
   for (const seg of segments) {
@@ -165,8 +172,15 @@ export function activityMetrics(
   const hrs: number[] = [];
   let peak: number | null = null;
   let total = 0;
+  const ordered = nonDecreasing(points);
+  let cursor = 0;
   for (const p of points) {
-    if (p.hr === null || !Number.isFinite(p.hr) || !inSegments(p.t, segments)) continue;
+    if (p.hr === null || !Number.isFinite(p.hr)) continue;
+    if (ordered) {
+      while (cursor < segments.length && (segments[cursor]?.end ?? Infinity) <= p.t) cursor++;
+      const seg = segments[cursor];
+      if (seg === undefined || !(p.t >= seg.start && p.t < seg.end)) continue;
+    } else if (!inSegments(p.t, segments)) continue;
     hrs.push(p.hr);
     total += p.hr;
     peak = peak === null ? p.hr : Math.max(peak, p.hr);

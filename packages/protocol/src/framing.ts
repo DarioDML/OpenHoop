@@ -13,12 +13,19 @@ export class FrameError extends Error {
   }
 }
 
+const CRC16_TABLE: Uint16Array = (() => {
+  const table = new Uint16Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xa001 : c >>> 1;
+    table[n] = c;
+  }
+  return table;
+})();
+
 export function crc16Modbus(data: Uint8Array): number {
   let crc = 0xffff;
-  for (const b of data) {
-    crc ^= b;
-    for (let i = 0; i < 8; i++) crc = crc & 1 ? (crc >>> 1) ^ 0xa001 : crc >>> 1;
-  }
+  for (let n = 0; n < data.length; n++) crc = (CRC16_TABLE[(crc ^ (data[n] ?? 0)) & 0xff] ?? 0) ^ (crc >>> 8);
   return crc;
 }
 
@@ -34,7 +41,7 @@ const CRC32_TABLE: Uint32Array = (() => {
 
 export function crc32(data: Uint8Array): number {
   let crc = 0xffffffff;
-  for (const b of data) crc = (CRC32_TABLE[(crc ^ b) & 0xff] ?? 0) ^ (crc >>> 8);
+  for (let n = 0; n < data.length; n++) crc = (CRC32_TABLE[(crc ^ (data[n] ?? 0)) & 0xff] ?? 0) ^ (crc >>> 8);
   return (crc ^ 0xffffffff) >>> 0;
 }
 
