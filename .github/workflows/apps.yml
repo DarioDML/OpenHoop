@@ -16,6 +16,7 @@ on:
       - 'apps/mobile/package.json'
       - 'apps/mobile/package-lock.json'
       - 'apps/mobile/plugins/**'
+      - 'apps/mobile/modules/**'
       - 'apps/mobile/locales/**'
       - 'apps/mobile/src/ble/**'
       - '.github/workflows/apps.yml'
