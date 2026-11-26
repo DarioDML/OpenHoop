@@ -1200,17 +1200,7 @@ export class AppController {
   heartRateBetween = async (fromS: number, toS: number, bucketS = 60): Promise<HeartRatePoint[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
-    const samples = await this.app.store.samplesBetween(row.id, fromS, toS);
-    const buckets = new Map<number, { sum: number; count: number }>();
-    for (const sample of samples) {
-      if (sample.hr === null || sample.hr <= 0) continue;
-      const key = Math.floor(sample.t / bucketS) * bucketS;
-      const bucket = buckets.get(key) ?? { sum: 0, count: 0 };
-      bucket.sum += sample.hr;
-      bucket.count += 1;
-      buckets.set(key, bucket);
-    }
-    return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([t, b]) => ({ t, hr: b.sum / b.count }));
+    return this.app.store.heartRateBuckets(row.id, fromS, toS, bucketS);
   };
 
   private digestFacts(now: Date): (day: string) => DigestFacts | null {

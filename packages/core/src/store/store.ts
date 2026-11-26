@@ -348,6 +348,17 @@ export function bindStore(driver: SqlDriver): Store {
       return rows.map(toSample);
     },
 
+    async heartRateBuckets(deviceId, from, to, bucketS) {
+      if (!Number.isInteger(bucketS) || bucketS <= 0) throw new RangeError(`bucketS must be a positive integer, got ${bucketS}`);
+      const rows = await driver.all<{ bucket: number; total: number; count: number }>(
+        `SELECT t - ((t % ?) + ?) % ? AS bucket, SUM(hr) AS total, COUNT(*) AS count
+         FROM samples_1hz WHERE device_id = ? AND t >= ? AND t < ? AND hr > 0
+         GROUP BY bucket ORDER BY bucket`,
+        [bucketS, bucketS, bucketS, deviceId, from, to],
+      );
+      return rows.map((r) => ({ t: r.bucket, hr: r.total / r.count }));
+    },
+
     async sampleRange(deviceId) {
       const rows = await driver.all<{ first: number | null; last: number | null; count: number }>(
         'SELECT MIN(t) AS first, MAX(t) AS last, COUNT(*) AS count FROM samples_1hz WHERE device_id = ?',

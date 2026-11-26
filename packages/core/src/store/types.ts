@@ -48,6 +48,11 @@ export interface SampleRow {
   chunkId: number | null;
 }
 
+export interface HeartRateBucket {
+  t: number;
+  hr: number;
+}
+
 export interface ChunkInput {
   deviceId: number;
   endToken: Uint8Array | null;
@@ -207,6 +212,7 @@ export interface Store {
   listChunkIds(deviceId: number): Promise<number[]>;
   insertSamples(samples: SampleRow[]): Promise<number>;
   samplesBetween(deviceId: number, from: number, to: number): Promise<SampleRow[]>;
+  heartRateBuckets(deviceId: number, from: number, to: number, bucketS: number): Promise<HeartRateBucket[]>;
   sampleRange(deviceId: number): Promise<{ first: number; last: number; count: number } | null>;
   deleteSamples(deviceId: number, source?: SampleSource): Promise<void>;
   getSyncState(deviceId: number): Promise<SyncStateRow | null>;
