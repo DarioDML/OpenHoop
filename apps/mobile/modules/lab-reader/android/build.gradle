@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'app.openhoop'
+version = '0.1.0'
+
+android {
+  namespace "app.openhoop.labreader"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+    consumerProguardFiles 'consumer-rules.pro'
+  }
+}
+
+dependencies {
+  implementation 'com.google.mlkit:text-recognition:16.0.1'
+  implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
+  implementation 'androidx.exifinterface:exifinterface:1.3.7'
+}

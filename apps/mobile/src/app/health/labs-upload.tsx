@@ -26,7 +26,6 @@ import { Pill } from '@/ui/Chip';
 import { Button, Field, Segmented } from '@/ui/controls';
 import { HealthPage } from '@/ui/health/HealthPage';
 import { markerName } from '@/ui/health/labsText';
-import { NotBuilt } from '@/ui/NotBuilt';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { spacing, useTheme } from '@/ui/theme';
 
@@ -245,7 +244,15 @@ export default function LabsUploadScreen() {
         </Card>
       )}
 
-      <NotBuilt issue="labs" body={t('health.labsUpload.file.body')} compact testID="labs-file-not-built" />
+      {editing ? null : (
+        <Card testID="labs-import-entry">
+          <AppText variant="cardTitle">{t('health.labsUpload.import.title')}</AppText>
+          <AppText variant="label" muted>
+            {t('health.labsUpload.import.body')}
+          </AppText>
+          <Button label={t('health.labsUpload.import.action')} icon="report" variant="secondary" onPress={() => router.push('/health/labs-import')} testID="labs-import-open" />
+        </Card>
+      )}
     </HealthPage>
   );
 }

@@ -43,7 +43,7 @@ export function unitFits(id: BiomarkerId, label: string): boolean {
   return BIOMARKER_UNITS[id].some((unit) => unit.label === label);
 }
 
-const PRINTED_UNIT = /^[A-Za-z0-9µμ%^*.\/]+$/;
+const PRINTED_UNIT = /^[A-Za-z0-9µμ%^*./]+$/;
 
 export function printedUnit(raw: string): string | null {
   const known = normalizeUnit(raw);

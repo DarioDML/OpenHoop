@@ -266,7 +266,9 @@ describe('privacy network settings', () => {
     expect(screen.getByTestId('network-global-toggle').props.value).toBe(false);
     expect(screen.getByTestId('network-feature-coach').props.value).toBe(false);
     expect(screen.getByTestId('network-feature-coach').props.disabled).toBe(true);
-    expect(screen.getByText(/api\.anthropic\.com/)).toBeTruthy();
+    expect(screen.getAllByText(/api\.anthropic\.com/)).toHaveLength(2);
+    expect(screen.getByTestId('network-feature-labs').props.value).toBe(false);
+    expect(screen.getByText('Read lab reports with Claude')).toBeTruthy();
     fireEvent(screen.getByTestId('network-global-toggle'), 'valueChange', true);
     expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: false, maps: false, labs: false } } });
   });

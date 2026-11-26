@@ -100,6 +100,14 @@
           "isAndroidMotionActivityEnabled": false
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": false,
+          "cameraPermission": "OpenHoop uses the camera only when you take a photo of your lab report to read its results. The photo is not kept.",
+          "microphonePermission": false
+        }
+      ],
       "./plugins/withLocalNotificationsOnly",
       "./plugins/withAndroidBuildFixes",
       "./plugins/withReleaseSigning",
