@@ -217,6 +217,8 @@ export interface Store {
     },
   ): Promise<number>;
   insertPackEvents(rows: PackEventRow[], chunkId: number | null): Promise<number>;
+  eventsOf(deviceId: number, events: readonly number[]): Promise<EventRow[]>;
+  latestEventsOf(deviceId: number, events: readonly number[], limit: number): Promise<EventRow[]>;
   listPackEvents(deviceId: number, limit: number): Promise<PackEventRow[]>;
   readChunkFrames(chunkId: number): Promise<Uint8Array[]>;
   getChunkMeta(chunkId: number): Promise<{ deviceId: number; clockOffsetS: number | null; receivedAt: number } | null>;
