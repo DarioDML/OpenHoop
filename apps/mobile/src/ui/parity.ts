@@ -6,6 +6,7 @@ export const PARITY = {
   steps: 'A',
   skinTemp: 'A',
   spo2: 'A',
+  batteryPack: 'A',
   hrv: 'B',
   restingHr: 'B',
   respiratoryRate: 'B',

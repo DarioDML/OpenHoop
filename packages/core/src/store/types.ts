@@ -69,6 +69,8 @@ export interface EventRow {
   payloadHex: string;
 }
 
+export type PackEventRow = EventRow;
+
 export interface ConsoleRow {
   deviceId: number;
   t: number;
@@ -174,6 +176,7 @@ export type ExportTable =
   | 'workouts'
   | 'activities'
   | 'events'
+  | 'battery_pack_events'
   | 'console_log'
   | 'raw_chunks'
   | 'body_measurements'
@@ -205,8 +208,16 @@ export interface Store {
   commitChunk(
     chunk: ChunkInput,
     samples: SampleRow[],
-    extras: { events: EventRow[]; console: ConsoleRow[]; unknownFrames: number; syncState: SyncStateRow },
+    extras: {
+      events: EventRow[];
+      packEvents?: PackEventRow[];
+      console: ConsoleRow[];
+      unknownFrames: number;
+      syncState: SyncStateRow;
+    },
   ): Promise<number>;
+  insertPackEvents(rows: PackEventRow[], chunkId: number | null): Promise<number>;
+  listPackEvents(deviceId: number, limit: number): Promise<PackEventRow[]>;
   readChunkFrames(chunkId: number): Promise<Uint8Array[]>;
   getChunkMeta(chunkId: number): Promise<{ deviceId: number; clockOffsetS: number | null; receivedAt: number } | null>;
   listChunkIds(deviceId: number): Promise<number[]>;

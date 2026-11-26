@@ -1,4 +1,4 @@
-import { FrameError, decodeFrame, type Packet } from '@openhoop/protocol';
+import { FrameError, PACK_SOC_EVENT, decodeFrame, type Packet } from '@openhoop/protocol';
 
 import type { DeviceRow } from '../store/types';
 
@@ -72,6 +72,7 @@ export function identityReason(frame: Uint8Array, packet: Packet, known: readonl
   if (packetType === COMMAND_RESPONSE_PACKET && IDENTITY_RESPONSE_COMMANDS.has(command)) return 'identityCommand';
   if (packetType === COMMAND_PACKET && IDENTITY_OUTGOING_COMMANDS.has(command)) return 'identityCommand';
   if (packet.kind === 'event' && IDENTITY_EVENTS.has(packet.event)) return 'identityEvent';
+  if (packet.kind === 'packEvent' && (packet.event !== PACK_SOC_EVENT || packet.pack === undefined)) return 'identityEvent';
   const text = latin1(frame);
   if (SERIAL_TEXT.test(text)) return 'serialText';
   if (ADDRESS_TEXT.test(text)) return 'addressText';

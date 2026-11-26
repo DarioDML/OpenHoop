@@ -11,6 +11,7 @@ export * from './deviceInfo';
 export * from './config';
 export * from './pipeline';
 export * from './redecode';
+export * from './batteryPack';
 export * from './bodyMeasurements';
 export * from './cycle';
 export * from './strength';

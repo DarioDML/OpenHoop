@@ -30,7 +30,6 @@ export const ISSUES = {
   community: 23,
   integrations: 24,
   import: 25,
-  battery: 26,
   bandConfig: 27,
   backup: 28,
 } as const;

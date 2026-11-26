@@ -51,6 +51,11 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'id, device_id, t, event, name, payload_hex, chunk_id',
     order: 'device_id, t, id',
   },
+  battery_pack_events: {
+    columns: ['id', 'device_id', 't', 'event', 'name', 'payload_hex', 'chunk_id'],
+    select: 'id, device_id, t, event, name, payload_hex, chunk_id',
+    order: 'device_id, t, id',
+  },
   console_log: {
     columns: ['id', 'device_id', 't', 'sequence', 'text', 'chunk_id'],
     select: 'id, device_id, t, sequence, text, chunk_id',

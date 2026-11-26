@@ -2,6 +2,8 @@ import { ByteReader, attempt } from './bytes';
 import { commandName } from './commands';
 import type { FirmwareVersion } from './firmware';
 import { validateFrame } from './framing';
+import type { PackReading } from './batteryPack';
+import { decodePackPayload } from './batteryPack';
 import type { RecordBody } from './records';
 import { decodeRecord, rrList } from './records';
 import type { FieldIndex } from './schema';
@@ -47,6 +49,14 @@ export type Packet =
       unixS: number;
       payload: Uint8Array;
       battery?: { socPercent: number; millivolts: number };
+    }
+  | {
+      kind: 'packEvent';
+      event: number;
+      eventName: string;
+      unixS: number;
+      payload: Uint8Array;
+      pack?: PackReading;
     }
   | { kind: 'console'; consoleSequence: number; unixS: number; text: string }
   | {
@@ -204,20 +214,43 @@ function sliceEnvelopePayload(r: ByteReader, offset: number, length: number | nu
   return r.bytes(offset, Math.min(offset + length, r.length) - offset);
 }
 
-function decodeEvent(r: ByteReader): Packet {
+function readEventEnvelope(r: ByteReader): { event: number; unixS: number; payload: Uint8Array } | null {
   const f = schema.event.fields;
   const event = attempt(() => readValue(r, spec(f, 'event')));
-  if (event === null) return unknownPacket(48);
+  if (event === null) return null;
   const payload = sliceEnvelopePayload(
     r,
     schema.event.payloadOffset,
     attempt(() => readValue(r, spec(f, 'payload_length'))),
   );
+  return { event, unixS: numberOr(r, f, 'unix_s', 0), payload };
+}
+
+function decodePackEvent(r: ByteReader): Packet {
+  const envelope = readEventEnvelope(r);
+  if (envelope === null) return unknownPacket(54);
+  const { event, unixS, payload } = envelope;
+  const packet: Extract<Packet, { kind: 'packEvent' }> = {
+    kind: 'packEvent',
+    event,
+    eventName: schema.pack.events.get(event) ?? `UNKNOWN_${event}`,
+    unixS,
+    payload,
+  };
+  const pack = decodePackPayload(event, payload);
+  if (pack !== null) packet.pack = pack;
+  return packet;
+}
+
+function decodeEvent(r: ByteReader): Packet {
+  const envelope = readEventEnvelope(r);
+  if (envelope === null) return unknownPacket(48);
+  const { event, unixS, payload } = envelope;
   const packet: Extract<Packet, { kind: 'event' }> = {
     kind: 'event',
     event,
     eventName: schema.events.get(event) ?? `UNKNOWN_${event}`,
-    unixS: numberOr(r, f, 'unix_s', 0),
+    unixS,
     payload,
   };
   if (event === 3) {
@@ -299,6 +332,8 @@ export function decodeFrame(raw: Uint8Array): Packet {
       return decodeMetadata(r);
     case 50:
       return decodeConsole(r);
+    case 54:
+      return decodePackEvent(r);
     default:
       return unknownPacket(packetType);
   }

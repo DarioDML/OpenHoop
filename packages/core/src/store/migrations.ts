@@ -478,7 +478,21 @@ CREATE TABLE route_points (
 ) WITHOUT ROWID;
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13];
+const V14 = `
+CREATE TABLE battery_pack_events (
+  id INTEGER PRIMARY KEY,
+  device_id INTEGER NOT NULL REFERENCES devices(id),
+  t INTEGER NOT NULL,
+  event INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  payload_hex TEXT NOT NULL,
+  chunk_id INTEGER REFERENCES raw_chunks(id),
+  UNIQUE (device_id, t, event, payload_hex)
+);
+CREATE INDEX battery_pack_events_device ON battery_pack_events (device_id, t);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

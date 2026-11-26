@@ -114,13 +114,55 @@ describe('Safety lock', () => {
 describe('Not built screens', () => {
   it.each([
     ['band-config', BandConfigScreen, 'not-built-bandConfig'],
-    ['battery-pack', BatteryPackScreen, 'not-built-battery'],
     ['integrations', IntegrationsScreen, 'not-built-integrations'],
     ['connect-provider', ConnectProviderScreen, 'not-built-integrations'],
     ['community', CommunityScreen, 'not-built-community'],
   ])('%s shows the not built notice', async (_name, Screen, testID) => {
     await render(withAppData(<Screen />));
     expect(screen.getByTestId(testID)).toBeTruthy();
+  });
+});
+
+describe('Battery pack', () => {
+  const report = {
+    socPercent: 64.7,
+    socAt: NOW_S - 120,
+    info: { serial: 'TESTPACK0000001', hwFamily: 12, hwVersion: 13, firmware: { major: 3, minor: 30, patch: 5, build: 0 }, colourway: 1 },
+    infoAt: NOW_S - 600,
+  };
+
+  it('says so when the band has not passed on a pack report, and shows no numbers', async () => {
+    await render(withAppData(<BatteryPackScreen />));
+    expect(screen.getByTestId('pack-empty')).toBeTruthy();
+    expect(screen.queryByTestId('pack-status')).toBeNull();
+    expect(screen.queryByTestId('not-built-battery')).toBeNull();
+  });
+
+  it('shows the last pack report as experimental, with its level', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<BatteryPackScreen />, 'en', { device: { ...base.device, batteryPack: report } }));
+    expect(screen.getByTestId('pack-status')).toBeTruthy();
+    expect(screen.getByText('64.7 %')).toBeTruthy();
+    expect(screen.getByText('TESTPACK0000001')).toBeTruthy();
+    expect(screen.getByText('3.30.5.0')).toBeTruthy();
+    expect(screen.getByText('Experimental')).toBeTruthy();
+    expect(screen.getByText('Last reported')).toBeTruthy();
+    expect(screen.getByText(`Level ${PARITY.batteryPack}`)).toBeTruthy();
+  });
+
+  it('keeps the identity when the last report had no charge', async () => {
+    const base = fixtureAppData();
+    const noCharge = { ...report, socPercent: null, socAt: null };
+    await render(withAppData(<BatteryPackScreen />, 'en', { device: { ...base.device, batteryPack: noCharge } }));
+    expect(screen.getByText('TESTPACK0000001')).toBeTruthy();
+    expect(screen.queryByText('64.7 %')).toBeNull();
+  });
+
+  it('writes the charge the Dutch way', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<BatteryPackScreen />, 'nl', { device: { ...base.device, batteryPack: report } }));
+    expect(screen.getByText('64,7 %')).toBeTruthy();
+    expect(screen.getByText('Experimenteel')).toBeTruthy();
   });
 });
 

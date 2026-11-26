@@ -1,6 +1,6 @@
 # Provenance of protocol facts
 
-Every protocol fact the code relies on, where it is used, where it comes from, and whether it has been checked on the author's own hardware. No band has arrived yet, so the last column is "no" everywhere.
+Every protocol fact the code relies on, where it is used, where it comes from, and whether it has been checked on the author's own hardware. Most rows are still "no". A row marked "yes" was checked on the author's MG band (firmware 50.43.2.0).
 
 Sources are files and sections of the MIT-licensed reference project `wearable5.0` at commit `8ab57dcd2f72a23f0cf9348c8a9a8cb40ed44fe8`: `FINDINGS.md` (cited as "FINDINGS section n"), `re/SCORE_MODELS.md`, `re/score_formulas.py`, and the schema `whoop5_protocol.json` (copied to `packages/protocol/src/schema/`). The schema tags each fact with an evidence tier:
 
@@ -10,6 +10,7 @@ Sources are files and sections of the MIT-licensed reference project `wearable5.
 - `goose`: documented by b-nnett/goose.
 - `johga`: author-reported on the author's own strap, from a Gadgetbridge fork.
 - `constructed`: an arithmetic or structural rule with no physical validation.
+- `own`: checked by OpenHoop on the author's MG band (firmware 50.43.2.0): every decoded value matched the line the band's own console log printed at the same timestamp.
 
 A tier column below lists the tags as the schema or findings give them. A fact with several tags is attested by several sources. Where a fact comes from a section of FINDINGS that is not tagged in the schema, the tier column says so.
 
@@ -34,6 +35,9 @@ A tier column below lists the tags as the schema or findings give them. A fact w
 | Live heart rate packet 40 | `packages/protocol/src/decode.ts`, `packages/core/src/live.ts` | Schema `realtime_hr_40`; FINDINGS section 8 | noop (R-R unit on moderate evidence) | no |
 | Event record layout and the event table | `packages/protocol/src/decode.ts` | Schema `event_48`, `events`; FINDINGS section 9 | noop, goose, corpus | no |
 | Console log layout | `packages/protocol/src/decode.ts` | Schema `console_50`; FINDINGS section 9 | noop, corpus | no |
+| Packet type 54 carries battery pack events relayed by the strap, in the event envelope (event at offset 10, time at 12, payload length at 18, payload at 20), with its own event numbers; sent inside history chunks only while a pack is attached | `packages/protocol/src/decode.ts`, `packages/core/src/sync.ts` | Schema `packet_types` (name only); layout: OpenHoop capture of 38 frames, schema `puffin_54` | apk (name), own (layout) | yes |
+| Pack event 2: charge as u16 in tenths of a percent at payload offset 1 | `packages/protocol/src/batteryPack.ts` | OpenHoop capture: 0x0287 = 647 when the console printed "Unwrapping BPK SoC : 647" | own | yes |
+| Pack event 20: hardware family, serial (16 bytes), Bluetooth address, hardware version, firmware, colourway and charge | `packages/protocol/src/batteryPack.ts` | OpenHoop capture; each field matched the console lines "HW family", "BT addr", "HW version", "FW version", "Colorway" and "BPK SoC" printed with "Unwrapping BPK HW information event : 20". Band event 109 carries the same fields, as documented for event 109 in OpenStrap/protocol `lib/src/control.dart` | own | yes |
 | Feature flag and device config enumeration (key exchange, next, get value; 16 flags, 7 config keys) | `packages/core/src/config.ts` | Schema `feature_flags`; FINDINGS section 10 | corpus, noop | no |
 | The standard heart rate characteristic (0x2A37) reports R-R in milliseconds, not in 1/1024 s | `packages/protocol/src/hrm.ts` | FINDINGS section 8 | corpus (iOS and MG captures); contrary to the Bluetooth specification | no |
 | Score formulas and constants (Readiness, Load, Sleep score, sleep need, debt, zones) | `packages/analytics/src/*.ts`, `calibration.ts` | `re/score_formulas.py`, `re/SCORE_MODELS.md`; FINDINGS section 18 | fitted on one wearer against the vendor's API; not a wire-protocol tier | no |
@@ -54,4 +58,5 @@ These are built into the code or the design, but nothing is known about them fro
 | Whether the heart rate profile works while the band is bonded to another device | Unknown. |
 | The shape of the reply when reading the value of a feature flag or a device config key | Not covered by a source. |
 | The arguments of `GET_BATTERY_LEVEL` and `TOGGLE_REALTIME_HR` | The code sends the arguments listed in the code; no source confirms them. |
+| What the battery pack hardware family and colourway codes mean, and whether a 5.0 band relays the same pack events | Seen only on one MG band with one pack. |
 | Whether replies to history commands arrive at all | A locked band is reported to send nothing after them. See the issue above. |

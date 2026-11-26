@@ -1,5 +1,5 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, BandModel, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { HcDataType } from '@/lib/healthConnectMapping';
@@ -37,6 +37,7 @@ export interface DeviceStatus {
   lockState: LockState;
   connection: ConnectionState;
   configSnapshot: string | null;
+  batteryPack: BatteryPackState | null;
 }
 
 export interface LiveState {

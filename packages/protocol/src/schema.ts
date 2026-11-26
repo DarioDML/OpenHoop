@@ -134,6 +134,20 @@ export const schema = {
     payloadOffset: schemaJson.event_48.payload_offset,
     battery: indexFields(schemaJson.event_48.payloads['3'].fields),
   },
+  pack: {
+    events: stringTable(schemaJson.puffin_54.events),
+    revision: schemaJson.puffin_54.revision,
+    soc: {
+      length: schemaJson.puffin_54.payloads['2'].length,
+      fields: indexFields(schemaJson.puffin_54.payloads['2'].fields),
+    },
+    info: {
+      length: schemaJson.puffin_54.payloads['20'].length,
+      fields: indexFields(schemaJson.puffin_54.payloads['20'].fields),
+      serialOffset: schemaJson.puffin_54.payloads['20'].serial_offset,
+      serialLength: schemaJson.puffin_54.payloads['20'].serial_length,
+    },
+  },
   console: {
     fields: indexFields(schemaJson.console_50.fields),
     payloadOffset: schemaJson.event_48.payload_offset,
