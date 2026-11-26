@@ -8,6 +8,7 @@ import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Num } from '@/ui/Num';
+import { heroRingSize, useLayout } from '@/ui/layout';
 import { Ring } from '@/ui/Ring';
 import { readinessBand, readinessColor, spacing, useTheme } from '@/ui/theme';
 
@@ -27,6 +28,10 @@ interface RingProps {
   testID: string;
 }
 
+function strokeOf(size: number): number {
+  return size > 120 ? 10 : 7;
+}
+
 export function HeroRing({ label, value, max, color, decimals = 0, percent = false, tick = null, reason, caption = null, captionColor, href, size = 104, testID }: RingProps) {
   const { colors } = useTheme();
   const { language, reason: reasonLabel } = useT();
@@ -38,10 +43,17 @@ export function HeroRing({ label, value, max, color, decimals = 0, percent = fal
       accessibilityLabel={text === null ? `${label}: ${reasonLabel(reason)}` : `${label}: ${text}${percent ? '%' : ''}`}
       onPress={() => router.push(href)}
       style={{ alignItems: 'center', gap: 10, flex: 1, minHeight: 44 }}>
-      <Ring size={size} strokeWidth={size > 120 ? 10 : 7} fraction={value === null ? null : value / max} color={color} tickFraction={tick === null ? null : tick / max}>
+      <Ring size={size} strokeWidth={strokeOf(size)} fraction={value === null ? null : value / max} color={color} tickFraction={tick === null ? null : tick / max}>
         {text !== null ? (
           <View style={{ alignItems: 'center', gap: 2 }}>
-            <Num size={Math.round(size * 0.38)} color={color} unit={percent ? '%' : undefined} unitSize={Math.round(size * 0.17)}>
+            <Num
+              size={Math.round(size * 0.38)}
+              color={color}
+              unit={percent ? '%' : undefined}
+              unitSize={Math.round(size * 0.17)}
+              maxFontSizeMultiplier={1}
+              adjustsFontSizeToFit
+              style={{ maxWidth: size - strokeOf(size) * 2 - 8 }}>
               {text}
             </Num>
             {caption ? (
@@ -56,12 +68,25 @@ export function HeroRing({ label, value, max, color, decimals = 0, percent = fal
             ) : null}
           </View>
         ) : (
-          <AppText variant="caption" muted style={{ textAlign: 'center', paddingHorizontal: 12 }}>
+          <AppText
+            variant="caption"
+            muted
+            numberOfLines={3}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            maxFontSizeMultiplier={1.2}
+            style={{ textAlign: 'center', paddingHorizontal: Math.round(size * 0.12) }}>
             {reasonLabel(reason)}
           </AppText>
         )}
       </Ring>
-      <AppText variant="cap" color={colors.textMuted} numberOfLines={1}>
+      <AppText
+        variant="cap"
+        color={colors.textMuted}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+        style={{ letterSpacing: size < 100 ? 0.8 : 1.4, textAlign: 'center', alignSelf: 'stretch' }}>
         {label} ›
       </AppText>
     </Pressable>
@@ -98,6 +123,9 @@ function useHeroValues(days: readonly DayRecord[], index: number) {
 export function Hero({ days, index, variant }: HeroProps) {
   const { colors } = useTheme();
   const { t, language } = useT();
+  const layout = useLayout();
+  const ringSize = heroRingSize(layout);
+  const compactRingSize = Math.min(148, Math.round((layout.width - layout.gutter * 2) * 0.45));
   const v = useHeroValues(days, index);
   if (!v.day) return null;
   const { day } = v;
@@ -131,7 +159,7 @@ export function Hero({ days, index, variant }: HeroProps) {
           reason={day.readiness.reason}
           caption={v.bandLabel}
           href="/recovery"
-          size={148}
+          size={compactRingSize}
         />
         <View style={{ flex: 1, gap: spacing.md }}>
           {stat(t('metric.hrv'), day.hrv.value === null ? null : formatNumber(day.hrv.value, 0, language), t('unit.ms'), '/recovery/metric/hrv', 'stat-hrv')}
@@ -155,6 +183,7 @@ export function Hero({ days, index, variant }: HeroProps) {
           tick={v.yesterdaySleep}
           reason={day.sleep.score.reason}
           href="/sleep"
+          size={ringSize}
         />
         <HeroRing
           testID="ring-readiness"
@@ -167,6 +196,7 @@ export function Hero({ days, index, variant }: HeroProps) {
           reason={day.readiness.reason}
           caption={v.bandLabel}
           href="/recovery"
+          size={ringSize}
         />
         <HeroRing
           testID="ring-load"
@@ -178,11 +208,12 @@ export function Hero({ days, index, variant }: HeroProps) {
           tick={v.yesterdayLoad}
           reason={day.load.reason}
           href="/load"
+          size={ringSize}
         />
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ width: 2, height: 12, backgroundColor: colors.text, borderRadius: 1 }} />
-        <AppText variant="caption" muted>
+        <AppText variant="caption" muted style={{ flex: 1 }}>
           {t('home.tickYesterday')}
         </AppText>
       </View>

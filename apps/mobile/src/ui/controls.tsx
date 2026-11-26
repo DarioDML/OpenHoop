@@ -79,12 +79,19 @@ export function Segmented<T extends string>({ options, value, onChange, testID }
             style={{
               flex: 1,
               minHeight: 36,
+              paddingHorizontal: 6,
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: radius.pill,
               backgroundColor: selected ? colors.primary : 'transparent',
             }}>
-            <AppText variant="label" color={selected ? colors.primaryOn : colors.textMuted} style={{ fontFamily: fonts.semibold, fontWeight: '600' }}>
+            <AppText
+              variant="label"
+              color={selected ? colors.primaryOn : colors.textMuted}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+              style={{ fontFamily: fonts.semibold, fontWeight: '600' }}>
               {option.label}
             </AppText>
           </Pressable>

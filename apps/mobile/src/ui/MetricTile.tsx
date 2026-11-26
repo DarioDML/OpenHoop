@@ -41,11 +41,11 @@ export function MetricTile({ label, value, level, unit, reason = null, decimals 
       </View>
       {hasValue ? (
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-          <Num size={size} testID={testID ? `${testID}-value` : undefined}>
+          <Num size={size} testID={testID ? `${testID}-value` : undefined} adjustsFontSizeToFit style={{ flexShrink: 1 }}>
             {format ? format(value) : formatNumber(value, decimals, language)}
           </Num>
           {unit ? (
-            <AppText variant="cardTitle" muted style={{ fontWeight: '400' }}>
+            <AppText variant="cardTitle" muted numberOfLines={1} style={{ fontWeight: '400', flexShrink: 1 }}>
               {unit}
             </AppText>
           ) : null}

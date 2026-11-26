@@ -18,6 +18,8 @@ interface Props {
 const ROW_H = 26;
 const HOUR = 3600;
 
+const TICK_W = 28;
+
 export function SleepTimeline({ periods, tzOffsetS }: Props) {
   const { colors } = useTheme();
   const { t } = useT();
@@ -61,13 +63,20 @@ export function SleepTimeline({ periods, tzOffsetS }: Props) {
             })}
           </Svg>
         ) : null}
-        <View style={{ height: 16 }}>
+        <View style={{ height: 18 }}>
           {width > 0
             ? ticks.map((tick) => {
                 const label = formatClock(tick, tzOffsetS).slice(0, 2);
-                const left = Math.min(Math.max(px(tick) - 10, 0), width - 20);
+                const left = Math.min(Math.max(px(tick) - TICK_W / 2, 0), width - TICK_W);
                 return (
-                  <AppText key={tick} variant="caption" muted numeric style={{ position: 'absolute', left, width: 20, textAlign: 'center' }}>
+                  <AppText
+                    key={tick}
+                    variant="caption"
+                    muted
+                    numeric
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={1.2}
+                    style={{ position: 'absolute', left, width: TICK_W, textAlign: 'center' }}>
                     {label}
                   </AppText>
                 );
@@ -77,9 +86,9 @@ export function SleepTimeline({ periods, tzOffsetS }: Props) {
       </View>
       <View style={{ gap: spacing.sm }}>
         {periods.map((p) => (
-          <View key={p.onset} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View key={p.onset} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.sm, rowGap: 2 }}>
             <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: p.nap ? colors.zones[1] : colors.accent }} />
-            <AppText variant="body" style={{ flex: 1 }}>
+            <AppText variant="body" style={{ flexGrow: 1, flexShrink: 1, minWidth: 96 }}>
               {p.nap ? t('sleep.nap') : t('sleep.main')}
             </AppText>
             <AppText variant="bodyStrong" numeric>
