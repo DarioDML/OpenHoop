@@ -441,8 +441,7 @@ export class AppController {
 
   private async redecodeStoredSamples(): Promise<void> {
     try {
-      const rebuilt = await rebuildStaleSamples(this.requireApp().store);
-      for (const deviceId of rebuilt) await this.recompute(deviceId, null);
+      const rebuilt = await rebuildStaleSamples(this.requireApp().store, (deviceId) => this.recompute(deviceId, null));
       if (rebuilt.length > 0) this.patch({ syncProgress: null });
     } catch (error) {
       this.patch({ syncProgress: null });
