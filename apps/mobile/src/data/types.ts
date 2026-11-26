@@ -1,5 +1,5 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, BandModel, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { HcDataType } from '@/lib/healthConnectMapping';
@@ -84,6 +84,7 @@ export interface ActivityDraft {
   end: number;
   paused: Interval[];
   note: string | null;
+  route?: RoutePoint[];
 }
 
 export type DeleteTarget = { kind: 'activity'; id: number } | { kind: 'detected'; workout: WorkoutRecord };
@@ -171,6 +172,7 @@ export interface AppData {
   importVendorFiles(files: SourceFile[], rejected: FileReport[]): Promise<VendorImportResult | null>;
   removeVendorData(): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
+  routeFor(activityId: number): Promise<RoutePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;
   saveActivity(draft: ActivityDraft, id?: number): Promise<number | null>;

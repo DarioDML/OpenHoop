@@ -189,7 +189,8 @@ export type ExportTable =
   | 'vendor_cycles'
   | 'vendor_sleeps'
   | 'vendor_workouts'
-  | 'vendor_journal';
+  | 'vendor_journal'
+  | 'route_points';
 
 export interface Store {
   driver: SqlDriver;

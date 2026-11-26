@@ -72,6 +72,7 @@ export function fixtureAppData(language: Language = 'en', overrides: Partial<App
     importVendorFiles: async () => null,
     removeVendorData: async () => true,
     heartRateBetween: async () => [],
+    routeFor: async () => [],
     inbox: [],
     notificationPermission: 'undetermined',
     refreshNotifications: noop,

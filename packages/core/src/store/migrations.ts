@@ -464,7 +464,21 @@ ALTER TABLE body_measurements ADD COLUMN deleted_at INTEGER;
 CREATE UNIQUE INDEX body_measurements_external ON body_measurements (external_id);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12];
+const V13 = `
+CREATE TABLE route_points (
+  activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  seq INTEGER NOT NULL CHECK (seq >= 0),
+  segment INTEGER NOT NULL CHECK (segment >= 0),
+  t_ms INTEGER NOT NULL CHECK (t_ms >= 0),
+  lat REAL NOT NULL CHECK (lat BETWEEN -90 AND 90),
+  lon REAL NOT NULL CHECK (lon BETWEEN -180 AND 180),
+  alt_m REAL,
+  accuracy_m REAL CHECK (accuracy_m IS NULL OR accuracy_m >= 0),
+  PRIMARY KEY (activity_id, seq)
+) WITHOUT ROWID;
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

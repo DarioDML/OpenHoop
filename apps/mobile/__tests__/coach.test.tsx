@@ -32,7 +32,7 @@ import PrivacyScreen from '@/app/settings/privacy';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const latest = days[days.length - 1];
-const NETWORK_ON = { enabled: true, features: { coach: true } };
+const NETWORK_ON = { enabled: true, features: { coach: true, maps: false } };
 
 function userData(network = NETWORK_ON, coach = defaultCoachPrefs()) {
   return { ...fixtureAppData().userData, network, coach };
@@ -268,14 +268,14 @@ describe('privacy network settings', () => {
     expect(screen.getByTestId('network-feature-coach').props.disabled).toBe(true);
     expect(screen.getByText(/api\.anthropic\.com/)).toBeTruthy();
     fireEvent(screen.getByTestId('network-global-toggle'), 'valueChange', true);
-    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: false } } });
+    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: false, maps: false } } });
   });
 
   it('switches the coach feature on once network features are on', async () => {
     const updateUserData = jest.fn(async () => true);
     const { controller } = makeController();
-    await render(withCoach(<PrivacyScreen />, controller, { updateUserData, userData: userData({ enabled: true, features: { coach: false } }) }));
+    await render(withCoach(<PrivacyScreen />, controller, { updateUserData, userData: userData({ enabled: true, features: { coach: false, maps: false } }) }));
     fireEvent(screen.getByTestId('network-feature-coach'), 'valueChange', true);
-    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: true } } });
+    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: true, maps: false } } });
   });
 });
