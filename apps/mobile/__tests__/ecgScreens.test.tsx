@@ -2,7 +2,7 @@ import type { EcgSummary } from '@openhoop/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { ecgCsv, ecgStrips, traceColumns } from '@/data/ecg';
+import { ecgCsv, ecgStrips, stripLength, traceColumns, traceRange } from '@/data/ecg';
 import { createFixtureDevice } from '@/data/fixtureSource';
 
 import { FIXTURE_NOW, fixtureEcgActions, withAppData } from './support/appData';
@@ -105,6 +105,14 @@ describe('ECG helpers', () => {
     expect(ecgStrips(samples, 128, 10_000).map((s) => s.length)).toEqual([640, 640, 20]);
     expect(ecgStrips(samples, null, 10_000).map((s) => s.length)).toEqual([650, 650]);
     expect(ecgStrips([], 128, 0)).toEqual([]);
+  });
+
+  it('takes one amplitude range for all strips and ignores the extreme tails', () => {
+    const samples = [-30000, ...Array.from({ length: 198 }, (_, i) => (i % 2 === 0 ? -100 : 100)), 30000];
+    expect(traceRange(samples)).toEqual({ low: -100, high: 100 });
+    expect(traceRange([5, 5, 5])).toEqual({ low: 4, high: 6 });
+    expect(traceRange([])).toBeNull();
+    expect(stripLength(1300, 128, 10_000)).toBe(640);
   });
 
   it('keeps the peaks when it reduces samples to columns', () => {

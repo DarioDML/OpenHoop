@@ -26,15 +26,33 @@ export function traceColumns(samples: readonly number[], columns: number): Trace
   return out;
 }
 
+export interface TraceRange {
+  low: number;
+  high: number;
+}
+
+const RANGE_TAIL = 0.01;
+
+export function stripLength(sampleCount: number, rateHz: number | null, durationMs: number): number {
+  if (rateHz !== null && rateHz > 0) return Math.max(1, Math.round(rateHz * ECG_STRIP_S));
+  return Math.max(1, Math.ceil(sampleCount / Math.max(1, Math.ceil(durationMs / 1000 / ECG_STRIP_S))));
+}
+
 export function ecgStrips(samples: readonly number[], rateHz: number | null, durationMs: number): number[][] {
   if (samples.length === 0) return [];
-  const perStrip =
-    rateHz !== null && rateHz > 0
-      ? Math.max(1, Math.round(rateHz * ECG_STRIP_S))
-      : Math.max(1, Math.ceil(samples.length / Math.max(1, Math.ceil(durationMs / 1000 / ECG_STRIP_S))));
+  const perStrip = stripLength(samples.length, rateHz, durationMs);
   const strips: number[][] = [];
   for (let at = 0; at < samples.length; at += perStrip) strips.push(samples.slice(at, at + perStrip));
   return strips;
+}
+
+export function traceRange(samples: readonly number[]): TraceRange | null {
+  if (samples.length === 0) return null;
+  const sorted = [...samples].sort((a, b) => a - b);
+  const pick = (q: number): number => sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(q * (sorted.length - 1))))] ?? 0;
+  const low = pick(RANGE_TAIL);
+  const high = pick(1 - RANGE_TAIL);
+  return high > low ? { low, high } : { low: low - 1, high: high + 1 };
 }
 
 function isoUtc(unixS: number): string {

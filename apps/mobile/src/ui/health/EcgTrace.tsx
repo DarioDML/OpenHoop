@@ -2,31 +2,37 @@ import { useState } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 
-import { traceColumns } from '@/data/ecg';
+import { traceColumns, type TraceRange } from '@/data/ecg';
 import { useTheme } from '@/ui/theme';
 
 interface Props {
   samples: readonly number[];
   height?: number;
+  range?: TraceRange | null;
+  fraction?: number;
   testID?: string;
 }
 
 const PAD = 4;
 
-export function EcgTrace({ samples, height = 96, testID }: Props) {
+export function EcgTrace({ samples, height = 96, range = null, fraction = 1, testID }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const onLayout = (event: LayoutChangeEvent): void => setWidth(Math.round(event.nativeEvent.layout.width));
-  const columns = traceColumns(samples, Math.max(1, width));
-  let low = Number.POSITIVE_INFINITY;
-  let high = Number.NEGATIVE_INFINITY;
-  for (const column of columns) {
-    low = Math.min(low, column.min);
-    high = Math.max(high, column.max);
+  const drawn = Math.max(1, Math.round(width * Math.min(1, Math.max(0, fraction))));
+  const columns = traceColumns(samples, drawn);
+  let low = range?.low ?? Number.POSITIVE_INFINITY;
+  let high = range?.high ?? Number.NEGATIVE_INFINITY;
+  if (range === null) {
+    for (const column of columns) {
+      low = Math.min(low, column.min);
+      high = Math.max(high, column.max);
+    }
   }
   const span = high > low ? high - low : 1;
-  const y = (value: number): number => PAD + (1 - (value - low) / span) * (height - 2 * PAD);
-  const step = columns.length > 1 ? width / (columns.length - 1) : 0;
+  const clamp = (value: number): number => Math.min(high, Math.max(low, value));
+  const y = (value: number): number => PAD + (1 - (clamp(value) - low) / span) * (height - 2 * PAD);
+  const step = columns.length > 1 ? drawn / (columns.length - 1) : 0;
   const path = columns
     .map((column, i) => {
       const x = (i * step).toFixed(1);

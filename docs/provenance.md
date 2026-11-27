@@ -56,6 +56,8 @@ A tier column below lists the tags as the schema or findings give them. A fact w
 | GET_ALARM_TIME (67): body `[04][slot]`, reply `[04][active][u32 unix s][u16 1/32768 s][haptic pattern]` | `packages/core/src/alarm.ts` | OpenStrap/protocol `lib/src/control.dart`; OpenHoop capture | own | yes |
 | The band rings an armed slot by itself at the armed second, also without the phone: event 57 STRAP_DRIVEN_ALARM_EXECUTED and 60 HAPTICS_FIRED, then 100 HAPTICS_TERMINATED with the cause at payload byte 1 (0: ran out, 2: stopped early, by a double tap or STOP_HAPTICS). Alarm events also arrive in history | `packages/core/src/alarm.ts`, `packages/protocol/src/requests.ts` | Schema `events` (names); OpenStrap/protocol `constants.dart` (cause codes); OpenHoop capture | apk, own | yes |
 | RUN_ALARM (68): body `[02][slot]`, plays the alarm now (event 58 APP_DRIVEN_ALARM_EXECUTED), reply `[02][05][00]`. DISABLE_ALARM (69): body `[02][slot or FF for all]` | `packages/core/src/alarm.ts` | OpenStrap/protocol `cmdRunAlarm`, `cmdDisableAlarm`; OpenHoop capture | own | yes |
+| Filtered ECG reading on the MG: ABORT_HISTORICAL_TRANSMITS (20), SELECT_WRIST (123) `[01][1 right, 2 left]`, TOGGLE_LABRADOR_FILTERED (139) `[01][01]`, TOGGLE_LABRADOR_RAW_SAVE (125) `[01][01]`, 20 again, then TOGGLE_LABRADOR_DATA_GENERATION (124) `[01][02]` (`03` restarts). Stop: 124 `[01][01]`, 139 `[01][00]`, 125 `[01][00]`. Every step answers SUCCESS `[01][00][00]` | `packages/protocol/src/requests.ts`, `packages/core/src/ecg.ts` | OpenStrap/protocol `lib/src/commands.dart` and `constants.dart` (filtered reading, internal name Labrador), facts only; OpenHoop capture | own | yes |
+| While generation runs, the band sends one packet 43 record of layout 17 per second with up to 100 signed 16-bit samples (about 100 per second) and a quality byte that rises from 0 to 3 as the finger makes contact; the first records can be empty | `packages/core/src/ecg.ts`, `packages/protocol/src/records.ts` | Schema `records/17`; OpenHoop capture of a 30-second reading | noop, corpus, own | yes |
 | Firmware 50.43 data lock: the band answers commands but sends no history without a vendor-signed certificate; live heart rate over the standard profile still works | `packages/core/src/lockProbe.ts`, `packages/protocol/src/firmware.ts` | Public issue https://github.com/OpenStrap/edge/issues/673 | third-party report; not tagged | no |
 
 ## Guesses awaiting a band
@@ -69,7 +71,6 @@ These are built into the code or the design, but nothing is known about them fro
 | Whether the firmware version can be read through the standard service without a bond | Not documented. |
 | The exact body of `SET_CLOCK` | Not documented. |
 | Throughput and behaviour with a real, full ring buffer | Only simulated. |
-| ECG records on an MG | Believed to arrive only live. Not seen. |
 | Whether the heart rate profile works while the band is bonded to another device | Unknown. |
 | The arguments of `GET_BATTERY_LEVEL` and `TOGGLE_REALTIME_HR` | The code sends the arguments listed in the code; no source confirms them. |
 | What the battery pack hardware family and colourway codes mean, and whether a 5.0 band relays the same pack events | Seen only on one MG band with one pack. |

@@ -46,13 +46,19 @@ interface Block {
 }
 
 export function sampleRate(blocks: readonly Block[]): number | null {
-  const first = blocks[0];
-  const last = blocks[blocks.length - 1];
-  if (first === undefined || last === undefined || blocks.length < 2) return null;
-  const span = last.t - first.t;
-  if (!(span > 0)) return null;
-  const before = blocks.slice(0, -1).reduce((sum, block) => sum + block.count, 0);
-  return Math.round((before / span) * 10) / 10;
+  const rates: number[] = [];
+  for (let i = 0; i + 1 < blocks.length; i++) {
+    const block = blocks[i];
+    const next = blocks[i + 1];
+    if (block === undefined || next === undefined || block.count === 0) continue;
+    const span = next.t - block.t;
+    if (span > 0) rates.push(block.count / span);
+  }
+  if (rates.length === 0) return null;
+  rates.sort((a, b) => a - b);
+  const mid = Math.floor(rates.length / 2);
+  const median = rates.length % 2 === 1 ? (rates[mid] ?? 0) : ((rates[mid - 1] ?? 0) + (rates[mid] ?? 0)) / 2;
+  return Math.round(median * 10) / 10;
 }
 
 async function sendFailing(session: Session, command: number, body: Uint8Array): Promise<void> {

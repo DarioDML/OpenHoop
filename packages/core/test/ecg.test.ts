@@ -37,8 +37,9 @@ describe('ECG recordings', () => {
     expect(csv).toContain('0100FFFF');
   });
 
-  it('measures the sample rate from the record times', () => {
+  it('measures the sample rate as the median per record, so partial records do not skew it', () => {
     expect(sampleRate([{ t: 10, count: 100 }, { t: 10.5, count: 100 }, { t: 11, count: 100 }])).toBe(200);
+    expect(sampleRate([{ t: 9, count: 0 }, { t: 10, count: 49 }, { t: 11, count: 100 }, { t: 12, count: 100 }, { t: 13, count: 100 }])).toBe(100);
     expect(sampleRate([{ t: 10, count: 100 }])).toBeNull();
     expect(sampleRate([{ t: 10, count: 100 }, { t: 10, count: 100 }])).toBeNull();
   });

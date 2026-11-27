@@ -5,7 +5,7 @@ import { Alert, Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { singleParam } from '@/data/dailyDerived';
-import { ECG_STRIP_S, ecgStrips } from '@/data/ecg';
+import { ECG_STRIP_S, ecgStrips, stripLength, traceRange } from '@/data/ecg';
 import { shareEcgCsv } from '@/data/ecgShare';
 import { useT, type TFunction } from '@/i18n/useT';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
@@ -124,7 +124,14 @@ export default function EcgResultScreen() {
                 {t('ecg.unreadable')}
               </AppText>
             ) : (
-              ecgStrips(current.samples, selected.rateHz, selected.durationMs).map((strip, i) => <EcgTrace key={i} samples={strip} height={72} testID={`ecg-strip-${i}`} />)
+              (() => {
+                const samples = current.samples;
+                const perStrip = stripLength(samples.length, selected.rateHz, selected.durationMs);
+                const range = traceRange(samples);
+                return ecgStrips(samples, selected.rateHz, selected.durationMs).map((strip, i) => (
+                  <EcgTrace key={i} samples={strip} height={72} range={range} fraction={strip.length / perStrip} testID={`ecg-strip-${i}`} />
+                ));
+              })()
             )}
           </Card>
 
