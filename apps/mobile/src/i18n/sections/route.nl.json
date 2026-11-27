@@ -49,5 +49,6 @@
   "route.live.signal.none": "Geen GPS-signaal",
   "route.live.signal.weak": "Zwak GPS-signaal",
   "route.live.signal.fair": "Redelijk GPS-signaal",
-  "route.live.signal.good": "Goed GPS-signaal"
+  "route.live.signal.good": "Goed GPS-signaal",
+  "route.splitLabelDistance": "{distance} {unit}"
 }

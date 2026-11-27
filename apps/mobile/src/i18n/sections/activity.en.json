@@ -379,5 +379,11 @@
   "activity.live.buzz.armed": "Buzz at {value}",
   "activity.live.buzz.passed": "Already past {value}, so no buzz",
   "activity.live.buzz.buzzed": "Buzzed at {value}",
-  "activity.live.buzz.failed": "The buzz at {value} did not reach the band"
+  "activity.live.buzz.failed": "The buzz at {value} did not reach the band",
+  "activity.details.editShort": "Edit",
+  "activity.details.hrLoading": "Loading the heart rate…",
+  "activity.details.hrNone": "No heart rate is stored for this time.",
+  "activity.details.zonesHrr": "% HR reserve",
+  "activity.details.zonesCustom": "bpm, your own zones",
+  "activity.details.zoneRowA11y": "Zone {zone}, {range}: {time}"
 }

@@ -223,6 +223,13 @@ export function keepSeconds(original: { start: number; end: number }, edited: { 
   return end > start ? { start, end } : edited;
 }
 
+export const CHART_POINTS = 150;
+export const MIN_CHART_BUCKET_S = 5;
+
+export function chartBucketS(durationS: number): number {
+  return Math.max(MIN_CHART_BUCKET_S, Math.ceil(durationS / CHART_POINTS));
+}
+
 export const RECENT_TYPES_MAX = 5;
 
 export function recentActivityTypes(rows: readonly ActivityRow[], limit: number = RECENT_TYPES_MAX): ActivityType[] {

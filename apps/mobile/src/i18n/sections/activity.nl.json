@@ -379,5 +379,11 @@
   "activity.live.buzz.armed": "Trilt bij {value}",
   "activity.live.buzz.passed": "Al voorbij {value}, dus geen trilling",
   "activity.live.buzz.buzzed": "Getrild bij {value}",
-  "activity.live.buzz.failed": "De trilling bij {value} kwam niet aan bij de band"
+  "activity.live.buzz.failed": "De trilling bij {value} kwam niet aan bij de band",
+  "activity.details.editShort": "Bewerk",
+  "activity.details.hrLoading": "Hartslag laden…",
+  "activity.details.hrNone": "Voor deze tijd is geen hartslag bewaard.",
+  "activity.details.zonesHrr": "% hartslagreserve",
+  "activity.details.zonesCustom": "bpm, je eigen zones",
+  "activity.details.zoneRowA11y": "Zone {zone}, {range}: {time}"
 }
