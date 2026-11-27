@@ -25,6 +25,7 @@ jest.mock('react-native-safe-area-context', () => ({
 import SleepScreen from '@/app/sleep/index';
 import LastNightScreen from '@/app/sleep/last-night';
 import SleepNeedScreen from '@/app/sleep/need';
+import SleepTrendsScreen from '@/app/sleep/trends';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const last = days[days.length - 1];
@@ -158,5 +159,25 @@ describe('Sleep need', () => {
     expect(screen.getByTestId('need-no-breakdown')).toHaveTextContent('Needs more nights first');
     await fireEvent.press(screen.getByTestId('need-info'));
     expect(screen.getByTestId('about-sheet')).toBeTruthy();
+  });
+});
+
+describe('Sleep trends', () => {
+  it('opens on one week with four stat tiles and the bed and wake chart', async () => {
+    await render(withAppData(<SleepTrendsScreen />));
+    expect(within(screen.getByTestId('range-switch')).getByRole('tab', { selected: true })).toHaveTextContent('1W');
+    for (const id of ['consistency', 'efficiency', 'debt', 'restorative']) expect(screen.getByTestId(`stat-${id}`)).toBeTruthy();
+    expect(screen.getByTestId('stat-restorative')).toHaveTextContent(/within 33–48|above 33–48|below 33–48/);
+    expect(screen.getByTestId('card-bed-wake-window')).toHaveTextContent(/^\d\d:00 → \d\d:00$/);
+    const week = days.slice(-7);
+    for (const day of week) expect(screen.getByTestId(`card-bed-wake-bar-${day.day}`)).toBeTruthy();
+    expect(screen.getByTestId('chart-asleep')).toBeTruthy();
+  });
+
+  it('groups six months into weekly bars', async () => {
+    await render(withAppData(<SleepTrendsScreen />));
+    await fireEvent.press(screen.getByText('6M'));
+    expect(screen.getByText('Averages per week')).toBeTruthy();
+    expect(screen.getByTestId('card-stages-trend')).toBeTruthy();
   });
 });
