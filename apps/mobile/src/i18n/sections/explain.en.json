@@ -170,5 +170,7 @@
   "explain.rangeAfter": "Your usual range shows after {count} nights",
   "explain.coachQuestion": "Explain this to me with my own numbers: {name}.",
   "explain.dots": "{have} of {need} nights",
-  "explain.dotsDays": "{have} of {need} days"
+  "explain.dotsDays": "{have} of {need} days",
+  "explain.tapHint": "Tap a name to see what it means.",
+  "health.vitals.rangesAfter": "Your usual ranges show after {count} nights"
 }

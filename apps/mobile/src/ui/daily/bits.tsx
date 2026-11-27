@@ -11,6 +11,9 @@ import { formatNumber, formatSigned } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import type { ChipTone } from '@/ui/Chip';
+import { useExplain, useMissing, type ExplainTarget } from '@/ui/explain/ExplainProvider';
+import { MetricName } from '@/ui/explain/MetricName';
+import { missingStatus } from '@/ui/explain/whyText';
 import { StateCard } from '@/ui/StateCard';
 import { TopBar } from '@/ui/TopBar';
 import { Screen } from '@/ui/Screen';
@@ -46,17 +49,40 @@ interface StatRowProps {
   caption?: string;
   right?: ReactNode;
   href?: Href;
+  explain?: ExplainTarget;
   testID?: string;
 }
 
-export function StatRow({ label, value, caption, right, href, testID }: StatRowProps) {
+function WhyValue({ target, testID }: { target: ExplainTarget; testID?: string }) {
+  const { t, language } = useT();
+  const explain = useExplain();
+  const missing = useMissing(target);
+  const status = missing === null ? t('why.noNumber') : missingStatus(t, language, missing, 'row');
+  return (
+    <Pressable
+      accessibilityRole="button"
+      testID={testID ? `${testID}-why` : undefined}
+      onPress={() => explain.why(target)}
+      style={{ minHeight: 44, justifyContent: 'center', flexShrink: 1, maxWidth: '60%' }}>
+      <AppText variant="bodyStrong" muted style={{ textAlign: 'right' }}>
+        {`${status} ›`}
+      </AppText>
+    </Pressable>
+  );
+}
+
+export function StatRow({ label, value, caption, right, href, explain, testID }: StatRowProps) {
   const { colors } = useTheme();
   const body = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52 }}>
       <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 96, gap: 2 }}>
-        <AppText variant="body" style={{ fontWeight: '500' }}>
-          {label}
-        </AppText>
+        {explain ? (
+          <MetricName target={explain} label={label} variant="body" muted={false} testID={testID ? `${testID}-name` : undefined} />
+        ) : (
+          <AppText variant="body" style={{ fontWeight: '500' }}>
+            {label}
+          </AppText>
+        )}
         {caption ? (
           <AppText variant="caption" muted>
             {caption}
@@ -64,9 +90,13 @@ export function StatRow({ label, value, caption, right, href, testID }: StatRowP
         ) : null}
       </View>
       {right}
-      <AppText variant="bodyStrong" numeric style={{ flexShrink: 1, maxWidth: '60%', textAlign: 'right' }}>
-        {value}
-      </AppText>
+      {explain?.shown?.value === null ? (
+        <WhyValue target={explain} testID={testID} />
+      ) : (
+        <AppText variant="bodyStrong" numeric style={{ flexShrink: 1, maxWidth: '60%', textAlign: 'right' }}>
+          {value}
+        </AppText>
+      )}
       {href ? (
         <AppText variant="title" color={colors.textMuted}>
           ›

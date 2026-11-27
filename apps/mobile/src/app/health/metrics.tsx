@@ -2,16 +2,19 @@ import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
+import { termLine } from '@/data/terms';
 import { CATALOGUE, METRIC_CATEGORIES, type CatalogueItem, type MetricCategory, type MetricReading } from '@/data/healthDerived';
 import type { TranslationKey } from '@/i18n';
 import { useT, type TFunction } from '@/i18n/useT';
 import { formatDuration, formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
+import { useExplain } from '@/ui/explain/ExplainProvider';
 import { HealthPage } from '@/ui/health/HealthPage';
 import { Icon } from '@/ui/Icon';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { fonts, radius, spacing, useTheme } from '@/ui/theme';
+import { IconButton } from '@/ui/TopBar';
 import type { Language } from '@/data/types';
 
 const CATEGORY_LABEL: Record<MetricCategory, TranslationKey> = {
@@ -37,6 +40,7 @@ export default function MetricsScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
   const { days, userData, profile } = useAppData();
+  const explain = useExplain();
   const [query, setQuery] = useState('');
   const normalized = query.trim().toLowerCase();
   const visible = CATALOGUE.filter((item) => matches(item, normalized, t));
@@ -81,13 +85,30 @@ export default function MetricsScreen() {
           <ListGroup key={category} title={t(CATEGORY_LABEL[category])}>
             {items.map((item) => {
               const reading = item.read(days, userData.weightKg, profile);
+              const term = item.term;
+              const text = readingText(reading, t, language);
+              const right =
+                term === null ? (
+                  item.level ? <ParityBadge level={item.level} /> : undefined
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {item.level ? <ParityBadge level={item.level} /> : null}
+                    <IconButton
+                      icon="info"
+                      label={t('explain.whatIs', { name: t(item.labelKey) })}
+                      onPress={() => explain.about({ term, index: days.length - 1, shown: { value: reading.kind === 'none' ? null : text, unit: null, reason: null } })}
+                      testID={`metric-${item.id}-about`}
+                    />
+                  </View>
+                );
               return (
                 <ListRow
                   key={item.id}
                   testID={`metric-${item.id}`}
                   title={t(item.labelKey)}
-                  value={readingText(reading, t, language)}
-                  right={item.level ? <ParityBadge level={item.level} /> : undefined}
+                  subtitle={term === null ? undefined : t(termLine(term))}
+                  value={text}
+                  right={right}
                   href={item.href}
                 />
               );

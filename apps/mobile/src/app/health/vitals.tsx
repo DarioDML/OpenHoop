@@ -1,10 +1,14 @@
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
+import { MIN_BASELINE_NIGHTS } from '@/data/derived';
+import { buildingProgress } from '@/data/progress';
+import { TERMS, type TermId } from '@/data/terms';
 import { latestVitalsIndex, vitalReadings, vitalsSummary } from '@/data/healthDerived';
 import { formatShortDay } from '@/lib/format';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
+import { ProgressDots } from '@/ui/explain/ProgressDots';
 import { HealthPage } from '@/ui/health/HealthPage';
 import { rangeChip } from '@/ui/health/rangeChip';
 import { MetricTile } from '@/ui/MetricTile';
@@ -19,6 +23,11 @@ export default function VitalsScreen() {
   const day = days[index];
   const readings = index >= 0 ? vitalReadings(days, index) : [];
   const summary = vitalsSummary(readings);
+  const shortLine = (term: TermId): string | undefined => {
+    const key = TERMS[term].short;
+    return key === null ? undefined : t(key);
+  };
+  const building = index >= 0 ? buildingProgress('normalRange', days, index) : null;
 
   return (
     <HealthPage
@@ -47,6 +56,14 @@ export default function VitalsScreen() {
         <StateCard icon="pulse" tone="neutral" title={t('empty.title')} body={t('health.vitals.empty')} testID="vitals-empty" />
       ) : (
         <View style={{ gap: spacing.md }}>
+          {building ? (
+            <View testID="vitals-ranges-after" style={{ gap: spacing.sm }}>
+              <AppText variant="label" muted>
+                {t('health.vitals.rangesAfter', { count: MIN_BASELINE_NIGHTS })}
+              </AppText>
+              <ProgressDots progress={building} />
+            </View>
+          ) : null}
           {readings.map((reading) => (
             <MetricTile
               key={reading.spec.id}
@@ -59,10 +76,15 @@ export default function VitalsScreen() {
               decimals={reading.spec.decimals}
               chip={rangeChip(t, language, reading.status, reading.baseline, reading.spec.decimals)}
               href={`/recovery/metric/${reading.spec.id}`}
+              explain={{ term: reading.spec.term, index }}
+              caption={shortLine(reading.spec.term)}
             />
           ))}
         </View>
       )}
+      <AppText variant="caption" muted>
+        {t('explain.tapHint')}
+      </AppText>
       <AppText variant="caption" muted>
         {t('health.vitals.footnote')}
       </AppText>
