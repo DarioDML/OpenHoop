@@ -50,9 +50,11 @@ describe('Haptic alarm', () => {
 
   it('says when the alarm is on the band and when it is not yet', async () => {
     const wakeAt = inHours(30);
-    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt, armedAt: inHours(-1) } }) }));
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt, armedAt: inHours(-1), confirmed: true } }) }));
     expect(screen.getByTestId('alarm-status-text').props.children).toMatch(/^Rings /);
-    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt: inHours(-2), armedAt: inHours(-20) } }) }));
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt: inHours(-2), armedAt: inHours(-20), confirmed: true } }) }));
+    expect(screen.getByTestId('alarm-status-text').props.children).toMatch(/^Not on the band yet/);
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt, armedAt: inHours(-1), confirmed: false } }) }));
     expect(screen.getByTestId('alarm-status-text').props.children).toMatch(/^Not on the band yet/);
   });
 

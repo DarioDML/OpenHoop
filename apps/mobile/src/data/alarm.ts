@@ -15,6 +15,7 @@ export interface AlarmPlan {
 export interface ArmedAlarm {
   wakeAt: number;
   armedAt: number;
+  confirmed: boolean;
 }
 
 export const ALARM_PLAN_KEY = 'alarm.plan';
@@ -58,23 +59,32 @@ export function serializeAlarmPlan(plan: AlarmPlan): string {
 export function parseArmedAlarm(raw: string | null): ArmedAlarm | null {
   const value = parseJson(raw);
   if (!isRecord(value)) return null;
-  const { wakeAt, armedAt } = value;
+  const { wakeAt, armedAt, confirmed } = value;
   if (typeof wakeAt !== 'number' || typeof armedAt !== 'number' || !Number.isFinite(wakeAt) || !Number.isFinite(armedAt) || wakeAt <= 0 || armedAt <= 0) return null;
-  return { wakeAt, armedAt };
+  if (confirmed !== undefined && typeof confirmed !== 'boolean') return null;
+  return { wakeAt, armedAt, confirmed: confirmed ?? true };
 }
 
 export function serializeArmedAlarm(armed: ArmedAlarm): string {
-  return JSON.stringify({ wakeAt: armed.wakeAt, armedAt: armed.armedAt });
+  return JSON.stringify({ wakeAt: armed.wakeAt, armedAt: armed.armedAt, confirmed: armed.confirmed });
+}
+
+export function confirmedAlarm(armed: ArmedAlarm | null, nowS: number): ArmedAlarm | null {
+  return armed !== null && armed.confirmed && armed.wakeAt > nowS ? armed : null;
 }
 
 export function shiftMinutes(minutes: number, delta: number): number {
   return (((minutes + delta) % DAY_MIN) + DAY_MIN) % DAY_MIN;
 }
 
+const DAYS_AHEAD = 3;
+
 export function nextWakeAt(minutes: number, now: Date): number {
-  const target = new Date(now.getTime());
-  target.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
-  if (target.getTime() / 1000 < now.getTime() / 1000 + MIN_ALARM_LEAD_S) target.setDate(target.getDate() + 1);
+  const earliest = now.getTime() / 1000 + MIN_ALARM_LEAD_S;
+  let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(minutes / 60), minutes % 60, 0, 0);
+  for (let add = 1; add <= DAYS_AHEAD && target.getTime() / 1000 < earliest; add++) {
+    target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add, Math.floor(minutes / 60), minutes % 60, 0, 0);
+  }
   return Math.floor(target.getTime() / 1000);
 }
 
@@ -85,7 +95,7 @@ export function alarmTask(plan: AlarmPlan, armed: ArmedAlarm | null, now: Date):
   const live = armed !== null && armed.wakeAt > nowS ? armed : null;
   if (!plan.enabled) return live === null ? { kind: 'none' } : { kind: 'cancel' };
   const wakeAt = nextWakeAt(plan.minutes, now);
-  if (live !== null && live.wakeAt <= wakeAt && localMinutes(live.wakeAt) === plan.minutes) return { kind: 'none' };
+  if (live !== null && live.confirmed && live.wakeAt <= wakeAt && localMinutes(live.wakeAt) === plan.minutes) return { kind: 'none' };
   return { kind: 'arm', wakeAt };
 }
 

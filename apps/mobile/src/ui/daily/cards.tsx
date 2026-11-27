@@ -10,6 +10,7 @@ import { caloriesForDay } from '@/data/energyDerived';
 import { stressForDay } from '@/data/stressDerived';
 import { formatHm, formatMinutes, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
 import { deviceTzOffsetS } from '@/lib/dates';
+import { confirmedAlarm } from '@/data/alarm';
 import type { AlarmView } from '@/data/types';
 import { strengthWeek } from '@/data/strength';
 import { useT } from '@/i18n/useT';
@@ -298,7 +299,7 @@ export function WeekCard({ days, index }: DayProps) {
 }
 
 function alarmValue(alarm: AlarmView, nowS: number): { time: string | null; armed: boolean } {
-  const armed = alarm.armed !== null && alarm.armed.wakeAt > nowS ? alarm.armed : null;
+  const armed = confirmedAlarm(alarm.armed, nowS);
   if (armed !== null) return { time: formatClock(armed.wakeAt, deviceTzOffsetS(new Date(armed.wakeAt * 1000))), armed: true };
   return { time: alarm.plan.enabled ? formatMinutes(alarm.plan.minutes) : null, armed: false };
 }

@@ -2,7 +2,7 @@ import type { AlarmEvent } from '@openhoop/core';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { shiftMinutes, type AlarmPlan } from '@/data/alarm';
+import { confirmedAlarm, shiftMinutes, type AlarmPlan } from '@/data/alarm';
 import { useAppData } from '@/data/context';
 import { formatMinutes } from '@/data/dailyDerived';
 import { useT, type TFunction } from '@/i18n/useT';
@@ -73,7 +73,7 @@ export default function HapticAlarmScreen() {
     }
   };
 
-  const armed = alarm.armed !== null && alarm.armed.wakeAt > nowS ? alarm.armed : null;
+  const armed = confirmedAlarm(alarm.armed, nowS);
   const status = armed !== null ? t('alarm.status.armed', { when: wakeLabel(t, language, armed.wakeAt, nowS) }) : t(alarm.plan.enabled ? 'alarm.status.pending' : 'alarm.status.off');
   const rang = lastRing(alarm.events);
   const busy = saving || device.connection === 'syncing' || device.connection === 'connecting';

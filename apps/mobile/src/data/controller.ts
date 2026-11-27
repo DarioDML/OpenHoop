@@ -984,7 +984,8 @@ export class AppController {
       await this.exclusive(async () => task(await this.ensureConnection()));
       return true;
     } catch (error) {
-      this.fail(error instanceof ConfigWriteError ? new AppError(error.reason === 'not-writable' ? 'error.configNotWritable' : 'error.configNotApplied') : error);
+      if (error instanceof AlarmError) this.patch({ notice: alarmProblem(error) });
+      else this.fail(error instanceof ConfigWriteError ? new AppError(error.reason === 'not-writable' ? 'error.configNotWritable' : 'error.configNotApplied') : error);
       return false;
     }
   }
@@ -1006,8 +1007,11 @@ export class AppController {
     const { plan, armed } = this.snapshot.alarm;
     const task = alarmTask(plan, armed, new Date());
     if (task.kind === 'arm') {
+      const attempt: ArmedAlarm = { wakeAt: task.wakeAt, armedAt: nowSeconds(), confirmed: false };
+      await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(attempt));
+      this.patchAlarm({ armed: attempt });
       const reading = await armAlarm(conn.session, task.wakeAt, nowSeconds());
-      const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds() };
+      const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds(), confirmed: true };
       await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(next));
       this.patchAlarm({ armed: next, problem: null });
     } else if (task.kind === 'cancel') {
