@@ -10,8 +10,7 @@ export default function IrregularRhythmScreen() {
       heading={t('health.irregularRhythm.heading')}
       body={t('health.irregularRhythm.body')}
       icon="alert"
-      issue="mg"
-      needsMg
+      notOffered={t('health.irregularRhythm.notOffered')}
       pointsTitle={t('health.feature.pointsTitle')}
       points={[t('health.irregularRhythm.p1'), t('health.irregularRhythm.p2'), t('health.irregularRhythm.p3')]}
     />

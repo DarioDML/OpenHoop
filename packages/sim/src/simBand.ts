@@ -7,6 +7,7 @@ import {
   concat,
   encodeCommandResponse,
   encodeDataRangeBody,
+  encodeEcgFiltered,
   encodeHelloBody,
   encodeMetadata,
   encodeRealtimeHr,
@@ -38,6 +39,8 @@ export interface SimOptions {
     /** On the first abort, the last n frames of the aborted chunk stay in flight and arrive just before the next transfer. */
     strayTailFramesAfterAbort?: number;
   };
+  ecgUnsupported?: boolean;
+  ecgIntervalMs?: number;
 }
 
 export interface WireEntry {
@@ -54,6 +57,9 @@ const KEY_LENGTH = 32;
 const YIELD_EVERY = 128;
 const DEFAULT_MTU = 244;
 const DEFAULT_LIVE_MS = 1000;
+const DEFAULT_ECG_INTERVAL_MS = 400;
+const ECG_BLOCK = 100;
+const SUBSEC_TICKS = 32768;
 const DEFAULT_WIRE_CAP = 5000;
 const DEFAULT_FIRMWARE = '50.38.1.0';
 
@@ -151,6 +157,19 @@ function yieldToLoop(): Promise<void> {
   });
 }
 
+const ECG_WAVES: readonly (readonly [number, number, number])[] = [
+  [0.2, 120, 0.025],
+  [0.36, -150, 0.01],
+  [0.4, 1200, 0.012],
+  [0.44, -300, 0.012],
+  [0.65, 260, 0.045],
+];
+
+function syntheticEcg(tS: number): number {
+  const phase = tS % 1;
+  return Math.round(ECG_WAVES.reduce((sum, [at, height, width]) => sum + height * Math.exp(-((phase - at) ** 2) / (2 * width * width)), 0));
+}
+
 function notFound(what: string): Error {
   return new Error(`${what} not found`);
 }
@@ -164,6 +183,10 @@ export class SimBand implements Transport {
   alarmsRun = 0;
   hrProfileOn = true;
   readonly alarms = new Map<number, number>();
+  ecgFramesSent = 0;
+  ecgWrist: number | null = null;
+  ecgFiltered = false;
+  ecgRawSave = false;
   readonly flags: MutableKeyTable = FEATURE_FLAGS.map(([key, value]): [string, string] => [key, value]);
   readonly deviceConfig: MutableKeyTable = DEVICE_CONFIG.map(([key, value]): [string, string] => [key, value]);
 
@@ -203,6 +226,10 @@ export class SimBand implements Transport {
   private queue: Outgoing[] = [];
   private pumping = false;
   private liveTimer: Timer | null = null;
+  private ecgTimer: Timer | null = null;
+  private ecgIndex = 0;
+  private readonly ecgUnsupported: boolean;
+  private readonly ecgIntervalMs: number;
   private dataFrames = 0;
   private fragmentCount = 0;
 
@@ -223,6 +250,8 @@ export class SimBand implements Transport {
         ? DEFAULT_PAGES_PER_CHUNK
         : Math.max(1, Math.ceil(opts.recordsPerChunk / PAGE_RECORDS));
     this.liveIntervalMs = opts.liveIntervalMs ?? DEFAULT_LIVE_MS;
+    this.ecgUnsupported = opts.ecgUnsupported === true;
+    this.ecgIntervalMs = opts.ecgIntervalMs ?? DEFAULT_ECG_INTERVAL_MS;
     this.wireLogCap = opts.wireLogCap ?? DEFAULT_WIRE_CAP;
     this.modelName = opts.model === 'MG' ? 'WHOOP MG' : 'WHOOP 5.0';
     this.deviceId = `sim:${opts.seed}`;
@@ -430,6 +459,7 @@ export class SimBand implements Transport {
     this.pending = null;
     this.strayTail = [];
     this.realtimeOn = false;
+    this.stopEcgStream();
     this.cursors = new Map();
     this.reassembler = new Reassembler();
     this.subs.clear();
@@ -620,6 +650,28 @@ export class SimBand implements Transport {
         else this.alarms.delete(args[1] ?? 0);
         this.reply(command, seq, SUCCESS);
         return true;
+      case Command.SELECT_WRIST:
+        this.writesReceived += 1;
+        this.ecgWrist = args[1] ?? null;
+        this.reply(command, seq, SUCCESS);
+        return true;
+      case Command.TOGGLE_LABRADOR_FILTERED:
+      case Command.TOGGLE_LABRADOR_RAW_SAVE: {
+        this.writesReceived += 1;
+        const on = args[1] === 1;
+        if (on && this.ecgUnsupported) {
+          this.reply(command, seq, FAILURE);
+          return true;
+        }
+        if (command === Command.TOGGLE_LABRADOR_FILTERED) this.ecgFiltered = on;
+        else this.ecgRawSave = on;
+        this.reply(command, seq, SUCCESS);
+        return true;
+      }
+      case Command.TOGGLE_LABRADOR_DATA_GENERATION:
+        this.writesReceived += 1;
+        this.ecgGeneration(command, seq, args[1] ?? 0);
+        return true;
       case Command.SET_FF_VALUE:
         this.dangerousReceived += 1;
         this.setKey(command, seq, args, this.flags);
@@ -631,6 +683,42 @@ export class SimBand implements Transport {
       default:
         return false;
     }
+  }
+
+  private ecgGeneration(command: number, seq: number, operation: number): void {
+    if (operation === 1) {
+      this.stopEcgStream();
+      this.reply(command, seq, SUCCESS);
+      return;
+    }
+    if ((operation !== 2 && operation !== 3) || !this.ecgFiltered || !this.ecgRawSave) {
+      this.reply(command, seq, FAILURE);
+      return;
+    }
+    this.reply(command, seq, SUCCESS);
+    if (this.ecgTimer === null) this.ecgTimer = setTimeout(() => this.ecgTick(), this.ecgIntervalMs);
+  }
+
+  private stopEcgStream(): void {
+    if (this.ecgTimer !== null) clearTimeout(this.ecgTimer);
+    this.ecgTimer = null;
+  }
+
+  private ecgTick(): void {
+    this.ecgTimer = null;
+    if (!this.connected) return;
+    const rateHz = (ECG_BLOCK * 1000) / this.ecgIntervalMs;
+    const first = this.ecgIndex * ECG_BLOCK;
+    const startS = this.bandNow() + (first % rateHz) / rateHz;
+    const samples = Array.from({ length: ECG_BLOCK }, (_, k) => syntheticEcg((first + k) / rateHz));
+    this.enqueueFrame(
+      GATT.dataFromStrap,
+      encodeEcgFiltered({ recordIndex: this.ecgIndex, unixS: Math.floor(startS), subsec: Math.floor((startS % 1) * SUBSEC_TICKS), samples }),
+      NO_GEN,
+    );
+    this.ecgIndex += 1;
+    this.ecgFramesSent += 1;
+    this.ecgTimer = setTimeout(() => this.ecgTick(), this.ecgIntervalMs);
   }
 
   private setAlarm(command: number, seq: number, args: Uint8Array): void {

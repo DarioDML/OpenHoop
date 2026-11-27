@@ -10,8 +10,7 @@ export default function BpCalibrationScreen() {
       heading={t('health.bpCalibration.heading')}
       body={t('health.bpCalibration.body')}
       icon="settings"
-      issue="mg"
-      needsMg
+      notOffered={t('health.bpCalibration.notOffered')}
       pointsTitle={t('health.feature.pointsTitle')}
       points={[t('health.bpCalibration.p1'), t('health.bpCalibration.p2'), t('health.bpCalibration.p3')]}
     />

@@ -124,7 +124,7 @@ describe('health screens', () => {
   it('flags MG-only screens on a 5.0 band and never shows a verdict', async () => {
     await render(withAppData(<EcgScreen />));
     expect(screen.getByTestId('needs-mg')).toBeTruthy();
-    expect(screen.getByTestId('not-built-mg')).toBeTruthy();
+    expect(screen.getByTestId('ecg-start').props.accessibilityState.disabled).toBe(true);
     expect(screen.getByTestId('mg-disclaimer')).toBeTruthy();
   });
 

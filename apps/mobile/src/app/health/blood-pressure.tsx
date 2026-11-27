@@ -10,8 +10,7 @@ export default function BloodPressureScreen() {
       heading={t('health.bloodPressure.heading')}
       body={t('health.bloodPressure.body')}
       icon="drop"
-      issue="mg"
-      needsMg
+      notOffered={t('health.bloodPressure.notOffered')}
       pointsTitle={t('health.feature.pointsTitle')}
       points={[t('health.bloodPressure.p1'), t('health.bloodPressure.p2'), t('health.bloodPressure.p3')]}
     />

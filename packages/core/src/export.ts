@@ -187,6 +187,11 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     select: 'activity_id, seq, segment, t_ms, lat, lon, alt_m, accuracy_m',
     order: 'activity_id, seq',
   },
+  ecg_recordings: {
+    columns: ['id', 'device_id', 't', 'duration_ms', 'sample_count', 'rate_hz', 'wrist', 'samples_i16le'],
+    select: 'id, device_id, t, duration_ms, sample_count, rate_hz, wrist, hex(data) AS samples_i16le',
+    order: 'device_id, t, id',
+  },
 };
 
 const FORMULA_START = /^[=+\-@\t\r]/;

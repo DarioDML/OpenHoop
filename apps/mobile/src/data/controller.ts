@@ -62,6 +62,14 @@ import {
   cancelAlarm,
   recentAlarmEvents,
   ringAlarm,
+  EcgError,
+  deleteEcgRecording,
+  ecgSamples,
+  insertEcgRecording,
+  listEcgRecordings,
+  recordEcg,
+  stopEcg,
+  type EcgSummary,
   rebuildStaleSamples,
   recomputeStaleDays,
   recomputeDays,
@@ -117,7 +125,7 @@ import {
   type DonationDay,
   type DonationProgress,
 } from '@openhoop/core';
-import { commandName, formatFirmware } from '@openhoop/protocol';
+import { commandName, formatFirmware, type Wrist } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
 import Constants from 'expo-constants';
 import { getRandomBytes } from 'expo-crypto';
@@ -168,6 +176,7 @@ import {
 } from './healthConnectState';
 import { runHealthConnectSync } from './healthConnectSync';
 import { removeLeftoverReports } from './reportFiles';
+import { removeLeftoverEcgFiles } from './ecgShare';
 import {
   NOTIFICATION_STATE_KEY,
   emptyNotificationState,
@@ -189,6 +198,8 @@ import type {
   ActivityDraft,
   AlarmActions,
   AlarmSaveOutcome,
+  EcgActions,
+  EcgLiveState,
   AlarmView,
   AppData,
   BandActions,
@@ -258,6 +269,9 @@ export interface Snapshot {
   activities: ActivityRow[];
   pendingDelete: PendingDelete | null;
   alarm: AlarmView;
+  ecgRecordings: EcgSummary[];
+  ecgWrist: Wrist;
+  ecgLive: EcgLiveState;
 }
 
 interface Connection {
@@ -277,6 +291,14 @@ export interface SyncTimings {
 const SYNC_FAILURES_NOT_ALERTED: ReadonlySet<TranslationKey> = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
 
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
+const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
+const ECG_PROGRESS_MS = 200;
+
+const ECG_WRIST_KEY = 'ecg.wrist';
+
+function ecgCleanupKey(deviceId: number): string {
+  return `ecg.cleanup.${deviceId}`;
+}
 
 function emptyDevice(): DeviceStatus {
   return {
@@ -393,6 +415,9 @@ export class AppController {
       activities: [],
       pendingDelete: null,
       alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
+      ecgRecordings: [],
+      ecgWrist: 'left',
+      ecgLive: IDLE_ECG,
     };
   }
 
@@ -471,6 +496,7 @@ export class AppController {
     try {
       removeLeftoverExports();
       removeLeftoverReports();
+      removeLeftoverEcgFiles();
       removeLeftoverDonations();
     } catch {
       // a leftover export or report is removed again before the next one
@@ -516,6 +542,7 @@ export class AppController {
       healthConnect: { ...this.snapshot.healthConnect, state: healthConnectState },
       strength,
       alarm: { ...this.snapshot.alarm, plan: parseAlarmPlan(await store.getSetting(ALARM_PLAN_KEY)) },
+      ecgWrist: (await store.getSetting(ECG_WRIST_KEY)) === 'right' ? 'right' : 'left',
     });
     if (dataSource === 'band') await this.purgeDemoRecordings();
     await this.loadActiveDevice();
@@ -573,12 +600,14 @@ export class AppController {
     this.hrBroadcast = null;
     let armed: ArmedAlarm | null = null;
     let alarmEvents: AlarmView['events'] = [];
+    let ecgRecordings: EcgSummary[] = [];
     let ownerSince: string | null = null;
     if (this.deviceRow !== null) {
       await this.loadBandReports(this.deviceRow.id);
       this.hrBroadcast = parseHrBroadcast(await store.getSetting(hrBroadcastKey(this.deviceRow.id)));
       armed = parseArmedAlarm(await store.getSetting(armedAlarmKey(this.deviceRow.id)));
       alarmEvents = await recentAlarmEvents(store, this.deviceRow.id);
+      ecgRecordings = await listEcgRecordings(store.driver, this.deviceRow.id);
       const state = await store.getSyncState(this.deviceRow.id);
       this.lastSyncAt = state?.lastSyncAt ?? null;
       const savedLock = await store.getSetting(this.lockKey(this.deviceRow.id));
@@ -587,7 +616,7 @@ export class AppController {
         ownerSince = unixToIsoDate(this.deviceRow.ownerSince, deviceTzOffsetS(new Date()));
       }
     }
-    this.patch({ settings: { ...this.snapshot.settings, ownerSince }, alarm: { ...this.snapshot.alarm, armed, events: alarmEvents, problem: null } });
+    this.patch({ settings: { ...this.snapshot.settings, ownerSince }, alarm: { ...this.snapshot.alarm, armed, events: alarmEvents, problem: null }, ecgRecordings });
     this.patchDevice();
     await this.refreshDays();
   }
@@ -703,6 +732,9 @@ export class AppController {
       });
       const conn: Connection = { transport, session, deviceId: row.id, heldChunk: null };
       this.conn = conn;
+      if ((await store.getSetting(ecgCleanupKey(row.id))) === '1' && (await stopEcg(session))) {
+        await store.setSetting(ecgCleanupKey(row.id), '');
+      }
       this.battery = await session.battery().catch(() => hello.batteryPercent);
       this.setConnection('connected');
       return conn;
@@ -1045,6 +1077,61 @@ export class AppController {
     },
     ring: () => this.onBand(async (conn) => void (await ringAlarm(conn.session)), false),
   };
+
+  private ecgAbort: AbortController | null = null;
+
+  private readonly ecgActionSet: EcgActions = {
+    start: (wrist: Wrist) => this.startEcg(wrist),
+    stop: () => this.ecgAbort?.abort(),
+    samples: async (id: number) => ecgSamples(this.requireApp().store.driver, id),
+    remove: async (id: number) => {
+      const { store } = this.requireApp();
+      const removed = await deleteEcgRecording(store.driver, id);
+      if (this.deviceRow !== null) this.patch({ ecgRecordings: await listEcgRecordings(store.driver, this.deviceRow.id) });
+      return removed;
+    },
+  };
+
+  private async startEcg(wrist: Wrist): Promise<number | null> {
+    if (this.syncRun !== null || this.liveAbort !== null || this.ecgAbort !== null) {
+      this.fail(new AppError('error.bandBusy'));
+      return null;
+    }
+    const abort = new AbortController();
+    this.ecgAbort = abort;
+    this.patch({ ecgLive: { ...IDLE_ECG, active: true } });
+    let lastProgress = 0;
+    try {
+      return await this.exclusive(async () => {
+        const conn = await this.ensureConnection();
+        const { store } = this.requireApp();
+        await store.setSetting(ecgCleanupKey(conn.deviceId), '1');
+        const capture = await recordEcg(conn.session, {
+          wrist,
+          signal: abort.signal,
+          onProgress: (progress) => {
+            const now = Date.now();
+            if (now - lastProgress < ECG_PROGRESS_MS) return;
+            lastProgress = now;
+            this.patch({ ecgLive: { active: true, elapsedMs: progress.elapsedMs, samples: progress.samples, tail: progress.tail } });
+          },
+        });
+        if (capture.stopConfirmed) await store.setSetting(ecgCleanupKey(conn.deviceId), '');
+        await store.setSetting(ECG_WRIST_KEY, wrist);
+        this.patch({ ecgWrist: wrist });
+        const id = await insertEcgRecording(store.driver, conn.deviceId, capture);
+        this.patch({ ecgRecordings: await listEcgRecordings(store.driver, conn.deviceId) });
+        return id;
+      });
+    } catch (error) {
+      if (error instanceof EcgError && error.reason === 'cancelled') return null;
+      this.fail(error instanceof EcgError ? new AppError(error.reason === 'unsupported' ? 'ecg.problem.unsupported' : 'ecg.problem.noSignal') : error);
+      return null;
+    } finally {
+      this.ecgAbort = null;
+      this.patch({ ecgLive: IDLE_ECG });
+    }
+  }
 
   private readonly bandActionSet: BandActions = {
     buzz: (kind: BandBuzz) => this.onBand((conn) => buzz(conn.session, kind === 'find' ? FIND_BAND_LOOPS : TEST_BUZZ_LOOPS), false),
@@ -1911,7 +1998,7 @@ export class AppController {
   };
 
   private appData(): AppData {
-    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ...snapshot } = this.snapshot;
+    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ecgLive: _ecgLive, ...snapshot } = this.snapshot;
     return {
       ...snapshot,
       sleepEditLimits: { napMaxS: MANUAL_NAP_MAX_S, sleepMaxS: EDITED_SLEEP_MAX_S },
@@ -1922,6 +2009,7 @@ export class AppController {
       readBandConfig: this.readBandConfig,
       bandActions: this.bandActionSet,
       alarmActions: this.alarmActionSet,
+      ecgActions: this.ecgActionSet,
       stopLive: this.stopLive,
       exportData: this.exportData,
       listDonationDays: this.listDonationDays,
