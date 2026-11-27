@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { encodeBiometric, toHex } from '@openhoop/protocol';
-import { ChunkIntegrityError, SAMPLE_DECODER_VERSION, SAMPLE_DECODER_VERSION_KEY, openStore, rebuildStaleSamples } from '../src/index';
+import {
+  ChunkIntegrityError,
+  DERIVED_VERSION,
+  DERIVED_VERSION_KEY,
+  SAMPLE_DECODER_VERSION,
+  SAMPLE_DECODER_VERSION_KEY,
+  openStore,
+  rebuildStaleSamples,
+  recomputeStaleDays,
+} from '../src/index';
 import type { DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 import { decodeRow, simulateDays, toFrame } from './sampleFactory';
@@ -114,6 +123,34 @@ describe('rebuildStaleSamples', () => {
     expect(await storedTemps(other)).toEqual(rows.map(() => null));
     expect(await storedTemps(deviceId)).toEqual(rows.map(() => 7.5));
     expect(await store.getSetting(SAMPLE_DECODER_VERSION_KEY)).toBeNull();
+  });
+});
+
+describe('recomputeStaleDays', () => {
+  let store: Store;
+
+  beforeEach(async () => {
+    store = await openStore(openStrictDriver());
+  });
+  afterEach(async () => {
+    await store.driver.close();
+  });
+
+  it('recomputes every device with samples once, and again after a failed run', async () => {
+    const withSamples = (await store.upsertDevice(DEVICE)).id;
+    await store.upsertDevice({ ...DEVICE, bleId: 'DD:EE:FF' });
+    await store.insertSamples(simulateDays(withSamples, { days: 1 }).slice(0, 5));
+    await expect(recomputeStaleDays(store, () => Promise.reject(new Error('killed')))).rejects.toThrow('killed');
+    expect(await store.getSetting(DERIVED_VERSION_KEY)).toBeNull();
+    const seen: number[] = [];
+    const recompute = (id: number): Promise<void> => {
+      seen.push(id);
+      return Promise.resolve();
+    };
+    expect(await recomputeStaleDays(store, recompute)).toEqual([withSamples]);
+    expect(await store.getSetting(DERIVED_VERSION_KEY)).toBe(String(DERIVED_VERSION));
+    expect(await recomputeStaleDays(store, recompute)).toEqual([]);
+    expect(seen).toEqual([withSamples]);
   });
 });
 

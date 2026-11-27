@@ -3,6 +3,7 @@ import {
   DEFAULT_CALIBRATION,
   activeMinutes,
   activeThresholdBpm,
+  classifyStages,
   dayLoad,
   dayStress,
   debtMs,
@@ -39,6 +40,8 @@ import type {
   SampleSource,
   SleepEdit,
   SleepPeriodRecord,
+  SleepStagesSummary,
+  StageEpochRow,
   Store,
   WorkoutRecord,
 } from './store/types';
@@ -323,13 +326,28 @@ function mainNightSpan(day: DayRecord): { onset: number; offset: number } | null
   return first === undefined || last === undefined ? null : { onset: first.onset, offset: last.offset };
 }
 
+interface ComputedDay {
+  record: DayRecord;
+  stages: StageEpochRow[];
+}
+
+function nightStages(samples: Sample[], main: Night<MergedSleepPeriod> | null): { summary: SleepStagesSummary; epochs: StageEpochRow[] } {
+  if (main === null) return { summary: { algo: ALGO.stages, reason: 'no-sleep', coverage: null, totals: null }, epochs: [] };
+  const outcome = classifyStages(samples, main.periods);
+  if (!outcome.ok) return { summary: { algo: outcome.algo, reason: outcome.reason, coverage: null, totals: null }, epochs: [] };
+  return {
+    summary: { algo: outcome.algo, reason: null, coverage: outcome.coverage, totals: outcome.value.totals },
+    epochs: outcome.value.epochs,
+  };
+}
+
 async function computeDay(
   ctx: Context,
   index: number,
   start: number,
   end: number,
   history: DayRecord[],
-): Promise<DayRecord | null> {
+): Promise<ComputedDay | null> {
   const { store, deviceId, tz, calibration } = ctx;
   const { samples, chunkIds } = await readWindow(ctx, start, end);
   if (samples.length === 0) return null;
@@ -514,8 +532,9 @@ async function computeDay(
     }
   }
   if (samples.length < PARTIAL_DAY_SAMPLES) flags.push('partial-day');
+  const stages = nightStages(samples, main);
 
-  return {
+  const record: DayRecord = {
     deviceId,
     day: key,
     start,
@@ -530,6 +549,7 @@ async function computeDay(
       debt,
       consistency,
       score,
+      stages: stages.summary,
     },
     hrv,
     restingHr: restingHrDerived,
@@ -548,6 +568,7 @@ async function computeDay(
     activeMinutes: activeMinutes(minuteHr, rest, maxHr),
     stress,
   };
+  return { record, stages: stages.epochs };
 }
 
 async function firstAffectedDay(ctx: Context, from: number): Promise<number | null> {
@@ -597,9 +618,11 @@ export async function recomputeDays(store: Store, opts: RecomputeOptions): Promi
       const { start, end } = await dayWindow(ctx, index);
       if (start >= to || start > last) break;
       if (end <= start) continue;
-      const record = await computeDay(ctx, index, start, end, history);
-      if (record === null) continue;
+      const computed = await computeDay(ctx, index, start, end, history);
+      if (computed === null) continue;
+      const { record } = computed;
       await store.replaceDay(record);
+      await store.replaceSleepStages(deviceId, start, end, computed.stages);
       history.push(record);
       evictBefore(ctx, Math.min(end, localMidnight(index + 2, ctx.tz) - SCAN_BEFORE_S));
       out.push(record);

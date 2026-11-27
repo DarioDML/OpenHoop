@@ -1,3 +1,5 @@
+import { SLEEP_STAGES } from '@openhoop/analytics';
+import type { SleepStage } from '@openhoop/analytics';
 import { ChunkIntegrityError, decodeChunk, encodeChunk } from './chunkCodec';
 import { migrate } from './migrations';
 import type {
@@ -134,6 +136,10 @@ function isDayRecord(value: unknown): value is DayRecord {
   return typeof candidate.deviceId === 'number' && typeof candidate.day === 'string';
 }
 
+function isSleepStage(value: string): value is SleepStage {
+  return (SLEEP_STAGES as readonly string[]).includes(value);
+}
+
 function isSleepSource(value: unknown): value is SleepSource {
   return value === 'detected' || value === 'edited' || value === 'manual';
 }
@@ -246,6 +252,7 @@ async function clearDerivedRaw(tx: SqlDriver, deviceId: number): Promise<void> {
   await tx.run('DELETE FROM sleeps WHERE device_id = ?', [deviceId]);
   await tx.run('DELETE FROM workouts WHERE device_id = ?', [deviceId]);
   await tx.run('DELETE FROM baselines WHERE device_id = ?', [deviceId]);
+  await tx.run('DELETE FROM sleep_stages WHERE device_id = ?', [deviceId]);
 }
 
 export async function openStore(driver: SqlDriver): Promise<Store> {
@@ -494,6 +501,26 @@ export function bindStore(driver: SqlDriver): Store {
 
     async clearDerived(deviceId) {
       await driver.transaction((tx) => clearDerivedRaw(tx, deviceId));
+    },
+
+    async replaceSleepStages(deviceId, from, to, epochs) {
+      await driver.transaction(async (tx) => {
+        await tx.run('DELETE FROM sleep_stages WHERE device_id = ? AND t >= ? AND t < ?', [deviceId, from, to]);
+        await bulkInsert(
+          tx,
+          'INSERT OR REPLACE INTO sleep_stages (device_id, t, stage)',
+          3,
+          epochs.filter((e) => e.t >= from && e.t < to).map((e) => [deviceId, e.t, e.stage]),
+        );
+      });
+    },
+
+    async sleepStagesBetween(deviceId, from, to) {
+      const rows = await driver.all<{ t: number; stage: string }>(
+        'SELECT t, stage FROM sleep_stages WHERE device_id = ? AND t >= ? AND t < ? ORDER BY t',
+        [deviceId, from, to],
+      );
+      return rows.flatMap((r) => (isSleepStage(r.stage) ? [{ t: r.t, stage: r.stage }] : []));
     },
 
     async listSleepEdits(deviceId) {

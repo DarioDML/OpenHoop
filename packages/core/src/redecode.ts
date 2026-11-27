@@ -28,3 +28,19 @@ export async function rebuildStaleSamples(store: Store, recompute: (deviceId: nu
   await store.setSetting(SAMPLE_DECODER_VERSION_KEY, String(SAMPLE_DECODER_VERSION));
   return rebuilt;
 }
+
+// Bump when the pipeline adds or changes a derived value from the same samples; every stored day is then recomputed once.
+export const DERIVED_VERSION = 1;
+export const DERIVED_VERSION_KEY = 'days.derivedVersion';
+
+export async function recomputeStaleDays(store: Store, recompute: (deviceId: number) => Promise<void>): Promise<number[]> {
+  if (storedVersion(await store.getSetting(DERIVED_VERSION_KEY)) >= DERIVED_VERSION) return [];
+  const recomputed: number[] = [];
+  for (const device of await store.listDevices()) {
+    if ((await store.sampleRange(device.id)) === null) continue;
+    await recompute(device.id);
+    recomputed.push(device.id);
+  }
+  await store.setSetting(DERIVED_VERSION_KEY, String(DERIVED_VERSION));
+  return recomputed;
+}

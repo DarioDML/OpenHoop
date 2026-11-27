@@ -11,6 +11,7 @@ const TABLES: readonly ExportTable[] = [
   'samples_1hz',
   'daily_metrics',
   'sleeps',
+  'sleep_stages',
   'workouts',
   'events',
   'battery_pack_events',
