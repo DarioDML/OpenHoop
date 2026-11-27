@@ -1,4 +1,3 @@
-import { Stack } from 'expo-router';
 import { useState } from 'react';
 
 import { useT } from '@/i18n/useT';
@@ -16,7 +15,6 @@ export default function SafetyLockScreen() {
 
   return (
     <SettingsPage title={t('device.safety.title')} tint="neutral" testID="safety-lock">
-      <Stack.Screen options={{ presentation: 'modal' }} />
       <Card tone="danger" style={{ gap: 8 }}>
         <AppText variant="cardTitle" color={colors.negative}>
           {t('device.safety.heading')}

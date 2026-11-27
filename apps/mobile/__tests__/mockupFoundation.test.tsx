@@ -67,6 +67,7 @@ describe('units', () => {
     expect(formatTemperature(37, 'imperial', 'en')).toEqual({ value: '98.6', unit: '°F' });
     expect(formatTemperatureDelta(-0.4, 'metric', 'en')).toEqual({ value: '−0.4', unit: '°C' });
     expect(formatTemperatureDelta(0.5, 'imperial', 'en')).toEqual({ value: '+0.9', unit: '°F' });
+    expect(formatTemperatureDelta(-0.04, 'metric', 'en')).toEqual({ value: '0.0', unit: '°C' });
   });
 
   it('converts typed values back to metric for storage', () => {
