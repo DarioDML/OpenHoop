@@ -21,6 +21,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import ReadinessScreen from '@/app/recovery/index';
+import RecoveryTrendsScreen from '@/app/recovery/trends';
 
 const days = createFixtureDays(FIXTURE_NOW);
 
@@ -102,5 +103,41 @@ describe('Readiness screen', () => {
     expect(screen.getByTestId('readiness-level')).toHaveTextContent(/not measured yet/);
     await fireEvent.press(screen.getByTestId('readiness-about'));
     expect(screen.getByTestId('about-sheet')).toBeTruthy();
+  });
+});
+
+describe('Readiness trends', () => {
+  function trendDays(values: ReadonlyArray<number | null>) {
+    const tail = days.slice(-values.length);
+    return tail.map((d, i) => ({ ...d, readiness: { ...d.readiness, value: values[i] ?? null, reason: values[i] === null ? 'no-data' : null }, readinessCalibrating: false }));
+  }
+
+  it('draws a bar per day with an average and a band split', async () => {
+    await render(withAppData(<RecoveryTrendsScreen />, 'en', { days: trendDays([71, 48, 29, 80, 66, 54, 62]) }));
+    expect(screen.getAllByTestId(/^chart-readiness-\d{4}/)).toHaveLength(7);
+    expect(screen.getByTestId('avg-readiness')).toHaveTextContent('avg 59%');
+    expect(screen.getByTestId('count-high')).toHaveTextContent('2 high days');
+    expect(screen.getByTestId('count-medium')).toHaveTextContent('4 medium');
+    expect(screen.getByTestId('count-low')).toHaveTextContent('1 low');
+    expect(screen.getByTestId('card-hrv')).toBeTruthy();
+    expect(screen.getByTestId('card-rhr')).toBeTruthy();
+  });
+
+  it('asks the coach about the lowest day', async () => {
+    const data = trendDays([71, 48, 29, 80, 66, 54, 62]);
+    const lowDay = data[2]?.day ?? '';
+    await render(withAppData(<RecoveryTrendsScreen />, 'en', { days: data }));
+    const weekday = new Date(`${lowDay}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
+    const question = `What dragged ${weekday} down?`;
+    expect(screen.getByTestId('trends-coach')).toHaveTextContent(question);
+    await fireEvent.press(screen.getByTestId('trends-coach'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/coach', params: { ask: question } });
+  });
+
+  it('averages per week on the month view', async () => {
+    await render(withAppData(<RecoveryTrendsScreen />));
+    await fireEvent.press(screen.getByRole('tab', { name: '1M' }));
+    expect(screen.getByText('Weekly average')).toBeTruthy();
+    expect(screen.getAllByTestId(/^chart-readiness-\d{4}/).length).toBeLessThanOrEqual(6);
   });
 });
