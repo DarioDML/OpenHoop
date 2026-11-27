@@ -26,11 +26,9 @@ export interface LoadBuzzInput {
 
 export interface LoadBuzzDecision {
   thresholds: LoadBuzzThreshold[];
-  loops: number;
+  kind: LoadBuzzThreshold;
   next: LoadBuzzPrefs;
 }
-
-export const LOAD_BUZZ_LOOPS: Readonly<Record<LoadBuzzThreshold, number>> = { target: 1, top: 2 };
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -75,7 +73,7 @@ export function loadBuzzDecision({ prefs, load, aim, day, nowS, tzOffsetS }: Loa
   const due = (['target', 'top'] as const).filter((threshold) => enabled(prefs, threshold) && lastOf(prefs, threshold) !== today && reached(threshold, load, aim));
   if (due.length === 0) return null;
   const next = due.reduce((acc, threshold) => withLast(acc, threshold, today), prefs);
-  return { thresholds: due, loops: Math.max(...due.map((threshold) => LOAD_BUZZ_LOOPS[threshold])), next };
+  return { thresholds: due, kind: due.includes('top') ? 'top' : 'target', next };
 }
 
 export function setLoadBuzz(prefs: LoadBuzzPrefs, threshold: LoadBuzzThreshold, on: boolean, load: number | null, aim: LoadRange | null, today: string): LoadBuzzPrefs {

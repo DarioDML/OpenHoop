@@ -7,6 +7,7 @@ import { CommandFailedError } from './session';
 
 export const TEST_BUZZ_LOOPS = 1;
 export const FIND_BAND_LOOPS = 6;
+export const WARN_BUZZ_LOOPS = 2;
 
 const WRITE = { confirmWrite: true } as const;
 

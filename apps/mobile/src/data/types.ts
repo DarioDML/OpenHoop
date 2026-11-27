@@ -139,7 +139,7 @@ export interface StrengthActions {
   removeSession(id: number): Promise<boolean>;
 }
 
-export type BandBuzz = 'test' | 'find';
+export type BandBuzz = 'test' | 'find' | 'target' | 'top';
 
 export interface BandActions {
   buzz(kind: BandBuzz): Promise<boolean>;

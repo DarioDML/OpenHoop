@@ -1,6 +1,6 @@
 import { createFixtureDays } from '@/data/fixtureSource';
 import { hudFor, IDLE_SESSION, liveReducer } from '@/data/liveSession';
-import { defaultLoadBuzzPrefs, LOAD_BUZZ_LOOPS, loadBuzzDecision, parseLoadBuzzPrefs, setLoadBuzz, type LoadBuzzPrefs } from '@/data/loadBuzz';
+import { defaultLoadBuzzPrefs, loadBuzzDecision, parseLoadBuzzPrefs, setLoadBuzz, type LoadBuzzPrefs } from '@/data/loadBuzz';
 import { defaultUserData, parseUserData, serializeUserData } from '@/data/userData';
 
 import { FIXTURE_NOW } from './support/appData';
@@ -45,7 +45,7 @@ describe('loadBuzzDecision', () => {
 
   it('buzzes once when the load first reaches the lower end of the target', () => {
     const decision = decide(ON, 7.6);
-    expect(decision).toEqual({ thresholds: ['target'], loops: LOAD_BUZZ_LOOPS.target, next: { ...ON, lastTarget: TODAY } });
+    expect(decision).toEqual({ thresholds: ['target'], kind: 'target', next: { ...ON, lastTarget: TODAY } });
     expect(decide(decision?.next ?? ON, 9)).toBeNull();
   });
 
@@ -60,7 +60,7 @@ describe('loadBuzzDecision', () => {
 
   it('warns once when the load passes the top of the target', () => {
     const decision = decide({ ...ON, lastTarget: TODAY }, 15.7);
-    expect(decision).toEqual({ thresholds: ['top'], loops: LOAD_BUZZ_LOOPS.top, next: { ...ON, lastTarget: TODAY, lastTop: TODAY } });
+    expect(decision).toEqual({ thresholds: ['top'], kind: 'top', next: { ...ON, lastTarget: TODAY, lastTop: TODAY } });
     expect(decide(decision?.next ?? ON, 18)).toBeNull();
     expect(decide({ ...ON, lastTarget: TODAY }, 15.6)).toBeNull();
   });
@@ -68,7 +68,7 @@ describe('loadBuzzDecision', () => {
   it('marks both thresholds with one buzz when a sync jumps past the top', () => {
     const decision = decide(ON, 17);
     expect(decision?.thresholds).toEqual(['target', 'top']);
-    expect(decision?.loops).toBe(LOAD_BUZZ_LOOPS.top);
+    expect(decision?.kind).toBe('top');
     expect(decision?.next).toEqual({ ...ON, lastTarget: TODAY, lastTop: TODAY });
   });
 
