@@ -22,6 +22,7 @@ const FEATURE_TEXT: Record<NetworkFeature, { title: TranslationKey; sends: Trans
   coach: { title: 'network.coach.title', sends: 'network.coach.sends', to: 'network.coach.to' },
   maps: { title: 'network.maps.title', sends: 'network.maps.sends', to: 'network.maps.to' },
   labs: { title: 'network.labs.title', sends: 'network.labs.sends', to: 'network.labs.to' },
+  strava: { title: 'network.strava.title', sends: 'network.strava.sends', to: 'network.strava.to' },
 };
 
 const PROMISES: ReadonlyArray<{ icon: IconName; key: TranslationKey }> = [
