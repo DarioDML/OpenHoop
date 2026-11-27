@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import type { DayRecord, SleepEditRow, SleepPeriodRecord } from '@openhoop/core';
 import type { ReactNode } from 'react';
 
@@ -33,6 +33,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import EditSleepScreen from '@/app/sleep/edit';
+import { dragTo, relative, snap } from '@/ui/sleep/Timeline24';
 import LastNightScreen from '@/app/sleep/last-night';
 
 const HOUR_S = 3_600;
@@ -163,13 +164,13 @@ describe('Edit sleep screen', () => {
     };
     expect(save).toHaveBeenCalledWith(expected);
     expect(screen.getByText('Saved. Your days are recomputed.')).toBeTruthy();
-    expect(screen.queryByTestId('edit-form')).toBeNull();
+    expect(screen.getByTestId('edit-start').props.value).toBe(formatClock(night.onset, TZ));
   });
 
   it('shows the problem the controller reports and keeps the form open', async () => {
     const { tree } = renderEdit([plainDay], { save: jest.fn(async (): Promise<SleepEditOutcome> => 'overlap') });
     await render(tree);
-    await fireEvent.press(screen.getByTestId('edit-add-nap'));
+    await fireEvent.press(screen.getByText('Add nap'));
     await fireEvent.changeText(screen.getByTestId('edit-start'), '14:10');
     await fireEvent.changeText(screen.getByTestId('edit-end'), '14:40');
     await fireEvent.press(screen.getByTestId('edit-save'));
@@ -182,7 +183,7 @@ describe('Edit sleep screen', () => {
     const save = jest.fn(async (): Promise<SleepEditOutcome> => 'too-long');
     const { tree } = renderEdit([plainDay], { save });
     await render(tree);
-    await fireEvent.press(screen.getByTestId('edit-add-nap'));
+    await fireEvent.press(screen.getByText('Add nap'));
     await fireEvent.changeText(screen.getByTestId('edit-start'), '09:00');
     await fireEvent.changeText(screen.getByTestId('edit-end'), '14:00');
     await fireEvent.press(screen.getByTestId('edit-save'));
@@ -193,7 +194,7 @@ describe('Edit sleep screen', () => {
   it('rejects a time it cannot read without saving', async () => {
     const { save, tree } = renderEdit([plainDay]);
     await render(tree);
-    await fireEvent.press(screen.getByTestId('edit-add-nap'));
+    await fireEvent.press(screen.getByText('Add nap'));
     await fireEvent.changeText(screen.getByTestId('edit-start'), '9');
     await fireEvent.changeText(screen.getByTestId('edit-end'), '10:00');
     await fireEvent.press(screen.getByTestId('edit-save'));
@@ -206,11 +207,13 @@ describe('Edit sleep screen', () => {
     const edited = withPeriods(base, [period({ onset: edit.onset, offset: edit.offset, source: 'edited', editId: 7 }), period({ ...napPeriod, source: 'manual', editId: 8 })]);
     const { remove, tree } = renderEdit([edited], { sleepEdits: [edit] });
     await render(tree);
-    expect(screen.getByText('Edited')).toBeTruthy();
-    expect(screen.getByText('Added by hand')).toBeTruthy();
+    expect(within(screen.getByTestId('edit-list')).getByText('Edited')).toBeTruthy();
+    expect(within(screen.getByTestId('edit-list')).getByText('Added by hand')).toBeTruthy();
     await fireEvent.press(screen.getByTestId(`edit-item-night-${edit.onset}`));
     expect(screen.getByTestId('edit-detected').props.children).toBe(`Detected ${formatClock(nightPeriod.onset, TZ)} – ${formatClock(nightPeriod.offset, TZ)}`);
     await fireEvent.press(screen.getByTestId('edit-revert'));
+    expect(remove).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('edit-delete-confirm'));
     await waitFor(() => expect(screen.getByText('Detected times restored.')).toBeTruthy());
     expect(remove).toHaveBeenCalledWith(7);
   });
@@ -221,8 +224,10 @@ describe('Edit sleep screen', () => {
     await render(tree);
     await fireEvent.press(screen.getByTestId(`edit-item-nap-${napPeriod.onset}`));
     expect(screen.queryByTestId('edit-detected')).toBeNull();
-    expect(screen.getByText('Delete nap')).toBeTruthy();
+    expect(screen.getByText('Delete this sleep')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('edit-revert'));
+    expect(screen.getByTestId('edit-delete-confirm-card')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('edit-delete-confirm'));
     await waitFor(() => expect(screen.getByText('Nap deleted.')).toBeTruthy());
     expect(remove).toHaveBeenCalledWith(8);
   });
@@ -246,7 +251,7 @@ describe('Edit sleep screen', () => {
   it('renders in Dutch', async () => {
     await render(withAppData(<EditSleepScreen />, 'nl', { days: [plainDay] }));
     expect(screen.getByText('Dutje toevoegen')).toBeTruthy();
-    expect(screen.getByText('Nacht')).toBeTruthy();
+    expect(within(screen.getByTestId('edit-list')).getByText('Nacht')).toBeTruthy();
   });
 });
 
@@ -258,5 +263,48 @@ describe('Last night labels', () => {
     expect(screen.getByTestId('night-edited')).toBeTruthy();
     expect(screen.getByText('Added by hand')).toBeTruthy();
     expect(screen.getByTestId('link-edit-sleep')).toBeTruthy();
+  });
+});
+
+describe('Edit sleep timeline', () => {
+  beforeEach(() => {
+    mockParams = {};
+  });
+
+  it('opens on the night, drags the handles in five-minute steps and keeps the fields in sync', async () => {
+    const save = jest.fn(async (): Promise<SleepEditOutcome> => 'saved');
+    await render(withAppData(<EditSleepScreen />, 'en', { days: [plainDay], saveSleepEdit: save }));
+    const night = itemOf(plainDay, 'night');
+    expect(screen.getByTestId('edit-start').props.value).toBe(formatClock(night.onset, TZ));
+    await fireEvent(screen.getByTestId('edit-timeline'), 'layout', { nativeEvent: { layout: { width: 288, height: 72, x: 0, y: 0 } } });
+    await fireEvent(screen.getByTestId('edit-timeline-start'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+    expect(screen.getByTestId('edit-start').props.value).toBe('22:55');
+    await fireEvent(screen.getByTestId('edit-timeline-end'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    expect(screen.getByTestId('edit-end').props.value).toBe('07:05');
+    await fireEvent.press(screen.getByTestId('edit-save'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ onset: MIDNIGHT - HOUR_S - 300, offset: MIDNIGHT + 7 * HOUR_S + 300 })));
+  });
+
+  it('moves the bar when a time is typed and refuses to delete a detected night', async () => {
+    await render(withAppData(<EditSleepScreen />, 'en', { days: [plainDay] }));
+    await fireEvent(screen.getByTestId('edit-timeline'), 'layout', { nativeEvent: { layout: { width: 288, height: 72, x: 0, y: 0 } } });
+    await fireEvent.changeText(screen.getByTestId('edit-start'), '22:00');
+    expect(screen.getByTestId('edit-timeline-start').props.accessibilityValue).toEqual({ text: '22:00' });
+    expect(screen.getByTestId('edit-revert').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('edit-delete-detected')).toBeTruthy();
+    expect(screen.getByTestId('edit-recalc')).toHaveTextContent(/Recalculated from raw data/);
+  });
+});
+
+describe('timeline drag maths', () => {
+  it('measures from the window start, snaps to five minutes and keeps the handles apart', () => {
+    expect(relative(23 * 60, 720)).toBe(660);
+    expect(relative(7 * 60, 720)).toBe(1140);
+    expect(snap(662)).toBe(660);
+    expect(snap(663)).toBe(665);
+    expect(dragTo('start', 660, 1140, 1200)).toBe(1135);
+    expect(dragTo('start', 660, 1140, -40)).toBe(0);
+    expect(dragTo('end', 660, 1140, 500)).toBe(665);
+    expect(dragTo('end', 660, 1140, 1600)).toBe(1440);
   });
 });
