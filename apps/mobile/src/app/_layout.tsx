@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, router, type Theme } from 'expo-router';
+import type { ComponentProps } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
@@ -10,6 +11,16 @@ import { StravaProvider } from '@/strava/StravaProvider';
 import { ExplainProvider } from '@/ui/explain/ExplainProvider';
 import { useAppFonts } from '@/ui/fonts';
 import { darkColors, useTheme } from '@/ui/theme';
+
+type ScreenOptions = NonNullable<ComponentProps<typeof Stack.Screen>['options']>;
+
+const SHEET_ROUTES = ['action-center', 'home/date-picker', 'settings/safety-lock'] as const;
+
+const SHEET_OPTIONS: ScreenOptions = {
+  presentation: 'transparentModal',
+  animation: 'slide_from_bottom',
+  contentStyle: { backgroundColor: 'transparent' },
+};
 
 function RootStack() {
   const { colors, dark } = useTheme();
@@ -32,6 +43,9 @@ function RootStack() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, presentation: 'card', contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="(tabs)" />
+        {SHEET_ROUTES.map((name) => (
+          <Stack.Screen key={name} name={name} options={SHEET_OPTIONS} />
+        ))}
       </Stack>
     </ThemeProvider>
   );
