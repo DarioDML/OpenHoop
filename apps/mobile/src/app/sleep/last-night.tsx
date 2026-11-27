@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { formatHm, formatLongDay, indexOfDay, isDayString, mainPeriod, singleParam } from '@/data/dailyDerived';
+import { formatHm, formatLongDay, indexOfDay, isDayString, mainNightSpan, mainPeriod, singleParam } from '@/data/dailyDerived';
 import { baselineAt } from '@/data/derived';
+import type { StageEpochRow } from '@openhoop/core';
+
 import type { HeartRatePoint } from '@/data/types';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatNumber } from '@/lib/format';
@@ -13,17 +15,17 @@ import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Divider, NoDataPage, Page, StatRow, useRangeChip } from '@/ui/daily/bits';
 import { LineChart } from '@/ui/LineChart';
-import { NotBuilt } from '@/ui/NotBuilt';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
 import { SleepTimeline } from '@/ui/SleepTimeline';
+import { StageCard } from '@/ui/StageCard';
 import { spacing, useTheme } from '@/ui/theme';
 
 const HR_BUCKET_S = 600;
 
 export default function LastNightScreen() {
   const params = useLocalSearchParams<{ day?: string | string[] }>();
-  const { days, heartRateBetween } = useAppData();
+  const { days, heartRateBetween, sleepStagesBetween } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const rangeChip = useRangeChip();
@@ -32,8 +34,14 @@ export default function LastNightScreen() {
   const day = days[index];
   const main = day ? mainPeriod(day) : null;
   const [points, setPoints] = useState<HeartRatePoint[]>([]);
+  const [loaded, setLoaded] = useState<{ onset: number; epochs: StageEpochRow[] } | null>(null);
   const onset = main?.onset ?? null;
   const offset = main?.offset ?? null;
+  const night = day ? mainNightSpan(day) : null;
+  const nightOnset = night?.onset ?? null;
+  const nightOffset = night?.offset ?? null;
+  const staged = (day?.sleep.stages?.totals ?? null) !== null;
+  const epochs = loaded !== null && loaded.onset === nightOnset ? loaded.epochs : [];
 
   useEffect(() => {
     if (onset === null || offset === null) {
@@ -53,6 +61,22 @@ export default function LastNightScreen() {
       cancelled = true;
     };
   }, [heartRateBetween, onset, offset]);
+
+  useEffect(() => {
+    if (nightOnset === null || nightOffset === null || !staged) return;
+    let cancelled = false;
+    void sleepStagesBetween(nightOnset, nightOffset + 1).then(
+      (result) => {
+        if (!cancelled) setLoaded({ onset: nightOnset, epochs: result });
+      },
+      () => {
+        if (!cancelled) setLoaded({ onset: nightOnset, epochs: [] });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [sleepStagesBetween, nightOnset, nightOffset, staged]);
 
   if (!day) {
     return <NoDataPage title={t('sleepx.lastNight')} body={requested !== null && !isDayString(requested) ? t('daily.invalidDay') : t('sleepx.noNight')} />;
@@ -125,7 +149,11 @@ export default function LastNightScreen() {
         )}
       </Card>
 
-      <NotBuilt issue="stages" compact body={t('sleepx.stagesBody')} />
+      <StageCard
+        stages={day.sleep.stages}
+        hypnogram={night ? { epochs, from: night.onset, to: night.offset + 1, tzOffsetS: day.tzOffsetS } : undefined}
+        edited={day.sleep.periods.some((p) => !p.nap && p.source === 'edited')}
+      />
 
       <Card style={{ gap: 0 }}>
         <StatRow label={t('metric.asleep')} value={day.sleep.asleepS === null ? '–' : formatDuration(t, day.sleep.asleepS)} />

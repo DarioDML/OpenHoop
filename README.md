@@ -85,7 +85,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A | SpO2, skin temperature, battery pack charge (experimental, as the band relays it from the pack) |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
-| C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training), jet lag plan (rule-based guidance), VO2 max (estimate), healthspan pillars, body age (fitness age and Phenotypic Age, two estimates), route distance, pace, speed and elevation gain from the phone GPS (estimates) |
+| C | Sleep consistency, sleep stages (estimate), automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training), jet lag plan (rule-based guidance), VO2 max (estimate), healthspan pillars, body age (fitness age and Phenotypic Age, two estimates), route distance, pace, speed and elevation gain from the phone GPS (estimates) |
 | D | Raw records, for example optical and motion data, and the ECG trace. Also the values you enter by hand or read from Health Connect (weight, body fat, steps on days without band steps, lab results with the reference range you copied from your own report, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered, average cycle and period length, next-period estimate, pregnancy week). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
@@ -102,6 +102,41 @@ An activity started "with route" also records the phone's GPS position while it 
 ## Scores
 
 The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to 100). They are OpenHoop's own models. Their constants come from the open reference project `wearable5.0` and were fitted on one wearer, so they are not the vendor's scores and may differ for you. The constants live in a `Calibration` object so they can be refitted without changing code. The first three nights are labelled "calibrating".
+
+## Sleep stages
+
+Sleep stages are an estimate, OpenHoop's own method (level C). They are not the vendor's stages and not a sleep lab result. The classes are awake, light (N1 and N2), deep (N3) and REM, per 30-second epoch.
+
+The design follows Walch O, Huang Y, Forger D, Goldstein C, "Sleep stage prediction with raw acceleration and photoplethysmography heart rate data derived from a consumer wearable device", Sleep 2019;42(12):zsz180: heart rate and motion from the wrist plus time in the night. The model is fitted on their open dataset (Walch O, "Motion and heart rate from a wrist-worn wearable and labeled sleep from polysomnography", version 1.0.0, PhysioNet 2019, ODC-BY 1.0): 31 people, one night each, with an Apple Watch and a sleep lab recording (polysomnography). Only the fitted coefficients ship, in `packages/analytics/src/stagesModel.ts`. `packages/analytics/test/train_stages.py` downloads nothing and is not run in CI; pointed at a copy of the dataset it reproduces the coefficients, the numbers below and the test fixture.
+
+- **Per epoch**: the mean heart rate and the mean band motion value, each from at least 10 of the 30 seconds. Each night is referenced to itself: heart rate as (value − the night's median) ÷ (1.4826 × MAD), motion as ln(value ÷ the night's median + 0.1).
+- **Features** use only the current and earlier epochs: heart rate over 2.5, 10 and 30 minutes, its spread over 5 minutes, the change from one epoch to the next, the current epoch against the 30-minute mean, motion now and over 5, 20 and 60 minutes, the time since motion last exceeded twice the night's median, and the hours since sleep onset.
+- **Model**: a multinomial logistic regression (L2) gives the four probabilities. A four-state hidden Markov model with transition rates counted from the dataset smooths them. Its emission is the probability divided by the class share to the power 0.5; that power was chosen by cross-validation from 0.25, 0.5 and 0.75. A finished night is smoothed forward and backward.
+
+Validation: leave one person out, with the power chosen again inside each training fold (nested), over 24,497 scored epochs.
+
+| Lab \ OpenHoop | awake | light | deep | REM | agrees (recall) |
+| --- | --- | --- | --- | --- | --- |
+| awake | 332 | 649 | 34 | 218 | 27 % |
+| light | 276 | 10,000 | 1,852 | 2,078 | 70 % |
+| deep | 23 | 893 | 2,510 | 117 | 71 % |
+| REM | 132 | 2,429 | 216 | 2,738 | 50 % |
+| right when it says this (precision) | 44 % | 72 % | 54 % | 53 % | |
+
+- Overall 63.6 % of epochs agree, Cohen's kappa 0.39 (per person median 0.37, range 0.00 to 0.67). Always answering "light" would agree on 58.0 % with kappa 0, so most of the gain is in kappa, not in accuracy.
+- As awake, NREM and REM the same predictions agree on 74.8 %, kappa 0.37.
+- Light against deep: of the epochs that both the lab and OpenHoop call light or deep, 82 % agree, kappa 0.53. Deep sleep can be told apart from light sleep moderately, so it is shown, but it is the least certain stage on a night-by-night basis.
+- Totals are biased: deep sleep reads 1.30 times the lab's share, awake 0.62 times, light 0.98 and REM 0.93. Stages are only computed inside detected sleep, so most awake epochs are short awakenings, and the model misses most of them.
+
+Limits that matter for this band:
+
+- The motion value is not the same signal. The dataset has raw acceleration at about 50 Hz; for training, each second's motion is the mean distance of its samples from that second's mean vector (gravity and offset removed), the closest match to the band's `dynamic_accel_g` (stored as `motion_g`), whose exact filter is not known. Because motion only enters relative to the night's own median, a constant scale difference cancels out (tested), but a different filter, noise floor or sampling rate still changes the shape of the values. In the dataset the median during sleep was about 0.002 g.
+- The heart rate in the dataset is the watch's estimate every few seconds, interpolated to one second; the band reports every second.
+- The model has not been checked against a sleep lab on a WHOOP band, and the people in the dataset are few. Treat the stages as untested on this band.
+
+Where stages are computed: only for the main night, inside its sleep periods, and only from band readings. For a corrected night the stages follow your corrected times, still using only what the band measured. Naps and sleep you add by hand get no stages, because the model was fitted on whole nights and uses the hours since sleep onset. When fewer than 80 % of the night's epochs have enough heart rate and motion, the app shows the reason instead of stages. Stage totals do not replace "asleep", which stays the band's own sleep detection (level B), so the two can differ. The epochs are stored in the `sleep_stages` table and are part of the export (`sleep_stages.csv`); Health Connect gets no stages. After an update that adds or changes a derived value, the app recomputes every stored day once at the next start, so older nights get stages as well.
+
+For a night that is still going on (for example an alarm that waits for light sleep), the same model runs forward only on the epochs so far, so a stage never depends on later data. For the last epoch at 5-minute cut points it agreed on 63.1 %, kappa 0.34.
 
 ## Strength training
 

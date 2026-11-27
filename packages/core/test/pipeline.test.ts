@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { ALGO, STAGE_EPOCH_S, STAGE_MIN_COVERAGE } from '@openhoop/analytics';
 import type { Profile } from '@openhoop/analytics';
 import { bindStore, dayKey, deleteDataBefore, exportCsv, newestFrameTime, openStore, rebuildFromRaw, recomputeDays } from '../src/index';
 import type { DayRecord, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
@@ -134,6 +135,26 @@ describe('pipeline', () => {
         expect(day?.zoneSeconds.reduce((a, b) => a + b, 0)).toBe(24 * HOUR_S);
         expect(records[0]?.workouts).toEqual([]);
         expect(records[3]?.sleep.need.value).toBeGreaterThan(records[2]?.sleep.need.value ?? Infinity);
+      });
+
+      it('stores the sleep stages of the main night next to their totals', async () => {
+        for (const r of records) {
+          const stages = r.sleep.stages;
+          expect(stages).toMatchObject({ algo: ALGO.stages, reason: null });
+          expect(stages?.coverage).toBeGreaterThanOrEqual(STAGE_MIN_COVERAGE);
+          const main = r.sleep.periods.find((p) => !p.nap);
+          if (main === undefined || stages?.totals === null || stages?.totals === undefined) throw new Error('no staged night');
+          const rows = await weekStore.sleepStagesBetween(weekDevice, main.onset, main.offset + 1);
+          const total = stages.totals.wake + stages.totals.light + stages.totals.deep + stages.totals.rem;
+          expect(rows.length * STAGE_EPOCH_S).toBe(total);
+          expect(rows.every((e) => e.t >= main.onset && e.t + STAGE_EPOCH_S <= main.offset + 1)).toBe(true);
+        }
+        const before = await weekStore.sleepStagesBetween(weekDevice, 0, Number.MAX_SAFE_INTEGER);
+        await recomputeDays(weekStore, weekOpts());
+        expect(await weekStore.sleepStagesBetween(weekDevice, 0, Number.MAX_SAFE_INTEGER)).toEqual(before);
+        const csv = (await exportCsv(weekStore, 'sleep_stages')).split('\r\n');
+        expect(csv[0]).toBe('device_id,t,stage');
+        expect(csv).toHaveLength(before.length + 2);
       });
 
       it('stores the active heart rate minutes the energy model needs', () => {
