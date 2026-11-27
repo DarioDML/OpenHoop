@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import type { ActivityRow, DayRecord, StrengthSession } from '@openhoop/core';
 
 import { createFixtureDays } from '@/data/fixtureSource';
@@ -32,6 +33,7 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
+import PlanScreen from '@/app/plan/index';
 import PlanSetupScreen from '@/app/plan/setup';
 
 const days = createFixtureDays(FIXTURE_NOW);
@@ -191,5 +193,45 @@ describe('plan setup screen', () => {
     await render(withAppData(<PlanSetupScreen />, 'en', { updateUserData, userData: { ...defaultUserData(), weeklyPlan: defaultPlan(null) } }));
     await fireEvent.press(screen.getByTestId('plan-remove'));
     await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ weeklyPlan: null }));
+  });
+});
+
+describe('plan screen', () => {
+  const plan: WeeklyPlan = { ...defaultPlan(null), goals: ['loadDays', 'sleepScore', 'strength'] };
+
+  it('sums up the goals on track and shows a tile per goal', async () => {
+    await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: plan } }));
+    const week = planWeek(plan, input());
+    expect(screen.getByTestId('plan-week-range')).toHaveTextContent('Week 48 · 23–29 Nov');
+    expect(screen.getByTestId('plan-summary')).toHaveTextContent(`${week.onTrack} of 3`);
+    expect(screen.getByTestId('plan-days')).toHaveTextContent('Day 3 of 7 · 4 days left');
+    for (const goal of ['loadDays', 'sleepScore', 'strength']) expect(screen.getByTestId(`plan-goal-${goal}`)).toBeTruthy();
+    expect(screen.getByTestId('plan-count-strength')).toHaveTextContent('0/90 min');
+    expect(screen.getByTestId('plan-left-strength')).toHaveTextContent('90 min left');
+    expect(screen.queryByTestId('plan-goal-steps')).toBeNull();
+  });
+
+  it('says what is left in plain words and offers the coach', async () => {
+    await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: plan } }));
+    expect(within(screen.getByTestId('plan-left')).getByText('90 more minutes of strength.')).toBeTruthy();
+    expect(within(screen.getByTestId('plan-left')).getByText('4 days left after today.')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('plan-coach'));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/coach', params: { ask: 'Rearrange my week' } });
+  });
+
+  it('keeps the report links and the edit button', async () => {
+    await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: plan } }));
+    await fireEvent.press(screen.getByTestId('plan-link-weekly'));
+    expect(router.push).toHaveBeenCalledWith('/plan/weekly-report');
+    await fireEvent.press(screen.getByTestId('plan-link-monthly'));
+    expect(router.push).toHaveBeenCalledWith('/plan/monthly-report');
+    await fireEvent.press(screen.getByTestId('plan-edit'));
+    expect(router.push).toHaveBeenCalledWith('/plan/setup');
+  });
+
+  it('is honest about a plan without goals', async () => {
+    await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { ...plan, goals: [] } } }));
+    expect(screen.getByTestId('plan-no-goals')).toBeTruthy();
+    expect(screen.queryByTestId('plan-summary')).toBeNull();
   });
 });

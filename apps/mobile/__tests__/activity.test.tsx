@@ -279,8 +279,8 @@ describe('plan', () => {
 
   it('shows progress against the plan', async () => {
     await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { ...defaultPlan(null), goals: ['loadDays', 'sleepScore'] } } }));
-    expect(screen.getByTestId('plan-goal-load')).toBeTruthy();
-    expect(screen.getByTestId('plan-goal-sleep')).toBeTruthy();
+    expect(screen.getByTestId('plan-goal-loadDays')).toBeTruthy();
+    expect(screen.getByTestId('plan-goal-sleepScore')).toBeTruthy();
   });
 
   it('saves the plan through updateUserData', async () => {
