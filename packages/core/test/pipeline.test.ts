@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ALGO, STAGE_EPOCH_S, STAGE_MIN_COVERAGE } from '@openhoop/analytics';
 import type { Profile } from '@openhoop/analytics';
-import { bindStore, dayKey, deleteDataBefore, exportCsv, newestFrameTime, openStore, rebuildFromRaw, recomputeDays } from '../src/index';
+import { bindStore, dayKey, deleteDataBefore, exportCsv, newestFrameTime, openStore, rebuildFromRaw, recomputeDays, stepsPerHour } from '../src/index';
 import type { DayRecord, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 import { TZ_S, awakeSamples, decodeRow, localMidnight, nightSamples, simulateDays, toFrame } from './sampleFactory';
@@ -121,6 +121,8 @@ describe('pipeline', () => {
           expect(r.sleep.periods[0]?.nap).toBe(false);
           expect(r.sleep.asleepS).toBe(8 * HOUR_S);
           expect(r.steps).toBe(28_800);
+          expect((r.stepsByHour ?? []).reduce((sum, h) => sum + h.steps, 0)).toBe(r.steps);
+          expect(r.stepsByHour?.every((h) => (h.t + TZ_S) % HOUR_S === 0)).toBe(true);
           expect(r.zoneSeconds).toHaveLength(6);
         }
         expect(records.map((r) => r.readinessCalibrating)).toEqual([true, true, true, false, false, false, false]);
@@ -328,6 +330,18 @@ describe('pipeline', () => {
       const records = await recompute(rows);
       expect(records).toHaveLength(1);
       expect(records[0]?.steps).toBe(expected);
+    });
+
+    it('splits the step count over local clock hours', async () => {
+      const start = localMidnight(0) + 7 * HOUR_S + 1_800;
+      const rows = awakeSamples(deviceId, localMidnight(0), 24 * HOUR_S).map((s, i) => ({ ...s, steps: s.t < start ? 100 : 100 + Math.floor((s.t - start) / 60) }));
+      await store.insertSamples(rows);
+      const records = await recompute(rows);
+      const byHour = records[0]?.stepsByHour ?? [];
+      expect(byHour.reduce((sum, h) => sum + h.steps, 0)).toBe(records[0]?.steps);
+      expect(byHour.find((h) => h.t === localMidnight(0) + 6 * HOUR_S)?.steps).toBe(0);
+      expect(byHour.find((h) => h.t === localMidnight(0) + 7 * HOUR_S)?.steps).toBe(29);
+      expect(byHour.find((h) => h.t === localMidnight(0) + 8 * HOUR_S)?.steps).toBe(60);
     });
 
     it('flags the days touched by a chunk whose clock offset exceeds 120 seconds', async () => {
@@ -718,5 +732,28 @@ describe('pipeline', () => {
       expect(await storedDays()).toEqual([]);
       expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 2, samples: 15 });
     });
+  });
+});
+
+describe('stepsPerHour', () => {
+  it('attributes each counter step to the local hour it was counted in', () => {
+    const tz = 1_800;
+    const hour = Date.UTC(2026, 2, 2, 9) / 1000 - tz;
+    const samples = [
+      { t: hour - 10, steps: 65_530 },
+      { t: hour + 5, steps: 4 },
+      { t: hour + 3_599, steps: 54 },
+      { t: hour + 3_600, steps: null },
+      { t: hour + 3_700, steps: 60 },
+    ];
+    expect(stepsPerHour(samples, tz)).toEqual([
+      { t: hour - HOUR_S, steps: 0 },
+      { t: hour, steps: 60 },
+      { t: hour + HOUR_S, steps: 6 },
+    ]);
+  });
+
+  it('returns no hours without step readings', () => {
+    expect(stepsPerHour([{ t: 0, steps: null }], 0)).toEqual([]);
   });
 });
