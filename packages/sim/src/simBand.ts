@@ -7,9 +7,11 @@ import {
   concat,
   encodeCommandResponse,
   encodeDataRangeBody,
+  encodeEcgFiltered,
   encodeHelloBody,
   encodeMetadata,
   encodeRealtimeHr,
+  MAX_HAPTIC_LOOPS,
   parseFirmware,
   toHex,
 } from '@openhoop/protocol';
@@ -37,6 +39,8 @@ export interface SimOptions {
     /** On the first abort, the last n frames of the aborted chunk stay in flight and arrive just before the next transfer. */
     strayTailFramesAfterAbort?: number;
   };
+  ecgUnsupported?: boolean;
+  ecgIntervalMs?: number;
 }
 
 export interface WireEntry {
@@ -44,6 +48,7 @@ export interface WireEntry {
   hex: string;
 }
 
+const FAILURE = 0;
 const SUCCESS = 1;
 const PENDING = 2;
 const UNSUPPORTED = 3;
@@ -52,6 +57,9 @@ const KEY_LENGTH = 32;
 const YIELD_EVERY = 128;
 const DEFAULT_MTU = 244;
 const DEFAULT_LIVE_MS = 1000;
+const DEFAULT_ECG_INTERVAL_MS = 400;
+const ECG_BLOCK = 100;
+const SUBSEC_TICKS = 32768;
 const DEFAULT_WIRE_CAP = 5000;
 const DEFAULT_FIRMWARE = '50.38.1.0';
 
@@ -85,6 +93,7 @@ const DEVICE_CONFIG: readonly (readonly [string, string])[] = [
 ];
 
 type KeyTable = readonly (readonly [string, string])[];
+type MutableKeyTable = [string, string][];
 type Notify = (data: Uint8Array) => void;
 type Timer = ReturnType<typeof setTimeout>;
 
@@ -101,6 +110,12 @@ interface Pending {
 }
 
 const NO_GEN = -1;
+const HAPTIC_INVALID_LOOPS = 3;
+const HAPTIC_PLAYED = 5;
+const ALARM_VALID = 1;
+const ALARM_PLAYED = 5;
+const ALARM_INVALID_TIME = 10;
+const ALARM_INVALID_ID = 11;
 
 function ascii(text: string): Uint8Array {
   const out = new Uint8Array(text.length);
@@ -142,6 +157,19 @@ function yieldToLoop(): Promise<void> {
   });
 }
 
+const ECG_WAVES: readonly (readonly [number, number, number])[] = [
+  [0.2, 120, 0.025],
+  [0.36, -150, 0.01],
+  [0.4, 1200, 0.012],
+  [0.44, -300, 0.012],
+  [0.65, 260, 0.045],
+];
+
+function syntheticEcg(tS: number): number {
+  const phase = tS % 1;
+  return Math.round(ECG_WAVES.reduce((sum, [at, height, width]) => sum + height * Math.exp(-((phase - at) ** 2) / (2 * width * width)), 0));
+}
+
 function notFound(what: string): Error {
   return new Error(`${what} not found`);
 }
@@ -151,6 +179,16 @@ export class SimBand implements Transport {
   writesReceived = 0;
   dangerousReceived = 0;
   forbiddenReceived = 0;
+  hapticsPlayed = 0;
+  alarmsRun = 0;
+  hrProfileOn = true;
+  readonly alarms = new Map<number, number>();
+  ecgFramesSent = 0;
+  ecgWrist: number | null = null;
+  ecgFiltered = false;
+  ecgRawSave = false;
+  readonly flags: MutableKeyTable = FEATURE_FLAGS.map(([key, value]): [string, string] => [key, value]);
+  readonly deviceConfig: MutableKeyTable = DEVICE_CONFIG.map(([key, value]): [string, string] => [key, value]);
 
   private readonly seed: number;
   private readonly now: () => number;
@@ -188,6 +226,10 @@ export class SimBand implements Transport {
   private queue: Outgoing[] = [];
   private pumping = false;
   private liveTimer: Timer | null = null;
+  private ecgTimer: Timer | null = null;
+  private ecgIndex = 0;
+  private readonly ecgUnsupported: boolean;
+  private readonly ecgIntervalMs: number;
   private dataFrames = 0;
   private fragmentCount = 0;
 
@@ -208,6 +250,8 @@ export class SimBand implements Transport {
         ? DEFAULT_PAGES_PER_CHUNK
         : Math.max(1, Math.ceil(opts.recordsPerChunk / PAGE_RECORDS));
     this.liveIntervalMs = opts.liveIntervalMs ?? DEFAULT_LIVE_MS;
+    this.ecgUnsupported = opts.ecgUnsupported === true;
+    this.ecgIntervalMs = opts.ecgIntervalMs ?? DEFAULT_ECG_INTERVAL_MS;
     this.wireLogCap = opts.wireLogCap ?? DEFAULT_WIRE_CAP;
     this.modelName = opts.model === 'MG' ? 'WHOOP MG' : 'WHOOP 5.0';
     this.deviceId = `sim:${opts.seed}`;
@@ -415,6 +459,7 @@ export class SimBand implements Transport {
     this.pending = null;
     this.strayTail = [];
     this.realtimeOn = false;
+    this.stopEcgStream();
     this.cursors = new Map();
     this.reassembler = new Reassembler();
     this.subs.clear();
@@ -485,6 +530,7 @@ export class SimBand implements Transport {
   }
 
   private handle(command: number, seq: number, args: Uint8Array): void {
+    if (this.handleBandWrite(command, seq, args)) return;
     const cls = commandClass(command);
     if (cls === 'forbidden') {
       this.forbiddenReceived += 1;
@@ -543,26 +589,170 @@ export class SimBand implements Transport {
         this.refreshLive();
         return;
       case Command.START_FF_KEY_EXCHANGE:
-        this.startKeys(command, seq, FEATURE_FLAGS);
+        this.startKeys(command, seq, this.flags);
         return;
       case Command.START_DEVICE_CONFIG_KEY_EXCHANGE:
-        this.startKeys(command, seq, DEVICE_CONFIG);
+        this.startKeys(command, seq, this.deviceConfig);
         return;
       case Command.SEND_NEXT_FF:
-        this.nextKey(command, seq, FEATURE_FLAGS, Command.START_FF_KEY_EXCHANGE);
+        this.nextKey(command, seq, this.flags, Command.START_FF_KEY_EXCHANGE);
         return;
       case Command.SEND_NEXT_DEVICE_CONFIG:
-        this.nextKey(command, seq, DEVICE_CONFIG, Command.START_DEVICE_CONFIG_KEY_EXCHANGE);
+        this.nextKey(command, seq, this.deviceConfig, Command.START_DEVICE_CONFIG_KEY_EXCHANGE);
         return;
       case Command.GET_FF_VALUE:
-        this.keyValue(command, seq, args, FEATURE_FLAGS);
+        this.keyValue(command, seq, args, this.flags);
         return;
       case Command.GET_DEVICE_CONFIG_VALUE:
-        this.keyValue(command, seq, args, DEVICE_CONFIG);
+        this.keyValue(command, seq, args, this.deviceConfig);
+        return;
+      case Command.GET_ALARM_TIME:
+        this.alarmReading(command, seq, args);
         return;
       default:
         this.reply(command, seq, cls === 'session' ? SUCCESS : UNSUPPORTED);
     }
+  }
+
+  private handleBandWrite(command: number, seq: number, args: Uint8Array): boolean {
+    switch (command) {
+      case Command.RUN_HAPTIC_PATTERN_MAVERICK:
+        this.writesReceived += 1;
+        if ((args[11] ?? 0) > MAX_HAPTIC_LOOPS) {
+          this.reply(command, seq, FAILURE, Uint8Array.of(1, HAPTIC_INVALID_LOOPS, 0));
+          return true;
+        }
+        this.hapticsPlayed += 1;
+        this.reply(command, seq, PENDING, Uint8Array.of(1, 1, 0));
+        this.reply(command, seq, SUCCESS, Uint8Array.of(1, HAPTIC_PLAYED, 0));
+        return true;
+      case Command.STOP_HAPTICS:
+        this.writesReceived += 1;
+        this.reply(command, seq, SUCCESS);
+        return true;
+      case Command.TOGGLE_GENERIC_HR_PROFILE:
+        this.writesReceived += 1;
+        this.hrProfileOn = args[0] === 1;
+        this.reply(command, seq, SUCCESS);
+        return true;
+      case Command.SET_ALARM_TIME:
+        this.writesReceived += 1;
+        this.setAlarm(command, seq, args);
+        return true;
+      case Command.RUN_ALARM:
+        this.writesReceived += 1;
+        this.alarmsRun += 1;
+        this.reply(command, seq, SUCCESS, Uint8Array.of(2, ALARM_PLAYED));
+        return true;
+      case Command.DISABLE_ALARM:
+        this.writesReceived += 1;
+        if (args[1] === 0xff) this.alarms.clear();
+        else this.alarms.delete(args[1] ?? 0);
+        this.reply(command, seq, SUCCESS);
+        return true;
+      case Command.SELECT_WRIST:
+        this.writesReceived += 1;
+        this.ecgWrist = args[1] ?? null;
+        this.reply(command, seq, SUCCESS);
+        return true;
+      case Command.TOGGLE_LABRADOR_FILTERED:
+      case Command.TOGGLE_LABRADOR_RAW_SAVE: {
+        this.writesReceived += 1;
+        const on = args[1] === 1;
+        if (on && this.ecgUnsupported) {
+          this.reply(command, seq, FAILURE);
+          return true;
+        }
+        if (command === Command.TOGGLE_LABRADOR_FILTERED) this.ecgFiltered = on;
+        else this.ecgRawSave = on;
+        this.reply(command, seq, SUCCESS);
+        return true;
+      }
+      case Command.TOGGLE_LABRADOR_DATA_GENERATION:
+        this.writesReceived += 1;
+        this.ecgGeneration(command, seq, args[1] ?? 0);
+        return true;
+      case Command.SET_FF_VALUE:
+        this.dangerousReceived += 1;
+        this.setKey(command, seq, args, this.flags);
+        return true;
+      case Command.SET_DEVICE_CONFIG_VALUE:
+        this.dangerousReceived += 1;
+        this.setKey(command, seq, args, this.deviceConfig);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private ecgGeneration(command: number, seq: number, operation: number): void {
+    if (operation === 1) {
+      this.stopEcgStream();
+      this.reply(command, seq, SUCCESS);
+      return;
+    }
+    if ((operation !== 2 && operation !== 3) || !this.ecgFiltered || !this.ecgRawSave) {
+      this.reply(command, seq, FAILURE);
+      return;
+    }
+    this.reply(command, seq, SUCCESS);
+    if (this.ecgTimer === null) this.ecgTimer = setTimeout(() => this.ecgTick(), this.ecgIntervalMs);
+  }
+
+  private stopEcgStream(): void {
+    if (this.ecgTimer !== null) clearTimeout(this.ecgTimer);
+    this.ecgTimer = null;
+  }
+
+  private ecgTick(): void {
+    this.ecgTimer = null;
+    if (!this.connected) return;
+    const rateHz = (ECG_BLOCK * 1000) / this.ecgIntervalMs;
+    const first = this.ecgIndex * ECG_BLOCK;
+    const startS = this.bandNow() + (first % rateHz) / rateHz;
+    const samples = Array.from({ length: ECG_BLOCK }, (_, k) => syntheticEcg((first + k) / rateHz));
+    this.enqueueFrame(
+      GATT.dataFromStrap,
+      encodeEcgFiltered({ recordIndex: this.ecgIndex, unixS: Math.floor(startS), subsec: Math.floor((startS % 1) * SUBSEC_TICKS), samples }),
+      NO_GEN,
+    );
+    this.ecgIndex += 1;
+    this.ecgFramesSent += 1;
+    this.ecgTimer = setTimeout(() => this.ecgTick(), this.ecgIntervalMs);
+  }
+
+  private setAlarm(command: number, seq: number, args: Uint8Array): void {
+    const slot = args[1] ?? 0;
+    if (args[0] !== 4 || args.length < 21 || slot < 1 || slot > 6) {
+      this.reply(command, seq, FAILURE, Uint8Array.of(3, ALARM_INVALID_ID));
+      return;
+    }
+    const at = new DataView(args.buffer, args.byteOffset, args.byteLength).getUint32(2, true);
+    if (at <= this.bandNow()) {
+      this.reply(command, seq, FAILURE, Uint8Array.of(3, ALARM_INVALID_TIME));
+      return;
+    }
+    this.alarms.set(slot, at);
+    this.reply(command, seq, SUCCESS, Uint8Array.of(3, ALARM_VALID));
+  }
+
+  private alarmReading(command: number, seq: number, args: Uint8Array): void {
+    const slot = args[1] ?? 0;
+    const at = this.alarms.get(slot);
+    const armed = at !== undefined && at > this.bandNow();
+    this.reply(command, seq, SUCCESS, concat(Uint8Array.of(4, armed ? 1 : 0), u32(at ?? 0), new Uint8Array(2)));
+  }
+
+  private setKey(command: number, seq: number, args: Uint8Array, table: MutableKeyTable): void {
+    const key = readKey(args.subarray(1, 1 + KEY_LENGTH));
+    const value = readKey(args.subarray(1 + KEY_LENGTH, 1 + 2 * KEY_LENGTH));
+    const entry = table.find(([name]) => name === key);
+    if (args[0] !== 1 || entry === undefined || value.length === 0) {
+      this.reply(command, seq, FAILURE);
+      return;
+    }
+    entry[1] = value;
+    this.reply(command, seq, SUCCESS);
   }
 
   private dataRangeBody(): Uint8Array {

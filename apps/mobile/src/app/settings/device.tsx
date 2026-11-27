@@ -10,6 +10,7 @@ import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
+import { BandActionsCard } from '@/ui/manage/BandActionsCard';
 import { KeyValueRow } from '@/ui/manage/rows';
 import { SettingsPage } from '@/ui/manage/SettingsPage';
 import { tile } from '@/ui/manage/tiles';
@@ -115,7 +116,9 @@ export default function DeviceSettingsScreen() {
         <ListRow icon={tile(colors, 'settings', 'info')} title={t('device.config')} subtitle={t('device.configBody')} href="/settings/band-config" />
         <ListRow icon={tile(colors, 'plug', 'gold')} title={t('device.batteryPack')} subtitle={t('device.batteryPackBody')} href="/settings/battery-pack" />
       </ListGroup>
-      <NotBuilt issue="bandConfig" compact body={t('device.actionsNotBuilt')} />
+      <CapHeader title={t('device.actions.title')} />
+      <BandActionsCard />
+      <NotBuilt issue="bandConfig" compact body={t('device.motionNotBuilt')} testID="motion-not-built" />
 
       <CapHeader title={t('device.firmwareSection')} />
       <Card style={{ gap: 4 }}>

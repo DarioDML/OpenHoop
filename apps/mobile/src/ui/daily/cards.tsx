@@ -9,7 +9,10 @@ import { useAppData } from '@/data/context';
 import { baselineAt } from '@/data/derived';
 import { caloriesForDay } from '@/data/energyDerived';
 import { stressForDay } from '@/data/stressDerived';
-import { formatHm, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { formatHm, formatMinutes, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { deviceTzOffsetS } from '@/lib/dates';
+import { confirmedAlarm } from '@/data/alarm';
+import type { AlarmView } from '@/data/types';
 import { strengthWeek } from '@/data/strength';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatNumber } from '@/lib/format';
@@ -19,7 +22,6 @@ import { Chip } from '@/ui/Chip';
 import { Icon, type IconName } from '@/ui/Icon';
 import { useLayout } from '@/ui/layout';
 import { MetricTile } from '@/ui/MetricTile';
-import { ISSUES, type IssueKey } from '@/ui/NotBuilt';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
 import { stressColor } from '@/ui/health/StressLevels';
@@ -34,30 +36,6 @@ import { METRIC_SPECS, TILE_LABEL, slugForTile } from './metrics';
 interface DayProps {
   days: readonly DayRecord[];
   index: number;
-}
-
-interface PendingProps {
-  label: string;
-  issue: IssueKey;
-  href?: Href;
-  testID?: string;
-}
-
-export function PendingCard({ label, issue, href, testID }: PendingProps) {
-  const { t } = useT();
-  return (
-    <Card href={href} testID={testID} accessibilityLabel={label} style={{ flex: 1, gap: 6 }}>
-      <AppText variant="capSmall" muted>
-        {href ? `${label} ›` : label}
-      </AppText>
-      <AppText variant="bodyStrong" muted>
-        {t('notBuilt.title')}
-      </AppText>
-      <AppText variant="caption" muted>
-        {t('notBuilt.issue', { number: ISSUES[issue] })}
-      </AppText>
-    </Card>
-  );
 }
 
 function halfCard(compact: boolean): ViewStyle {
@@ -321,6 +299,40 @@ export function WeekCard({ days, index }: DayProps) {
   );
 }
 
+function alarmValue(alarm: AlarmView, nowS: number): { time: string | null; armed: boolean } {
+  const armed = confirmedAlarm(alarm.armed, nowS);
+  if (armed !== null) return { time: formatClock(armed.wakeAt, deviceTzOffsetS(new Date(armed.wakeAt * 1000))), armed: true };
+  return { time: alarm.plan.enabled ? formatMinutes(alarm.plan.minutes) : null, armed: false };
+}
+
+export function AlarmSummary({ testID }: { testID: string }) {
+  const { t } = useT();
+  const { alarm } = useAppData();
+  const value = alarmValue(alarm, Math.floor(Date.now() / 1000));
+  return (
+    <View style={{ gap: 4 }}>
+      <AppText variant="bodyStrong" numeric muted={value.time === null} testID={`${testID}-time`}>
+        {value.time ?? t('alarm.status.off')}
+      </AppText>
+      <AppText variant="caption" muted testID={`${testID}-state`}>
+        {value.time === null ? t('alarm.summary.off') : value.armed ? t('alarm.summary.armed') : t('alarm.summary.pending')}
+      </AppText>
+    </View>
+  );
+}
+
+export function AlarmCard({ testID }: { testID: string }) {
+  const { t } = useT();
+  return (
+    <Card href="/sleep/alarm" testID={testID} accessibilityLabel={t('home.alarm')} style={{ flex: 1, gap: 6 }}>
+      <AppText variant="capSmall" muted>
+        {`${t('home.alarm')} ›`}
+      </AppText>
+      <AlarmSummary testID={testID} />
+    </Card>
+  );
+}
+
 export function TonightCard({ days, index }: DayProps) {
   const { t } = useT();
   const day = days[index];
@@ -343,12 +355,7 @@ export function TonightCard({ days, index }: DayProps) {
           <AppText variant="capSmall" muted>
             {t('home.alarm')}
           </AppText>
-          <AppText variant="bodyStrong" muted>
-            {t('notBuilt.title')}
-          </AppText>
-          <AppText variant="caption" muted>
-            {t('notBuilt.issue', { number: ISSUES.alarm })}
-          </AppText>
+          <AlarmSummary testID="tonight-alarm" />
         </View>
       </View>
       <AppText variant="label" muted>

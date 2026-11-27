@@ -6,7 +6,11 @@ import {
   FLAG_KEYS,
   MAX_ENTRIES,
   PROVENANCE_FACTS,
+  applyConfigWrite,
   buildSnapshot,
+  carryOver,
+  changeFor,
+  recordOriginal,
   describeFields,
   parseBandConfig,
   serializeSnapshot,
@@ -95,10 +99,10 @@ describe('describeFields', () => {
     expect(unknown.map((row) => row.entry.key)).toEqual(['mystery', 'enable_rfid']);
   });
 
-  it('marks every field unverified while no band has been tested', () => {
+  it('marks the read verified now that it was checked on a band', () => {
     const rows = [...describeFields('flag', SNAPSHOT.flags).known, ...describeFields('config', SNAPSHOT.config).known];
     expect(rows).toHaveLength(3);
-    expect(rows.every((row) => !row.verified)).toBe(true);
+    expect(rows.every((row) => row.verified)).toBe(true);
   });
 });
 
@@ -110,21 +114,13 @@ describe('provenance', () => {
     return index < 0 ? null : { line: lines[index] ?? '', index };
   };
 
-  it('keeps the enumeration fact unverified, as docs/provenance.md does', () => {
-    const row = rowFor(PROVENANCE_FACTS.enumeration.docRow);
-    expect(row).not.toBeNull();
-    expect(row?.index).toBeLessThan(guessesAt);
-    const cells = (row?.line ?? '').split('|').map((cell) => cell.trim());
-    expect(cells[cells.length - 2]).toBe('no');
-    expect(PROVENANCE_FACTS.enumeration.verified).toBe(false);
-  });
-
-  it('keeps the value format listed as a guess awaiting a band', () => {
-    const row = rowFor(PROVENANCE_FACTS.valueShape.docRow);
+  it.each(Object.values(PROVENANCE_FACTS))('marks $id verified only when docs/provenance.md does', (fact) => {
+    const row = rowFor(fact.docRow);
     expect(row).not.toBeNull();
     expect(guessesAt).toBeGreaterThan(0);
-    expect(row?.index).toBeGreaterThan(guessesAt);
-    expect(PROVENANCE_FACTS.valueShape.verified).toBe(false);
+    expect(row?.index).toBeLessThan(guessesAt);
+    const cells = (row?.line ?? '').split('|').map((cell) => cell.trim());
+    expect(cells[cells.length - 2]).toBe(fact.verified ? 'yes' : 'no');
   });
 });
 
@@ -138,5 +134,59 @@ describe('labels', () => {
       expect(allTranslations.en[`bandConfig.config.${key}`]).toBeTruthy();
       expect(allTranslations.nl[`bandConfig.config.${key}`]).toBeTruthy();
     }
+  });
+});
+
+describe('changes made from OpenHoop', () => {
+  it('records the original value once and drops it when the value is put back', () => {
+    const once = applyConfigWrite(SNAPSHOT, 'flag', 'make_hrfm_visible', '2', '1', 1_700_000_100);
+    expect(once.flags.find((entry) => entry.key === 'make_hrfm_visible')?.valueText).toBe('1');
+    expect(changeFor(once, 'flag', 'make_hrfm_visible')).toEqual({ kind: 'flag', key: 'make_hrfm_visible', original: '2', at: 1_700_000_100 });
+    expect(changeFor(once, 'config', 'make_hrfm_visible')).toBeNull();
+    const back = applyConfigWrite(once, 'flag', 'make_hrfm_visible', '1', '2', 1_700_000_200);
+    expect(back.changes).toEqual([]);
+  });
+
+  it('keeps the first original value when a write is about to be sent', () => {
+    const pending = recordOriginal(SNAPSHOT, 'flag', 'make_hrfm_visible', '2', 7);
+    expect(pending.flags.find((entry) => entry.key === 'make_hrfm_visible')?.valueText).toBe('2');
+    expect(changeFor(pending, 'flag', 'make_hrfm_visible')?.original).toBe('2');
+    expect(recordOriginal(pending, 'flag', 'make_hrfm_visible', '1', 8)).toBe(pending);
+    const done = applyConfigWrite(pending, 'flag', 'make_hrfm_visible', '2', '1', 9);
+    expect(done.changes).toEqual([{ kind: 'flag', key: 'make_hrfm_visible', original: '2', at: 7 }]);
+    const reread = buildSnapshot(10, 'demo', [flag('make_hrfm_visible', '2')], []);
+    expect(carryOver(pending, reread).changes).toEqual([]);
+  });
+
+  it('round-trips changes and still parses snapshots stored without them', () => {
+    const changed = applyConfigWrite(SNAPSHOT, 'config', 'enable_rfid', '2', '1', 1_700_000_100);
+    expect(parseBandConfig(serializeSnapshot(changed))).toEqual({ status: 'ok', snapshot: changed });
+    const { changes: _changes, ...legacy } = SNAPSHOT;
+    expect(parseBandConfig(JSON.stringify(legacy))).toEqual({ status: 'ok', snapshot: SNAPSHOT });
+  });
+
+  it.each([
+    ['a change with an unknown kind', { kind: 'other', key: 'enable_rfid', original: '1', at: 1 }],
+    ['a change with a value that cannot be put back', { kind: 'config', key: 'enable_rfid', original: '0', at: 1 }],
+    ['a change without a time', { kind: 'config', key: 'enable_rfid', original: '1' }],
+  ])('rejects %s as malformed', (_name, change) => {
+    expect(parseBandConfig(JSON.stringify({ ...SNAPSHOT, changes: [change] }))).toEqual({ status: 'malformed' });
+  });
+
+  it('keeps changes over a new read unless the band shows the original again', () => {
+    const changed = applyConfigWrite(applyConfigWrite(SNAPSHOT, 'config', 'enable_rfid', '2', '1', 5), 'flag', 'make_hrfm_visible', '2', '1', 6);
+    const reread = buildSnapshot(1_700_000_900, 'demo', [flag('enable_r22_v4_packets', '1'), flag('make_hrfm_visible', '2')], [flag('enable_rfid', '1')]);
+    expect(carryOver(changed, reread).changes).toEqual([{ kind: 'config', key: 'enable_rfid', original: '2', at: 5 }]);
+    expect(carryOver(changed, buildSnapshot(1_700_000_900, 'band', [], [flag('enable_rfid', '1')])).changes).toEqual([]);
+    expect(carryOver(null, reread)).toBe(reread);
+  });
+
+  it('marks only known on/off values as writable', () => {
+    const rows = describeFields('flag', [flag('enable_sig12', '2'), flag('make_hrfm_visible', '0'), flag('mystery', '1')]);
+    expect(rows.known.map((row) => [row.entry.key, row.writable])).toEqual([
+      ['enable_sig12', true],
+      ['make_hrfm_visible', false],
+    ]);
+    expect(rows.unknown.every((row) => !row.writable)).toBe(true);
   });
 });
