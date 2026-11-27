@@ -84,7 +84,8 @@ export function chargeStartTimes(rows: readonly EventRow[]): number[] {
   for (const row of ordered) {
     const state = chargingOf(row);
     if (state === null) continue;
-    if (state && charging !== true) starts.push(row.t);
+    const started = row.event === CHARGING_ON ? charging !== true : charging === false;
+    if (state && started) starts.push(row.t);
     charging = state;
   }
   return starts;

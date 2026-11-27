@@ -112,4 +112,13 @@ describe('latestBandStatus', () => {
     expect(await chargeStartsSince(store, deviceId, T0 + 1)).toEqual([T0 + 90_000]);
     expect(chargeStartTimes([])).toEqual([]);
   });
+
+  it('does not count a charge start when the first report it sees is already charging', async () => {
+    await events([
+      { t: T0, event: 110, payloadHex: '0101010200030000' },
+      { t: T0 + 1_200, event: 8 },
+      { t: T0 + 5_000, event: 110, payloadHex: '0101010200030000' },
+    ]);
+    expect(await chargeStartsSince(store, deviceId, 0)).toEqual([T0 + 5_000]);
+  });
 });

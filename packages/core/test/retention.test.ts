@@ -64,6 +64,30 @@ describe('raw data retention', () => {
     expect(await store.sampleRange(deviceId)).toEqual(before);
   });
 
+  it('keeps every reading when a surviving chunk overlaps the time of a pruned one', async () => {
+    const overlap = simulateDays(deviceId, { days: 1 }).slice(0, 200);
+    const fresh = await openStore(openStrictDriver());
+    const id = (await fresh.upsertDevice({ ...DEVICE, bleId: 'DD:EE:FF' })).id;
+    const own = overlap.map((row) => ({ ...row, deviceId: id }));
+    const commit = async (from: number, to: number, received: number): Promise<void> => {
+      const frames = own.slice(from, to).map((row, i) => toFrame(row, from + i));
+      const stored = frames.map((frame) => decodeRow(id, frame)).filter((row): row is SampleRow => row !== null);
+      await fresh.commitChunk({ deviceId: id, endToken: null, frames, clockOffsetS: 0, receivedAt: received }, stored, {
+        events: [],
+        console: [],
+        unknownFrames: 0,
+        syncState: syncState(id),
+      });
+    };
+    await commit(0, 100, 10);
+    await commit(50, 200, 20);
+    const before = await fresh.sampleRange(id);
+    expect(await pruneRawBefore(fresh, id, (own[150] as SampleRow).t)).toEqual({ chunks: 1, frames: 100 });
+    await rebuildFromRaw(fresh, id);
+    expect(await fresh.sampleRange(id)).toEqual(before);
+    await fresh.driver.close();
+  });
+
   it('exports a table as JSON objects with the same columns as the CSV', async () => {
     const parsed: unknown = JSON.parse(await exportJson(store, 'devices'));
     expect(parsed).toEqual([{ id: deviceId, ble_id: 'AA:BB:CC', name: 'Band', model: '5.0', firmware: '50.43.2.0', serial: 'SN1', owner_since: null, config_snapshot: null }]);
