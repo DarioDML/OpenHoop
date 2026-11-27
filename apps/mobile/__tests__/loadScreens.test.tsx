@@ -4,7 +4,8 @@ import { router } from 'expo-router';
 
 import { createFixtureDays } from '@/data/fixtureSource';
 import { defaultLoadBuzzPrefs } from '@/data/loadBuzz';
-import { aimAt } from '@/data/loadDerived';
+import { periodStats } from '@/data/activityDerived';
+import { aimAt, daysOnTarget } from '@/data/loadDerived';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
@@ -24,6 +25,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import LoadScreen from '@/app/load/index';
 import LoadTargetScreen from '@/app/load/target';
+import LoadTrendsScreen from '@/app/load/trends';
 import StepsScreen from '@/app/steps';
 
 const days = createFixtureDays(FIXTURE_NOW);
@@ -247,5 +249,40 @@ describe('Steps screen', () => {
     await fireEvent.press(screen.getByText('30 days'));
     expect(screen.getByText('Last 30 days')).toBeTruthy();
     expect(screen.queryByTestId('steps-week')).toBeNull();
+  });
+});
+
+describe('Load trends screen', () => {
+  it('draws load against readiness with a legend and four tiles', async () => {
+    const week = days.slice(-7);
+    const stats = periodStats(week);
+    const target = daysOnTarget(days, days.length - 7, days.length);
+    await render(withAppData(<LoadTrendsScreen />));
+    expect(screen.getByTestId('trend-chart').props.children).toBeTruthy();
+    expect(screen.getByLabelText('Load and readiness over 7 days')).toBeTruthy();
+    expect(screen.getByTestId('trend-chart-avg')).toHaveTextContent(`avg ${(stats.load ?? 0).toFixed(1)}`);
+    expect(screen.getByTestId('trend-legend')).toHaveTextContent(`Load (0–21)Readiness (%) · avg ${Math.round(stats.readiness ?? 0)}`);
+    expect(screen.getByTestId('trend-avg-value')).toHaveTextContent((stats.load ?? 0).toFixed(1));
+    expect(screen.getByTestId('trend-peak-value')).toHaveTextContent((stats.peakLoad?.value ?? 0).toFixed(1));
+    expect(screen.getByTestId('trend-ontarget-value')).toHaveTextContent(`${target.on}/${target.measured}`);
+    expect(screen.getByText(`${Math.round((target.on / target.measured) * 100)}% on target`)).toBeTruthy();
+    const total = week.reduce((sum, d) => sum + (d.load.value ?? 0), 0);
+    expect(screen.getByTestId('trend-total-value')).toHaveTextContent(total.toFixed(1));
+    expect(screen.getByTestId('trend-loaddays')).toHaveTextContent(/^\d of 7 days were load days\.$/);
+    expect(screen.getByText('A load day is a day with a load of 7 or more.')).toBeTruthy();
+  });
+
+  it('shows the start and end date on longer ranges', async () => {
+    await render(withAppData(<LoadTrendsScreen />));
+    await fireEvent.press(screen.getByText('1M'));
+    expect(screen.getByLabelText('Load and readiness over 30 days')).toBeTruthy();
+    const month = days.slice(-30);
+    expect(screen.getByText(`${Number(month[0]?.day.slice(5, 7))}/${Number(month[0]?.day.slice(8))}`)).toBeTruthy();
+  });
+
+  it('says on-target days need history', async () => {
+    await render(withAppData(<LoadTrendsScreen />, 'en', { days: days.slice(0, 3) }));
+    expect(screen.getByTestId('trends-few')).toBeTruthy();
+    expect(screen.getByTestId('trend-ontarget-reason')).toBeTruthy();
   });
 });
