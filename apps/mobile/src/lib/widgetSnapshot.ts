@@ -9,7 +9,7 @@ export const WIDGET_NAMES = ['OpenHoopScores', 'OpenHoopOverview'] as const;
 export type WidgetName = (typeof WIDGET_NAMES)[number];
 
 const VERSION = 1;
-const STALE_AFTER_S = 24 * 3_600;
+export const STALE_AFTER_S = 24 * 3_600;
 const REASONS: readonly string[] = [...KNOWN_REASONS, 'unknown'];
 
 export interface WidgetMetric {
