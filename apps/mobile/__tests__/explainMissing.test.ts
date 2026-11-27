@@ -1,6 +1,6 @@
 import { explainMissing, type MissingInput } from '@/data/explainMissing';
 import { createFixtureDays } from '@/data/fixtureSource';
-import { firstWeekItems, readinessNightsLeft, remaining } from '@/data/progress';
+import { buildingProgress, firstWeekItems, readinessNightsLeft, remaining } from '@/data/progress';
 import type { TermId } from '@/data/terms';
 import { translate } from '@/i18n';
 import type { TFunction } from '@/i18n/useT';
@@ -132,4 +132,28 @@ it('writes the finished-day, not-recorded and stale sheets', () => {
   expect(stale.rows[0]).toMatchObject({ title: 'Last sync 1 d ago', body: 'Sync the band to bring in your latest nights.' });
   const unknown = [firstNightDay({ day: '2026-11-26', loadValidMinutes: undefined }), firstNightDay()];
   expect(missingStatus(tEn, 'en', explainMissing(input('load', 'low-coverage', { days: unknown, index: 0 })), 'row')).toBe('Not enough readings');
+});
+
+it('stops counting normal range once any vital has enough nights, even with an intermittent vital', () => {
+  const noSpo2 = { spo2: { ...firstNightDay().spo2, value: null, reason: 'missing-signal' } };
+  const days = [0, 1, 2, 3, 4, 5].map((i) => firstNightDay({ day: `2026-11-${String(22 + i).padStart(2, '0')}`, ...(i === 1 || i === 2 ? noSpo2 : {}) }));
+  for (const index of [4, 5]) {
+    expect(buildingProgress('normalRange', days, index)).toBeNull();
+    expect(firstWeekItems(days, index).some((i) => i.term === 'normalRange')).toBe(false);
+  }
+  for (let index = 0; index < days.length; index++) {
+    const progress = buildingProgress('normalRange', days, index);
+    if (progress !== null) expect(progress.have).toBeLessThanOrEqual(progress.need);
+  }
+});
+
+it.each([
+  ['en', tEn, ['weight'], 'Calories need your weight.'],
+  ['en', tEn, ['weight', 'birthYear'], 'Calories need your weight and birth year.'],
+  ['en', tEn, ['weight', 'height', 'birthYear'], 'Calories need your weight, height and birth year.'],
+  ['nl', tNl, ['weight', 'birthYear'], 'Vul je gewicht en geboortejaar in voor calorieën.'],
+  ['nl', tNl, ['weight', 'height', 'birthYear'], 'Vul je gewicht, lengte en geboortejaar in voor calorieën.'],
+] as const)('joins missing profile fields naturally (%s %j)', (language, t, gaps, expected) => {
+  const text = whyText(t, language, explainMissing(input('calories', 'no-profile', { profileGaps: [...gaps] })));
+  expect(text.rows.some((r) => r.body === expected)).toBe(true);
 });

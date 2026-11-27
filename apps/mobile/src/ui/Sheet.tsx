@@ -24,8 +24,8 @@ export function Sheet({ visible, onClose, title, subtitle, children, footer, tes
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View accessibilityViewIsModal style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('common.close')}
+          accessible={false}
+          importantForAccessibility="no"
           onPress={onClose}
           testID={testID === undefined ? undefined : `${testID}-backdrop`}
           style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.background, opacity: 0.72 }}

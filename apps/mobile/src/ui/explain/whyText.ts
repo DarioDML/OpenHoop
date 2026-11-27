@@ -107,7 +107,9 @@ function dayRunningRows(t: TFunction, expl: MissingExplanation): WhyRow[] {
 
 function profileBody(t: TFunction, expl: MissingExplanation): string {
   if (expl.profileGaps.length === 0) return t('calories.needsProfile');
-  const fields = expl.profileGaps.map((field) => t(`why.field.${field}`)).join(', ');
+  const names = expl.profileGaps.map((field) => t(`why.field.${field}`));
+  const last = names.pop() ?? '';
+  const fields = names.length === 0 ? last : t('why.fieldsAnd', { rest: names.join(', '), last });
   return t('why.profile.body', { fields });
 }
 

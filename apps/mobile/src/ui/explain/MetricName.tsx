@@ -28,8 +28,8 @@ export function MetricName({ target, label, variant = 'capSmall', muted = true, 
       accessibilityLabel={t('explain.whatIs', { name })}
       onPress={() => explain.about(target)}
       testID={testID}
-      style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-      <AppText variant={variant} muted={muted}>
+      style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+      <AppText variant={variant} muted={muted} numberOfLines={1} style={{ flexShrink: 1 }}>
         {name}
       </AppText>
       <Icon name="info" size={15} color={colors.textMuted} />

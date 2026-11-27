@@ -2,12 +2,13 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import type { ReactNode } from 'react';
 
 import { createFixtureDevice } from '@/data/fixtureSource';
+import { defaultUserData } from '@/data/userData';
 import type { Language } from '@/data/types';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 import { FIRST_NIGHT_NOW_S, FIRST_NIGHT_SYNC_S, firstNightDay } from './support/firstNight';
 
-let mockParams: { value: Record<string, string | string[] | undefined> } = { value: {} };
+const mockParams: { value: Record<string, string | string[] | undefined> } = { value: {} };
 const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
@@ -40,6 +41,13 @@ afterEach(() => {
 });
 
 describe('first week on home', () => {
+  it('shows Load so far in the compact hero on the open day', async () => {
+    await render(withAppData(<HomeScreen />, 'en', { days: [firstNightDay()], device, userData: { ...defaultUserData(), onboardingDone: true, homeHero: 'compact' } }, FIRST_NIGHT_NOW_S));
+    const stat = within(screen.getByTestId('stat-load'));
+    expect(stat.getByText('4.6')).toBeTruthy();
+    expect(stat.getByText('So far')).toBeTruthy();
+    expect(stat.queryByText(/Worn/)).toBeNull();
+  });
   it('lists what is still building and replaces the calibrating notice', async () => {
     await render(wrap(<HomeScreen />));
     const card = within(screen.getByTestId('card-first-week'));

@@ -6,7 +6,7 @@ import {
   STRESS_MIN_DAY_WINDOWS,
   parseStressDay,
 } from '@openhoop/analytics';
-import { SKIN_BASELINE_MIN_DAYS } from '@openhoop/core/thresholds';
+import { SKIN_BASELINE_MIN_DAYS, STRESS_HISTORY_DAYS } from '@openhoop/core/thresholds';
 import type { DayRecord } from '@openhoop/core';
 
 import type { TermId } from './terms';
@@ -22,8 +22,6 @@ export interface Progress {
 
 export const BUILDING_TERMS = ['readiness', 'consistency', 'normalRange', 'skinTempChange', 'stress'] as const;
 export type BuildingTerm = (typeof BUILDING_TERMS)[number];
-
-const STRESS_LOOKBACK_DAYS = 28;
 
 export function isBuildingTerm(term: TermId): term is BuildingTerm {
   return (BUILDING_TERMS as readonly string[]).includes(term);
@@ -67,7 +65,7 @@ function progressFor(term: BuildingTerm, days: readonly DayRecord[], index: numb
     case 'normalRange': {
       const perVital = VITAL_KEYS.map((key) => count(before, (d) => metricValue(d, key) !== null));
       const most = Math.max(...perVital);
-      if (perVital.every((n) => n >= MIN_BASELINE_NIGHTS)) return null;
+      if (perVital.some((n) => n >= MIN_BASELINE_NIGHTS)) return null;
       return { have: most + (hasVital(shown) ? 1 : 0), need: MIN_BASELINE_NIGHTS + 1, unit: 'nights' };
     }
     case 'skinTempChange':
@@ -82,7 +80,7 @@ function progressFor(term: BuildingTerm, days: readonly DayRecord[], index: numb
       if (stored === null) return null;
       const building = stored.reason === 'needs-history' || (stored.reason === 'low-coverage' && stored.baselineDays < STRESS_BASELINE_MIN_DAYS);
       if (!building) return null;
-      const recent = before.slice(-STRESS_LOOKBACK_DAYS);
+      const recent = before.slice(-STRESS_HISTORY_DAYS);
       return {
         have: count(recent, (d) => (parseStressDay(d.stress)?.windows.length ?? 0) >= STRESS_MIN_DAY_WINDOWS),
         need: STRESS_BASELINE_MIN_DAYS,

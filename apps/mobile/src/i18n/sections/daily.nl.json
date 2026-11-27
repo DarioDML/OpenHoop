@@ -270,7 +270,7 @@
   "metricDetail.whatItMeans": "Wat het betekent",
   "metricDetail.meaning.hrv": "De tijd tussen twee hartslagen is nooit precies gelijk. HRV meet hoeveel die varieert. Een uitgerust lichaam varieert meer, dus een getal boven je eigen gewoonlijke waarde is een goed teken.",
   "metricDetail.meaning.rhr": "Je hartslag zodra je lichaam tot rust is gekomen in je slaap. Onder je eigen gewoonlijke waarde betekent vaak dat je goed uitgerust bent. Een stijging van een paar slagen over meerdere dagen kan samengaan met stress, korte nachten of een verkoudheid.",
-  "metricDetail.meaning.resp": "Hoeveel ademhalingen je per minuut neemt terwijl je slaapt. Bij de meeste mensen blijft dat heel stabiel, dus een duidelijke sprong ten opzichte van normaal is het opmerken waard. Die kan komen voordat je je ziek voelt.",
+  "metricDetail.meaning.resp": "Hoeveel ademhalingen je per minuut neemt terwijl je slaapt. Bij de meeste mensen blijft dat heel stabiel, dus een duidelijke sprong ten opzichte van normaal is het opmerken waard. Die kan veranderen als je je niet goed voelt.",
   "metricDetail.meaning.spo2": "Hoeveel van je bloed zuurstof draagt terwijl je slaapt. Dat blijft normaal hoog en stabiel. Dit is een welzijnsmeting van een polssensor, geen medische meting.",
   "metricDetail.meaning.temp": "Huidtemperatuur zegt op zichzelf weinig; het gaat om de afwijking van je eigen basislijn. Een verhoogde waarde kan samengaan met ziekte, alcohol of een warme kamer.",
   "metricDetail.method.hrv": "OpenHoop berekent dit uit de tijd tussen hartslagen die de band meet terwijl je slaapt. Een welzijnsgetal, geen medisch getal.",

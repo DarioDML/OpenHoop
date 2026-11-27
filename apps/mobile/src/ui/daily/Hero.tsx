@@ -160,10 +160,11 @@ interface CompactStatProps {
   unit: string;
   href: Href;
   explain: ExplainTarget;
+  caption?: string | null;
   testID: string;
 }
 
-function CompactStat({ label, value, unit, href, explain, testID }: CompactStatProps) {
+function CompactStat({ label, value, unit, href, explain, caption = null, testID }: CompactStatProps) {
   const { t, language } = useT();
   const { why } = useExplain();
   const missing = useMissing(explain);
@@ -185,6 +186,11 @@ function CompactStat({ label, value, unit, href, explain, testID }: CompactStatP
         <Num size={30} unit={unit} unitSize={14}>
           {value}
         </Num>
+      )}
+      {value === null || caption === null ? null : (
+        <AppText variant="capSmall" muted>
+          {caption}
+        </AppText>
       )}
     </Pressable>
   );
@@ -218,7 +224,6 @@ function useHeroValues(days: readonly DayRecord[], index: number) {
     loadTarget: target('load', load.value, 1, load.reason),
     sleepTarget: target('sleepScore', day?.sleep.score.value ?? null, 0, day?.sleep.score.reason ?? null),
     hrvTarget: target('hrv', day?.hrv.value ?? null, 0, day?.hrv.reason ?? null),
-    dayLoadTarget: target('load', day?.load.value ?? null, 1, day?.load.reason ?? null),
     yesterdayReadiness: yesterday ? metricValue(yesterday, 'readiness') : null,
     yesterdayLoad: yesterday ? metricValue(yesterday, 'load') : null,
     yesterdaySleep: yesterday ? metricValue(yesterday, 'sleepScore') : null,
@@ -262,10 +267,11 @@ export function Hero({ days, index, variant }: HeroProps) {
           />
           <CompactStat
             label={t('score.load')}
-            value={day.load.value === null ? null : formatNumber(day.load.value, 1, language)}
+            value={v.load.value === null ? null : formatNumber(v.load.value, 1, language)}
             unit=""
             href="/load"
-            explain={v.dayLoadTarget}
+            explain={v.loadTarget}
+            caption={v.load.soFar ? t('load.soFar') : null}
             testID="stat-load"
           />
           <CompactStat

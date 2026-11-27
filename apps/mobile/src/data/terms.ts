@@ -91,8 +91,8 @@ export const TERMS: Readonly<Record<TermId, TermSpec>> = {
   zones: { id: 'zones', category: 'effort', window: 'day', name: 'term.zones.name', short: null, body: 'term.zones.body', method: 'explain.method.calibrated', level: PARITY.zones, lists: null },
   stress: { id: 'stress', category: 'effort', window: 'day', name: 'home.stress', short: null, body: 'term.stress.body', method: 'explain.method.own', level: PARITY.stress, lists: null },
   calories: { id: 'calories', category: 'effort', window: 'day', name: 'daily.tile.calories', short: null, body: 'term.calories.body', method: 'explain.method.own', level: PARITY.calories, lists: null },
-  steps: { id: 'steps', category: 'effort', window: 'day', name: 'metric.steps', short: null, body: 'term.steps.body', method: 'metricDetail.method.spo2', level: PARITY.steps, lists: null },
-  wearTime: { id: 'wearTime', category: 'effort', window: 'day', name: 'metric.wearTime', short: null, body: 'term.wearTime.body', method: 'metricDetail.method.spo2', level: PARITY.wearTime, lists: null },
+  steps: { id: 'steps', category: 'effort', window: 'day', name: 'metric.steps', short: null, body: 'term.steps.body', method: 'explain.method.band', level: PARITY.steps, lists: null },
+  wearTime: { id: 'wearTime', category: 'effort', window: 'day', name: 'metric.wearTime', short: null, body: 'term.wearTime.body', method: 'explain.method.band', level: PARITY.wearTime, lists: null },
 };
 
 export function isTermId(value: string | null | undefined): value is TermId {

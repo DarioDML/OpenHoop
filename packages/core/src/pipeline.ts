@@ -37,7 +37,7 @@ import type { MergedSleepPeriod } from './sleepEdits';
 import { loadWearChanges, phaseAt, wornSeconds } from './wear';
 import type { WearChange } from './wear';
 import { bindStore } from './store/store';
-import { SKIN_BASELINE_MIN_DAYS } from './thresholds';
+import { SKIN_BASELINE_MIN_DAYS, STRESS_HISTORY_DAYS } from './thresholds';
 import type {
   DayRecord,
   DeleteBeforeResult,
@@ -63,7 +63,6 @@ const SCAN_AFTER_S = 18 * HOUR_S;
 const CLOCK_OFFSET_LIMIT_S = 120;
 const PARTIAL_DAY_SAMPLES = 20 * HOUR_S;
 const BASELINE_DAYS = 14;
-const STRESS_HISTORY_DAYS = 28;
 export { SKIN_BASELINE_MIN_DAYS };
 const RESTING_HR_FALLBACK = 60;
 const HR_MIN = 25;
