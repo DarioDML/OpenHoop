@@ -34,6 +34,8 @@ import CustomizeScreen from '@/app/home/customize';
 import DatePickerScreen from '@/app/home/date-picker';
 import MorningBriefScreen from '@/app/home/morning-brief';
 import EveningReviewScreen from '@/app/home/evening-review';
+import CommunityScreen from '@/app/(tabs)/community';
+import { latestShareHref } from '@/ui/daily/shareTarget';
 import NotificationsScreen from '@/app/home/notifications';
 import WidgetsScreen from '@/app/home/widgets';
 import ReadinessScreen from '@/app/recovery/index';
@@ -444,6 +446,34 @@ describe('Home sub-screens', () => {
     expect(within(screen.getByTestId('action-ecg')).getByText('MG')).toBeTruthy();
     expect(screen.getByTestId('action-ecg').props.accessibilityHint).toBe('Needs MG hardware');
     expect(screen.getByTestId('action-center-status')).toHaveTextContent(/stored locally$/);
+  });
+});
+
+describe('Community', () => {
+  it('links sharing to the latest activity, the report to the weekly report and keeps teams not built', async () => {
+    const href = latestShareHref(days, []);
+    await render(withAppData(<CommunityScreen />));
+    expect(screen.getByText('Teams need a server')).toBeTruthy();
+    expect(screen.getByTestId('not-built-community')).toBeTruthy();
+    expect(within(screen.getByTestId('community-self-host')).getByText('Plug-in')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('community-report'));
+    expect(mockPush).toHaveBeenCalledWith('/plan/weekly-report');
+    if (href !== null) {
+      await fireEvent.press(screen.getByTestId('community-share'));
+      expect(mockPush).toHaveBeenCalledWith(href);
+    }
+  });
+
+  it('finds the newest workout to share and says when there is none', async () => {
+    const withWorkout = days.findLast((d) => d.workouts.length > 0);
+    const href = latestShareHref(days, []);
+    if (withWorkout === undefined) expect(href).toBeNull();
+    else expect(href).toEqual({ pathname: '/activity/share', params: { day: withWorkout.day, index: String(withWorkout.workouts.length - 1) } });
+    const none = days.map((d) => ({ ...d, workouts: [] }));
+    expect(latestShareHref(none, [])).toBeNull();
+    await render(withAppData(<CommunityScreen />, 'en', { days: none }));
+    expect(screen.getByText('No activity to share yet')).toBeTruthy();
+    expect(screen.getByTestId('community-share').props.accessibilityRole).toBeUndefined();
   });
 });
 

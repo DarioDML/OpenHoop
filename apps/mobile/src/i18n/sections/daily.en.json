@@ -490,5 +490,9 @@
   "home.widgetLockCircular": "Lock · circular",
   "home.widgetLockRect": "Lock · rectangular",
   "home.widgetsLockNotAvailable": "Not available on Android",
-  "home.widgetsLockBody": "These are iPhone lock-screen styles. Android phones do not offer lock-screen widgets to apps, and OpenHoop has no iPhone widgets yet, so they cannot be added."
+  "home.widgetsLockBody": "These are iPhone lock-screen styles. Android phones do not offer lock-screen widgets to apps, and OpenHoop has no iPhone widgets yet, so they cannot be added.",
+  "community.intro": "OpenHoop is local-first, so there are no teams by default. You can still share.",
+  "community.reportBody": "Open your weekly report to show a friend or coach",
+  "community.noActivity": "No activity to share yet",
+  "community.plugin": "Plug-in"
 }

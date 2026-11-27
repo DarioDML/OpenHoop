@@ -490,5 +490,9 @@
   "home.widgetLockCircular": "Vergrendeld · rond",
   "home.widgetLockRect": "Vergrendeld · rechthoekig",
   "home.widgetsLockNotAvailable": "Niet beschikbaar op Android",
-  "home.widgetsLockBody": "Dit zijn stijlen voor het vergrendelscherm van een iPhone. Android-telefoons bieden apps geen widgets op het vergrendelscherm, en OpenHoop heeft nog geen iPhone-widgets, dus je kunt ze niet toevoegen."
+  "home.widgetsLockBody": "Dit zijn stijlen voor het vergrendelscherm van een iPhone. Android-telefoons bieden apps geen widgets op het vergrendelscherm, en OpenHoop heeft nog geen iPhone-widgets, dus je kunt ze niet toevoegen.",
+  "community.intro": "OpenHoop is local-first, dus er zijn standaard geen teams. Delen kan wel.",
+  "community.reportBody": "Open je weekrapport om aan een vriend of coach te tonen",
+  "community.noActivity": "Nog geen activiteit om te delen",
+  "community.plugin": "Plug-in"
 }
