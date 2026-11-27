@@ -6,6 +6,7 @@ import { addDays } from '@/data/derived';
 import { formatMinutes, goalMet, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, strengthWeekMinutes, vitalsSummary, weekProgress } from '@/data/dailyDerived';
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
 import { moveItem, reorderTarget, shiftFor } from '@/lib/reorder';
+import { worstBehaviour } from '@/ui/daily/briefText';
 import { parseUserData, serializeUserData } from '@/data/userData';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
@@ -318,6 +319,36 @@ describe('Home sub-screens', () => {
     await render(withAppData(<MorningBriefScreen />));
     expect(screen.getByTestId('morning-brief')).toBeTruthy();
     expect(screen.getByTestId('line-readiness')).toBeTruthy();
+    expect(screen.getByTestId('stat-readiness')).toHaveTextContent(/^Readiness \d+%$/);
+    expect(screen.getByTestId('brief-plan')).toBeTruthy();
+    expect(within(screen.getByTestId('line-bedtime')).getByTestId('pill-bedtime')).toHaveTextContent(/^Bedtime \d\d:\d\d$/);
+    expect(screen.getByText(/Readiness is a fitted model/)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('brief-ask'));
+    expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/coach', params: expect.objectContaining({ ask: expect.stringMatching(/^Ask /) }) }));
+  });
+
+  it('turns a missing readiness into an explainable chip on the brief', async () => {
+    await render(withAppData(<MorningBriefScreen />, 'en', { days: days.slice(0, 2) }));
+    expect(screen.getByTestId('stat-readiness')).toHaveTextContent(/^Readiness: /);
+    await fireEvent.press(screen.getByTestId('stat-readiness'));
+    expect(screen.getByTestId('why-sheet')).toBeTruthy();
+  });
+
+  it('adds a habit to the plan when the journal links it to lower readiness', async () => {
+    const recent = days.slice(-30);
+    const values = recent.map((d) => d.readiness.value).filter((v): v is number => v !== null).sort((x, y) => x - y);
+    const median = values[Math.floor(values.length / 2)] ?? 50;
+    const journal: Record<string, Record<string, boolean>> = {};
+    recent.forEach((d, i) => {
+      const next = recent[i + 1];
+      if (next === undefined || next.readiness.value === null) return;
+      journal[d.day] = { 'caffeine-late': next.readiness.value < median };
+    });
+    const link = worstBehaviour(days, journal, null);
+    expect(link?.questionId).toBe('caffeine-late');
+    await render(withAppData(<MorningBriefScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, journal } }));
+    expect(screen.getByTestId('pill-habit')).toHaveTextContent(/^−\d+% readiness$/);
+    expect(worstBehaviour(days, {}, null)).toBeNull();
   });
 
   it('no longer marks notifications or widgets as not built', async () => {

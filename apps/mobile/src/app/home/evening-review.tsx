@@ -7,12 +7,10 @@ import { BriefPage, type BriefStat } from '@/ui/daily/BriefPage';
 import { eveningLines } from '@/ui/daily/briefText';
 import { NoDataPage } from '@/ui/daily/bits';
 import { readinessNightsLeft } from '@/data/progress';
-import { useTheme } from '@/ui/theme';
 
 export default function EveningReviewScreen() {
   const { days, userData } = useAppData();
   const { t, language } = useT();
-  const { colors } = useTheme();
   const index = days.length - 1;
   const day = days[index];
   if (!day) return <NoDataPage title={t('home.evening')} body={t('empty.body')} />;
@@ -20,7 +18,7 @@ export default function EveningReviewScreen() {
   const { value: shownReadiness } = visibleReadiness(day);
   const nightsLeft = readinessNightsLeft(days, index);
   const stats: BriefStat[] = [
-    { id: 'load', label: t('score.load'), value: day.load.value === null ? null : formatNumber(day.load.value, 1, language), color: colors.metric.loadBright },
+    { id: 'load', label: t('score.load'), value: day.load.value === null ? null : formatNumber(day.load.value, 1, language) },
     { id: 'steps', label: t('metric.steps'), value: day.steps === null ? null : formatNumber(day.steps, 0, language) },
     {
       id: 'readiness',
