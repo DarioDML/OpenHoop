@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { SCHEMA_VERSION, copySchemaVersion, openStore } from '../src/index';
+import { DatabaseTooNewError, SCHEMA_VERSION, copySchemaVersion, openStore } from '../src/index';
 import type { Store } from '../src/index';
 import { openNodeDriver } from '../src/node/index';
 
@@ -39,6 +39,20 @@ describe('copySchemaVersion', () => {
     const raw = openNodeDriver(copy);
     await raw.exec('PRAGMA user_version = 0');
     await expect(openStore(raw)).rejects.toThrow('already exists');
+    await raw.close();
+  });
+
+  it('refuses a database made by a newer app with an error that names both versions', async () => {
+    const copy = join(dir, 'newer.db');
+    await store.driver.exec(`VACUUM main INTO '${copy}'`);
+    const raw = openNodeDriver(copy);
+    await raw.exec(`PRAGMA user_version = ${SCHEMA_VERSION + 1}`);
+    const error = await openStore(raw).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(DatabaseTooNewError);
+    expect(error).toMatchObject({ found: SCHEMA_VERSION + 1, supported: SCHEMA_VERSION });
     await raw.close();
   });
 

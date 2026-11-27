@@ -43,6 +43,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
   const noop = async (): Promise<void> => undefined;
   return {
     ready: true,
+    storageProblem: null,
     notice: null,
     clearNotice: () => undefined,
     days: createFixtureDays(FIXTURE_NOW),

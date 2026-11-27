@@ -127,6 +127,7 @@ import { strictestPrefs } from '@/net/features';
 import { buildSnapshot, serializeSnapshot } from './bandConfig';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
+import { storageProblemOf, type StorageProblem } from './storageProblem';
 import { addDays } from './derived';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
@@ -203,6 +204,7 @@ const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
 
 export interface Snapshot {
   ready: boolean;
+  storageProblem: StorageProblem | null;
   days: DayRecord[];
   sleepEdits: SleepEditRow[];
   device: DeviceStatus;
@@ -323,6 +325,7 @@ export class AppController {
     const language = detectLanguage(getLocales()[0]?.languageCode);
     this.snapshot = {
       ready: false,
+      storageProblem: null,
       days: [],
       sleepEdits: [],
       device: emptyDevice(),
@@ -427,7 +430,7 @@ export class AppController {
     try {
       this.app = await openAppStore();
     } catch (error) {
-      this.patch({ ready: true });
+      this.patch({ ready: true, storageProblem: storageProblemOf(error) });
       this.fail(error instanceof AppError ? error : new AppError('error.storage', undefined, { cause: error }));
       return;
     }

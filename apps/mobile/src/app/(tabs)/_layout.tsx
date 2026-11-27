@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router/js-tabs';
 
 import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
+import { StorageProblemScreen } from '@/ui/StorageProblemScreen';
 import { TabBar } from '@/ui/TabBar';
 import { useTheme } from '@/ui/theme';
 
@@ -16,8 +17,9 @@ const TABS = [
 export default function TabsLayout() {
   const { colors } = useTheme();
   const { t } = useT();
-  const { userData } = useAppData();
+  const { userData, storageProblem } = useAppData();
 
+  if (storageProblem !== null) return <StorageProblemScreen problem={storageProblem} />;
   if (!userData.onboardingDone) return <Redirect href="/onboarding" />;
 
   return (
