@@ -114,6 +114,7 @@ export interface SleepEdit {
   targetOffset: number | null;
   onset: number;
   offset: number;
+  removed: boolean;
 }
 
 export interface SleepEditRow extends SleepEdit {

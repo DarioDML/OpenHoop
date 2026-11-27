@@ -40,7 +40,7 @@ function problemKey(problem: Problem, manual: boolean): TranslationKey {
 
 export default function EditSleepScreen() {
   const params = useLocalSearchParams<{ day?: string | string[] }>();
-  const { days, sleepEdits, sleepEditLimits, saveSleepEdit, deleteSleepEdit } = useAppData();
+  const { days, sleepEdits, sleepEditLimits, saveSleepEdit, deleteSleepEdit, removeDetectedSleep } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const requested = singleParam(params.day);
@@ -61,7 +61,7 @@ export default function EditSleepScreen() {
   const tz = day.tzOffsetS;
   const items = editableSleeps(day, sleepEdits);
   const clock = (epochS: number): string => formatClock(epochS, tz);
-  const night = items.find((i) => i.kind === 'night') ?? null;
+  const night = items.find((i) => i.kind === 'night' && !i.removed) ?? items.find((i) => i.removed) ?? null;
   const current: EditableSleep | null = mode === 'nap' ? null : (items.find((i) => i.key === picked) ?? night);
   const key = mode === 'nap' ? NEW_NAP : (current?.key ?? null);
   const startText = draft !== null && draft.key === key ? draft.start : current === null ? NAP_START : clock(current.onset);
@@ -132,14 +132,14 @@ export default function EditSleepScreen() {
   };
 
   const remove = async (item: EditableSleep): Promise<void> => {
-    if (item.editId === null || busy) return;
+    if (busy) return;
     setBusy(true);
-    const removed = await deleteSleepEdit(item.editId);
+    const done = item.editId === null ? await removeDetectedSleep(item) : await deleteSleepEdit(item.editId);
     setBusy(false);
-    if (removed) {
+    if (done) {
       reset();
       setPicked(null);
-      setStatus(item.source === 'manual' ? 'sleepx.editDeleted' : 'sleepx.editRestored');
+      setStatus(item.removed ? 'editSleep.restoredStatus' : item.editId === null ? 'editSleep.deletedStatus' : item.source === 'manual' ? 'sleepx.editDeleted' : 'sleepx.editRestored');
     } else {
       setConfirming(false);
       setProblem('error');
@@ -147,7 +147,11 @@ export default function EditSleepScreen() {
   };
 
   const sourceChip = (item: EditableSleep) =>
-    item.source === 'detected' ? undefined : <Chip label={item.source === 'manual' ? t('sleepx.sourceManual') : t('sleepx.sourceEdited')} tone="info" small />;
+    item.removed ? (
+      <Chip label={t('editSleep.removedChip')} tone="warning" small />
+    ) : item.source === 'detected' ? undefined : (
+      <Chip label={item.source === 'manual' ? t('sleepx.sourceManual') : t('sleepx.sourceEdited')} tone="info" small />
+    );
 
   const dayStep = (delta: number, glyph: string, accessibility: string, disabled: boolean) => (
     <Pressable
@@ -168,8 +172,8 @@ export default function EditSleepScreen() {
       : undefined;
   const startMin = parseClock(startText);
   const endMin = parseClock(endText);
-  const showEditor = mode === 'nap' || current !== null;
-  const canRemove = current !== null && current.editId !== null;
+  const showEditor = mode === 'nap' || (current !== null && !current.removed);
+  const removedNight = current !== null && current.removed ? current : null;
 
   return (
     <Page
@@ -242,6 +246,17 @@ export default function EditSleepScreen() {
             </AppText>
           ) : null}
         </View>
+      ) : removedNight !== null ? (
+        <Card testID="edit-removed" style={{ gap: spacing.md }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+            <AppText variant="cardTitle">{t('editSleep.removedTitle')}</AppText>
+            {sourceChip(removedNight)}
+          </View>
+          <AppText variant="label" muted>
+            {t('editSleep.removedBody', { start: clock(removedNight.onset), end: clock(removedNight.offset) })}
+          </AppText>
+          <Button testID="edit-restore-removed" label={t('editSleep.restore')} variant="soft" icon="sync" disabled={busy} onPress={() => void remove(removedNight)} />
+        </Card>
       ) : (
         <Card testID="edit-none">
           <AppText variant="body" muted>
@@ -272,20 +287,15 @@ export default function EditSleepScreen() {
               label={current.source === 'edited' ? t('sleepx.editRestore') : t('editSleep.delete')}
               variant="danger"
               icon={current.source === 'edited' ? 'sync' : 'trash'}
-              disabled={busy || !canRemove}
+              disabled={busy}
               onPress={() => setConfirming(true)}
             />
-          ) : null}
-          {current !== null && !canRemove ? (
-            <AppText variant="caption" muted testID="edit-delete-detected">
-              {t('editSleep.deleteDetected')}
-            </AppText>
           ) : null}
           {current !== null && confirming ? (
             <Card tone="danger" testID="edit-delete-confirm-card" style={{ gap: spacing.md }}>
               <AppText variant="bodyStrong">{current.source === 'edited' ? t('sleepx.editRestore') : t('editSleep.deleteTitle')}</AppText>
-              <AppText variant="label" muted>
-                {current.source === 'manual' ? t('editSleep.deleteNapBody') : t('editSleep.deleteEditedBody')}
+              <AppText variant="label" muted testID="edit-delete-body">
+                {current.source === 'manual' ? t('editSleep.deleteNapBody') : current.source === 'edited' ? t('editSleep.deleteEditedBody') : t('editSleep.deleteDetectedBody')}
               </AppText>
               <Button testID="edit-delete-confirm" label={current.source === 'edited' ? t('sleepx.editRestore') : t('editSleep.delete')} variant="danger" disabled={busy} onPress={() => void remove(current)} />
               <Button testID="edit-delete-cancel" label={t('common.cancel')} variant="tertiary" disabled={busy} onPress={() => setConfirming(false)} />

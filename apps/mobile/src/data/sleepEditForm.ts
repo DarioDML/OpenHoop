@@ -1,6 +1,6 @@
 import type { DayRecord, SleepEditRow, SleepPeriodRecord, SleepSource, SleepSpan } from '@openhoop/core';
 
-import { ownerSinceToUnix } from '@/lib/dates';
+import { ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
 import { formatClock } from '@/lib/format';
 
 const DAY_S = 86_400;
@@ -26,6 +26,7 @@ export interface EditableSleep {
   editId: number | null;
   targetOnset: number | null;
   targetOffset: number | null;
+  removed: boolean;
 }
 
 export function parseClock(text: string): number | null {
@@ -77,6 +78,22 @@ export function editableSleeps(day: DayRecord, edits: readonly SleepEditRow[]): 
       source: edited?.source ?? 'detected',
       editId: edited?.editId ?? null,
       ...target,
+      removed: false,
+    });
+  }
+  for (const edit of edits) {
+    if (!edit.removed || edit.targetOnset === null || edit.targetOffset === null || unixToIsoDate(edit.targetOffset, day.tzOffsetS) !== day.day) continue;
+    out.push({
+      key: `removed-${edit.id}`,
+      kind: 'night',
+      onset: edit.onset,
+      offset: edit.offset,
+      asleepS: 0,
+      source: 'detected',
+      editId: edit.id,
+      targetOnset: edit.targetOnset,
+      targetOffset: edit.targetOffset,
+      removed: true,
     });
   }
   for (const nap of day.sleep.periods.filter((p) => p.nap)) {
@@ -89,6 +106,7 @@ export function editableSleeps(day: DayRecord, edits: readonly SleepEditRow[]): 
       source: nap.source,
       editId: nap.editId,
       ...targetOf(nap, edits),
+      removed: false,
     });
   }
   return out.sort((a, b) => a.onset - b.onset);
@@ -125,7 +143,7 @@ export function otherSleepSpans(days: readonly DayRecord[], edits: readonly Slee
     }
   }
   for (const edit of edits) {
-    if (edit.id === request.id || replaced(edit, edit.targetOnset === null)) continue;
+    if (edit.removed || edit.id === request.id || replaced(edit, edit.targetOnset === null)) continue;
     out.push({ onset: edit.onset, offset: edit.offset });
   }
   return out;

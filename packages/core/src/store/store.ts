@@ -169,6 +169,7 @@ type SleepEditDb = {
   onset: number;
   offset: number;
   created_at: number;
+  removed: number;
 };
 
 function toSleepEdit(row: SleepEditDb): SleepEditRow {
@@ -180,6 +181,7 @@ function toSleepEdit(row: SleepEditDb): SleepEditRow {
     onset: row.onset,
     offset: row.offset,
     createdAt: row.created_at,
+    removed: row.removed === 1,
   };
 }
 
@@ -554,16 +556,16 @@ export function bindStore(driver: SqlDriver): Store {
     async saveSleepEdit(edit) {
       if (edit.id === null) {
         const result = await driver.run(
-          `INSERT INTO sleep_edits (device_id, target_onset, target_offset, onset, offset, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [edit.deviceId, edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt],
+          `INSERT INTO sleep_edits (device_id, target_onset, target_offset, onset, offset, created_at, removed)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [edit.deviceId, edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt, edit.removed ? 1 : 0],
         );
         return result.lastInsertRowid;
       }
       const result = await driver.run(
-        `UPDATE sleep_edits SET target_onset = ?, target_offset = ?, onset = ?, offset = ?, created_at = ?
+        `UPDATE sleep_edits SET target_onset = ?, target_offset = ?, onset = ?, offset = ?, created_at = ?, removed = ?
          WHERE id = ? AND device_id = ?`,
-        [edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt, edit.id, edit.deviceId],
+        [edit.targetOnset, edit.targetOffset, edit.onset, edit.offset, edit.createdAt, edit.removed ? 1 : 0, edit.id, edit.deviceId],
       );
       if (result.changes === 0) throw new Error(`Sleep edit ${edit.id} does not exist`);
       return edit.id;

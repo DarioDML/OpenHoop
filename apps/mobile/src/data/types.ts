@@ -15,7 +15,7 @@ import type { HealthConnectState } from './healthConnectState';
 import type { HrBroadcastState } from './hrBroadcast';
 import type { PermissionState } from './notifier';
 
-import type { SleepEditRequest } from './sleepEditForm';
+import type { EditableSleep, SleepEditRequest } from './sleepEditForm';
 import type { UserData } from './userData';
 import type { FileReport } from './vendorExport/parse';
 import type { SourceFile } from './vendorExport/sources';
@@ -263,6 +263,7 @@ export interface AppData {
   routeFor(activityId: number): Promise<RoutePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;
+  removeDetectedSleep(item: EditableSleep): Promise<boolean>;
   saveActivity(draft: ActivityDraft, id?: number): Promise<number | null>;
   deleteActivity(target: DeleteTarget): Promise<boolean>;
   undoDelete(): Promise<void>;

@@ -198,7 +198,7 @@ import {
   type NotificationState,
 } from './notificationState';
 import { expoNotifier, type Notifier, type PermissionState } from './notifier';
-import { otherSleepSpans, recomputeFrom, type SleepEditRequest } from './sleepEditForm';
+import { otherSleepSpans, recomputeFrom, type SleepEditRequest, type EditableSleep } from './sleepEditForm';
 import { parseVendorSources } from './vendorExport/sources';
 import type { FileReport } from './vendorExport/parse';
 import type { SourceFile } from './vendorExport/sources';
@@ -1854,12 +1854,38 @@ export class AppController {
           onset: request.onset,
           offset: request.offset,
           createdAt: nowSeconds(),
+          removed: false,
         });
         await this.recompute(row.id, recomputeFrom(request, previous));
         return 'saved';
       } catch (error) {
         this.fail(error);
         return 'error';
+      } finally {
+        this.patch({ syncProgress: null });
+      }
+    });
+
+  removeDetectedSleep = (item: EditableSleep): Promise<boolean> =>
+    this.exclusive(async () => {
+      try {
+        const row = this.deviceRow;
+        if (row === null || item.editId !== null || item.removed || item.targetOnset === null || item.targetOffset === null) return false;
+        await this.requireApp().store.saveSleepEdit({
+          id: null,
+          deviceId: row.id,
+          targetOnset: item.targetOnset,
+          targetOffset: item.targetOffset,
+          onset: item.onset,
+          offset: item.offset,
+          createdAt: nowSeconds(),
+          removed: true,
+        });
+        await this.recompute(row.id, recomputeFrom({ onset: item.onset, targetOnset: item.targetOnset }, null));
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
       } finally {
         this.patch({ syncProgress: null });
       }
@@ -2221,6 +2247,7 @@ export class AppController {
       routeFor: this.routeFor,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
+      removeDetectedSleep: this.removeDetectedSleep,
       saveActivity: this.saveActivity,
       deleteActivity: this.deleteActivity,
       undoDelete: this.undoDelete,

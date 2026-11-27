@@ -136,6 +136,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     clearInbox: noop,
     saveSleepEdit: async () => 'saved',
     deleteSleepEdit: async () => true,
+    removeDetectedSleep: async () => true,
     healthConnect: { availability: 'available', granted: [], state: defaultHealthConnectState(), syncing: false },
     refreshHealthConnect: noop,
     setHealthConnectType: async () => true,
