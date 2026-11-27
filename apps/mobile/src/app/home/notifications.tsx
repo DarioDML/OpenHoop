@@ -156,12 +156,23 @@ export default function NotificationsScreen() {
       ) : null}
 
       {shown.length === 0 ? (
-        <Card tone="outline" style={{ gap: 6 }} testID="inbox-empty">
-          <AppText variant="bodyStrong">{t('home.notif.emptyTitle')}</AppText>
-          <AppText variant="label" muted>
-            {t('home.notif.emptyBody')}
-          </AppText>
-        </Card>
+        <>
+          {markAll === undefined ? null : (
+            <View style={{ alignItems: 'flex-end' }}>
+              <Pressable testID="mark-all-read" accessibilityRole="button" onPress={markAll.onPress} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
+                <AppText variant="cap" muted>
+                  {markAll.label}
+                </AppText>
+              </Pressable>
+            </View>
+          )}
+          <Card tone="outline" style={{ gap: 6 }} testID="inbox-empty">
+            <AppText variant="bodyStrong">{t('home.notif.emptyTitle')}</AppText>
+            <AppText variant="label" muted>
+              {t('home.notif.emptyBody')}
+            </AppText>
+          </Card>
+        </>
       ) : (
         <View testID="inbox-list" style={{ gap: spacing.sm }}>
           <Group title={t('home.notif.today')} entries={todays} today action={markAll} testID="group-today" />

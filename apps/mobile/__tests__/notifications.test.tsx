@@ -100,6 +100,15 @@ describe('Notification groups and goals', () => {
     expect(mockPush).toHaveBeenCalledWith('/settings/app');
   });
 
+  it('keeps mark all read reachable when the chosen filter is empty', async () => {
+    const markInboxRead = jest.fn(async () => undefined);
+    await render(withAppData(<NotificationsScreen />, 'en', { ...granted(), inbox: INBOX, markInboxRead }));
+    await fireEvent.press(screen.getByTestId('filter-goals'));
+    expect(screen.getByTestId('inbox-empty')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('mark-all-read'));
+    expect(markInboxRead).toHaveBeenCalled();
+  });
+
   it('hides mark all read when nothing is unread', async () => {
     await render(withAppData(<NotificationsScreen />, 'en', { ...granted(), inbox: INBOX.map((entry) => ({ ...entry, read: true })) }));
     expect(screen.queryByTestId('mark-all-read')).toBeNull();

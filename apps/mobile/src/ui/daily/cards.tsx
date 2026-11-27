@@ -550,10 +550,15 @@ export function TonightCard({ days, index }: DayProps) {
   if (value.time !== null) parts.push(t('home.tonightAlarmMode', { mode: t(`alarm.mode.${alarm.plan.mode}`) }));
   else if (bedtime) parts.push(t('home.tonightWake', { wake: bedtime.wake }));
   return (
-    <Card href="/sleep/planner" testID="card-tonight" accessibilityLabel={t('home.tonight')} style={{ gap: 14 }}>
+    <Card testID="card-tonight" style={{ gap: 14 }}>
       <CardHeader title={t('home.tonight')} action={`${t('home.planner')} ›`} href="/sleep/planner" />
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
-        <View style={{ flex: 1, gap: 6 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t('home.bedtime')}: ${bedtime ? bedtime.bed : t('home.tonightNoBed')}`}
+          onPress={() => router.push('/sleep/planner')}
+          style={{ flex: 1, gap: 6 }}
+          testID="tonight-planner">
           <AppText variant="capSmall" muted>
             {t('home.bedtime')}
           </AppText>
@@ -566,8 +571,13 @@ export function TonightCard({ days, index }: DayProps) {
               {t('home.tonightNoBed')}
             </AppText>
           )}
-        </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('home.alarm')} onPress={() => router.push('/sleep/alarm')} style={{ flex: 1, gap: 6 }} testID="tonight-alarm">
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t('home.alarm')}: ${value.time ?? t('alarm.status.off')}`}
+          onPress={() => router.push('/sleep/alarm')}
+          style={{ flex: 1, gap: 6 }}
+          testID="tonight-alarm">
           <AppText variant="capSmall" muted>
             {t('home.alarm')}
           </AppText>

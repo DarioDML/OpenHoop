@@ -1401,7 +1401,7 @@ export class AppController {
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
         setNetworkPrefs(next.network);
         this.patch({ userData: next });
-        if (patch.notifications !== undefined) void this.refreshNotifications();
+        if (patch.notifications !== undefined || patch.weeklyPlan !== undefined) void this.refreshNotifications();
         if (patch.widgetValues !== undefined) void this.refreshWidgets();
         return true;
       } catch (error) {
@@ -1620,7 +1620,11 @@ export class AppController {
       logSet: (sessionId: number, input: StrengthSetInput) =>
         this.runStrength(async (driver) => (await addStrengthSet(driver, sessionId, input, nowSeconds())) !== null, false),
       removeSet: (id: number) => this.runStrength((driver) => deleteStrengthSet(driver, id), false),
-      finishSession: (id: number) => this.runStrength((driver) => finishStrengthSession(driver, id, nowSeconds()), false),
+      finishSession: async (id: number) => {
+        const done = await this.runStrength((driver) => finishStrengthSession(driver, id, nowSeconds()), false);
+        if (done) void this.refreshNotifications();
+        return done;
+      },
       removeSession: (id: number) => this.runStrength((driver) => deleteStrengthSession(driver, id), false),
     };
   }

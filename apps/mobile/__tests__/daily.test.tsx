@@ -235,6 +235,8 @@ describe('Home', () => {
     expect(screen.getByTestId('tonight-note')).toHaveTextContent(/Alarm mode: Sleep goal/);
     await fireEvent.press(screen.getByTestId('tonight-alarm'));
     expect(mockPush).toHaveBeenCalledWith('/sleep/alarm');
+    await fireEvent.press(screen.getByTestId('tonight-planner'));
+    expect(mockPush).toHaveBeenCalledWith('/sleep/planner');
   });
 
   it('says the alarm is off on the Tonight card when none is set', async () => {
@@ -360,6 +362,15 @@ describe('Home sub-screens', () => {
     });
     expect(updateUserData).toHaveBeenCalledWith(expect.objectContaining({ dashboardTiles: ['restingHr', 'steps', 'hrv', 'respiratoryRate'] }));
     expect(screen.getByTestId('screen-scroll').props.scrollEnabled).toBe(true);
+    updateUserData.mockClear();
+    const again = screen.getByTestId('handle-hrv', { includeHiddenElements: true });
+    await act(async () => {
+      again.props.onResponderGrant(event(0, 4, 0, 4));
+      again.props.onResponderMove(event(130, 5, 0, 4));
+      again.props.onResponderTerminate(event(130, 6, 130, 5));
+    });
+    expect(updateUserData).not.toHaveBeenCalled();
+    expect(screen.getByTestId('screen-scroll').props.scrollEnabled).toBe(true);
   });
 
   it('builds the morning brief from real numbers', async () => {
@@ -410,6 +421,7 @@ describe('Home sub-screens', () => {
     expect(within(screen.getByTestId('card-wind-down')).getByText(/^Keep the room around 18 °C\.$/)).toBeTruthy();
     expect(within(screen.getByTestId('card-wind-down')).getByText(/late caffeine/)).toBeTruthy();
     expect(screen.getByTestId('evening-tonight-note')).toHaveTextContent('Bedtime · No alarm set');
+    expect(screen.getByTestId('evening-tonight-need')).toHaveTextContent(/^Need tonight: \d+:\d\d · wake around \d\d:\d\d$/);
     await fireEvent.press(screen.getByTestId('card-evening-tonight'));
     expect(mockPush).toHaveBeenCalledWith('/sleep/planner');
   });

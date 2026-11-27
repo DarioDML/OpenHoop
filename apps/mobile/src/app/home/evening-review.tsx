@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { formatLongDay, formatMinutes, planBedtime } from '@/data/dailyDerived';
+import { formatHm, formatLongDay, formatMinutes, planBedtime } from '@/data/dailyDerived';
 import { visibleReadiness } from '@/data/derived';
 import {
   ROOM_TEMPERATURE_C,
@@ -317,6 +317,11 @@ export default function EveningReviewScreen() {
             </Num>
           )}
         </View>
+        {plan === null || need === null ? null : (
+          <AppText variant="label" muted testID="evening-tonight-need">
+            {`${t('home.tonightNeed', { need: formatHm(need) })} · ${t('home.tonightWake', { wake: formatMinutes(plan.wakeMinutes) })}`}
+          </AppText>
+        )}
         <AppText variant="label" muted testID="evening-tonight-note">
           {alarmNow.time === null ? t('evening.tonightNoAlarm') : t('evening.tonightAlarm', { mode: t(`alarm.mode.${alarm.plan.mode}`).toLowerCase() })}
         </AppText>

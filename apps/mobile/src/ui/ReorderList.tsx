@@ -18,6 +18,7 @@ interface Handlers {
   begin: (item: string) => void;
   move: (item: string, dy: number) => void;
   end: (item: string, dy: number) => void;
+  cancel: () => void;
 }
 
 function useRowResponder(item: string, handlers: Handlers): PanResponderInstance {
@@ -33,7 +34,7 @@ function useRowResponder(item: string, handlers: Handlers): PanResponderInstance
       onPanResponderGrant: () => latest.current.begin(item),
       onPanResponderMove: (_, gesture) => latest.current.move(item, gesture.dy),
       onPanResponderRelease: (_, gesture) => latest.current.end(item, gesture.dy),
-      onPanResponderTerminate: (_, gesture) => latest.current.end(item, gesture.dy),
+      onPanResponderTerminate: () => latest.current.cancel(),
     });
   }
   return responder.current;
@@ -156,6 +157,11 @@ export function ReorderList<T extends string>({ all, shown, label, minimum, onCh
       if (current === null || shown[current.from] !== item) return;
       const to = reorderTarget(heightList(), current.from, distance);
       if (to !== current.from) onChange(moveItem(shown, current.from, to));
+    },
+    cancel: () => {
+      update(null);
+      dy.setValue(0);
+      onDragChange?.(false);
     },
   };
 
