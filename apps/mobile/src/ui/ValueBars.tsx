@@ -72,7 +72,11 @@ export function ValueBars({ bars, highlight, height = 80, max, barWidth = 22, sh
                 />
               )}
             </View>
-            <AppText variant="caption" numberOfLines={fill ? 1 : undefined} color={current ? colors.text : colors.textMuted} style={current ? { fontWeight: '600' } : undefined}>
+            <AppText
+              variant="caption"
+              numberOfLines={fill ? 1 : undefined}
+              color={current ? colors.text : colors.textMuted}
+              style={[fill ? { width: 32, textAlign: 'center' } : null, current ? { fontWeight: '600' } : null]}>
               {bar.label}
             </AppText>
           </View>

@@ -80,7 +80,7 @@ export function useLoadBuzz(today: LoadToday): LoadBuzzControl {
       ? t('loadBuzz.calibrating')
       : settings.dataSource === 'demo'
         ? `${t('loadBuzz.when')} ${t('loadBuzz.demo')}`
-        : device.name === null
+        : device.name === null && device.model === null
           ? t('loadBuzz.noBand')
           : `${t('loadBuzz.when')} ${synced}`;
   return { prefs, set, doneToday: { target: prefs.lastTarget === todayKey, top: prefs.lastTop === todayKey }, availability };

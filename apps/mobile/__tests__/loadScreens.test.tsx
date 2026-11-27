@@ -197,6 +197,11 @@ describe('Load target screen', () => {
     expect(screen.getByText(/^Two buzzes, warns above \d/)).toBeTruthy();
   });
 
+  it('names the last sync when a real band is paired', async () => {
+    await render(withAppData(<LoadTargetScreen />, 'en', { settings: { language: 'en', dataSource: 'band', ownerSince: null, units: 'metric' } }));
+    expect(screen.getByTestId('buzz-availability')).toHaveTextContent(/^Checks after every sync and during a live activity\. The band must be connected\. Last sync \d{2}:\d{2}\.$/);
+  });
+
   it('keeps the explanations and the start button', async () => {
     await render(withAppData(<LoadTargetScreen />));
     expect(screen.getByText('Where this range comes from')).toBeTruthy();

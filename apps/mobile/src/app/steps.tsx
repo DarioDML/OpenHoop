@@ -40,6 +40,7 @@ function HealthConnectSource({ entry }: { entry: StepsDay }) {
 
 function HourChart({ bars }: { bars: readonly HourBar[] }) {
   const { t, language } = useT();
+  const every = Math.max(2, Math.ceil(bars.length / 6));
   return (
     <>
       <ValueBars
@@ -51,7 +52,7 @@ function HourChart({ bars }: { bars: readonly HourBar[] }) {
         bars={bars.map((bar, i) => ({
           key: String(bar.t),
           value: bar.steps,
-          label: i % 2 === 0 ? String(bar.hour) : '',
+          label: i % every === 0 ? String(bar.hour) : '',
           a11yLabel: t('stepsScreen.hourA11y', { hour: bar.hour }),
           display: bar.steps === null ? undefined : formatNumber(bar.steps, 0, language),
         }))}
