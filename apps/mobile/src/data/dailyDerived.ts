@@ -1,8 +1,7 @@
-import type { DayRecord, SleepPeriodRecord, StrengthSession } from '@openhoop/core';
+import type { DayRecord, SleepPeriodRecord } from '@openhoop/core';
 
 import { isLoadDay, sleepNightMet } from './activityDerived';
-import { addDays, baselineAt, daysInWeek, mean, metricValue, rangeStatus, visibleReadiness, weekStart, type Baseline, type MetricKey } from './derived';
-import { finishedSessions } from './strength';
+import { addDays, baselineAt, daysInWeek, mean, metricValue, rangeStatus, visibleReadiness, type Baseline, type MetricKey } from './derived';
 
 export const VITAL_KEYS = ['hrv', 'restingHr', 'respiratoryRate', 'spo2', 'skinTemp'] as const satisfies readonly MetricKey[];
 
@@ -157,23 +156,6 @@ export function weekProgress(days: readonly DayRecord[], anyDayInWeek: string): 
     sleepCount: sleepDots.filter((v) => v === true).length,
     recorded: week.filter((d) => d !== null).length,
   };
-}
-
-export interface StrengthWeekMinutes {
-  minutes: number;
-  sessions: number;
-}
-
-export function strengthWeekMinutes(sessions: readonly StrengthSession[], anyDayInWeek: string): StrengthWeekMinutes {
-  const start = weekStart(anyDayInWeek);
-  const end = addDays(start, 6);
-  const inWeek = finishedSessions(sessions).filter((session) => session.day >= start && session.day <= end);
-  const seconds = inWeek.reduce((sum, session) => sum + Math.max(0, (session.endedAt ?? session.startedAt) - session.startedAt), 0);
-  return { minutes: Math.round(seconds / 60), sessions: inWeek.length };
-}
-
-export function goalMet(count: number, target: number | null | undefined): boolean {
-  return target !== null && target !== undefined && target > 0 && count >= target;
 }
 
 export interface MonthCell {

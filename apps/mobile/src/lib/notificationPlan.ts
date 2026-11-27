@@ -1,10 +1,8 @@
 import type { DayRecord } from '@openhoop/core';
 
-import type { StrengthSession } from '@openhoop/core';
-
-import { strengthWeekMinutes, weekProgress } from '@/data/dailyDerived';
-import { addDays, visibleReadiness, weekStart } from '@/data/derived';
-import type { NotificationPrefs, WeeklyPlan } from '@/data/userData';
+import { addDays, visibleReadiness } from '@/data/derived';
+import type { NotificationPrefs } from '@/data/userData';
+import { planWeek, type PlanGoal, type PlanInput as WeekInput, type WeeklyPlan } from '@/data/weeklyPlan';
 
 export const DIGEST_CLOCK = '07:00';
 export const DATA_AT_RISK_DAYS = 2;
@@ -42,18 +40,21 @@ export interface GoalFact {
   week: string;
   count: number;
   target: number;
+  scoreMin: number | null;
 }
 
-export function goalFacts(days: readonly DayRecord[], plan: WeeklyPlan | null, sessions: readonly StrengthSession[], today: string): GoalFact[] {
+const ALERT_GOAL: Readonly<Partial<Record<PlanGoal, GoalKind>>> = { loadDays: 'load', sleepScore: 'sleep', strength: 'strength' };
+
+export function goalFacts(plan: WeeklyPlan | null, input: WeekInput): GoalFact[] {
   if (plan === null) return [];
-  const week = weekStart(today);
-  const progress = weekProgress(days, today);
-  const facts: GoalFact[] = [
-    { goal: 'load', week, count: progress.loadCount, target: plan.loadDays },
-    { goal: 'sleep', week, count: progress.sleepCount, target: plan.sleepNights },
-  ];
-  if (plan.strengthMinutes !== undefined) facts.push({ goal: 'strength', week, count: strengthWeekMinutes(sessions, today).minutes, target: plan.strengthMinutes });
-  return facts.filter((fact) => fact.target > 0);
+  const week = planWeek(plan, input);
+  const facts: GoalFact[] = [];
+  for (const progress of week.goals) {
+    const goal = ALERT_GOAL[progress.goal];
+    if (goal === undefined || progress.state !== 'met') continue;
+    facts.push({ goal, week: week.start, count: progress.done, target: progress.target, scoreMin: progress.goal === 'sleepScore' ? plan.sleepScoreMin : null });
+  }
+  return facts;
 }
 
 export type AlertPayload =

@@ -6,12 +6,13 @@ import { useAppData } from '@/data/context';
 import { visibleReadiness } from '@/data/derived';
 import { formatLongDay, formatMonthTitle, isDayString, monthGrid, shiftMonth, singleParam, weekdayInitials } from '@/data/dailyDerived';
 import { useT } from '@/i18n/useT';
+import { formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
 import { SheetScreen } from '@/ui/SheetScreen';
 import { StateCard } from '@/ui/StateCard';
-import { radius, readinessColor, spacing, useTheme } from '@/ui/theme';
+import { radius, readinessBand, readinessColor, spacing, useTheme } from '@/ui/theme';
 
 function monthOf(day: string): { year: number; month: number } {
   const [y, m] = day.split('-').map(Number);
@@ -111,13 +112,18 @@ export default function DatePickerScreen() {
               }
               const shownReadiness = visibleReadiness(record).value;
               const tone = readinessColor(colors, shownReadiness);
+              const band = readinessBand(shownReadiness);
               const isSelected = record.day === selected;
               return (
                 <Pressable
                   key={c}
                   testID={`cal-${record.day}`}
                   accessibilityRole="button"
-                  accessibilityLabel={formatLongDay(record.day, language)}
+                  accessibilityLabel={
+                    shownReadiness === null || band === null
+                      ? `${formatLongDay(record.day, language)}, ${t('home.pickNoReadiness')}`
+                      : `${formatLongDay(record.day, language)}, ${t('score.readiness')} ${formatNumber(shownReadiness, 0, language)}%, ${t(`readiness.${band}`)}`
+                  }
                   accessibilityState={{ selected: isSelected }}
                   onPress={() => pick(record.day)}
                   style={{

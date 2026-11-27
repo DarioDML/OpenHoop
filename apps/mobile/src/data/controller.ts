@@ -174,6 +174,7 @@ import { openAppStore, type AppStore } from './appStore';
 import { storageProblemOf, type StorageProblem } from './storageProblem';
 import { readinessNightsLeft } from './progress';
 import { loadTargetBand } from './activityDerived';
+import { planInputFor } from './planInput';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
 import { OPENHOOP_PACKAGE, nativeHealthConnect, type HealthConnectApi } from './healthConnectApi';
@@ -1706,7 +1707,10 @@ export class AppController {
             pending: settled.pending,
             sent: settled.sent,
             factsFor: digestFacts(this.snapshot.days, now),
-            goals: goalFacts(this.snapshot.days, userData.weeklyPlan, this.snapshot.strength.sessions, localDay(now)),
+            goals: goalFacts(
+              userData.weeklyPlan,
+              planInputFor(this.snapshot.days, this.snapshot.strength.sessions, this.snapshot.activities, this.snapshot.healthConnect.state.steps, localDay(now), now),
+            ),
             lastSyncAt: this.lastSyncAt === null ? null : this.lastSyncAt * 1000,
             watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
             fresh,
@@ -1770,12 +1774,13 @@ export class AppController {
     return permission;
   };
 
-  markInboxRead = (): Promise<void> =>
+  markInboxRead = (ids?: readonly string[]): Promise<void> =>
     this.notificationTask(async () => {
-      if (this.app === null || this.notificationState.inbox.every((entry) => entry.read)) return;
+      const marks = (entry: InboxEntry): boolean => ids === undefined || ids.includes(entry.id);
+      if (this.app === null || this.notificationState.inbox.every((entry) => entry.read || !marks(entry))) return;
       await this.saveNotificationState({
         ...this.notificationState,
-        inbox: this.notificationState.inbox.map((entry) => ({ ...entry, read: true })),
+        inbox: this.notificationState.inbox.map((entry) => (marks(entry) ? { ...entry, read: true } : entry)),
       });
     });
 

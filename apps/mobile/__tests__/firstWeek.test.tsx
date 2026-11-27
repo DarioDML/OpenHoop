@@ -94,6 +94,6 @@ describe('first week on home', () => {
     await fireEvent.press(screen.getByTestId('stress-tile-why'));
     expect(screen.getByTestId('why-sheet')).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalledWith('/health/stress');
-    expect(screen.getByLabelText(/^Nights at sleep need: /)).toBeTruthy();
+    expect(screen.getByText('Nights at sleep need')).toBeTruthy();
   });
 });

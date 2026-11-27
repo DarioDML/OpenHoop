@@ -2,9 +2,9 @@ import type { StrengthData, StrengthSession, StrengthSet, StrengthTemplate } fro
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { strengthWeekMinutes } from '@/data/dailyDerived';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { defaultUserData } from '@/data/userData';
+import { defaultPlan } from '@/data/weeklyPlan';
 import type { StrengthActions } from '@/data/types';
 import { WeekCard } from '@/ui/daily/cards';
 
@@ -469,11 +469,14 @@ describe('home week card', () => {
 
   it('shows strength minutes as a bar against the weekly goal and seals a met goal', async () => {
     const days = createFixtureDays(FIXTURE_NOW);
-    const minutes = strengthWeekMinutes([DAY_1, DAY_2], days[days.length - 1]?.day ?? '').minutes;
+    const minutes = 50;
     const withGoal = (goal: number): AppDataOverrides =>
-      app(data({ sessions: [DAY_1, DAY_2] }), actions(), { userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: { loadDays: 3, sleepNights: 5, strengthMinutes: goal } } });
+      app(data({ sessions: [DAY_1, DAY_2] }), actions(), {
+        userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: { ...defaultPlan(null), goals: ['strength'], strengthMinutes: goal } },
+      });
     await render(withAppData(<WeekCard days={days} index={days.length - 1} />, 'en', withGoal(minutes + 30)));
     expect(screen.getByTestId('week-strength')).toHaveTextContent(`${minutes}/${minutes + 30} min`);
+    expect(screen.queryByTestId('week-load')).toBeNull();
     expect(screen.getByTestId('week-strength-bar')).toBeTruthy();
     expect(screen.queryByTestId('week-strength-seal')).toBeNull();
     await render(withAppData(<WeekCard days={days} index={days.length - 1} />, 'en', withGoal(Math.max(1, minutes))));

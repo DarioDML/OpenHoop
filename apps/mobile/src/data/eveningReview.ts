@@ -52,6 +52,11 @@ export const JOURNAL_MARKS: Readonly<Record<string, JournalMark>> = {
   water: 'good',
 };
 
+export function isWatchedHabit(questionId: string): boolean {
+  const mark = JOURNAL_MARKS[questionId];
+  return mark === 'late' || mark === 'watch';
+}
+
 export interface JournalRow {
   question: JournalQuestion;
   answer: JournalAnswer;

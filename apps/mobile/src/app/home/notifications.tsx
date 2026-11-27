@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -43,12 +43,30 @@ function stamp(at: number, today: boolean, language: Language): string {
   return date.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-function InboxRow({ entry, today, first }: { entry: InboxEntry; today: boolean; first: boolean }) {
+function targetOf(kind: AlertKind): Href {
+  if (kind === 'digest') return '/home/morning-brief';
+  if (kind === 'goal') return '/plan';
+  return '/settings/device';
+}
+
+function InboxRow({ entry, today, first, onOpen }: { entry: InboxEntry; today: boolean; first: boolean; onOpen: (entry: InboxEntry) => void }) {
   const { t, language } = useT();
   const { colors } = useTheme();
   const text = alertText(language, entry);
   return (
-    <View testID={`inbox-${entry.id}`} style={{ flexDirection: 'row', gap: spacing.lg, paddingVertical: spacing.lg, borderTopWidth: first ? 0 : 1, borderTopColor: colors.border }}>
+    <Pressable
+      testID={`inbox-${entry.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={`${text.title}. ${text.body}${entry.read ? '' : `. ${t('home.notif.unread')}`}`}
+      onPress={() => onOpen(entry)}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        gap: spacing.lg,
+        paddingVertical: spacing.lg,
+        borderTopWidth: first ? 0 : 1,
+        borderTopColor: colors.border,
+        opacity: pressed ? 0.8 : 1,
+      })}>
       <IconTile tile={tileOf(colors, entry.kind)} size={40} />
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
@@ -73,7 +91,7 @@ function InboxRow({ entry, today, first }: { entry: InboxEntry; today: boolean; 
           {text.body}
         </AppText>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -82,12 +100,14 @@ function Group({
   entries,
   today,
   action,
+  onOpen,
   testID,
 }: {
   title: string;
   entries: readonly InboxEntry[];
   today: boolean;
   action?: { label: string; onPress: () => void };
+  onOpen: (entry: InboxEntry) => void;
   testID: string;
 }) {
   if (entries.length === 0) return null;
@@ -106,7 +126,7 @@ function Group({
         )}
       </View>
       {entries.map((entry, i) => (
-        <InboxRow key={entry.id} entry={entry} today={today} first={i === 0} />
+        <InboxRow key={entry.id} entry={entry} today={today} first={i === 0} onOpen={onOpen} />
       ))}
     </View>
   );
@@ -130,6 +150,10 @@ export default function NotificationsScreen() {
   const earlier = shown.filter((entry) => localDay(new Date(entry.at)) !== todayKey);
   const anyUnread = inbox.some((entry) => !entry.read);
   const markAll = anyUnread ? { label: t('home.notif.markAllRead'), onPress: () => void markInboxRead() } : undefined;
+  const open = (entry: InboxEntry): void => {
+    if (!entry.read) void markInboxRead([entry.id]);
+    router.push(targetOf(entry.kind));
+  };
 
   return (
     <Page
@@ -175,8 +199,8 @@ export default function NotificationsScreen() {
         </>
       ) : (
         <View testID="inbox-list" style={{ gap: spacing.sm }}>
-          <Group title={t('home.notif.today')} entries={todays} today action={markAll} testID="group-today" />
-          <Group title={t('home.notif.earlier')} entries={earlier} today={false} action={todays.length === 0 ? markAll : undefined} testID="group-earlier" />
+          <Group title={t('home.notif.today')} entries={todays} today action={markAll} onOpen={open} testID="group-today" />
+          <Group title={t('home.notif.earlier')} entries={earlier} today={false} action={todays.length === 0 ? markAll : undefined} onOpen={open} testID="group-earlier" />
         </View>
       )}
 

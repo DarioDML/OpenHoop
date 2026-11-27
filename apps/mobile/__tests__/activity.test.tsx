@@ -295,14 +295,13 @@ describe('plan', () => {
     await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ weeklyPlan: { ...defaultPlan(null), loadDays: 4 } }));
   });
 
-  it('adds a weekly strength-minutes goal in steps of 15', async () => {
+  it('raises the weekly strength minutes in steps of 15 for the Home week card', async () => {
     const updateUserData = jest.fn(async () => true);
     await render(withAppData(<PlanSetupScreen />, 'en', { updateUserData }));
-    await fireEvent.press(screen.getByTestId('plan-strength-minutes-plus'));
-    await fireEvent.press(screen.getByTestId('plan-strength-minutes-plus'));
-    expect(screen.getByTestId('plan-strength-minutes-value')).toHaveTextContent('30');
+    await fireEvent.press(screen.getByTestId('plan-strength-plus'));
+    await fireEvent.press(screen.getByTestId('plan-strength-plus'));
     await fireEvent.press(screen.getByTestId('plan-save'));
-    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ weeklyPlan: { loadDays: 3, sleepNights: 5, strengthMinutes: 30 } }));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ weeklyPlan: { ...defaultPlan(null), strengthMinutes: defaultPlan(null).strengthMinutes + 30 } }));
   });
 
   it('builds the weekly and monthly reports from real days', async () => {

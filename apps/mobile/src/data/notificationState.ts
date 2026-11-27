@@ -34,7 +34,9 @@ function parseAlert(value: Json | undefined): Alert | null {
     if (goal === undefined || typeof week !== 'string' || !ISO_DAY.test(week) || id !== goalAlertId({ goal, week })) return null;
     if (typeof count !== 'number' || !Number.isInteger(count) || count < 0 || count > 10_000) return null;
     if (typeof target !== 'number' || !Number.isInteger(target) || target <= 0 || target > 10_000) return null;
-    return { kind, id, at, goal, week, count, target };
+    const scoreMin = value.scoreMin === undefined || value.scoreMin === null ? null : score(value.scoreMin, 100);
+    if (goal === 'sleep' && scoreMin === null) return null;
+    return { kind, id, at, goal, week, count, target, scoreMin };
   }
   if (kind === 'dataAtRisk' && id.startsWith('risk:')) {
     const days = typeof value.days === 'number' && Number.isInteger(value.days) && value.days > 0 && value.days <= 3650 ? value.days : null;

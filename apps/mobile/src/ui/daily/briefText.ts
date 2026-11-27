@@ -1,7 +1,8 @@
 import type { DayRecord } from '@openhoop/core';
 
 import { loadTargetBand } from '@/data/activityDerived';
-import { baselineAt, percentFromBaseline, rangeStatus, visibleReadiness } from '@/data/derived';
+import { addDays, baselineAt, percentFromBaseline, rangeStatus, visibleReadiness } from '@/data/derived';
+import { isWatchedHabit } from '@/data/eveningReview';
 import { compareBehaviour } from '@/data/healthDerived';
 import { activeQuestions } from '@/data/journalQuestions';
 import type { JournalAnswer } from '@/data/userData';
@@ -105,9 +106,25 @@ export interface BehaviourLink {
   nWithout: number;
 }
 
-export function worstBehaviour(days: readonly DayRecord[], journal: Record<string, Record<string, JournalAnswer>>, selected: readonly string[] | null): BehaviourLink | null {
+export const HABIT_RECENT_DAYS = 2;
+
+export function loggedRecently(journal: Record<string, Record<string, JournalAnswer>>, questionId: string, today: string): boolean {
+  for (let back = 0; back < HABIT_RECENT_DAYS; back++) {
+    const answer = journal[addDays(today, -back)]?.[questionId];
+    if (answer === true || (typeof answer === 'number' && answer > 0)) return true;
+  }
+  return false;
+}
+
+export function worstBehaviour(
+  days: readonly DayRecord[],
+  journal: Record<string, Record<string, JournalAnswer>>,
+  selected: readonly string[] | null,
+  today: string,
+): BehaviourLink | null {
   let worst: BehaviourLink | null = null;
   for (const question of activeQuestions(selected)) {
+    if (!isWatchedHabit(question.id) || !loggedRecently(journal, question.id, today)) continue;
     const result = compareBehaviour(days, journal, question.id, 'readiness');
     if (!result.enough || result.deltaPct === null || result.deltaPct > -BEHAVIOUR_MIN_DROP_PCT) continue;
     if (worst === null || result.deltaPct < worst.deltaPct) {
@@ -180,7 +197,7 @@ export function morningPlan(
     });
   }
 
-  const habit = worstBehaviour(days.slice(0, index + 1), journal, selectedQuestions);
+  const habit = worstBehaviour(days.slice(0, index + 1), journal, selectedQuestions, day.day);
   if (habit !== null) {
     const pct = formatNumber(Math.abs(habit.deltaPct), 0, language);
     items.push({

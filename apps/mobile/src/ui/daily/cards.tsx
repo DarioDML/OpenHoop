@@ -13,7 +13,9 @@ import { buildingProgress } from '@/data/progress';
 import type { TermId } from '@/data/terms';
 import { caloriesForDay } from '@/data/energyDerived';
 import { stressForDay } from '@/data/stressDerived';
-import { formatHm, formatMinutes, goalMet, mainPeriod, strengthWeekMinutes, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { formatHm, formatMinutes, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { planInputFor } from '@/data/planInput';
+import { defaultPlan, planWeek, type GoalProgress, type PlanGoal, type WeeklyPlan } from '@/data/weeklyPlan';
 import { deviceTzOffsetS } from '@/lib/dates';
 import { confirmedAlarm } from '@/data/alarm';
 import type { AlarmView } from '@/data/types';
@@ -23,6 +25,7 @@ import { formatClock, formatDuration, formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
+import { Button } from '@/ui/controls';
 import { CoachMark } from '@/ui/CoachAsk';
 import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
 import { MetricName } from '@/ui/explain/MetricName';
@@ -33,6 +36,7 @@ import { MetricTile } from '@/ui/MetricTile';
 import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
+import { GoalDots } from '@/ui/plan/GoalDots';
 import { stressColor } from '@/ui/health/StressLevels';
 import { radius, spacing, useTheme, type ColorTokens } from '@/ui/theme';
 
@@ -166,6 +170,9 @@ export function StressCard({ days, index, big = false }: TileCardProps) {
             tone={latest.level === 'low' ? 'positive' : latest.level === 'medium' ? 'warning' : 'negative'}
             testID="stress-tile-level"
           />
+          <AppText variant="caption" muted numeric testID="stress-tile-time">
+            {`${t('stress.at', { time: formatClock(latest.t, day.tzOffsetS) })} · ${t('stress.estimate')}`}
+          </AppText>
         </>
       ) : latest && day && score !== null ? (
         <TileLine
@@ -428,76 +435,137 @@ interface WeekRowProps {
   children: ReactNode;
   value: string;
   met: boolean;
+  caption?: string;
   testID: string;
 }
 
-function WeekRow({ label, a11y, children, value, met, testID }: WeekRowProps) {
+function WeekRow({ label, a11y, children, value, met, caption, testID }: WeekRowProps) {
   const { t } = useT();
   const { colors } = useTheme();
   return (
     <View
       accessible
-      accessibilityLabel={`${a11y}: ${value}${met ? `, ${t('home.week.goalMet')}` : ''}`}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 28 }}>
-      <AppText variant="cap" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ width: 84 }}>
-        {label}
-      </AppText>
-      <View style={{ flex: 1 }}>{children}</View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {met ? <GoalSeal label={t('home.week.goalMet')} testID={`${testID}-seal`} /> : null}
-        <AppText variant="label" numeric color={met ? colors.positive : colors.textMuted} testID={testID}>
-          {value}
+      accessibilityLabel={[`${a11y}: ${value}`, met ? t('home.week.goalMet') : null, caption ?? null].filter((part): part is string => part !== null).join(', ')}
+      style={{ gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 28 }}>
+        <AppText variant="cap" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ width: 84 }}>
+          {label}
         </AppText>
+        <View style={{ flex: 1 }}>{children}</View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {met ? <GoalSeal label={t('home.week.goalMet')} testID={`${testID}-seal`} /> : null}
+          <AppText variant="label" numeric color={met ? colors.positive : colors.textMuted} testID={testID}>
+            {value}
+          </AppText>
+        </View>
       </View>
+      {caption === undefined ? null : (
+        <AppText variant="caption" muted testID={`${testID}-caption`} style={{ paddingLeft: 84 + spacing.md }}>
+          {caption}
+        </AppText>
+      )}
     </View>
+  );
+}
+
+const GOAL_TEST_ID: Readonly<Record<PlanGoal, string>> = { loadDays: 'week-load', sleepScore: 'week-sleep', strength: 'week-strength', steps: 'week-steps' };
+
+function GoalRow({ goal, plan }: { goal: GoalProgress; plan: WeeklyPlan }) {
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  const testID = GOAL_TEST_ID[goal.goal];
+  const met = goal.state === 'met';
+  const fmt = (value: number): string => formatNumber(Math.round(value), 0, language);
+  if (goal.goal === 'loadDays' || goal.goal === 'sleepScore') {
+    const sleep = goal.goal === 'sleepScore';
+    const color = sleep ? colors.purple : colors.metric.loadBright;
+    return (
+      <WeekRow
+        label={sleep ? t('home.week.sleep') : t('score.load')}
+        a11y={t(sleep ? 'plan.goal.sleepScore.title' : 'plan.goal.loadDays.title')}
+        value={t(sleep ? 'plan.count.nights' : 'plan.count.days', { done: goal.done, target: goal.target })}
+        caption={sleep ? t('home.week.sleepRule', { min: plan.sleepScoreMin }) : undefined}
+        met={met}
+        testID={testID}>
+        <GoalDots dots={goal.dots} color={color} label={t(sleep ? 'plan.goal.sleepScore.title' : 'plan.goal.loadDays.title')} testID={`${testID}-dots`} />
+      </WeekRow>
+    );
+  }
+  const strength = goal.goal === 'strength';
+  return (
+    <WeekRow
+      label={strength ? t('strength.week.label') : t('metric.steps')}
+      a11y={t(strength ? 'plan.goal.strength.title' : 'plan.goal.steps.title')}
+      value={
+        strength
+          ? t('plan.count.minutes', { done: goal.done, target: goal.target })
+          : t('plan.count.steps', { done: fmt(goal.measured === 0 ? 0 : goal.done / goal.measured), target: fmt(plan.steps) })
+      }
+      met={met}
+      testID={testID}>
+      <ProgressBar fraction={goal.target <= 0 ? 0 : goal.done / goal.target} color={colors.metric.loadBright} testID={`${testID}-bar`} />
+    </WeekRow>
   );
 }
 
 export function WeekCard({ days, index }: DayProps) {
   const { t } = useT();
   const { colors } = useTheme();
-  const { userData, strength } = useAppData();
+  const { userData, strength, activities, healthConnect } = useAppData();
   const day = days[index];
   if (!day) return null;
+  const plan = userData.weeklyPlan;
+  const input = planInputFor(days, strength.sessions, activities, healthConnect.state.steps, day.day, new Date());
+
+  if (plan !== null && plan.goals.length === 0) {
+    return (
+      <Card testID="card-week" style={{ gap: spacing.md }}>
+        <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
+        <AppText variant="body" muted>
+          {t('home.week.noGoals')}
+        </AppText>
+        <Button label={t('home.week.setUp')} variant="secondary" onPress={() => router.push('/plan/setup')} testID="week-set-up" />
+      </Card>
+    );
+  }
+
+  if (plan !== null) {
+    const week = planWeek(plan, input);
+    return (
+      <Card href="/plan" testID="card-week" accessibilityLabel={t('home.thisWeek')} style={{ gap: spacing.lg }}>
+        <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
+        {week.goals.map((goal) => (
+          <GoalRow key={goal.goal} goal={goal} plan={plan} />
+        ))}
+      </Card>
+    );
+  }
+
   const progress = weekProgress(days, day.day);
   const strengthDots = strengthWeek(strength.sessions, day.day);
-  const strengthTime = strengthWeekMinutes(strength.sessions, day.day);
-  const plan = userData.weeklyPlan;
-  const strengthGoal = plan?.strengthMinutes ?? null;
+  const strengthMinutes = planWeek({ ...defaultPlan(userData.stepsGoal), goals: ['strength'] }, input).goals[0]?.done ?? 0;
   return (
     <Card href="/plan" testID="card-week" accessibilityLabel={t('home.thisWeek')} style={{ gap: spacing.lg }}>
       <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
-      <WeekRow
-        label={t('score.load')}
-        a11y={t('home.weekActive')}
-        value={plan ? t('home.week.days', { count: progress.loadCount, target: plan.loadDays }) : t('home.week.daysCount', { count: progress.loadCount })}
-        met={goalMet(progress.loadCount, plan?.loadDays)}
-        testID="week-load">
+      <WeekRow label={t('score.load')} a11y={t('home.weekActive')} value={t('home.week.daysCount', { count: progress.loadCount })} met={false} testID="week-load">
         <WeekDots dots={progress.loadDots} color={colors.metric.loadBright} />
       </WeekRow>
       <WeekRow
         label={t('home.week.sleep')}
         a11y={t('home.weekSleep')}
-        value={plan ? `${progress.sleepCount}/${plan.sleepNights}` : `${progress.sleepCount}`}
-        met={goalMet(progress.sleepCount, plan?.sleepNights)}
+        value={t('home.week.nightsCount', { count: progress.sleepCount })}
+        caption={t('home.weekSleep')}
+        met={false}
         testID="week-sleep">
         <WeekDots dots={progress.sleepDots} color={colors.purple} />
       </WeekRow>
       <WeekRow
         label={t('strength.week.label')}
         a11y={t('strength.week.label')}
-        value={
-          strengthGoal === null
-            ? t('home.week.strengthNoGoal', { count: strengthDots.count, minutes: strengthTime.minutes })
-            : t('home.week.strengthGoal', { minutes: strengthTime.minutes, goal: strengthGoal })
-        }
-        met={goalMet(strengthTime.minutes, strengthGoal)}
+        value={t('home.week.strengthNoGoal', { count: strengthDots.count, minutes: strengthMinutes })}
+        met={false}
         testID="week-strength">
-        {strengthGoal === null ? (
-          <WeekDots dots={strengthDots.dots} color={colors.metric.loadBright} />
-        ) : (
-          <ProgressBar fraction={strengthTime.minutes / strengthGoal} color={colors.metric.loadBright} testID="week-strength-bar" />
-        )}
+        <WeekDots dots={strengthDots.dots} color={colors.metric.loadBright} />
       </WeekRow>
     </Card>
   );

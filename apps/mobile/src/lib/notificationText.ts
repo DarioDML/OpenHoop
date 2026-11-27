@@ -16,7 +16,7 @@ export function alertText(language: Language, alert: AlertPayload): AlertText {
   if (alert.kind === 'goal') {
     return {
       title: translate(language, `notif.goal.${alert.goal}.title`),
-      body: translate(language, `notif.goal.${alert.goal}.body`, { count: alert.count, target: alert.target }),
+      body: translate(language, `notif.goal.${alert.goal}.body`, { count: alert.count, target: alert.target, score: alert.scoreMin ?? 0 }),
     };
   }
   if (alert.kind === 'dataAtRisk') {

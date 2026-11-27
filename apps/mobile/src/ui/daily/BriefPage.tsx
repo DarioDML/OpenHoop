@@ -67,7 +67,7 @@ function StatChip({ stat }: { stat: BriefStat }) {
       accessibilityRole="button"
       accessibilityLabel={t('brief.statMissing', { label: stat.label, status })}
       onPress={() => why(target)}
-      hitSlop={8}>
+      hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}>
       {body}
     </Pressable>
   );

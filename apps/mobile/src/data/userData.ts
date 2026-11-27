@@ -211,7 +211,7 @@ export function parseUserData(raw: string | null): UserData {
       enabled: notifications.enabled === true,
       morningDigest: typeof notifications.morningDigest === 'boolean' ? notifications.morningDigest : base.notifications.morningDigest,
       syncProblems: typeof notifications.syncProblems === 'boolean' ? notifications.syncProblems : base.notifications.syncProblems,
-      goals: typeof notifications.goals === 'boolean' ? notifications.goals : base.notifications.goals,
+      goals: notifications.goals === true,
       quietStart: clockOr(notifications.quietStart, base.notifications.quietStart),
       quietEnd: clockOr(notifications.quietEnd, base.notifications.quietEnd),
     },

@@ -64,7 +64,7 @@ export default function CommunityScreen() {
           title={t('community.selfHost')}
           subtitle={t('community.selfHostBody')}
           right={<PlugBadge label={t('community.plugin')} />}
-          onPress={() => void Linking.openURL(issueUrl('community'))}
+          onPress={() => void Linking.openURL(issueUrl('community')).catch(() => undefined)}
         />
       </ListGroup>
 

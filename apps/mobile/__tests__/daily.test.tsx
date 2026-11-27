@@ -3,10 +3,12 @@ import type { ReactNode } from 'react';
 
 import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { addDays } from '@/data/derived';
-import { formatLongDay, formatMinutes, goalMet, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, strengthWeekMinutes, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { formatLongDay, formatMinutes, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { defaultPlan } from '@/data/weeklyPlan';
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
 import { moveItem, reorderTarget, shiftFor } from '@/lib/reorder';
-import { worstBehaviour } from '@/ui/daily/briefText';
+import { loggedRecently, morningPlan, worstBehaviour } from '@/ui/daily/briefText';
+import { translate } from '@/i18n';
 import { eveningSummary, journalRows, loadReview, screensOffMinutes, stepsReview } from '@/data/eveningReview';
 import { parseUserData, serializeUserData } from '@/data/userData';
 
@@ -95,22 +97,12 @@ describe('dailyDerived', () => {
     expect(week.recorded).toBeGreaterThan(0);
   });
 
-  it('sums finished strength minutes inside the week only', () => {
-    const session = (id: number, day: string, startedAt: number, endedAt: number | null) => ({ id, templateId: null, name: 'S', day, startedAt, endedAt, exercises: [], sets: [] });
-    const week = strengthWeekMinutes([session(1, '2026-11-23', 0, 2_700), session(2, '2026-11-25', 10_000, 11_800), session(3, '2026-11-16', 0, 3_600), session(4, '2026-11-24', 0, null)], '2026-11-25');
-    expect(week).toEqual({ minutes: 75, sessions: 2 });
-    expect(goalMet(75, 90)).toBe(false);
-    expect(goalMet(90, 90)).toBe(true);
-    expect(goalMet(3, null)).toBe(false);
-    expect(goalMet(0, 0)).toBe(false);
-  });
-
-  it('keeps a weekly strength-minutes goal and drops a bad one', () => {
-    const base = parseUserData(null);
-    const kept = parseUserData(serializeUserData({ ...base, weeklyPlan: { loadDays: 3, sleepNights: 4, strengthMinutes: 90 } }));
-    expect(kept.weeklyPlan).toEqual({ loadDays: 3, sleepNights: 4, strengthMinutes: 90 });
-    const bad = parseUserData(JSON.stringify({ weeklyPlan: { loadDays: 3, sleepNights: 4, strengthMinutes: 9_999 } }));
-    expect(bad.weeklyPlan).toEqual({ loadDays: 3, sleepNights: 4 });
+  it('keeps goal alerts off for people who saved notification settings before they existed', () => {
+    expect(parseUserData(null).notifications.goals).toBe(true);
+    expect(parseUserData(serializeUserData(defaultUserData())).notifications.goals).toBe(true);
+    const older = parseUserData(JSON.stringify({ notifications: { enabled: true, morningDigest: true, syncProblems: true, quietStart: '22:00', quietEnd: '07:00' } }));
+    expect(older.notifications.goals).toBe(false);
+    expect(parseUserData(JSON.stringify({ notifications: { enabled: true, goals: true } })).notifications.goals).toBe(true);
   });
 
   it('works out where a dragged row lands and moves it there', () => {
@@ -239,6 +231,30 @@ describe('Home', () => {
     expect(mockPush).toHaveBeenCalledWith('/sleep/planner');
   });
 
+  it('builds the week card from the weekly plan, one row per goal', async () => {
+    const plan = { ...defaultPlan(null), goals: ['loadDays' as const, 'sleepScore' as const, 'steps' as const], sleepScoreMin: 75 };
+    await render(withAppData(<HomeScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: plan } }));
+    expect(screen.getByTestId('week-load')).toHaveTextContent(/^\d\/3 days$/);
+    expect(screen.getByTestId('week-sleep')).toHaveTextContent(/^\d\/4 nights$/);
+    expect(screen.getByText('A night counts at a sleep score of 75% or more')).toBeTruthy();
+    expect(screen.getByTestId('week-steps-bar')).toBeTruthy();
+    expect(screen.queryByTestId('week-strength')).toBeNull();
+    expect(screen.getByTestId('week-load-dots')).toBeTruthy();
+  });
+
+  it('offers to set up the plan when it has no goals', async () => {
+    await render(withAppData(<HomeScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: { ...defaultPlan(null), goals: [] } } }));
+    await fireEvent.press(screen.getByTestId('week-set-up'));
+    expect(mockPush).toHaveBeenCalledWith('/plan/setup');
+  });
+
+  it('keeps the fixed week rows with a visible sleep definition when there is no plan', async () => {
+    await render(withAppData(<HomeScreen />));
+    expect(screen.getByTestId('week-sleep')).toHaveTextContent(/^\d+ nights$/);
+    expect(screen.getByText('Nights at sleep need')).toBeTruthy();
+    expect(screen.getByTestId('week-strength')).toHaveTextContent(/× · \d+ min$/);
+  });
+
   it('says the alarm is off on the Tonight card when none is set', async () => {
     await render(withAppData(<HomeScreen />));
     expect(screen.getByTestId('tonight-alarm-time')).toHaveTextContent('Off');
@@ -297,6 +313,7 @@ describe('Past day', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/coach', params: { ask: `Ask about ${label}` } });
     expect(screen.getByTestId('vitals-count')).toBeTruthy();
     expect(screen.getByTestId('row-last-sleep')).toBeTruthy();
+    expect(screen.getByTestId('stress-tile-time')).toHaveTextContent(/· Estimate$/);
   });
 
   it('shows the no-data card for unknown or invalid days', async () => {
@@ -402,11 +419,46 @@ describe('Home sub-screens', () => {
       if (next === undefined || next.readiness.value === null) return;
       journal[d.day] = { 'caffeine-late': next.readiness.value < median };
     });
-    const link = worstBehaviour(days, journal, null);
-    expect(link?.questionId).toBe('caffeine-late');
-    await render(withAppData(<MorningBriefScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, journal } }));
+    const today = last?.day ?? '';
+    const logged = { ...journal, [today]: { 'caffeine-late': true } };
+    expect(worstBehaviour(days, logged, null, today)?.questionId).toBe('caffeine-late');
+    await render(withAppData(<MorningBriefScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, journal: logged } }));
     expect(screen.getByTestId('pill-habit')).toHaveTextContent(/^−\d+% readiness$/);
-    expect(worstBehaviour(days, {}, null)).toBeNull();
+    expect(worstBehaviour(days, {}, null, today)).toBeNull();
+  });
+
+  it('builds the morning plan only from real values and flags a habit only when it was just logged and is not a good one', () => {
+    const index = days.length - 1;
+    const t = (key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) => translate('en', key, params);
+    const plan = morningPlan(t, 'en', days, index, {}, null);
+    expect(plan.map((item) => item.id)).toEqual(expect.arrayContaining(['readiness', 'sleep', 'bedtime']));
+    expect(plan.every((item) => item.title.length > 0 && item.reason.length > 0)).toBe(true);
+    expect(plan.find((item) => item.id === 'bedtime')?.pill).toEqual({ label: expect.stringMatching(/^Bedtime \d\d:\d\d$/), tone: 'purple' });
+    expect(plan.some((item) => item.id === 'habit')).toBe(false);
+    expect(morningPlan(t, 'en', [], 0, {}, null)).toEqual([]);
+
+    const recent = days.slice(-30);
+    const values = recent.map((d) => d.readiness.value).filter((v): v is number => v !== null).sort((x, y) => x - y);
+    const median = values[Math.floor(values.length / 2)] ?? 50;
+    const linked = (id: string): Record<string, Record<string, boolean>> => {
+      const out: Record<string, Record<string, boolean>> = {};
+      recent.forEach((d, i) => {
+        const next = recent[i + 1];
+        if (next === undefined || next.readiness.value === null) return;
+        out[d.day] = { [id]: next.readiness.value < median };
+      });
+      return out;
+    };
+    const today = last?.day ?? '';
+    const old = linked('caffeine-late');
+    old[today] = { 'caffeine-late': false };
+    old[addDays(today, -1)] = { 'caffeine-late': false };
+    expect(loggedRecently(old, 'caffeine-late', today)).toBe(false);
+    expect(morningPlan(t, 'en', days, index, old, null).some((item) => item.id === 'habit')).toBe(false);
+    const good = { ...linked('read-before-sleep'), [today]: { 'read-before-sleep': true } };
+    expect(morningPlan(t, 'en', days, index, good, ['read-before-sleep']).some((item) => item.id === 'habit')).toBe(false);
+    const fresh = { ...linked('caffeine-late'), [addDays(today, -1)]: { 'caffeine-late': true } };
+    expect(morningPlan(t, 'en', days, index, fresh, null).find((item) => item.id === 'habit')?.pill?.tone).toBe('warning');
   });
 
   it('reviews the evening with key behaviours, wind-down tips and tonight', async () => {

@@ -66,6 +66,7 @@ function ArrowButton({ icon, label, enabled, onPress, testID }: { icon: 'chevron
       accessibilityState={{ disabled: !enabled }}
       disabled={!enabled}
       onPress={onPress}
+      hitSlop={{ left: 6, right: 6 }}
       style={{ width: 32, height: 44, alignItems: 'center', justifyContent: 'center' }}>
       <Icon name={icon} size={18} strokeWidth={2} color={enabled ? colors.textMuted : colors.surface3} />
     </Pressable>
