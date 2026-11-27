@@ -367,5 +367,17 @@
   "activity.start.band.disconnected": "Niet verbonden",
   "activity.start.band.unpaired": "Geen band gekoppeld",
   "activity.start.band.disconnectedHint": "De band maakt ook verbinding als je start. Houd hem dicht bij je telefoon.",
-  "activity.start.band.connect": "Nu verbinden"
+  "activity.start.band.connect": "Nu verbinden",
+  "activity.live.noHrYet": "Nog geen hartslag",
+  "activity.live.zoneUnknown": "Nog geen hartslag, dus geen zone",
+  "activity.live.zoneA11y": "Hartslagzone {zone}",
+  "activity.live.status.ready": "Klaar",
+  "activity.live.status.recording": "Neemt op",
+  "activity.live.status.ended": "Gestopt",
+  "activity.live.buzz.noTarget": "Geen trilling: er is nog geen doel",
+  "activity.live.buzz.waitingDay": "Trilling wacht op de Belasting van vandaag",
+  "activity.live.buzz.armed": "Trilt bij {value}",
+  "activity.live.buzz.passed": "Al voorbij {value}, dus geen trilling",
+  "activity.live.buzz.buzzed": "Getrild bij {value}",
+  "activity.live.buzz.failed": "De trilling bij {value} kwam niet aan bij de band"
 }

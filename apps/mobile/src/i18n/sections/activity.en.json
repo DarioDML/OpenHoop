@@ -24,7 +24,7 @@
   "activity.start.hr.body": "While the activity runs you see your live heart rate and the zone it falls in, based on your maximum heart rate.",
   "activity.live.elapsed": "Time",
   "activity.live.start": "Start heart rate",
-  "activity.live.stop": "Stop",
+  "activity.live.stop": "End",
   "activity.live.waiting": "Waiting for the band…",
   "activity.live.noZone": "Below zone 1",
   "activity.live.maxHr": "Zones use your heart rate reserve between {rest} and {value} bpm",
@@ -367,5 +367,17 @@
   "activity.start.band.disconnected": "Not connected",
   "activity.start.band.unpaired": "No band paired",
   "activity.start.band.disconnectedHint": "The band also connects when you start. Keep it close to the phone.",
-  "activity.start.band.connect": "Connect now"
+  "activity.start.band.connect": "Connect now",
+  "activity.live.noHrYet": "No heart rate yet",
+  "activity.live.zoneUnknown": "No heart rate yet, so no zone",
+  "activity.live.zoneA11y": "Heart-rate zone {zone}",
+  "activity.live.status.ready": "Ready",
+  "activity.live.status.recording": "Recording",
+  "activity.live.status.ended": "Ended",
+  "activity.live.buzz.noTarget": "No buzz: there is no target yet",
+  "activity.live.buzz.waitingDay": "Buzz waits for today's Load",
+  "activity.live.buzz.armed": "Buzz at {value}",
+  "activity.live.buzz.passed": "Already past {value}, so no buzz",
+  "activity.live.buzz.buzzed": "Buzzed at {value}",
+  "activity.live.buzz.failed": "The buzz at {value} did not reach the band"
 }
