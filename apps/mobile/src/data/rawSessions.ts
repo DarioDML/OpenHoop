@@ -59,6 +59,11 @@ export function deleteRawSession(name: string): void {
   if (file.exists) file.delete();
 }
 
+export function deleteAllRawSessions(): void {
+  const dir = folder();
+  if (dir.exists) dir.delete();
+}
+
 export async function rawSessionExports(): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const session of listRawSessions()) out[`${FOLDER}/${session.name}`] = await new File(folder(), session.name).text();

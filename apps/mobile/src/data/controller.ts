@@ -26,6 +26,7 @@ import {
   pruneRawBefore,
   chargeStartsSince,
   storageStats as readStorageStats,
+  wipeAllData,
   type StorageStats,
   deleteLabResult,
   consoleLinesCsv,
@@ -187,7 +188,7 @@ import { loadTargetBand } from './activityDerived';
 import { planInputFor } from './planInput';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports, type ExportContent } from './exportData';
-import { rawSessionExports } from './rawSessions';
+import { deleteAllRawSessions, rawSessionExports } from './rawSessions';
 import { OPENHOOP_PACKAGE, nativeHealthConnect, type HealthConnectApi } from './healthConnectApi';
 import {
   HEALTH_CONNECT_STATE_KEY,
@@ -2232,18 +2233,18 @@ export class AppController {
     await this.stopLiveInternal();
     try {
       await this.exclusive(async () => {
+        const conn = this.conn;
+        if (conn !== null && conn.session.isConnected && this.snapshot.alarm.armed !== null) await cancelAlarm(conn.session).catch(() => undefined);
         await this.dropConnection();
-        const tables = await app.driver.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'");
-        await app.driver.transaction(async (tx) => {
-          await tx.exec('PRAGMA defer_foreign_keys = ON');
-          for (const { name } of tables) await tx.run(`DELETE FROM "${name.replace(/"/g, '""')}"`);
-        });
+        await wipeAllData(app.driver);
         await app.driver.exec('VACUUM').catch(() => undefined);
       });
+      deleteAllRawSessions();
     } catch (error) {
       this.fail(error);
       return false;
     }
+    this.smartWake.cancel();
     await this.notifier.cancelAll().catch(() => undefined);
     this.notificationState = emptyNotificationState();
     const userData = defaultUserData();

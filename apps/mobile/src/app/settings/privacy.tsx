@@ -10,6 +10,7 @@ import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { isValidIsoDate } from '@/lib/format';
 import { NETWORK_FEATURES, type NetworkFeature } from '@/net/features';
+import { useStrava } from '@/strava/context';
 import { AppText } from '@/ui/AppText';
 import { BigStatRow, BigStatTile } from '@/ui/BigStat';
 import { Card } from '@/ui/Card';
@@ -63,6 +64,7 @@ export default function PrivacyScreen() {
   const [exporting, setExporting] = useState<ExportContent | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
   const retention = userData.rawRetentionDays;
+  const strava = useStrava();
 
   useEffect(() => {
     setOwnerSince(settings.ownerSince ?? '');
@@ -128,7 +130,9 @@ export default function PrivacyScreen() {
 
   const wipe = async (): Promise<void> => {
     setConfirmWipe(false);
-    if (await deleteAllData()) router.replace('/onboarding');
+    if (!(await deleteAllData())) return;
+    await strava.controller.load();
+    router.replace('/onboarding');
   };
 
   const database = stats?.databaseBytes === null || stats === null ? null : sizeParts(stats.databaseBytes, language);

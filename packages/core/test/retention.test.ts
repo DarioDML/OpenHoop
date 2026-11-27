@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { exportJson, openStore, pruneRawBefore, rebuildFromRaw, storageStats } from '../src/index';
+import { SCHEMA_VERSION, exportJson, openStore, pruneRawBefore, rebuildFromRaw, storageStats, wipeAllData } from '../src/index';
 import type { DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 import { decodeRow, simulateDays, toFrame } from './sampleFactory';
@@ -67,5 +67,21 @@ describe('raw data retention', () => {
   it('exports a table as JSON objects with the same columns as the CSV', async () => {
     const parsed: unknown = JSON.parse(await exportJson(store, 'devices'));
     expect(parsed).toEqual([{ id: deviceId, ble_id: 'AA:BB:CC', name: 'Band', model: '5.0', firmware: '50.43.2.0', serial: 'SN1', owner_since: null, config_snapshot: null }]);
+  });
+
+  it('empties every table and keeps the schema version', async () => {
+    await store.setSetting('user.data', '{"name":"A"}');
+    await store.insertSamples([{ ...(rows[0] as SampleRow), source: 'live', chunkId: null }]);
+    const result = await wipeAllData(store.driver);
+    const tables = await store.driver.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'");
+    expect(result.tables).toBe(tables.length);
+    for (const { name } of tables) {
+      const [count] = await store.driver.all<{ n: number }>(`SELECT COUNT(*) AS n FROM "${name}"`);
+      expect({ name, n: count?.n }).toEqual({ name, n: 0 });
+    }
+    const [version] = await store.driver.all<{ user_version: number }>('PRAGMA user_version');
+    expect(version?.user_version).toBe(SCHEMA_VERSION);
+    expect(await store.listDevices()).toEqual([]);
+    expect(await store.getSetting('user.data')).toBeNull();
   });
 });

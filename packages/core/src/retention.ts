@@ -71,3 +71,17 @@ export async function storageStats(driver: SqlDriver): Promise<StorageStats> {
     oldestRawAt: firstNumber(raw, 'oldest'),
   };
 }
+
+export interface WipeResult {
+  tables: number;
+}
+
+// Every table is emptied in one transaction. Foreign keys are checked at commit, when no rows are left, so the order does not matter.
+export async function wipeAllData(driver: SqlDriver): Promise<WipeResult> {
+  const tables = await driver.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'");
+  await driver.transaction(async (tx) => {
+    await tx.exec('PRAGMA defer_foreign_keys = ON');
+    for (const { name } of tables) await tx.run(`DELETE FROM "${name.replace(/"/g, '""')}"`);
+  });
+  return { tables: tables.length };
+}

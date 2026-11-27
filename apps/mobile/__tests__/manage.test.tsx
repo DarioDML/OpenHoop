@@ -401,8 +401,10 @@ describe('Data and privacy', () => {
     await render(withAppData(<PrivacyScreen />, 'en', { exportData }));
     await fireEvent.press(screen.getByTestId('export-button'));
     await waitFor(() => expect(exportData).toHaveBeenCalledWith('all'));
+    await waitFor(() => expect(screen.getByTestId('export-csv').props.accessibilityState.disabled).toBe(false));
     await fireEvent.press(screen.getByTestId('export-csv'));
     await waitFor(() => expect(exportData).toHaveBeenLastCalledWith('csv'));
+    await waitFor(() => expect(screen.getByTestId('export-database').props.accessibilityState.disabled).toBe(false));
     await fireEvent.press(screen.getByTestId('export-database'));
     await waitFor(() => expect(exportData).toHaveBeenLastCalledWith('database'));
   });
