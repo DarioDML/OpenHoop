@@ -60,7 +60,7 @@ export function BedWakeChart({ slice, testID = 'card-bed-wake' }: { slice: reado
                   ) : null}
                 </View>
                 {dayLabels ? (
-                  <AppText variant="caption" color={i === lastIndex ? colors.text : colors.textMuted} style={{ fontSize: 11 }}>
+                  <AppText variant="caption" color={i === lastIndex ? colors.text : colors.textMuted}>
                     {weekday(bar.day, language)}
                   </AppText>
                 ) : null}

@@ -124,6 +124,7 @@ describe('Last night', () => {
     expect(screen.getByTestId('kpi-restorative-value')).toBeTruthy();
     expect(screen.getByTestId('kpi-resp')).toBeTruthy();
     for (const kind of ['wake', 'light', 'deep', 'rem']) expect(screen.getByTestId(`time-in-stage-${kind}-typical`)).toBeTruthy();
+    expect(screen.getByTestId('card-time-in-stage-note')).toHaveTextContent(/vary with age/);
   });
 
   it('flags a stage outside its typical range', async () => {

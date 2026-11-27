@@ -124,7 +124,7 @@ export default function SleepNeedScreen() {
                   }
                 />
                 <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-                  <AppText variant="body" style={{ fontWeight: '500' }}>
+                  <AppText variant="bodyStrong">
                     {row.title}
                   </AppText>
                   <AppText variant="label" muted>

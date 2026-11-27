@@ -26,7 +26,7 @@ export function StatusSegments({ status, testID }: { status: ContributorStatus |
         <View key={segment} style={{ width: 28, height: 4, borderRadius: 2, backgroundColor: segment === status ? statusColor(colors, segment) : colors.surface3 }} />
       ))}
       {status === null ? null : (
-        <AppText variant="caption" color={statusColor(colors, status)} style={{ marginLeft: 6, fontSize: 11, lineHeight: 14 }} testID={testID === undefined ? undefined : `${testID}-word`}>
+        <AppText variant="caption" color={statusColor(colors, status)} style={{ marginLeft: 6 }} testID={testID === undefined ? undefined : `${testID}-word`}>
           {t(`sleepHome.status.${status}`)}
         </AppText>
       )}

@@ -28,6 +28,7 @@ export function NeedBar({ breakdown, height = 14, testID }: { breakdown: NeedBre
     t('sleepHome.need.load', { value: signedHm(breakdown.loadS, '+') }),
     t('sleepHome.need.debt', { value: signedHm(breakdown.debtS, '+') }),
     t('sleepHome.need.naps', { value: signedHm(breakdown.napsS, '−') }),
+    ...(breakdown.otherS === 0 ? [] : [t('sleepHome.need.other', { value: signedHm(Math.abs(breakdown.otherS), breakdown.otherS > 0 ? '+' : '−') })]),
   ].join(', ');
   return (
     <View

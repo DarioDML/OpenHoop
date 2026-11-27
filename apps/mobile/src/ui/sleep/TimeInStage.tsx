@@ -132,6 +132,9 @@ export function TimeInStage({ totals, testID = 'card-time-in-stage' }: { totals:
           {t('lastNight.axisEnd', { hours })}
         </AppText>
       </View>
+      <AppText variant="caption" muted testID={`${testID}-note`}>
+        {t('lastNight.typicalNote')}
+      </AppText>
     </Card>
   );
 }

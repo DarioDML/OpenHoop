@@ -1,4 +1,4 @@
-import { DEFAULT_CALIBRATION, sleepScore, strainNeedMs } from '@openhoop/analytics';
+import { DEFAULT_CALIBRATION, sleepNeedMs, sleepScore, strainNeedMs } from '@openhoop/analytics';
 import type { DayRecord, StageEpochRow } from '@openhoop/core';
 
 import { createFixtureDays } from '@/data/fixtureSource';
@@ -152,6 +152,17 @@ describe('need breakdown', () => {
     const segments = breakdown === null ? [] : needSegments(breakdown);
     expect(segments.map((s) => s.id)).toEqual(['baseline', 'load', 'debt']);
     expect(segments.reduce((sum, s) => sum + s.seconds, 0)).toBeCloseTo(total, 6);
+  });
+
+  it('matches the need the analytics model computes, so any drift between the two fails', () => {
+    for (const [load, debtS, napS] of [[0, 0, 0], [14.2, 3_100, 0], [6.5, 0, 1_800], [21, 7_668, 2_400]] as const) {
+      const nap = { onset: before.start + 13 * 3600, offset: before.start + 13 * 3600 + napS, asleepS: napS, inBedS: napS, nap: true, source: 'detected' as const, editId: null };
+      const previous = withNeed(before, { debt: derived(debtS), periods: [...before.sleep.periods.filter((p) => !p.nap), ...(napS > 0 ? [nap] : [])] }, { load: derived(load) });
+      const total = sleepNeedMs({ debtMs: debtS * 1000, load, napMs: napS * 1000 }) / 1000;
+      const breakdown = needBreakdown([previous, withNeed(base, { need: derived(total) })], 1);
+      expect(breakdown?.otherS).toBe(0);
+      expect(needSegments(breakdown ?? { totalS: 0, baselineS: 0, loadS: 0, debtS: 0, napsS: 0, otherS: 0, load: null, napCount: 0 }).reduce((sum, seg) => sum + seg.seconds, 0)).toBeCloseTo(total, 6);
+    }
   });
 
   it('shows what the parts do not explain and stays empty without a need', () => {
