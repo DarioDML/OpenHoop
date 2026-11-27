@@ -52,6 +52,25 @@ beforeEach(() => {
   mockParams.value = {};
 });
 
+describe('coach pre-fill from a term', () => {
+  it('puts the question in the draft without sending it', async () => {
+    mockParams.value = { term: 'hrv' };
+    const { controller, send } = makeController();
+    await controller.load();
+    await render(withCoach(<CoachScreen />, controller));
+    expect(screen.getByTestId('coach-input').props.value).toBe('Explain this to me with my own numbers: HRV.');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('ignores an unknown term', async () => {
+    mockParams.value = { term: 'bogus' };
+    const { controller } = makeController();
+    await controller.load();
+    await render(withCoach(<CoachScreen />, controller));
+    expect(screen.getByTestId('coach-input').props.value).toBe('');
+  });
+});
+
 describe('coach chat', () => {
   it('shows an honest off state and never calls the API when the network is off', async () => {
     const { controller, send } = makeController();

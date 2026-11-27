@@ -160,5 +160,15 @@
   "brief.readinessHidden": "Readiness appears after {count} more nights.",
   "brief.readinessHiddenOne": "Readiness appears after 1 more night.",
   "widget.nightsLeft": "{count} nights left",
-  "widget.nightsLeftOne": "1 night left"
+  "widget.nightsLeftOne": "1 night left",
+  "explain.whatIs": "What is {name}?",
+  "explain.yourNight": "Your night",
+  "explain.today": "Today",
+  "explain.thatDay": "That day",
+  "explain.askCoach": "Ask the coach about this ›",
+  "explain.allTerms": "All terms ›",
+  "explain.rangeAfter": "Your usual range shows after {count} nights",
+  "explain.coachQuestion": "Explain this to me with my own numbers: {name}.",
+  "explain.dots": "{have} of {need} nights",
+  "explain.dotsDays": "{have} of {need} days"
 }

@@ -160,5 +160,15 @@
   "brief.readinessHidden": "Paraatheid verschijnt na nog {count} nachten.",
   "brief.readinessHiddenOne": "Paraatheid verschijnt na nog 1 nacht.",
   "widget.nightsLeft": "Nog {count} nachten",
-  "widget.nightsLeftOne": "Nog 1 nacht"
+  "widget.nightsLeftOne": "Nog 1 nacht",
+  "explain.whatIs": "Wat is {name}?",
+  "explain.yourNight": "Jouw nacht",
+  "explain.today": "Vandaag",
+  "explain.thatDay": "Die dag",
+  "explain.askCoach": "Vraag de coach hiernaar ›",
+  "explain.allTerms": "Alle begrippen ›",
+  "explain.rangeAfter": "Je gewone bereik verschijnt na {count} nachten",
+  "explain.coachQuestion": "Leg dit uit met mijn eigen cijfers: {name}.",
+  "explain.dots": "{have} van {need} nachten",
+  "explain.dotsDays": "{have} van {need} dagen"
 }

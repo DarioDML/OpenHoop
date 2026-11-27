@@ -7,6 +7,8 @@ import type { AlarmActions, AppData, BandActions, EcgActions, Language, LiveData
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 
+import { ExplainProvider } from '@/ui/explain/ExplainProvider';
+
 import { StravaHost, makeStrava } from './strava';
 
 export const FIXTURE_NOW = new Date('2026-11-25T12:00:00Z');
@@ -149,11 +151,13 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
   };
 }
 
-export function withAppData(children: ReactNode, language: Language = 'en', overrides: AppDataOverrides = {}): ReactElement {
+export function withAppData(children: ReactNode, language: Language = 'en', overrides: AppDataOverrides = {}, nowS?: number): ReactElement {
   return (
     <LiveDataContext.Provider value={staticLiveStore(fixtureLiveData(overrides))}>
       <AppDataContext.Provider value={fixtureAppData(language, overrides)}>
-        <StravaHost controller={makeStrava().controller}>{children}</StravaHost>
+        <StravaHost controller={makeStrava().controller}>
+          <ExplainProvider now={nowS === undefined ? undefined : () => nowS}>{children}</ExplainProvider>
+        </StravaHost>
       </AppDataContext.Provider>
     </LiveDataContext.Provider>
   );

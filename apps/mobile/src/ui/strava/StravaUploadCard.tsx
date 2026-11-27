@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Modal, ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 import type { ActivityEntry } from '@/data/activities';
 import { useAppData } from '@/data/context';
@@ -16,7 +16,8 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Button, Toggle } from '@/ui/controls';
-import { radius, spacing, useTheme } from '@/ui/theme';
+import { Sheet } from '@/ui/Sheet';
+import { spacing, useTheme } from '@/ui/theme';
 
 import { stravaErrorKey } from './status';
 
@@ -140,62 +141,59 @@ export function StravaUploadCard({ entry, title, tzOffsetS }: Props) {
         )
       ) : null}
 
-      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)} statusBarTranslucent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.sheet, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.xl, gap: spacing.lg, maxHeight: '85%' }} testID="strava-upload-sheet">
-            <ScrollView contentContainerStyle={{ gap: spacing.md }}>
-              <AppText variant="cardTitle" accessibilityRole="header">
-                {t('strava.upload.title')}
-              </AppText>
-              <AppText variant="body" testID="strava-upload-sends">
-                {t('strava.upload.sends', {
-                  start: `${formatShortDay(day, language)} ${formatClock(entry.start, tzOffsetS)}`,
-                  duration: formatDuration(t, Math.max(0, entry.end - entry.start)),
-                  type: stravaSportType(entry.type),
-                  name: title,
-                })}
-              </AppText>
-              {loaded === null ? null : (
-                <>
-                  <AppText variant="label" muted testID="strava-upload-hr">
-                    {heartRate.length > 0 ? t('strava.upload.heartRate', { count: heartRate.length }) : t('strava.upload.noHeartRate')}
-                  </AppText>
-                  <AppText variant="label" muted testID="strava-upload-route">
-                    {shownRoute.length > 0 ? t('strava.upload.route', { count: shownRoute.length }) : t('strava.upload.noRoute')}
-                  </AppText>
-                  {fullRoute.length > 0 ? (
-                    <>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                        <AppText variant="label" style={{ flex: 1 }}>
-                          {t('strava.upload.hideEnds')}
-                        </AppText>
-                        <Toggle label={t('strava.upload.hideEnds')} value={hideEnds} onChange={setHideEnds} testID="strava-upload-hide" />
-                      </View>
-                      {hideEnds ? (
-                        <AppText variant="caption" muted testID="strava-upload-hidden">
-                          {shownRoute.length > 0 ? t('strava.upload.hidden') : t('strava.upload.hiddenAll')}
-                        </AppText>
-                      ) : null}
-                    </>
-                  ) : null}
-                  {plan?.kind === 'manual' ? (
-                    <AppText variant="caption" muted testID="strava-upload-manual">
-                      {t('strava.upload.manual')}
-                    </AppText>
-                  ) : null}
-                  <AppText variant="caption" muted>
-                    {t('strava.upload.notNoted')}
-                  </AppText>
-                </>
-              )}
-            </ScrollView>
-            <View style={{ gap: spacing.sm }}>
-              <Button label={t('strava.upload.confirm')} disabled={plan === null} onPress={() => void upload()} testID="strava-upload-confirm" />
-              <Button label={t('strava.upload.cancel')} variant="secondary" onPress={() => setOpen(false)} testID="strava-upload-cancel" />
-            </View>
+      <Sheet
+        visible={open}
+        onClose={() => setOpen(false)}
+        title={t('strava.upload.title')}
+        testID="strava-upload-sheet"
+        footer={
+          <View style={{ gap: spacing.sm }}>
+            <Button label={t('strava.upload.confirm')} disabled={plan === null} onPress={() => void upload()} testID="strava-upload-confirm" />
+            <Button label={t('strava.upload.cancel')} variant="secondary" onPress={() => setOpen(false)} testID="strava-upload-cancel" />
           </View>
-        </View>
-      </Modal>
+        }>
+        <AppText variant="body" testID="strava-upload-sends">
+          {t('strava.upload.sends', {
+            start: `${formatShortDay(day, language)} ${formatClock(entry.start, tzOffsetS)}`,
+            duration: formatDuration(t, Math.max(0, entry.end - entry.start)),
+            type: stravaSportType(entry.type),
+            name: title,
+          })}
+        </AppText>
+        {loaded === null ? null : (
+          <>
+            <AppText variant="label" muted testID="strava-upload-hr">
+              {heartRate.length > 0 ? t('strava.upload.heartRate', { count: heartRate.length }) : t('strava.upload.noHeartRate')}
+            </AppText>
+            <AppText variant="label" muted testID="strava-upload-route">
+              {shownRoute.length > 0 ? t('strava.upload.route', { count: shownRoute.length }) : t('strava.upload.noRoute')}
+            </AppText>
+            {fullRoute.length > 0 ? (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                  <AppText variant="label" style={{ flex: 1 }}>
+                    {t('strava.upload.hideEnds')}
+                  </AppText>
+                  <Toggle label={t('strava.upload.hideEnds')} value={hideEnds} onChange={setHideEnds} testID="strava-upload-hide" />
+                </View>
+                {hideEnds ? (
+                  <AppText variant="caption" muted testID="strava-upload-hidden">
+                    {shownRoute.length > 0 ? t('strava.upload.hidden') : t('strava.upload.hiddenAll')}
+                  </AppText>
+                ) : null}
+              </>
+            ) : null}
+            {plan?.kind === 'manual' ? (
+              <AppText variant="caption" muted testID="strava-upload-manual">
+                {t('strava.upload.manual')}
+              </AppText>
+            ) : null}
+            <AppText variant="caption" muted>
+              {t('strava.upload.notNoted')}
+            </AppText>
+          </>
+        )}
+      </Sheet>
     </Card>
   );
 }
