@@ -110,16 +110,19 @@ export default function MetricDetailScreen() {
                   {heroValue}
                 </Num>
               )}
-              {chip ? (
+              {chip && !temp ? (
                 <View style={{ paddingBottom: 6 }}>
                   <Chip label={chip.label} tone={chip.tone} testID={chip.testID} />
                 </View>
               ) : null}
             </View>
             {temp && valueText !== null ? (
-              <AppText variant="label" muted testID="metric-absolute">
-                {t('metricScreen.measuredTemp', { value: withUnit(valueText) })}
-              </AppText>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm }}>
+                <AppText variant="label" muted testID="metric-absolute">
+                  {t('metricScreen.measuredTemp', { value: withUnit(valueText) })}
+                </AppText>
+                {chip ? <Chip label={chip.label} tone={chip.tone} testID={chip.testID} /> : null}
+              </View>
             ) : null}
           </View>
         </View>

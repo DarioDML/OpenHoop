@@ -52,7 +52,7 @@ export function ContributorRow({ name, caption, value, unit, chip, href, explain
             testID={`${testID}-name`}
             accessibilityRole="button"
             accessibilityLabel={t('explain.whatIs', { name })}
-            hitSlop={12}
+            hitSlop={13}
             onPress={() => about(explain)}
             style={{ padding: 2 }}>
             <Icon name="info" size={14} color={colors.textMuted} />

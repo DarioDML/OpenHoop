@@ -62,6 +62,7 @@ export function rankBehaviourImpacts(
   for (const question of questions) {
     const comparison = compareBehaviour(days, journal, question.id, metric, minDays);
     if (!comparison.enough) {
+      if (comparison.nWith + comparison.nWithout === 0) continue;
       const side = comparison.nWith < minDays ? 'with' : 'without';
       needsMore.push({ questionId: question.id, side, have: side === 'with' ? comparison.nWith : comparison.nWithout, need: minDays });
       continue;

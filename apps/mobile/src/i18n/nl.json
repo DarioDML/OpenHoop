@@ -77,8 +77,6 @@
   "readiness.points": "{value} punten",
   "readiness.howTitle": "Zo wordt het berekend",
   "readiness.howBody": "Paraatheid vergelijkt je nacht met jouw eigen normaal. Drie signalen tellen mee: je HRV (hoger dan je gemiddelde is gunstig), je slaap (de slaapscore) en je rusthartslag (lager dan je gemiddelde is gunstig). Elk signaal levert punten op of kost punten. Samen geven ze een getal van 0 tot 100.",
-  "readiness.modelTitle": "Een gefit model, geen meting",
-  "readiness.modelBody": "De formule is gefit op de uitkomsten van een ander product en kan voor jou afwijken. Gebruik de score om je eigen verloop te volgen, niet als medisch oordeel.",
   "load.scale": "Schaal van 0 tot 21",
   "load.zones": "Tijd per hartslagzone",
   "load.zonesTotal": "Totaal {time}",

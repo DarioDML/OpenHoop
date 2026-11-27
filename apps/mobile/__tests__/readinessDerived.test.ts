@@ -2,6 +2,7 @@ import type { DayRecord } from '@openhoop/core';
 
 import { addDays } from '@/data/derived';
 import { createFixtureDays } from '@/data/fixtureSource';
+import { readinessBand } from '@/ui/theme';
 import { bandOf, contributorDelta, loadAimRange, lowestReadinessDay, readinessBars, readinessVerdict } from '@/data/readinessDerived';
 
 const base = createFixtureDays(new Date('2026-11-25T12:00:00Z'));
@@ -24,6 +25,10 @@ describe('readiness bands and verdict', () => {
     expect(bandOf(34)).toBe('medium');
     expect(bandOf(33)).toBe('low');
     expect(bandOf(null)).toBeNull();
+    for (let value = 0; value <= 100; value += 0.5) {
+      const ring = readinessBand(value);
+      expect(bandOf(value)).toBe(ring === null ? null : ring);
+    }
   });
 
   it('names the contributor that cost the most points', () => {

@@ -48,6 +48,12 @@ describe('journal impacts', () => {
     expect(rankBehaviourImpacts(days, always, [sauna]).needsMore).toEqual([{ questionId: 'sauna', side: 'without', have: 0, need: 5 }]);
   });
 
+  it('leaves out behaviours that were never logged', () => {
+    const sauna = findQuestion('sauna');
+    if (sauna === undefined) throw new Error('missing question');
+    expect(rankBehaviourImpacts(days, {}, [sauna]).needsMore).toEqual([]);
+  });
+
   it('grades confidence by group size and spread', () => {
     expect(impactConfidence([60, 61, 59, 60, 60], [60, 59, 61, 60, 60])).toBe('low');
     expect(impactConfidence([70, 72, 68, 71, 69], [60, 62, 58, 61, 59])).toBe('medium');

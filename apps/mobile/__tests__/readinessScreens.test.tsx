@@ -169,7 +169,7 @@ describe('Readiness impacts', () => {
     expect(screen.getByTestId('behaviour-sauna-caption')).toHaveTextContent(/^\d+ logged days · (High|Medium|Low) confidence$/);
     expect(screen.getByTestId('behaviour-sauna-bar')).toBeTruthy();
     expect(screen.getByTestId('needs-late-meal')).toHaveTextContent('Late meal: 2 of 5 days logged.');
-    expect(screen.getByTestId('needs-melatonin')).toHaveTextContent('Melatonin: 0 of 5 days logged.');
+    expect(screen.queryByTestId('needs-melatonin')).toBeNull();
   });
 
   it('explains how impacts work from the header', async () => {
