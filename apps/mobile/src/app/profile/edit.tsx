@@ -1,6 +1,6 @@
 import { isZoneFloors, ZONE_EDGES_PERCENT, type ZoneFloors } from '@openhoop/analytics';
 import { useState, type ReactNode } from 'react';
-import { View } from 'react-native';
+import { TextInput, View } from 'react-native';
 
 import { parseDecimal, parseWholeNumber } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
@@ -29,7 +29,7 @@ import { Field, Segmented } from '@/ui/controls';
 import { CapHeader } from '@/ui/ListGroup';
 import { Num } from '@/ui/Num';
 import { Screen } from '@/ui/Screen';
-import { radius, spacing, useTheme } from '@/ui/theme';
+import { fonts, radius, spacing, useTheme } from '@/ui/theme';
 import { IconButton, TopBar } from '@/ui/TopBar';
 
 type SaveState = 'idle' | 'saved' | 'invalid' | 'zonesInvalid';
@@ -326,20 +326,30 @@ export default function EditProfileScreen() {
                 </AppText>
               </View>
               {zoneMode === 'custom' ? (
-                <View style={{ width: 96 }}>
-                  <Field
-                    label={t('profile.zones.floorLabel', { zone })}
-                    value={floors[i] ?? ''}
-                    onChangeText={(text) => {
-                      setFloors((current) => current.map((v, k) => (k === i ? text : v)));
-                      setState('idle');
-                    }}
-                    keyboardType="number-pad"
-                    maxLength={3}
-                    suffix={t('unit.bpm')}
-                    testID={`zone-floor-${zone}`}
-                  />
-                </View>
+                <TextInput
+                  accessibilityLabel={t('profile.zones.floorLabel', { zone })}
+                  value={floors[i] ?? ''}
+                  onChangeText={(text) => {
+                    setFloors((current) => current.map((v, k) => (k === i ? text : v)));
+                    setState('idle');
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  placeholderTextColor={colors.textFaint}
+                  testID={`zone-floor-${zone}`}
+                  style={{
+                    width: 64,
+                    minHeight: 44,
+                    borderRadius: radius.sm,
+                    borderWidth: 1,
+                    borderColor: colors.borderStrong,
+                    backgroundColor: colors.surfaceAlt,
+                    color: colors.text,
+                    textAlign: 'center',
+                    fontSize: 16,
+                    fontFamily: fonts.regular,
+                  }}
+                />
               ) : null}
               {range !== null ? (
                 <Num size={20} unit={t('unit.bpm')} unitSize={9} unitColor={colors.textMuted} testID={`zone-range-${zone}`}>
