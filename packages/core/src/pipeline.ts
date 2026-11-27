@@ -685,11 +685,8 @@ export async function rebuildFromRaw(store: Store, deviceId: number): Promise<{ 
     const inner = bindStore(tx);
     const device = await inner.getDevice(deviceId);
     const ownerSince = device?.ownerSince ?? null;
-    await inner.deleteSamples(deviceId, 'history');
-    await inner.clearDerived(deviceId);
     const chunkIds = await inner.listChunkIds(deviceId);
-    let samples = 0;
-    for (const chunkId of chunkIds) {
+    const decodeChunkRows = async (chunkId: number): Promise<{ rows: SampleRow[]; packRows: PackEventRow[] }> => {
       const rows: SampleRow[] = [];
       const packRows: PackEventRow[] = [];
       for (const frame of await inner.readChunkFrames(chunkId)) {
@@ -701,6 +698,18 @@ export async function rebuildFromRaw(store: Store, deviceId: number): Promise<{ 
         if (row === null || (ownerSince !== null && row.t < ownerSince)) continue;
         rows.push({ ...row, source: 'history' });
       }
+      return { rows, packRows };
+    };
+    // History older than every remaining raw chunk was decoded from bytes that retention removed, so it cannot be rebuilt and stays.
+    let covered: number | null = null;
+    for (const chunkId of chunkIds) {
+      for (const row of (await decodeChunkRows(chunkId)).rows) covered = covered === null ? row.t : Math.min(covered, row.t);
+    }
+    await tx.run("DELETE FROM samples_1hz WHERE device_id = ? AND source = 'history' AND (chunk_id IS NOT NULL OR t >= ?)", [deviceId, covered ?? Number.MAX_SAFE_INTEGER]);
+    await inner.clearDerived(deviceId);
+    let samples = 0;
+    for (const chunkId of chunkIds) {
+      const { rows, packRows } = await decodeChunkRows(chunkId);
       samples += await inner.insertSamples(rows);
       await inner.insertPackEvents(packRows, chunkId);
     }

@@ -223,6 +223,20 @@ export async function exportCsv(store: Store, table: ExportTable): Promise<strin
   return csvText(spec.columns, rows);
 }
 
+function jsonValue(value: SqlValue | undefined): string | number | null {
+  if (value === null || value === undefined || value instanceof Uint8Array) return null;
+  return value;
+}
+
+export async function exportJson(store: Store, table: ExportTable): Promise<string> {
+  if (!Object.prototype.hasOwnProperty.call(EXPORTS, table)) throw new Error(`Table cannot be exported: ${String(table)}`);
+  const spec = EXPORTS[table];
+  const rows = await store.driver.all<Record<string, SqlValue>>(`SELECT ${spec.select} FROM ${table} ORDER BY ${spec.order}`);
+  const objects = rows.map((row) => Object.fromEntries(spec.columns.map((column) => [column, jsonValue(row[column])])));
+  return `${JSON.stringify(objects)}
+`;
+}
+
 export async function consoleLinesCsv(store: Store): Promise<string> {
   const devices = await store.driver.all<{ id: number }>('SELECT DISTINCT device_id AS id FROM console_log ORDER BY device_id');
   const lines = ['device_id,t,text'];

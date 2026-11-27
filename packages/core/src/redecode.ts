@@ -1,8 +1,8 @@
 import { rebuildFromRaw } from './pipeline';
 import type { Store } from './store/types';
+import { DAY_RECORD_VERSION, SAMPLE_DECODER_VERSION } from './versions';
 
-// Bump when a decoder change alters what is stored from the same frames (samples or battery pack events); stored data is then re-decoded.
-export const SAMPLE_DECODER_VERSION = 2;
+export { DAY_RECORD_VERSION, SAMPLE_DECODER_VERSION };
 export const SAMPLE_DECODER_VERSION_KEY = 'samples.decoderVersion';
 
 function storedVersion(text: string | null): number {
@@ -29,8 +29,6 @@ export async function rebuildStaleSamples(store: Store, recompute: (deviceId: nu
   return rebuilt;
 }
 
-// Bump when day records gain or change a value, so stored days are recomputed once.
-export const DAY_RECORD_VERSION = 4;
 export const DAY_RECORD_VERSION_KEY = 'days.recordVersion';
 
 export async function recomputeStaleDays(store: Store, recompute: (deviceId: number) => Promise<void>): Promise<number[]> {
