@@ -343,5 +343,7 @@
   "loadScreen.usual.within": "Today: within your usual range",
   "loadScreen.usual.above": "Today: above your usual range",
   "loadScreen.usual.below": "Today: below your usual range",
-  "loadTarget.estimateFar": "More than {hours} h in zone 2–3 gets you there."
+  "loadTarget.estimateFar": "More than {hours} h in zone 2–3 gets you there.",
+  "activity.add.recent": "Recent",
+  "activity.add.recentNone": "Activities you log or record show up here for a quick pick."
 }

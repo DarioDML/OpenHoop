@@ -343,5 +343,7 @@
   "loadScreen.usual.within": "Vandaag: binnen je gebruikelijke bereik",
   "loadScreen.usual.above": "Vandaag: boven je gebruikelijke bereik",
   "loadScreen.usual.below": "Vandaag: onder je gebruikelijke bereik",
-  "loadTarget.estimateFar": "Meer dan {hours} u in zone 2–3 brengt je er."
+  "loadTarget.estimateFar": "Meer dan {hours} u in zone 2–3 brengt je er.",
+  "activity.add.recent": "Recent",
+  "activity.add.recentNone": "Activiteiten die je invoert of opneemt, staan hier klaar om snel te kiezen."
 }

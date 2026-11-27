@@ -223,6 +223,24 @@ export function keepSeconds(original: { start: number; end: number }, edited: { 
   return end > start ? { start, end } : edited;
 }
 
+export const RECENT_TYPES_MAX = 5;
+
+export function recentActivityTypes(rows: readonly ActivityRow[], limit: number = RECENT_TYPES_MAX): ActivityType[] {
+  const out: ActivityType[] = [];
+  const newestFirst = rows.filter((r) => r.deletedAt === null && isActivityType(r.type)).sort((a, b) => b.start - a.start);
+  for (const row of newestFirst) {
+    if (out.length >= limit) break;
+    const type = toActivityType(row.type);
+    if (!out.includes(type)) out.push(type);
+  }
+  return out;
+}
+
+export function matchesActivitySearch(label: string, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  return needle === '' || label.toLowerCase().includes(needle);
+}
+
 export function defaultForm(type: ActivityType, nowS: number, tzOffsetS: number): ActivityForm {
   const end = Math.floor(nowS / 300) * 300;
   return formFor(type, end - 3600, end, null, tzOffsetS);
