@@ -50,7 +50,6 @@
   "activity.edit.type": "Activiteit",
   "activity.edit.start": "Start",
   "activity.edit.end": "Einde",
-  "loadx.levelNote": "Belasting wordt berekend uit je hartslagzones. Het is een eigen methode, niet vergelijkbaar met andere apps.",
   "loadx.noValue": "–",
   "loadx.addActivity": "Activiteit toevoegen",
   "loadx.hr.min": "Laagste",
@@ -285,5 +284,15 @@
   "term.loadTarget.name": "Belastingdoel",
   "term.loadTarget.full": "Waar je belasting vandaag moet uitkomen",
   "term.loadTarget.line": "Het bereik waarin je Belasting vandaag moet uitkomen: je gebruikelijke bereik, versmald door je paraatheid van vandaag.",
-  "term.loadTarget.body": "Je belastingdoel begint bij je gebruikelijke Belasting: je gemiddelde van de voorgaande dagen, plus en min één standaarddeviatie. Je paraatheid van vandaag versmalt het: de onderste helft op een lage dag, het midden op een gemiddelde dag en de bovenste helft op een hoge dag. Zonder paraatheid telt het hele gebruikelijke bereik."
+  "term.loadTarget.body": "Je belastingdoel begint bij je gebruikelijke Belasting: je gemiddelde van de voorgaande dagen, plus en min één standaarddeviatie. Je paraatheid van vandaag versmalt het: de onderste helft op een lage dag, het midden op een gemiddelde dag en de bovenste helft op een hoge dag. Zonder paraatheid telt het hele gebruikelijke bereik.",
+  "loadTarget.ring.live": "Live belasting",
+  "loadTarget.ring.soFar": "Belasting tot nu toe",
+  "loadTarget.progress.title": "Voortgang naar doel",
+  "loadTarget.progress.a11y": "{percent}% van de weg naar {low}",
+  "loadTarget.estimate": "Ongeveer {minutes} min in zone 2–3 brengt je er.",
+  "loadTarget.basis": "Geschat op {hr} bpm, je gebruikelijke hartslag in zone 2–3.",
+  "loadTarget.reached": "Je hebt het doel van vandaag gehaald. De bovengrens is {high}.",
+  "loadTarget.above": "Je bent over de bovengrens van je doel ({high}).",
+  "loadTarget.today": "Doel vandaag: {low}–{high}",
+  "loadTarget.levelNote": "Wordt bijgewerkt na elke synchronisatie en elke paar seconden tijdens een live activiteit. Spierbelasting telt nog niet mee."
 }

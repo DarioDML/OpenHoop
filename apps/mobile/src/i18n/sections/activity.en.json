@@ -50,7 +50,6 @@
   "activity.edit.type": "Activity",
   "activity.edit.start": "Start",
   "activity.edit.end": "End",
-  "loadx.levelNote": "Load is calculated from your heart rate zones. It is an own method, not comparable to other apps.",
   "loadx.noValue": "–",
   "loadx.addActivity": "Add activity",
   "loadx.hr.min": "Lowest",
@@ -285,5 +284,15 @@
   "term.loadTarget.name": "Load target",
   "term.loadTarget.full": "Where today's load should land",
   "term.loadTarget.line": "The range your Load should land in today: your usual range, narrowed by today's readiness.",
-  "term.loadTarget.body": "Your load target starts from your usual Load: your average over the previous days, plus and minus one standard deviation. Today's readiness then narrows it: the lower half on a low day, the middle on a medium day and the upper half on a high day. Without readiness the whole usual range counts."
+  "term.loadTarget.body": "Your load target starts from your usual Load: your average over the previous days, plus and minus one standard deviation. Today's readiness then narrows it: the lower half on a low day, the middle on a medium day and the upper half on a high day. Without readiness the whole usual range counts.",
+  "loadTarget.ring.live": "Live load",
+  "loadTarget.ring.soFar": "Load so far",
+  "loadTarget.progress.title": "Progress to target",
+  "loadTarget.progress.a11y": "{percent}% of the way to {low}",
+  "loadTarget.estimate": "About {minutes} min in zone 2–3 gets you there.",
+  "loadTarget.basis": "Estimated at {hr} bpm, your usual heart rate in zone 2–3.",
+  "loadTarget.reached": "You reached today's target. The top is {high}.",
+  "loadTarget.above": "You passed the top of today's target ({high}).",
+  "loadTarget.today": "Today's target: {low}–{high}",
+  "loadTarget.levelNote": "Updates after each sync, and every few seconds during a live activity. Muscular load is not included yet."
 }

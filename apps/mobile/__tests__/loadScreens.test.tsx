@@ -22,6 +22,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import LoadScreen from '@/app/load/index';
+import LoadTargetScreen from '@/app/load/target';
 
 const days = createFixtureDays(FIXTURE_NOW);
 
@@ -139,5 +140,66 @@ describe('Load screen', () => {
     expect(router.push).toHaveBeenCalledWith('/steps');
     await fireEvent.press(screen.getByTestId('load-target-card'));
     expect(router.push).toHaveBeenCalledWith('/load/target');
+  });
+});
+
+describe('Load target screen', () => {
+  it('shows progress to the target with a time estimate', async () => {
+    const list = withLoad(1);
+    const aim = aimAt(list, list.length - 1);
+    await render(withAppData(<LoadTargetScreen />, 'en', { days: list }));
+    expect(within(screen.getByTestId('target-ring')).getByText('1.0')).toBeTruthy();
+    expect(screen.getByTestId('target-progress-percent')).toHaveTextContent(`${Math.round((1 / (aim?.low ?? 1)) * 100)}%`);
+    expect(screen.getByTestId('target-estimate')).toHaveTextContent(/^About \d+ min in zone 2–3 gets you there\.$/);
+    expect(screen.getByTestId('target-basis')).toHaveTextContent(/^Estimated at \d+ bpm/);
+    expect(screen.getByTestId('target-pill-text')).toHaveTextContent(/to go$/);
+    expect(screen.getByTestId('target-today')).toHaveTextContent(`Today's target: ${aim?.low.toFixed(1)}–${aim?.high.toFixed(1)}`);
+  });
+
+  it('says when the target is reached or passed', async () => {
+    const list = withLoad(20.9);
+    const aim = aimAt(list, list.length - 1);
+    const view = await render(withAppData(<LoadTargetScreen />, 'en', { days: list }));
+    expect(screen.getByTestId('target-estimate')).toHaveTextContent(`You passed the top of today's target (${aim?.high.toFixed(1)}).`);
+    expect(screen.getByTestId('target-progress-percent')).toHaveTextContent('100%');
+    expect(screen.queryByTestId('target-basis')).toBeNull();
+    const inside = withLoad(((aim?.low ?? 0) + (aim?.high ?? 0)) / 2);
+    await view.rerender(withAppData(<LoadTargetScreen />, 'en', { days: inside }));
+    expect(screen.getByTestId('target-estimate')).toHaveTextContent(/^You reached today's target\./);
+  });
+
+  it('says the target needs more days while calibrating', async () => {
+    await render(withAppData(<LoadTargetScreen />, 'en', { days: days.slice(0, 3) }));
+    expect(screen.getByTestId('target-estimate')).toHaveTextContent(/needs a few more days of load/);
+    expect(screen.queryByTestId('target-progress-percent')).toBeNull();
+    expect(screen.getByTestId('buzz-availability')).toHaveTextContent('There is no target yet, so nothing buzzes until your target appears.');
+  });
+
+  it('stores both buzz switches', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const view = await render(withAppData(<LoadTargetScreen />, 'en', { days: withLoad(1), updateUserData }));
+    await fireEvent(screen.getByTestId('buzz-target'), 'valueChange', true);
+    expect(updateUserData).toHaveBeenLastCalledWith({ loadBuzz: { ...defaultLoadBuzzPrefs(), atTarget: true } });
+    await fireEvent(screen.getByTestId('buzz-top'), 'valueChange', true);
+    expect(updateUserData).toHaveBeenLastCalledWith({ loadBuzz: { ...defaultLoadBuzzPrefs(), overTop: true } });
+    expect(screen.getByTestId('buzz-availability')).toHaveTextContent(/Checks after every sync/);
+    const list = withLoad(9);
+    const nowS = todayClock(lastDay(list));
+    const userData = { ...defaultUserData(), loadBuzz: { atTarget: true, overTop: true, lastTarget: lastDay(list).day, lastTop: null } };
+    await view.rerender(withAppData(<LoadTargetScreen />, 'en', { days: list, userData }, nowS));
+    expect(screen.getByText(/· done today$/)).toBeTruthy();
+    expect(screen.getByText(/^Two buzzes, warns above \d/)).toBeTruthy();
+  });
+
+  it('keeps the explanations and the start button', async () => {
+    await render(withAppData(<LoadTargetScreen />));
+    expect(screen.getByText('Where this range comes from')).toBeTruthy();
+    expect(screen.getByTestId('target-usual')).toHaveTextContent(/^Usually between/);
+    expect(screen.getByTestId('target-advice')).toBeTruthy();
+    expect(screen.getByTestId('target-level')).toHaveTextContent(/Muscular load is not included yet/);
+    await fireEvent.press(screen.getByTestId('target-progress-name'));
+    expect(screen.getByTestId('about-sheet')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('target-start'));
+    expect(router.push).toHaveBeenCalledWith('/activity/start');
   });
 });
