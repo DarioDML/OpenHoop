@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deflateSync } from 'fflate';
 import { exportCsv, openStore } from '../src/index';
 import type { DayRecord, Derived, DeviceRow, SampleRow, SleepEditInput, Store, SyncStateRow } from '../src/index';
+import { MIGRATIONS } from '../src/store/migrations';
 import { openStrictDriver } from './strictDriver';
 
 const DEVICE: Omit<DeviceRow, 'id'> = {
@@ -102,6 +103,18 @@ describe('store', () => {
   });
   afterEach(async () => {
     await store.driver.close();
+  });
+
+  it('migration 16 keeps existing sleep edits and marks them as not removed', async () => {
+    const raw = openStrictDriver();
+    for (const script of MIGRATIONS.slice(0, 15)) await raw.exec(script);
+    await raw.exec('PRAGMA user_version = 15');
+    await raw.exec("INSERT INTO devices (id, ble_id) VALUES (1, 'AA:BB')");
+    await raw.exec('INSERT INTO sleep_edits (device_id, target_onset, target_offset, onset, offset, created_at) VALUES (1, 100, 200, 90, 210, 3)');
+    const migrated = await openStore(raw);
+    expect(await migrated.listSleepEdits(1)).toEqual([{ id: 1, deviceId: 1, targetOnset: 100, targetOffset: 200, onset: 90, offset: 210, createdAt: 3, removed: false }]);
+    await expect(raw.exec('UPDATE sleep_edits SET removed = 2')).rejects.toThrow();
+    await raw.close();
   });
 
   it('migrations are idempotent and record the version', async () => {
@@ -485,7 +498,7 @@ describe('store', () => {
       [sample(device.id, 1_000)],
       { events: [], console: [{ deviceId: device.id, t: 1, sequence: 1, text: 'a,b' }], unknownFrames: 0, syncState: syncState(device.id) },
     );
-    await store.saveSleepEdit({ id: null, deviceId: device.id, targetOnset: 100, targetOffset: 28_900, onset: 50, offset: 28_000, createdAt: 9 });
+    await store.saveSleepEdit({ id: null, deviceId: device.id, targetOnset: 100, targetOffset: 28_900, onset: 50, offset: 28_000, createdAt: 9, removed: false });
     const tables = ['devices', 'samples_1hz', 'daily_metrics', 'sleeps', 'sleep_edits', 'workouts', 'events', 'console_log', 'raw_chunks', 'body_measurements', 'lab_results', 'activities', 'cycle_periods', 'symptom_logs', 'pregnancy', 'strength_exercises', 'strength_templates', 'strength_template_items', 'strength_sessions', 'strength_session_exercises', 'strength_sets', 'journal_notes'] as const;
     for (const table of tables) {
       const csv = await exportCsv(store, table);
@@ -494,7 +507,7 @@ describe('store', () => {
     expect((await exportCsv(store, 'sleeps')).split('\r\n')).toHaveLength(4);
     expect(await exportCsv(store, 'sleeps')).toContain(',detected\r\n');
     expect(await exportCsv(store, 'sleep_edits')).toBe(
-      'id,device_id,target_onset,target_offset,onset,offset,created_at\r\n1,1,100,28900,50,28000,9\r\n',
+      'id,device_id,target_onset,target_offset,onset,offset,created_at,removed\r\n1,1,100,28900,50,28000,9,0\r\n',
     );
     expect(await exportCsv(store, 'console_log')).toContain('"a,b"');
     expect(await exportCsv(store, 'raw_chunks')).toContain(',AB,');
@@ -509,7 +522,16 @@ describe('store', () => {
       onset: 900,
       offset: 2_100,
       createdAt: 5,
+      removed: false,
       ...overrides,
+    });
+
+    it('stores a removed night and can turn it back into a plain edit', async () => {
+      const id = await store.saveSleepEdit(edit({ removed: true }));
+      expect((await store.listSleepEdits(device.id))[0]).toMatchObject({ id, removed: true });
+      await store.saveSleepEdit(edit({ id, removed: false }));
+      expect((await store.listSleepEdits(device.id))[0]).toMatchObject({ id, removed: false });
+      expect(await exportCsv(store, 'sleep_edits')).toContain(',0\r\n');
     });
 
     it('saves, updates, lists per device and deletes', async () => {
@@ -518,8 +540,8 @@ describe('store', () => {
       const nap = await store.saveSleepEdit(edit({ targetOnset: null, targetOffset: null, onset: 5_000, offset: 6_000 }));
       await store.saveSleepEdit(edit({ deviceId: other.id }));
       expect(await store.listSleepEdits(device.id)).toEqual([
-        { id: first, deviceId: device.id, targetOnset: 1_000, targetOffset: 2_000, onset: 900, offset: 2_100, createdAt: 5 },
-        { id: nap, deviceId: device.id, targetOnset: null, targetOffset: null, onset: 5_000, offset: 6_000, createdAt: 5 },
+        { id: first, deviceId: device.id, targetOnset: 1_000, targetOffset: 2_000, onset: 900, offset: 2_100, createdAt: 5, removed: false },
+        { id: nap, deviceId: device.id, targetOnset: null, targetOffset: null, onset: 5_000, offset: 6_000, createdAt: 5, removed: false },
       ]);
 
       expect(await store.saveSleepEdit(edit({ id: first, onset: 950, createdAt: 6 }))).toBe(first);

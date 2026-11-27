@@ -19,6 +19,10 @@ export function alertText(language: Language, alert: AlertPayload): AlertText {
       body: translate(language, `notif.goal.${alert.goal}.body`, { count: alert.count, target: alert.target, score: alert.scoreMin ?? 0 }),
     };
   }
+  if (alert.kind === 'windDown') {
+    const bed = `${Math.floor(alert.bed / 60).toString().padStart(2, '0')}:${(alert.bed % 60).toString().padStart(2, '0')}`;
+    return { title: translate(language, 'planner.windDownTitle'), body: translate(language, 'planner.windDownBody', { bed }) };
+  }
   if (alert.kind === 'dataAtRisk') {
     return { title: translate(language, 'notif.dataAtRisk.title'), body: translate(language, 'notif.dataAtRisk.body', { days: alert.days }) };
   }

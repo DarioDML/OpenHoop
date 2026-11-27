@@ -56,7 +56,7 @@ interface StatRowProps {
   testID?: string;
 }
 
-function WhyValue({ target, testID }: { target: ExplainTarget; testID?: string }) {
+export function WhyValue({ target, testID }: { target: ExplainTarget; testID?: string }) {
   const { t, language } = useT();
   const explain = useExplain();
   const missing = useMissing(target);

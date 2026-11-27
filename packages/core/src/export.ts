@@ -29,8 +29,8 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     order: 'device_id, day, onset',
   },
   sleep_edits: {
-    columns: ['id', 'device_id', 'target_onset', 'target_offset', 'onset', 'offset', 'created_at'],
-    select: 'id, device_id, target_onset, target_offset, onset, offset, created_at',
+    columns: ['id', 'device_id', 'target_onset', 'target_offset', 'onset', 'offset', 'created_at', 'removed'],
+    select: 'id, device_id, target_onset, target_offset, onset, offset, created_at, removed',
     order: 'device_id, onset, id',
   },
   sleep_stages: {

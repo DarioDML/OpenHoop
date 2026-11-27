@@ -21,6 +21,9 @@ export type HomeSection = (typeof HOME_SECTIONS)[number];
 export const GOALS = ['sleep', 'recovery', 'fitness', 'stress', 'health', 'performance'] as const;
 export type Goal = (typeof GOALS)[number];
 
+export const SLEEP_GOALS = ['plan', 'peak', 'getBy'] as const;
+export type SleepGoal = (typeof SLEEP_GOALS)[number];
+
 export interface NotificationPrefs {
   enabled: boolean;
   morningDigest: boolean;
@@ -66,6 +69,9 @@ export interface UserData {
   network: NetworkPrefs;
   coach: CoachPrefs;
   jetLagPlan: SavedJetLagPlan | null;
+  sleepGoal: SleepGoal | null;
+  windDown: { at: number; bed: number } | null;
+  jetLagShiftAlarm: boolean;
   widgetValues: boolean;
   hideRouteEnds: boolean;
 }
@@ -93,6 +99,9 @@ export function defaultUserData(): UserData {
     network: defaultNetworkPrefs(),
     coach: defaultCoachPrefs(),
     jetLagPlan: null,
+    sleepGoal: null,
+    windDown: null,
+    jetLagShiftAlarm: false,
     widgetValues: true,
     hideRouteEnds: true,
   };
@@ -179,6 +188,13 @@ function parseJetLagPlan(value: Json | undefined): SavedJetLagPlan | null {
   return { departureDate, departureMinutes, homeZone, destZone, preDays, bedMinutes, wakeMinutes, anchorSource };
 }
 
+function parseWindDown(value: Json | undefined): UserData['windDown'] {
+  if (!isRecord(value)) return null;
+  const at = typeof value.at === 'number' && Number.isSafeInteger(value.at) && value.at > 0 ? value.at : null;
+  const bed = wholeNumberIn(value.bed, 0, 1439);
+  return at === null || bed === null ? null : { at, bed };
+}
+
 export function parseUserData(raw: string | null): UserData {
   const base = defaultUserData();
   if (raw === null || raw === '') return base;
@@ -221,6 +237,9 @@ export function parseUserData(raw: string | null): UserData {
     network: parseNetworkPrefs(parsed.network),
     coach: parseCoachPrefs(parsed.coach),
     jetLagPlan: parseJetLagPlan(parsed.jetLagPlan),
+    sleepGoal: oneOf(parsed.sleepGoal, SLEEP_GOALS),
+    windDown: parseWindDown(parsed.windDown),
+    jetLagShiftAlarm: parsed.jetLagShiftAlarm === true,
     widgetValues: parsed.widgetValues !== false,
     hideRouteEnds: typeof parsed.hideRouteEnds === 'boolean' ? parsed.hideRouteEnds : base.hideRouteEnds,
   };
