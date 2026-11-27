@@ -496,11 +496,21 @@ export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
+export class DatabaseTooNewError extends Error {
+  constructor(
+    readonly found: number,
+    readonly supported: number,
+  ) {
+    super(`Database schema version ${found} is newer than this app supports (${supported})`);
+    this.name = 'DatabaseTooNewError';
+  }
+}
+
 export async function migrate(driver: SqlDriver): Promise<void> {
   const rows = await driver.all<{ user_version: number }>('PRAGMA user_version');
   const current = rows[0]?.user_version ?? 0;
   if (current > SCHEMA_VERSION) {
-    throw new Error(`Database schema version ${current} is newer than this app supports (${SCHEMA_VERSION})`);
+    throw new DatabaseTooNewError(current, SCHEMA_VERSION);
   }
   for (let version = current + 1; version <= SCHEMA_VERSION; version++) {
     const script = MIGRATIONS[version - 1];

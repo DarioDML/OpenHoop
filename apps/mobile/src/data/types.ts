@@ -1,6 +1,7 @@
 import type { Interval } from '@openhoop/analytics';
 import type { ActivityRow, ActivitySource, BandModel, BandStatus, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
+import type { StorageProblem } from '@/data/storageProblem';
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { HcDataType } from '@/lib/healthConnectMapping';
 import type { InboxEntry } from '@/lib/notificationPlan';
@@ -148,6 +149,7 @@ export interface BuiltDonation extends DonationResult {
 
 export interface AppData {
   ready: boolean;
+  storageProblem: StorageProblem | null;
   days: DayRecord[];
   sleepEdits: SleepEditRow[];
   sleepEditLimits: SleepEditLimits;
