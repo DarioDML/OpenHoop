@@ -22,6 +22,7 @@ import { mergeSteps, stepsForDay } from '@/data/activityDerived';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
+import { defaultPlan } from '@/data/weeklyPlan';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -277,7 +278,7 @@ describe('plan', () => {
   });
 
   it('shows progress against the plan', async () => {
-    await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { loadDays: 3, sleepNights: 5 } } }));
+    await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { ...defaultPlan(null), goals: ['loadDays', 'sleepScore'] } } }));
     expect(screen.getByTestId('plan-goal-load')).toBeTruthy();
     expect(screen.getByTestId('plan-goal-sleep')).toBeTruthy();
   });
@@ -287,7 +288,7 @@ describe('plan', () => {
     await render(withAppData(<PlanSetupScreen />, 'en', { updateUserData }));
     await fireEvent.press(screen.getByTestId('plan-load-days-plus'));
     await fireEvent.press(screen.getByTestId('plan-save'));
-    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ weeklyPlan: { loadDays: 4, sleepNights: 5 } }));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ weeklyPlan: { ...defaultPlan(null), loadDays: 4 } }));
   });
 
   it('builds the weekly and monthly reports from real days', async () => {

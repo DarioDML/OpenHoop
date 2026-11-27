@@ -4,6 +4,8 @@ import { defaultNetworkPrefs, type NetworkPrefs, parseNetworkPrefs } from '@/net
 import { parseIsoDate } from '@/lib/dates';
 import { isValidTimeZone } from '@/lib/timeZones';
 
+import { parseWeeklyPlan, type WeeklyPlan } from './weeklyPlan';
+
 export const USER_DATA_KEY = 'user.data';
 
 export type Sex = 'female' | 'male' | 'other';
@@ -59,7 +61,7 @@ export interface UserData {
   notifications: NotificationPrefs;
   journalQuestions: string[] | null;
   journal: Record<string, Record<string, JournalAnswer>>;
-  weeklyPlan: { loadDays: number; sleepNights: number } | null;
+  weeklyPlan: WeeklyPlan | null;
   network: NetworkPrefs;
   coach: CoachPrefs;
   jetLagPlan: SavedJetLagPlan | null;
@@ -191,9 +193,6 @@ export function parseUserData(raw: string | null): UserData {
   const previous = Array.isArray(parsed.previousDashboardTiles) ? listOf(parsed.previousDashboardTiles, DASHBOARD_TILES) : null;
   const sections = listOf(parsed.homeSections, HOME_SECTIONS);
   const previousSections = Array.isArray(parsed.previousHomeSections) ? listOf(parsed.previousHomeSections, HOME_SECTIONS) : null;
-  const plan = isRecord(parsed.weeklyPlan) ? parsed.weeklyPlan : null;
-  const loadDays = plan ? numberIn(plan.loadDays, 0, 7) : null;
-  const sleepNights = plan ? numberIn(plan.sleepNights, 0, 7) : null;
   return {
     name: textOrNull(parsed.name, 40),
     heightCm: numberIn(parsed.heightCm, 80, 250),
@@ -216,7 +215,7 @@ export function parseUserData(raw: string | null): UserData {
     },
     journalQuestions: Array.isArray(parsed.journalQuestions) ? stringList(parsed.journalQuestions, 40, 40).filter((id) => ID.test(id)) : null,
     journal: parseJournal(parsed.journal),
-    weeklyPlan: loadDays !== null && sleepNights !== null ? { loadDays, sleepNights } : null,
+    weeklyPlan: parseWeeklyPlan(parsed.weeklyPlan),
     network: parseNetworkPrefs(parsed.network),
     coach: parseCoachPrefs(parsed.coach),
     jetLagPlan: parseJetLagPlan(parsed.jetLagPlan),
