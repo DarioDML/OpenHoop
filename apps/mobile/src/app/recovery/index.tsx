@@ -1,31 +1,62 @@
-import { View } from 'react-native';
+import type { DayRecord, Derived } from '@openhoop/core';
+import { router, type Href } from 'expo-router';
+import { Pressable, View } from 'react-native';
 
+import { loadTargetBand } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { sliceEndingAt } from '@/data/dailyDerived';
-import { baselineAt, visibleReadiness } from '@/data/derived';
+import { baselineAt, shownLoad, visibleReadiness, type MetricKey } from '@/data/derived';
 import { buildingProgress, remaining } from '@/data/progress';
+import { contributorDelta, loadAimRange, readinessVerdict, type ContributorDelta, type ContributorId } from '@/data/readinessDerived';
+import type { TermId } from '@/data/terms';
+import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
-import { formatNumber, formatShortDay } from '@/lib/format';
+import { formatNumber } from '@/lib/format';
+import { formatTemperatureDelta, temperatureDeltaIn, temperatureUnit, useUnits } from '@/lib/units';
 import { AppText } from '@/ui/AppText';
-import { BarChart } from '@/ui/BarChart';
-import { Card, CardHeader } from '@/ui/Card';
-import { Chip } from '@/ui/Chip';
+import { Card } from '@/ui/Card';
+import type { ChipTone } from '@/ui/Chip';
+import { CapRow, NoDataPage, Page } from '@/ui/daily/bits';
 import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
-import { Divider, NoDataPage, Page, StatRow, usePercentChip } from '@/ui/daily/bits';
-import { METRIC_SLUGS, METRIC_SPECS } from '@/ui/daily/metrics';
 import { FlagNotice } from '@/ui/FlagNotice';
+import { LevelNote } from '@/ui/LevelNote';
 import { MissingValue } from '@/ui/MetricTile';
-import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
+import { ContributorRow } from '@/ui/readiness/ContributorRow';
+import { weekdayShort } from '@/ui/readiness/format';
+import { LoadTargetCard } from '@/ui/readiness/LoadTargetCard';
 import { ScoreRing, type BuildingRing } from '@/ui/ScoreRing';
 import { SignedBar } from '@/ui/SignedBar';
-import { readinessBand, readinessColor, spacing, useTheme } from '@/ui/theme';
+import { readinessBand, readinessColor, spacing, useTheme, type Tint } from '@/ui/theme';
+import { IconButton } from '@/ui/TopBar';
+import { ValueBars } from '@/ui/ValueBars';
+
+interface ContributorSpec {
+  id: ContributorId;
+  label: TranslationKey;
+  term: TermId;
+  key: MetricKey;
+  decimals: number;
+  unit: TranslationKey | null;
+  href: Href;
+  pick: (day: DayRecord) => Derived;
+}
+
+const CONTRIBUTORS: readonly ContributorSpec[] = [
+  { id: 'hrv', label: 'readinessShort.hrv', term: 'hrv', key: 'hrv', decimals: 0, unit: 'unit.ms', href: '/recovery/metric/hrv', pick: (d) => d.hrv },
+  { id: 'rhr', label: 'readinessShort.rhr', term: 'restingHr', key: 'restingHr', decimals: 0, unit: 'unit.bpm', href: '/recovery/metric/rhr', pick: (d) => d.restingHr },
+  { id: 'sleep', label: 'readinessShort.sleep', term: 'sleepScore', key: 'sleepScore', decimals: 0, unit: 'unit.percent', href: '/sleep', pick: (d) => d.sleep.score },
+  { id: 'resp', label: 'readinessShort.resp', term: 'respiratoryRate', key: 'respiratoryRate', decimals: 1, unit: 'unit.perMin', href: '/recovery/metric/resp', pick: (d) => d.respiratoryRate },
+  { id: 'spo2', label: 'readinessShort.spo2', term: 'spo2', key: 'spo2', decimals: 1, unit: 'unit.percent', href: '/recovery/metric/spo2', pick: (d) => d.spo2 },
+];
+
+const BAND_TINT: Readonly<Record<'high' | 'medium' | 'low', Tint>> = { high: 'recoveryHigh', medium: 'recovery', low: 'recoveryLow' };
 
 export default function ReadinessScreen() {
   const { days } = useAppData();
-  const { t, language, reason } = useT();
+  const { t, language } = useT();
   const { colors } = useTheme();
-  const percentChip = usePercentChip();
+  const units = useUnits();
   const explain = useExplain();
   const index = days.length - 1;
   const day = days[index];
@@ -40,16 +71,63 @@ export default function ReadinessScreen() {
   const contributions = day.readinessContributions;
   const scale = contributions ? Math.max(15, ...Object.values(contributions).map((v) => Math.abs(v))) : 15;
   const week = sliceEndingAt(days, 7, index);
-  const sleepBaseline = baselineAt(days, index, 'sleepScore');
-  const sleepChip = percentChip(day.sleep.score.value, sleepBaseline);
+  const verdict = building === null ? readinessVerdict(value, contributions) : null;
+  const verdictText =
+    verdict === null
+      ? null
+      : verdict.band === 'high'
+        ? t('readinessScreen.verdict.high')
+        : `${verdict.driver === null ? t(`readinessScreen.verdict.plain.${verdict.band}`) : t(`readinessScreen.verdict.driver.${verdict.driver}`)} ${t(`readinessScreen.verdict.advice.${verdict.band}`)}`;
+  const aim = loadAimRange(loadTargetBand(days), value);
+
+  const deltaChip = (delta: ContributorDelta | null, format: (amount: number, percent: boolean) => string): { label: string; tone: ChipTone } | null => {
+    if (delta === null) return null;
+    if (delta.kind === 'normal') return { label: t('readinessScreen.delta.normal'), tone: 'neutral' };
+    return { label: t(`readinessScreen.delta.${delta.word}`, { value: format(delta.amount, delta.percent) }), tone: delta.tone };
+  };
+
+  const rows = CONTRIBUTORS.map((spec) => {
+    const derived = spec.pick(day);
+    const baseline = baselineAt(days, index, spec.key);
+    const unit = spec.unit === null ? undefined : t(spec.unit);
+    const shown = derived.value === null ? null : formatNumber(derived.value, spec.decimals, language);
+    const chip = deltaChip(contributorDelta(spec.id, derived.value, baseline), (amount, percent) =>
+      percent ? `${formatNumber(amount, 0, language)}%` : formatNumber(amount, spec.decimals, language),
+    );
+    return {
+      id: spec.id,
+      name: t(spec.label),
+      caption: baseline === null ? t('readinessScreen.baselineNone') : t('readinessScreen.baseline', { value: `${formatNumber(baseline.mean, spec.decimals, language)}${unit === undefined ? '' : unit === '%' ? '%' : ` ${unit}`}` }),
+      value: shown,
+      unit,
+      chip,
+      href: spec.href,
+      explain: { term: spec.term, index, shown: { value: shown, unit: unit ?? null, reason: derived.reason } },
+    };
+  });
+
+  const deviation = day.skinTempDeviationC;
+  const deviationShown = deviation.value === null ? null : formatTemperatureDelta(deviation.value, units, language);
+  const tempChip = deltaChip(contributorDelta('temp', day.skinTempC.value, baselineAt(days, index, 'skinTemp')), (amount) => `${formatNumber(temperatureDeltaIn(amount, units), 1, language)} ${temperatureUnit(units)}`);
+  rows.push({
+    id: 'temp',
+    name: t('readinessShort.temp'),
+    caption: t('readinessScreen.tempCaption'),
+    value: deviationShown?.value ?? null,
+    unit: deviationShown?.unit,
+    chip: tempChip,
+    href: '/recovery/metric/temp',
+    explain: { term: 'skinTempChange', index, shown: { value: deviationShown?.value ?? null, unit: deviationShown?.unit ?? null, reason: deviation.reason } },
+  });
 
   return (
     <Page
       title={t('screen.readiness')}
-      tint="recovery"
+      tint={band === null ? 'recovery' : BAND_TINT[band]}
       testID="recovery"
+      right={<IconButton icon="info" label={t('explain.whatIs', { name: t('score.readiness') })} onPress={() => explain.about(readinessTarget)} testID="readiness-about" />}
       hero={
-        <View style={{ alignItems: 'center', gap: spacing.md }}>
+        <View style={{ alignItems: 'center', gap: 18 }}>
           <ScoreRing
             testID="ring-readiness-detail"
             label={t('score.readiness')}
@@ -60,15 +138,43 @@ export default function ReadinessScreen() {
             building={building}
             onExplain={() => explain.why(readinessTarget)}
             color={readinessColor(colors, value)}
-            size={168}
-            strokeWidth={14}
+            size={200}
+            strokeWidth={10}
+            unit="%"
+            sublabel={band === null || day.readinessCalibrating ? undefined : t(`readiness.${band}`)}
+            numberSize={96}
+            unitSize={43}
+            sublabelSize={13}
+            showLabel={false}
           />
-          {!day.readinessCalibrating && band ? (
-            <Chip label={t(`readiness.${band}`)} tone={band === 'high' ? 'positive' : band === 'medium' ? 'warning' : 'negative'} testID="band-chip" />
-          ) : null}
+          {verdictText === null ? null : (
+            <AppText variant="body" soft style={{ textAlign: 'center', maxWidth: 300 }} testID="readiness-verdict">
+              {verdictText}
+            </AppText>
+          )}
         </View>
       }>
       <FlagNotice flags={day.flags} />
+
+      <LoadTargetCard aim={aim} load={shownLoad(days, index).value} testID="card-load-target" />
+
+      <CapRow title={t('readinessScreen.contributors')} links={[{ label: t('readinessScreen.impactsLink'), onPress: () => router.push('/recovery/impacts'), testID: 'link-impacts' }]} />
+      <Card testID="card-vs-baseline" style={{ gap: 0, paddingVertical: spacing.xs }}>
+        {rows.map((row, i) => (
+          <ContributorRow
+            key={row.id}
+            testID={`row-${row.id}`}
+            name={row.name}
+            caption={row.caption}
+            value={row.value}
+            unit={row.unit}
+            chip={row.chip}
+            href={row.href}
+            explain={row.explain}
+            divider={i < rows.length - 1}
+          />
+        ))}
+      </Card>
 
       <Card testID="card-contributions" style={{ gap: spacing.lg }}>
         <View style={{ gap: 2 }}>
@@ -88,53 +194,28 @@ export default function ReadinessScreen() {
         )}
       </Card>
 
-      <Card testID="card-vs-baseline" style={{ gap: 0 }}>
-        <CardHeader title={t('readinessx.vsBaseline')} />
-        {METRIC_SLUGS.map((slug, i) => {
-          const spec = METRIC_SPECS[slug];
-          const derived = spec.pick(day);
-          const chip = percentChip(derived.value, baselineAt(days, index, spec.key));
-          return (
-            <View key={slug}>
-              {i > 0 ? <Divider /> : null}
-              <StatRow
-                testID={`row-${slug}`}
-                label={t(spec.label)}
-                value={derived.value === null ? reason(derived.reason) : `${formatNumber(derived.value, spec.decimals, language)} ${t(spec.unit)}`}
-                explain={{ term: spec.term, index, shown: { value: derived.value === null ? null : formatNumber(derived.value, spec.decimals, language), unit: t(spec.unit), reason: derived.reason } }}
-                right={chip ? <Chip label={chip.label} tone={chip.tone} small /> : undefined}
-                href={`/recovery/metric/${slug}`}
-              />
-            </View>
-          );
-        })}
-        <Divider />
-        <StatRow
-          testID="row-sleep"
-          label={t('score.sleep')}
-          value={day.sleep.score.value === null ? reason(day.sleep.score.reason) : `${formatNumber(day.sleep.score.value, 0, language)}%`}
-          right={sleepChip ? <Chip label={sleepChip.label} tone={sleepChip.tone} small /> : undefined}
-          explain={{ term: 'sleepScore', index, shown: { value: day.sleep.score.value === null ? null : formatNumber(day.sleep.score.value, 0, language), unit: t('unit.percent'), reason: day.sleep.score.reason } }}
-          href="/sleep"
-        />
-      </Card>
-
-      <Card style={{ gap: spacing.md }}>
-        <CardHeader title={t('readinessx.last7')} action={`${t('readinessx.trends')} ›`} href="/recovery/trends" />
-        <BarChart
+      <Card testID="card-week" style={{ gap: 14 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <AppText variant="cap" muted accessibilityRole="header">
+            {t('readinessx.last7')}
+          </AppText>
+          <Pressable testID="link-trends" accessibilityRole="link" hitSlop={8} onPress={() => router.push('/recovery/trends')} style={{ minHeight: 32, justifyContent: 'center' }}>
+            <AppText variant="capSmall" muted>
+              {t('readinessScreen.trendsLink')}
+            </AppText>
+          </Pressable>
+        </View>
+        <ValueBars
           testID="chart-readiness-week"
-          data={week.map((d) => visibleReadiness(d).value)}
           max={100}
-          formatTick={(v) => formatNumber(v, 0, language)}
-          startLabel={week[0] ? formatShortDay(week[0].day, language) : undefined}
-          endLabel={formatShortDay(day.day, language)}
+          height={64}
+          highlight={week.length - 1}
+          bars={week.map((d) => {
+            const v = visibleReadiness(d).value;
+            const rounded = v === null ? null : Math.round(v);
+            return { key: d.day, value: rounded, display: rounded === null ? undefined : formatNumber(rounded, 0, language), label: weekdayShort(d.day, language), color: readinessColor(colors, rounded) };
+          })}
         />
-      </Card>
-
-      <Card style={{ gap: 0 }}>
-        <StatRow label={t('readinessx.impacts')} value="" href="/recovery/impacts" testID="link-impacts" />
-        <Divider />
-        <StatRow label={t('readinessx.trends')} value="" href="/recovery/trends" testID="link-trends" />
       </Card>
 
       <Card style={{ gap: spacing.sm }}>
@@ -144,15 +225,7 @@ export default function ReadinessScreen() {
         </AppText>
       </Card>
 
-      <Card tone="warning" style={{ gap: 6 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <ParityBadge level={PARITY.readiness} long />
-        </View>
-        <AppText variant="bodyStrong">{t('readiness.modelTitle')}</AppText>
-        <AppText variant="body" muted>
-          {t('readiness.modelBody')}
-        </AppText>
-      </Card>
+      <LevelNote level={PARITY.readiness} text={t('readinessScreen.levelNote')} testID="readiness-level" />
     </Page>
   );
 }

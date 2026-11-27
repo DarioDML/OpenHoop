@@ -52,7 +52,7 @@ export interface ColorTokens {
   zones: [string, string, string, string, string];
 }
 
-export type Tint = 'home' | 'sleep' | 'load' | 'health' | 'community' | 'coach' | 'neutral' | 'recovery';
+export type Tint = 'home' | 'sleep' | 'load' | 'health' | 'community' | 'coach' | 'neutral' | 'recovery' | 'recoveryHigh' | 'recoveryLow';
 
 export const darkColors: ColorTokens = {
   background: '#0D1114',
@@ -110,6 +110,8 @@ export const darkColors: ColorTokens = {
     coach: '#22233A',
     neutral: '#2A353C',
     recovery: '#3F4337',
+    recoveryHigh: '#283F33',
+    recoveryLow: '#3F3239',
   },
   stage: { awake: '#D9DDE0', light: '#B8A9F5', deep: '#F28BCB', rem: '#9A5CF0' },
   zones: ['#5AB4FF', '#2FD3BF', '#16EC06', '#FFB347', '#FF2D46'],
@@ -171,6 +173,8 @@ export const lightColors: ColorTokens = {
     coach: '#E4E4F2',
     neutral: '#DDE3E8',
     recovery: '#E6E7DC',
+    recoveryHigh: '#DCEBDF',
+    recoveryLow: '#EEDDE2',
   },
   stage: { awake: '#8A9298', light: '#7A66D9', deep: '#C2458F', rem: '#6A2FC0' },
   zones: ['#1C6FC0', '#138F80', '#138A0A', '#B36B00', '#C81E33'],
