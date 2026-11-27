@@ -302,7 +302,7 @@ export interface SyncTimings {
   chunks: number;
 }
 
-const SYNC_FAILURES_NOT_ALERTED: ReadonlySet<TranslationKey> = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
+const SYNC_FAILURES_NOT_ALERTED = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
 
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
 const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
