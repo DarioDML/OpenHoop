@@ -20,6 +20,7 @@ import { Num } from '@/ui/Num';
 import { GoalDots } from '@/ui/plan/GoalDots';
 import { formatDayRange } from '@/ui/plan/goals';
 import { Screen } from '@/ui/Screen';
+import { StateCard } from '@/ui/StateCard';
 import { spacing, useTheme, type ColorTokens } from '@/ui/theme';
 import { IconButton, TopBar } from '@/ui/TopBar';
 
@@ -63,7 +64,7 @@ function detailText(t: TFunction, g: GoalProgress, plan: WeeklyPlan): string {
 }
 
 export default function PlanScreen() {
-  const { days, userData, strength, activities, healthConnect } = useAppData();
+  const { days, userData, strength, activities, healthConnect, updateUserData } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const latest = days[days.length - 1];
@@ -129,6 +130,17 @@ export default function PlanScreen() {
         </Card>
       ) : (
         <>
+          {plan.sleepScoreNotice && plan.goals.includes('sleepScore') ? (
+            <StateCard
+              icon="info"
+              tone="info"
+              title={t('plan.notice.sleepTitle')}
+              body={t('plan.notice.sleepBody', { min: plan.sleepScoreMin, count: plan.sleepNights })}
+              actionLabel={t('plan.notice.dismiss')}
+              onAction={() => void updateUserData({ weeklyPlan: { ...plan, sleepScoreNotice: false } })}
+              testID="plan-sleep-notice"
+            />
+          ) : null}
           <Card style={{ gap: 0, paddingVertical: spacing.xs }}>
             {week.goals.map((g, index) => {
               const color = goalColor(colors, g);

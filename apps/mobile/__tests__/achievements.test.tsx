@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 
 import { achievements, levelOf, lifetimeStats, longestRun, longestStreak, type Achievement } from '@/data/activityDerived';
 import { createFixtureDays } from '@/data/fixtureSource';
+import { formatNumber } from '@/lib/format';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -64,6 +65,17 @@ describe('achievements screen', () => {
     const sheet = screen.getByTestId('achievement-sheet');
     expect(within(sheet).getByText('Worth 3 points toward your level.')).toBeTruthy();
     expect(within(sheet).getByTestId('achievement-sheet-progress')).toHaveTextContent(/of 90$/);
+  });
+
+  it('keeps the count on unlocked badges and fills badge text from the thresholds', async () => {
+    await render(withAppData(<AchievementsScreen />));
+    const unlocked = achievements(days).filter((a) => a.unlocked);
+    expect(unlocked.length).toBeGreaterThan(0);
+    for (const a of unlocked) expect(screen.getByTestId(`ach-${a.id}-progress`)).toHaveTextContent(`${a.target} of ${a.target}`);
+    expect(screen.getByText('First 10K day')).toBeTruthy();
+    expect(screen.getByText('Load 15+ ×10')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('ach-steps10k-50'));
+    expect(within(screen.getByTestId('achievement-sheet')).getByText(`50 days with ${formatNumber(10000, 0, 'en')} steps or more`)).toBeTruthy();
   });
 
   it('dims locked badges and shows their progress', async () => {

@@ -6,6 +6,7 @@ import { achievements, currentRun, levelOf } from '@/data/activityDerived';
 import { createFixtureDays, createFixtureDevice, createFixtureSettings } from '@/data/fixtureSource';
 import { bodyAgeSummary, streaks } from '@/data/profileSummary';
 import { defaultUserData } from '@/data/userData';
+import { formatNumber } from '@/lib/format';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -36,6 +37,14 @@ describe('streaks', () => {
     expect(currentRun(scored(week, [80, 80, 80, null]), (d) => (d.sleep.score.value === null ? null : d.sleep.score.value >= 70))).toBe(3);
     expect(currentRun(scored(week, [80, 80, null, 80]), (d) => (d.sleep.score.value === null ? null : d.sleep.score.value >= 70))).toBe(1);
     expect(streaks(scored(week, [80, 80, 80, 80])).sleepScore).toBe(4);
+  });
+
+  it('lets a final low score today break the streak unless the day is still open', () => {
+    const week = scored(days.slice(-4), [80, 80, 80, 50]);
+    const test = (d: DayRecord): boolean | null => (d.sleep.score.value === null ? null : d.sleep.score.value >= 70);
+    expect(currentRun(week, test)).toBe(0);
+    expect(currentRun(week, test, true)).toBe(3);
+    expect(streaks(week).sleepScore).toBe(0);
   });
 
   it('breaks a run at a missing calendar day', () => {
@@ -82,9 +91,24 @@ describe('profile screen', () => {
 
   it('explains how the level is computed', async () => {
     await render(withAppData(<ProfileScreen />));
-    await fireEvent.press(screen.getByTestId('profile-level'));
     const level = levelOf(achievements(days));
-    expect(within(screen.getByTestId('level-sheet')).getByTestId('level-sheet-now')).toHaveTextContent(`You are at level ${level.level} with ${level.points} of ${level.maxPoints} points`, { exact: false });
+    expect(screen.getByTestId('profile-level')).toHaveTextContent(`${level.points} of ${level.maxPoints} points from ${level.unlocked} of ${level.total} badges`, { exact: false });
+    await fireEvent.press(screen.getByTestId('profile-level-name'));
+    expect(within(screen.getByTestId('about-sheet')).getByText(/Every 3 points is a new level/)).toBeTruthy();
+  });
+
+  it('explains hours worn through the wear time term', async () => {
+    await render(withAppData(<ProfileScreen />));
+    await fireEvent.press(screen.getByTestId('life-worn-name'));
+    expect(within(screen.getByTestId('about-sheet')).getByText('Worn')).toBeTruthy();
+  });
+
+  it('reads tiles with their value and chip', async () => {
+    await render(withAppData(<ProfileScreen />));
+    expect(screen.getByTestId('profile-body-age').props.accessibilityLabel).toBe('Body age, Add your birth date');
+    const steps = days.reduce((sum, d) => sum + (d.steps ?? 0), 0);
+    expect(screen.getByTestId('life-steps-content').props.accessibilityLabel).toBe(`Steps ${formatNumber(steps, 0, 'en')}`);
+    expect(screen.getByTestId('life-nights-content').props.accessibilityLabel).toMatch(/^Nights, \d+$/);
   });
 
   it('asks for a birth date on the body age tile and links to body age', async () => {

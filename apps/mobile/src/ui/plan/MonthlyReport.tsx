@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { enoughForReport, formatWeekday, periodStats, periodWindows } from '@/data/activityDerived';
+import { enoughForReport, formatWeekday, MIN_REPORT_DAYS, periodStats, periodWindows } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { formatHm } from '@/data/dailyDerived';
 import { visibleReadiness } from '@/data/derived';
@@ -31,6 +31,7 @@ import { ReportShareSheet } from './ReportShareSheet';
 
 const PAGES = 5;
 const MONTH = 30;
+const DOT_TARGET = 44;
 
 function headlineText(t: TFunction, headline: MonthHeadline): string {
   if (headline.kind === 'bestSleep') return t('plan.month.headline.bestSleep');
@@ -76,15 +77,15 @@ function PageDots({ page, onPick }: { page: number; onPick: (page: number) => vo
   const { t } = useT();
   const { colors } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', gap: 6 }} testID="report-pages">
+    <View style={{ flexDirection: 'row', marginLeft: -(DOT_TARGET - 8) / 2 }} testID="report-pages">
       {Array.from({ length: PAGES }, (_, i) => (
         <Pressable
           key={i}
           accessibilityRole="button"
           accessibilityLabel={t('plan.month.page', { page: i + 1, total: PAGES })}
           accessibilityState={{ selected: i === page }}
-          hitSlop={8}
           onPress={() => onPick(i)}
+          style={{ minWidth: DOT_TARGET, minHeight: DOT_TARGET, alignItems: 'center', justifyContent: 'center' }}
           testID={`report-page-${i + 1}`}>
           <View style={{ width: i === page ? 22 : 8, height: 8, borderRadius: radius.pill, backgroundColor: i === page ? colors.text : colors.textFaint }} />
         </Pressable>
@@ -274,7 +275,7 @@ export function MonthlyReport({ testID }: { testID: string }): ReactElement {
       {!enough ? (
         <Card testID="report-few">
           <AppText variant="body" muted>
-            {t('plan.report.tooFew', { count: current.length, needed: 3 })}
+            {t('plan.report.tooFew', { count: current.length, needed: MIN_REPORT_DAYS })}
           </AppText>
         </Card>
       ) : (

@@ -50,7 +50,7 @@ export function StepSlider<T extends string>({ options, value, onChange, label, 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         {options.map((option, i) => (
           <Pressable key={option.value} accessible={false} onPress={() => pick(i)} hitSlop={8} style={{ minHeight: 32, justifyContent: 'center' }}>
-            <AppText variant="label" color={i === index ? colors.text : colors.textMuted} style={{ fontWeight: i === index ? '600' : '400' }}>
+            <AppText variant={i === index ? 'bodyStrong' : 'label'} color={i === index ? colors.text : colors.textMuted}>
               {option.label}
             </AppText>
           </Pressable>

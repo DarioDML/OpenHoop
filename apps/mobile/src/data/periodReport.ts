@@ -1,12 +1,11 @@
 import type { DayRecord } from '@openhoop/core';
 
-import { enoughForReport, periodStats, periodWindows, targetAdvice, trendOf, type PeriodStats } from './activityDerived';
+import { enoughForReport, periodStats, periodWindows, READINESS_HIGH, READINESS_LOW, targetAdvice, trendOf, type PeriodStats } from './activityDerived';
 import { mainPeriod } from './dailyDerived';
 import { mean, visibleReadiness, weekdayIndex, type Baseline } from './derived';
 
 export const LOAD_MAX = 21;
-export const READINESS_LOW = 34;
-export const READINESS_HIGH = 67;
+export { READINESS_HIGH, READINESS_LOW };
 
 export function advisedMaxLoad(readiness: number, band: Baseline): number {
   const width = band.high - band.low;

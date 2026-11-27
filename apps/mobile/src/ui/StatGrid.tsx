@@ -46,16 +46,25 @@ interface TileProps {
   href?: Href;
   onPress?: () => void;
   accessibilityLabel?: string;
+  header?: ReactNode;
   testID?: string;
 }
 
-export function GridTile({ label, value, missing, unit, chip = null, caption, href, onPress, accessibilityLabel, testID }: TileProps): ReactElement {
+export function tileSpokenLabel(parts: ReadonlyArray<string | null | undefined>): string {
+  return parts.filter((part): part is string => part !== null && part !== undefined && part !== '').join(', ');
+}
+
+export function GridTile({ label, value, missing, unit, chip = null, caption, href, onPress, accessibilityLabel, header, testID }: TileProps): ReactElement {
   const { colors } = useTheme();
-  return (
-    <Card href={href} onPress={onPress} accessibilityLabel={accessibilityLabel ?? label} testID={testID} style={{ gap: 10, flex: 1 }}>
-      <AppText variant="capSmall" muted numberOfLines={1}>
-        {href || onPress ? `${label} ›` : label}
-      </AppText>
+  const pressable = href !== undefined || onPress !== undefined;
+  const spoken = accessibilityLabel ?? tileSpokenLabel([label, value === null ? missing : unit ? `${value} ${unit}` : value, chip?.label, caption]);
+  const body = (
+    <>
+      {header ?? (
+        <AppText variant="capSmall" muted numberOfLines={1}>
+          {pressable ? `${label} ›` : label}
+        </AppText>
+      )}
       {value !== null ? (
         <Num size={40} unit={unit} unitSize={18} unitColor={colors.textMuted} adjustsFontSizeToFit testID={testID ? `${testID}-value` : undefined}>
           {value}
@@ -71,6 +80,20 @@ export function GridTile({ label, value, missing, unit, chip = null, caption, hr
           {caption}
         </AppText>
       ) : null}
+    </>
+  );
+  if (pressable) {
+    return (
+      <Card href={href} onPress={onPress} accessibilityLabel={spoken} testID={testID} style={{ gap: 10, flex: 1 }}>
+        {body}
+      </Card>
+    );
+  }
+  return (
+    <Card testID={testID} style={{ flex: 1 }}>
+      <View accessible={header === undefined} accessibilityLabel={header === undefined ? spoken : undefined} testID={testID ? `${testID}-content` : undefined} style={{ gap: 10 }}>
+        {body}
+      </View>
     </Card>
   );
 }

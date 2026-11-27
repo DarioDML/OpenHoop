@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { View } from 'react-native';
 
-import { enoughForReport, formatWeekday, loadTargetBand, mergeSteps, periodStats, periodWindows } from '@/data/activityDerived';
+import { enoughForReport, formatWeekday, loadTargetBand, mergeSteps, MIN_REPORT_DAYS, periodStats, periodWindows } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { formatHm, formatMinutes } from '@/data/dailyDerived';
 import { balancePoints, balanceShade, bedtimePoints, bedtimeSpread, averageConsistency, clockFromNoon, LOAD_MAX, weekVerdict, type WeekVerdict } from '@/data/periodReport';
@@ -96,7 +96,7 @@ export function WeeklyReport({ testID }: { testID: string }): ReactElement {
       {!enough ? (
         <Card testID="report-few">
           <AppText variant="body" muted>
-            {t('plan.report.tooFew', { count: current.length, needed: 3 })}
+            {t('plan.report.tooFew', { count: current.length, needed: MIN_REPORT_DAYS })}
           </AppText>
         </Card>
       ) : (
@@ -151,11 +151,12 @@ export function WeeklyReport({ testID }: { testID: string }): ReactElement {
                 label={t('plan.report.planTile')}
                 value={`${week.met}/${week.goals.length}`}
                 chip={{ label: t('plan.report.goalsHit'), tone: 'neutral' }}
+                caption={t('plan.report.weekSoFar')}
                 href="/plan"
                 testID="report-plan"
               />
             ) : (
-              <GridTile label={t('plan.report.planTile')} value={null} missing={t('plan.report.noPlan')} href={plan === null ? '/plan/setup' : '/plan'} testID="report-plan" />
+              <GridTile label={t('plan.report.planTile')} value={null} missing={t('plan.report.noPlan')} caption={t('plan.report.weekSoFar')} href={plan === null ? '/plan/setup' : '/plan'} testID="report-plan" />
             )}
           </StatGrid>
           <ChangeRows current={cur} previous={prev} comparable={comparable} previousCount={previous.length} />
@@ -178,7 +179,7 @@ export function WeeklyReport({ testID }: { testID: string }): ReactElement {
             { label: t('plan.report.avgReadiness'), value: readiness ?? missing, unit: readiness === null ? undefined : '%' },
             { label: t('plan.report.avgLoad'), value: load ?? missing },
             { label: t('plan.report.sleepAvg'), value: sleep ?? missing },
-            ...(week !== null ? [{ label: t('plan.report.planTile'), value: `${week.met}/${week.goals.length}` }] : []),
+            ...(week !== null ? [{ label: `${t('plan.report.planTile')} · ${t('plan.report.weekSoFar')}`, value: `${week.met}/${week.goals.length}` }] : []),
           ]}
         />
       ) : null}

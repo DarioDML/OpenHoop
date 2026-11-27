@@ -4,8 +4,9 @@ import type { ActivityRow, DayRecord, StrengthSession } from '@openhoop/core';
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import { isRecord, type Json } from '@/lib/json';
 
-import { LOAD_DAY_MIN } from './activityDerived';
+import { LOAD_DAY_MIN, READINESS_HIGH, READINESS_LOW } from './activityDerived';
 import { addDays, visibleReadiness, weekdayIndex, weekStart } from './derived';
+import { finishedSessions } from './strength';
 
 export const PLAN_GOALS = ['loadDays', 'sleepScore', 'strength', 'steps'] as const;
 export type PlanGoal = (typeof PLAN_GOALS)[number];
@@ -24,6 +25,7 @@ export interface PlanTargets {
 export interface WeeklyPlan extends PlanTargets {
   goals: PlanGoal[];
   level: PlanLevel;
+  sleepScoreNotice: boolean;
 }
 
 export type TargetKey = keyof PlanTargets;
@@ -59,7 +61,7 @@ export function presetTargets(level: PlanLevel, stepsGoal: number | null): PlanT
 }
 
 export function defaultPlan(stepsGoal: number | null): WeeklyPlan {
-  return { goals: ['loadDays', 'sleepScore', 'strength'], level: 'balanced', ...presetTargets('balanced', stepsGoal) };
+  return { goals: ['loadDays', 'sleepScore', 'strength'], level: 'balanced', sleepScoreNotice: false, ...presetTargets('balanced', stepsGoal) };
 }
 
 export function withLevel(plan: WeeklyPlan, level: PlanLevel, stepsGoal: number | null): WeeklyPlan {
@@ -104,15 +106,19 @@ export function parseWeeklyPlan(value: Json | undefined): WeeklyPlan | null {
   };
   const rawGoals = value.goals;
   let goals: PlanGoal[];
+  let sleepScoreNotice: boolean;
   if (Array.isArray(rawGoals)) {
     goals = PLAN_GOALS.filter((goal) => rawGoals.includes(goal)).slice(0, MAX_PLAN_GOALS);
+    sleepScoreNotice = value.sleepScoreNotice === true;
   } else {
     if (legacyLoad === null || legacySleep === null) return null;
     goals = [...(legacyLoad > 0 ? (['loadDays'] as const) : []), ...(legacySleep > 0 ? (['sleepScore'] as const) : [])];
+    sleepScoreNotice = legacySleep > 0;
   }
   return {
     goals,
     level,
+    sleepScoreNotice,
     loadDays: target('loadDays'),
     sleepNights: target('sleepNights'),
     sleepScoreMin: target('sleepScoreMin'),
@@ -173,12 +179,13 @@ export function isoWeek(day: string): number {
   return Math.floor((date.getTime() - yearStart) / (DAY_S * 1000) / 7) + 1;
 }
 
-export function strengthIntervals(sessions: readonly StrengthSession[], activities: readonly ActivityRow[], nowS: number): Interval[] {
-  const fromSessions = sessions.map((s) => ({ start: s.startedAt, end: s.endedAt ?? nowS }));
+export function strengthIntervals(sessions: readonly StrengthSession[], activities: readonly ActivityRow[], nowS: number, today: string): Interval[] {
+  const finished = finishedSessions(sessions).map((s) => ({ start: s.startedAt, end: s.endedAt ?? s.startedAt }));
+  const open = sessions.filter((s) => s.endedAt === null && s.day === today && s.startedAt < nowS).map((s) => ({ start: s.startedAt, end: nowS }));
   const fromActivities = activities
     .filter((a) => a.deletedAt === null && a.type === 'strength')
     .flatMap((a) => activeSegments({ start: a.start, end: a.end }, a.paused));
-  return normalizeIntervals([...fromSessions, ...fromActivities]);
+  return normalizeIntervals([...finished, ...open, ...fromActivities]);
 }
 
 export function strengthMinutesBetween(intervals: readonly Interval[], window: Interval): number {
@@ -205,7 +212,7 @@ export function planWeek(plan: WeeklyPlan, input: PlanInput): PlanWeek {
   const keys = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   const byDay = new Map(input.days.map((d) => [d.day, d]));
   const stepsByDay = new Map(input.steps.map((s) => [s.day, s.steps]));
-  const intervals = strengthIntervals(input.sessions, input.activities, input.nowS);
+  const intervals = strengthIntervals(input.sessions, input.activities, input.nowS, input.today);
 
   const progress = (goal: PlanGoal): GoalProgress => {
     if (goal === 'loadDays') {
@@ -283,8 +290,8 @@ export function planAdvice(plan: WeeklyPlan, week: PlanWeek, today: DayRecord | 
   const load = week.goals.find((g) => g.goal === 'loadDays');
   const readiness = today === null ? null : visibleReadiness(today).value;
   if (load !== undefined && load.state === 'onTrack' && load.dots[week.elapsed - 1] !== 'hit' && readiness !== null) {
-    if (readiness >= 67) lines.push({ key: 'plan.left.todayHigh' });
-    else if (readiness < 34) lines.push({ key: 'plan.left.todayLow' });
+    if (readiness >= READINESS_HIGH) lines.push({ key: 'plan.left.todayHigh' });
+    else if (readiness < READINESS_LOW) lines.push({ key: 'plan.left.todayLow' });
   }
   if (week.remaining === 0) lines.push({ key: 'plan.left.lastDay' });
   else lines.push({ key: week.remaining === 1 ? 'plan.left.daysLeft.one' : 'plan.left.daysLeft.other', params: { count: week.remaining } });

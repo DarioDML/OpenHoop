@@ -3,7 +3,7 @@ import type { DayRecord, WorkoutRecord } from '@openhoop/core';
 import type { HcStepsDay } from '@/lib/healthConnectMapping';
 
 import type { Language, Profile } from './types';
-import { addDays, baselineAt, mean, weekdayIndex, weekStart, wearStreak, visibleReadiness, type Baseline } from './derived';
+import { addDays, baselineAt, mean, wearStreak, visibleReadiness, type Baseline } from './derived';
 
 export const LOAD_DAY_MIN = 7;
 export const MIN_REPORT_DAYS = 3;
@@ -20,38 +20,6 @@ export function sleepNightMet(day: DayRecord | null): boolean | null {
   const need = day.sleep.need.value;
   if (day.sleep.asleepS === null || need === null) return null;
   return day.sleep.asleepS >= need;
-}
-
-export interface WeekProgress {
-  start: string;
-  elapsed: number;
-  remaining: number;
-  daysWithData: number;
-  loadDays: number;
-  sleepNightsMet: number;
-  sleepNightsMeasured: number;
-}
-
-export function weekProgress(days: readonly DayRecord[], today: string): WeekProgress {
-  const start = weekStart(today);
-  const elapsed = weekdayIndex(today) + 1;
-  const byDay = new Map(days.map((d) => [d.day, d]));
-  let daysWithData = 0;
-  let loadDays = 0;
-  let met = 0;
-  let measured = 0;
-  for (let i = 0; i < elapsed; i++) {
-    const day = byDay.get(addDays(start, i)) ?? null;
-    if (day === null) continue;
-    daysWithData++;
-    if (isLoadDay(day)) loadDays++;
-    const ok = sleepNightMet(day);
-    if (ok !== null) {
-      measured++;
-      if (ok) met++;
-    }
-  }
-  return { start, elapsed, remaining: 7 - elapsed, daysWithData, loadDays, sleepNightsMet: met, sleepNightsMeasured: measured };
 }
 
 export interface PeriodStats {
@@ -115,10 +83,13 @@ export function loadTargetBand(days: readonly DayRecord[]): Baseline | null {
 
 export type TargetAdvice = 'lower' | 'middle' | 'upper' | 'unknown';
 
+export const READINESS_LOW = 34;
+export const READINESS_HIGH = 67;
+
 export function targetAdvice(readiness: number | null): TargetAdvice {
   if (readiness === null) return 'unknown';
-  if (readiness < 34) return 'lower';
-  if (readiness >= 67) return 'upper';
+  if (readiness < READINESS_LOW) return 'lower';
+  if (readiness >= READINESS_HIGH) return 'upper';
   return 'middle';
 }
 
@@ -199,8 +170,11 @@ export function longestRun(days: readonly DayRecord[], test: (day: DayRecord) =>
   return best;
 }
 
-/** Run of days meeting `test` that ends at the newest day; a newest day that has not met it yet does not break the run. */
-export function currentRun(days: readonly DayRecord[], test: (day: DayRecord) => boolean | null): number {
+/**
+ * Run of days meeting `test` that ends at the newest day. A newest day without a value yet (null) never breaks the run;
+ * with `openToday`, a newest day that has not met the test yet is skipped too, for values that keep growing during the day.
+ */
+export function currentRun(days: readonly DayRecord[], test: (day: DayRecord) => boolean | null, openToday = false): number {
   let run = 0;
   let next: string | null = null;
   for (let i = days.length - 1; i >= 0; i--) {
@@ -209,7 +183,8 @@ export function currentRun(days: readonly DayRecord[], test: (day: DayRecord) =>
     if (next !== null && addDays(d.day, 1) !== next) break;
     const ok = test(d);
     if (ok !== true) {
-      if (i === days.length - 1) {
+      const newest = i === days.length - 1;
+      if (newest && (ok === null || openToday)) {
         next = d.day;
         continue;
       }
@@ -278,7 +253,7 @@ export interface Achievement {
 
 export const STEPS_BADGE_MIN = 10_000;
 export const HIGH_LOAD_MIN = 15;
-export const HIGH_READINESS_MIN = 67;
+export const HIGH_READINESS_MIN = READINESS_HIGH;
 
 const TIERS: Record<AchievementGroup, readonly number[]> = {
   streak: [3, 7, 14, 30],

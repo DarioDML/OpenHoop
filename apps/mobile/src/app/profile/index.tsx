@@ -1,5 +1,4 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { View } from 'react-native';
 
 import { achievements, effectiveMaxHr, formatMonthYear, levelOf, LOAD_DAY_MIN, lifetimeStats } from '@/data/activityDerived';
@@ -14,13 +13,13 @@ import { formatNumber } from '@/lib/format';
 import { formatHeight, formatWeight, useUnits } from '@/lib/units';
 import { AppText } from '@/ui/AppText';
 import { Chip, type ChipTone } from '@/ui/Chip';
+import { MetricName } from '@/ui/explain/MetricName';
 import { HexBadge } from '@/ui/HexBadge';
 import { Icon, type IconName } from '@/ui/Icon';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
 import { Num } from '@/ui/Num';
 import { Screen } from '@/ui/Screen';
 import { Section } from '@/ui/Section';
-import { Sheet } from '@/ui/Sheet';
 import { GridTile, StatGrid } from '@/ui/StatGrid';
 import { radius, spacing, useTheme } from '@/ui/theme';
 import { IconButton, TopBar } from '@/ui/TopBar';
@@ -55,7 +54,6 @@ export default function ProfileScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
   const units = useUnits();
-  const [levelOpen, setLevelOpen] = useState(false);
   const initial = initialOf(userData.name);
   const stats = lifetimeStats(days);
   const list = achievements(days);
@@ -70,6 +68,7 @@ export default function ProfileScreen() {
   const height = userData.heightCm === null ? null : formatHeight(userData.heightCm, units, language);
   const weight = userData.weightKg === null ? null : formatWeight(userData.weightKg, units, language);
   const year = new Date().getFullYear();
+  const lastIndex = Math.max(0, days.length - 1);
 
   const streakRow = (icon: IconName, color: string, label: string, value: number, testID: string) => (
     <ListRow
@@ -103,7 +102,7 @@ export default function ProfileScreen() {
               )}
             </View>
             <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
-              <AppText variant="title" style={{ fontSize: 24, lineHeight: 30 }} testID="profile-name">
+              <AppText variant="title" testID="profile-name">
                 {userData.name ?? t('profile.noName')}
               </AppText>
               {subtitle !== '' ? (
@@ -134,8 +133,8 @@ export default function ProfileScreen() {
           label={t('profile.level.title')}
           value={String(level.level)}
           chip={{ label: level.toNext === null ? t('profile.level.top') : level.toNext === 1 ? t('profile.level.toNext.one', { next: level.level + 1 }) : t('profile.level.toNext.other', { points: level.toNext, next: level.level + 1 }), tone: 'gold' }}
-          onPress={() => setLevelOpen(true)}
-          accessibilityLabel={t('profile.level.howTitle')}
+          caption={t('profile.level.points', { points: level.points, max: level.maxPoints, unlocked: level.unlocked, total: level.total })}
+          header={<MetricName target={{ term: 'level', index: lastIndex, shown: { value: String(level.level), unit: null, reason: null } }} testID="profile-level-name" />}
           testID="profile-level"
         />
       </StatGrid>
@@ -156,7 +155,13 @@ export default function ProfileScreen() {
         <GridTile label={t('profile.nights')} value={fmt(stats.nights)} testID="life-nights" />
         <GridTile label={t('profile.workouts')} value={fmt(stats.workouts)} testID="life-workouts" />
         <GridTile label={t('metric.steps')} value={compact(stats.steps, language)} accessibilityLabel={`${t('metric.steps')} ${fmt(stats.steps)}`} testID="life-steps" />
-        <GridTile label={t('profile.hoursWorn')} value={stats.wornS === null ? null : fmt(Math.round(stats.wornS / 3600))} missing={t('profile.hoursWornMissing')} testID="life-worn" />
+        <GridTile
+          label={t('profile.hoursWorn')}
+          value={stats.wornS === null ? null : fmt(Math.round(stats.wornS / 3600))}
+          missing={t('profile.hoursWornMissing')}
+          header={<MetricName target={{ term: 'wearTime', index: lastIndex, shown: null }} label={t('profile.hoursWorn')} testID="life-worn-name" />}
+          testID="life-worn"
+        />
       </StatGrid>
       <AppText variant="caption" muted>
         {t('profile.lifetimeNote', { days: stats.daysTracked })}
@@ -217,14 +222,6 @@ export default function ProfileScreen() {
         )}
       </Section>
 
-      <Sheet visible={levelOpen} onClose={() => setLevelOpen(false)} title={t('profile.level.howTitle')} testID="level-sheet">
-        <AppText variant="body" testID="level-sheet-now">
-          {t('profile.level.now', { level: level.level, points: level.points, max: level.maxPoints, unlocked: level.unlocked, total: level.total })}
-        </AppText>
-        <AppText variant="body" muted>
-          {t('profile.level.how')}
-        </AppText>
-      </Sheet>
     </Screen>
   );
 }

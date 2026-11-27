@@ -16,7 +16,6 @@ import {
   resolveWorkout,
   stepsStats,
   trendOf,
-  weekProgress,
 } from '@/data/activityDerived';
 import { mergeSteps, stepsForDay } from '@/data/activityDerived';
 import { createFixtureDays } from '@/data/fixtureSource';
@@ -110,14 +109,6 @@ describe('activityDerived', () => {
     expect(trendOf(8, 10)).toBe('down');
   });
 
-  it('counts week progress only over elapsed days', () => {
-    const last = days[days.length - 1];
-    const progress = weekProgress(days, last?.day ?? '');
-    expect(progress.elapsed + progress.remaining).toBe(7);
-    expect(progress.daysWithData).toBeLessThanOrEqual(progress.elapsed);
-    expect(progress.sleepNightsMet).toBeLessThanOrEqual(progress.sleepNightsMeasured);
-  });
-
   it('derives steps statistics and achievements from real days', () => {
     const stats = stepsStats(days.slice(-7), 8000);
     expect(stats.daysWithData).toBe(7);
@@ -201,6 +192,19 @@ describe('activity screens', () => {
     await fireEvent.press(screen.getByTestId('live-stop'));
     await waitFor(() => expect(stopLive).toHaveBeenCalled());
     expect(await screen.findByTestId('live-short')).toBeTruthy();
+  });
+
+  it('names custom zones on the live screen instead of the reserve', async () => {
+    mockParams = { type: 'running' };
+    await render(
+      withAppData(<LiveActivityScreen />, 'en', {
+        live: { active: true, heartRate: 150, lastRrMs: 400, updatedAt: 1 },
+        profile: { birthYear: null, maxHeartRate: 200, zoneMode: 'custom', zoneFloors: [100, 120, 140, 160, 180] },
+      }),
+    );
+    expect(screen.getByText('Your custom zones start at 100 · 120 · 140 · 160 · 180 bpm')).toBeTruthy();
+    expect(screen.getByText('Zone 3')).toBeTruthy();
+    expect(screen.queryByText(/heart rate reserve/)).toBeNull();
   });
 
   it('shows the real workout on the details screen', async () => {

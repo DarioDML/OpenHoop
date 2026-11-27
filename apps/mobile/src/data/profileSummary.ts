@@ -1,6 +1,6 @@
 import type { DayRecord, LabResult } from '@openhoop/core';
 
-import { LOAD_DAY_MIN, currentRun } from './activityDerived';
+import { LOAD_DAY_MIN, READINESS_HIGH, currentRun } from './activityDerived';
 import { latestFitnessAge, latestPhenoAge } from './bodyAgeDerived';
 import { visibleReadiness } from './derived';
 import type { Profile } from './types';
@@ -26,7 +26,7 @@ export function bodyAgeSummary(days: readonly DayRecord[], labResults: readonly 
 }
 
 export const SLEEP_STREAK_MIN = 70;
-export const READY_STREAK_MIN = 67;
+export const READY_STREAK_MIN = READINESS_HIGH;
 
 export interface Streaks {
   loadDays: number;
@@ -36,10 +36,14 @@ export interface Streaks {
 
 export function streaks(days: readonly DayRecord[]): Streaks {
   return {
-    loadDays: currentRun(days, (d) => {
-      const value = d.load.value ?? d.loadSoFar ?? null;
-      return value === null ? null : value >= LOAD_DAY_MIN;
-    }),
+    loadDays: currentRun(
+      days,
+      (d) => {
+        const value = d.load.value ?? d.loadSoFar ?? null;
+        return value === null ? null : value >= LOAD_DAY_MIN;
+      },
+      true,
+    ),
     highReadiness: currentRun(days, (d) => {
       const value = visibleReadiness(d).value;
       return value === null ? null : value >= READY_STREAK_MIN;

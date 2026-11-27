@@ -31,7 +31,7 @@ function rowsOf<T>(items: readonly T[]): T[][] {
 
 export default function AchievementsScreen() {
   const { days } = useAppData();
-  const { t } = useT();
+  const { t, language } = useT();
   const { colors } = useTheme();
   const [filter, setFilter] = useState<Filter>('all');
   const [open, setOpen] = useState<Achievement | null>(null);
@@ -67,7 +67,7 @@ export default function AchievementsScreen() {
         {rowsOf(shown).map((row, r) => (
           <View key={r} style={{ flexDirection: 'row', gap: spacing.md }}>
             {row.map((a) => {
-              const name = badgeName(t, a);
+              const name = badgeName(t, a, language);
               const progress = t('profile.ach.progress', { current: Math.min(a.current, a.target), target: a.target });
               return (
                 <Pressable
@@ -85,14 +85,10 @@ export default function AchievementsScreen() {
                       {name}
                     </AppText>
                   </View>
-                  {a.unlocked ? null : (
-                    <>
-                      <Chip small tone="neutral" label={t('profile.ach.lockedChip')} />
-                      <AppText variant="caption" muted numeric testID={`ach-${a.id}-progress`}>
-                        {progress}
-                      </AppText>
-                    </>
-                  )}
+                  {a.unlocked ? null : <Chip small tone="neutral" label={t('profile.ach.lockedChip')} />}
+                  <AppText variant="caption" muted numeric testID={`ach-${a.id}-progress`}>
+                    {progress}
+                  </AppText>
                 </Pressable>
               );
             })}
@@ -105,7 +101,7 @@ export default function AchievementsScreen() {
       <AppText variant="caption" muted>
         {t('profile.ach.noteLevel')}
       </AppText>
-      <Sheet visible={open !== null} onClose={() => setOpen(null)} title={open ? badgeName(t, open) : ''} subtitle={open ? badgeDescription(t, open) : undefined} testID="achievement-sheet">
+      <Sheet visible={open !== null} onClose={() => setOpen(null)} title={open ? badgeName(t, open, language) : ''} subtitle={open ? badgeDescription(t, open, language) : undefined} testID="achievement-sheet">
         {open ? (
           <View style={{ gap: spacing.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -119,7 +115,7 @@ export default function AchievementsScreen() {
                 </AppText>
               </View>
             </View>
-            <ProgressBar fraction={open.current / open.target} label={badgeName(t, open)} color={open.unlocked ? colors.positive : colors.accent} />
+            <ProgressBar fraction={open.current / open.target} label={badgeName(t, open, language)} color={open.unlocked ? colors.positive : colors.accent} />
             <AppText variant="label" muted numeric testID="achievement-sheet-progress">
               {t('profile.ach.progress', { current: Math.min(open.current, open.target), target: open.target })}
             </AppText>

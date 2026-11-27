@@ -80,7 +80,7 @@ export default function PlanSetupScreen() {
                 <Icon name={GOAL_ICON[goal]} color={tone.fg} size={20} />
               </View>
               <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-                <AppText variant="body" style={{ fontWeight: '500' }}>
+                <AppText variant="bodyStrong">
                   {title}
                 </AppText>
                 <AppText variant="label" muted>

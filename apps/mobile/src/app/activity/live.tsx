@@ -79,7 +79,7 @@ export default function LiveActivityScreen() {
           {running && heartRate === null ? t('activity.live.waiting') : zone !== null && zone > 0 ? t(ZONE_KEYS[zone - 1] ?? 'activity.live.noZone') : t('activity.live.noZone')}
         </AppText>
         <AppText variant="caption" muted>
-          {t('activity.live.maxHr', { rest: fmt(ref.rest), value: fmt(ref.max) })}
+          {ref.zoneFloors ? t('profile.zones.liveCustom', { floors: ref.zoneFloors.map((f) => fmt(f)).join(' · ') }) : t('activity.live.maxHr', { rest: fmt(ref.rest), value: fmt(ref.max) })}
         </AppText>
       </Card>
 

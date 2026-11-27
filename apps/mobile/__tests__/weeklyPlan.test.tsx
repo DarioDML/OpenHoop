@@ -35,7 +35,6 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import PlanScreen from '@/app/plan/index';
 import PlanSetupScreen from '@/app/plan/setup';
-import { WeekCard } from '@/ui/daily/cards';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const today = days[days.length - 1]?.day ?? '2026-11-25';
@@ -50,13 +49,22 @@ function withScore(source: readonly DayRecord[], day: string, score: number): Da
 
 describe('weekly plan model', () => {
   it('reads old plans as load and sleep goals', () => {
-    expect(parseWeeklyPlan({ loadDays: 4, sleepNights: 5 })).toEqual({ ...presetTargets('balanced', null), goals: ['loadDays', 'sleepScore'], level: 'balanced', loadDays: 4, sleepNights: 5 });
+    expect(parseWeeklyPlan({ loadDays: 4, sleepNights: 5 })).toEqual({
+      ...presetTargets('balanced', null),
+      goals: ['loadDays', 'sleepScore'],
+      level: 'balanced',
+      sleepScoreNotice: true,
+      loadDays: 4,
+      sleepNights: 5,
+    });
+    expect(parseWeeklyPlan({ loadDays: 3, sleepNights: 0 })?.sleepScoreNotice).toBe(false);
     expect(parseWeeklyPlan({ loadDays: 0, sleepNights: 3 })?.goals).toEqual(['sleepScore']);
     expect(parseWeeklyPlan({ loadDays: 9, sleepNights: 3 })).toBeNull();
     expect(parseUserData(JSON.stringify({ weeklyPlan: { goals: ['steps', 'bogus', 'strength'], level: 'hard', steps: 12000 } })).weeklyPlan).toEqual({
       ...presetTargets('hard', null),
       goals: ['strength', 'steps'],
       level: 'hard',
+      sleepScoreNotice: false,
       steps: 12000,
     });
   });
@@ -127,10 +135,21 @@ describe('plan progress', () => {
       updatedAt: 0,
       metrics: { activeS: 0, load: null, loadReason: null, zoneSeconds: [], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null },
     };
-    expect(strengthIntervals([session], [activity], start)).toEqual([{ start, end: start + 3600 }]);
+    expect(strengthIntervals([session], [activity], start, '2026-11-24')).toEqual([{ start, end: start + 3600 }]);
     const strength = planWeek(plan, input({ sessions: [session], activities: [activity] })).goals[2];
     expect(strength).toMatchObject({ goal: 'strength', done: 60, target: 90, left: 30, state: 'onTrack' });
     expect(strength?.dots.slice(0, 3)).toEqual(['miss', 'hit', 'partial']);
+  });
+
+  it('counts an open session only on the day it started and only up to now', () => {
+    const today = Date.UTC(2026, 10, 25, 9) / 1000;
+    const nowS = today + 20 * 60;
+    const open: StrengthSession = { id: 3, templateId: null, name: 'Push', day: '2026-11-25', startedAt: today, endedAt: null, exercises: [], sets: [] };
+    const abandoned: StrengthSession = { ...open, id: 4, day: '2026-11-23', startedAt: Date.UTC(2026, 10, 23, 18) / 1000 };
+    expect(strengthIntervals([open, abandoned], [], nowS, '2026-11-25')).toEqual([{ start: today, end: nowS }]);
+    const strength = planWeek(plan, input({ sessions: [open, abandoned], nowS })).goals[2];
+    expect(strength?.done).toBe(20);
+    expect(strength?.dots[0]).toBe('miss');
   });
 
   it('averages steps over the week and uses imported steps', () => {
@@ -230,20 +249,22 @@ describe('plan screen', () => {
     expect(router.push).toHaveBeenCalledWith('/plan/setup');
   });
 
+  it('tells once that a migrated sleep goal now counts a sleep score', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const migrated = parseWeeklyPlan({ loadDays: 3, sleepNights: 5 });
+    expect(migrated).not.toBeNull();
+    if (migrated === null) return;
+    await render(withAppData(<PlanScreen />, 'en', { updateUserData, userData: { ...defaultUserData(), weeklyPlan: migrated } }));
+    expect(within(screen.getByTestId('plan-sleep-notice')).getByText(/sleep score of 80% or more/)).toBeTruthy();
+    await fireEvent.press(screen.getByText('Got it'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ weeklyPlan: { ...migrated, sleepScoreNotice: false } }));
+    await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { ...migrated, sleepScoreNotice: false } } }));
+    expect(screen.queryByTestId('plan-sleep-notice')).toBeNull();
+  });
+
   it('is honest about a plan without goals', async () => {
     await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { ...plan, goals: [] } } }));
     expect(screen.getByTestId('plan-no-goals')).toBeTruthy();
     expect(screen.queryByTestId('plan-summary')).toBeNull();
-  });
-});
-
-describe('home week card with a plan', () => {
-  it('shows the load target only for an active load goal and never mixes sleep criteria', async () => {
-    const index = days.length - 1;
-    await render(withAppData(<WeekCard days={days} index={index} />, 'en', { userData: { ...defaultUserData(), weeklyPlan: defaultPlan(null) } }));
-    expect(screen.getByTestId('week-load')).toHaveTextContent(/^\d+\/3$/);
-    expect(screen.getByTestId('week-sleep')).toHaveTextContent(/^\d+$/);
-    await render(withAppData(<WeekCard days={days} index={index} />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { ...defaultPlan(null), goals: ['steps'] } } }));
-    expect(screen.getByTestId('week-load')).toHaveTextContent(/^\d+$/);
   });
 });

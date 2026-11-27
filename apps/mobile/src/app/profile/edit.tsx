@@ -29,7 +29,7 @@ import { Field, Segmented } from '@/ui/controls';
 import { CapHeader } from '@/ui/ListGroup';
 import { Num } from '@/ui/Num';
 import { Screen } from '@/ui/Screen';
-import { fonts, radius, spacing, useTheme } from '@/ui/theme';
+import { fonts, radius, spacing, typeScale, useTheme } from '@/ui/theme';
 import { IconButton, TopBar } from '@/ui/TopBar';
 
 type SaveState = 'idle' | 'saved' | 'invalid' | 'zonesInvalid';
@@ -318,7 +318,7 @@ export default function EditProfileScreen() {
               style={[{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 68, paddingVertical: spacing.sm }, row < 4 ? { borderBottomWidth: 1, borderBottomColor: colors.border } : null]}>
               <View style={{ width: 12, height: 28, borderRadius: 4, backgroundColor: colors.zones[i] }} />
               <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-                <AppText variant="body" style={{ fontWeight: '500' }}>
+                <AppText variant="bodyStrong">
                   {t('profile.zones.zone', { zone })}
                 </AppText>
                 <AppText variant="label" muted>
@@ -346,7 +346,7 @@ export default function EditProfileScreen() {
                     backgroundColor: colors.surfaceAlt,
                     color: colors.text,
                     textAlign: 'center',
-                    fontSize: 16,
+                    fontSize: typeScale.lead.fontSize,
                     fontFamily: fonts.regular,
                   }}
                 />
