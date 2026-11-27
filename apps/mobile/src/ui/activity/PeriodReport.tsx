@@ -11,6 +11,7 @@ import { Screen } from '@/ui/Screen';
 import { Section } from '@/ui/Section';
 import { TopBar } from '@/ui/TopBar';
 import { View } from 'react-native';
+import { WeeklyReport } from '@/ui/plan/WeeklyReport';
 import { spacing } from '@/ui/theme';
 
 interface Props {
@@ -43,6 +44,11 @@ const TREND_KEY: Record<Trend, TranslationKey> = {
 };
 
 export function PeriodReport({ length, testID }: Props) {
+  if (length === 7) return <WeeklyReport testID={testID} />;
+  return <MonthlyReportLegacy testID={testID} length={length} />;
+}
+
+function MonthlyReportLegacy({ length, testID }: Props) {
   const { days, userData } = useAppData();
   const { t, language } = useT();
   const titleKey: TranslationKey = length === 7 ? 'plan.weekly.title' : 'plan.monthly.title';

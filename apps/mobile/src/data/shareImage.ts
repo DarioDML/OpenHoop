@@ -39,7 +39,7 @@ function removeFolder(folder: Directory): void {
   }
 }
 
-export async function shareSnapshotImage(target: RefObject<CardHandle | null>): Promise<void> {
+export async function shareSnapshotImage(target: RefObject<CardHandle | null>, fileName: string = IMAGE_NAME): Promise<void> {
   if (!(await isAvailableAsync())) throw new ShareUnavailableError();
   const view = target.current;
   if (view === null) throw new ShareCaptureError();
@@ -47,7 +47,7 @@ export async function shareSnapshotImage(target: RefObject<CardHandle | null>): 
   try {
     const base64 = await captureRef(view, { format: 'png', result: 'base64' });
     folder.create({ intermediates: true, overwrite: true });
-    const file = new File(folder, IMAGE_NAME);
+    const file = new File(folder, fileName);
     await file.write(decodeBase64(base64));
     await shareAsync(file.uri, { mimeType: 'image/png', dialogTitle: 'OpenHoop', UTI: 'public.png' });
   } finally {
