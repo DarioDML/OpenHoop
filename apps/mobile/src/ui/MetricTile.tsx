@@ -40,7 +40,7 @@ interface MissingValueProps {
   testID?: string;
 }
 
-function MissingValue({ target, testID }: MissingValueProps): ReactElement {
+export function MissingValue({ target, testID }: MissingValueProps): ReactElement {
   const { t, language } = useT();
   const explain = useExplain();
   const missing = useMissing(target);

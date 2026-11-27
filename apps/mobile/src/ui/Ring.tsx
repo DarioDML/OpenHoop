@@ -11,11 +11,12 @@ interface Props {
   strokeWidth?: number;
   tickFraction?: number | null;
   trackColor?: string;
+  segments?: { count: number; filled: number } | null;
   children?: ReactNode;
   testID?: string;
 }
 
-export function Ring({ fraction, color, size = 104, strokeWidth = 7, tickFraction = null, trackColor, children, testID }: Props) {
+export function Ring({ fraction, color, size = 104, strokeWidth = 7, tickFraction = null, trackColor, segments = null, children, testID }: Props) {
   const { colors } = useTheme();
   const half = size / 2;
   const r = half - strokeWidth / 2 - 1;
@@ -35,11 +36,39 @@ export function Ring({ fraction, color, size = 104, strokeWidth = 7, tickFractio
             y2: half + outer * Math.sin(angle),
           };
         })();
+  const arcs =
+    segments === null || segments.count <= 0
+      ? []
+      : (() => {
+          const gap = strokeWidth / c;
+          const span = 1 / segments.count - gap;
+          return Array.from({ length: segments.count }, (_, i) => ({
+            key: i,
+            filled: i < segments.filled,
+            dash: `${c * Math.max(0, span)} ${c}`,
+            rotation: -90 + (i / segments.count) * 360,
+          }));
+        })();
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }} testID={testID}>
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Circle cx={half} cy={half} r={r} stroke={trackColor ?? colors.ringTrack} strokeWidth={strokeWidth} fill="none" />
-        {fraction !== null && f > 0 ? (
+        {segments === null ? <Circle cx={half} cy={half} r={r} stroke={trackColor ?? colors.ringTrack} strokeWidth={strokeWidth} fill="none" /> : null}
+        {arcs.map((arc) => (
+          <Circle
+            key={arc.key}
+            testID={testID ? `${testID}-segment-${arc.key}` : undefined}
+            cx={half}
+            cy={half}
+            r={r}
+            stroke={arc.filled ? color : (trackColor ?? colors.ringTrack)}
+            strokeWidth={strokeWidth}
+            strokeDasharray={arc.dash}
+            rotation={arc.rotation}
+            origin={`${half}, ${half}`}
+            fill="none"
+          />
+        ))}
+        {segments === null && fraction !== null && f > 0 ? (
           <Circle
             cx={half}
             cy={half}
@@ -53,7 +82,7 @@ export function Ring({ fraction, color, size = 104, strokeWidth = 7, tickFractio
             fill="none"
           />
         ) : null}
-        {tick ? <Line {...tick} stroke={colors.text} strokeWidth={2} strokeLinecap="round" /> : null}
+        {segments === null && tick ? <Line {...tick} stroke={colors.text} strokeWidth={2} strokeLinecap="round" /> : null}
       </Svg>
       {children}
     </View>

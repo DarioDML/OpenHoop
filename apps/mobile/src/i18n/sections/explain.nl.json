@@ -172,5 +172,11 @@
   "explain.dots": "{have} van {need} nachten",
   "explain.dotsDays": "{have} van {need} dagen",
   "explain.tapHint": "Tik op een naam om te zien wat die betekent.",
-  "health.vitals.rangesAfter": "Je gewone bereik verschijnt na {count} nachten"
+  "health.vitals.rangesAfter": "Je gewone bereik verschijnt na {count} nachten",
+  "readiness.nightsLeft": "Nachten te gaan",
+  "readiness.nightsLeftOne": "Nacht te gaan",
+  "readiness.nightsLeftA11y": "Paraatheid: nog {count} nachten tot de eerste score",
+  "readiness.nightsLeftA11yOne": "Paraatheid: nog 1 nacht tot de eerste score",
+  "load.soFar": "Tot nu toe",
+  "loadx.soFarCaption": "Tot nu toe vandaag · gesynchroniseerd om {time}"
 }

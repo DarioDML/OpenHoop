@@ -172,5 +172,11 @@
   "explain.dots": "{have} of {need} nights",
   "explain.dotsDays": "{have} of {need} days",
   "explain.tapHint": "Tap a name to see what it means.",
-  "health.vitals.rangesAfter": "Your usual ranges show after {count} nights"
+  "health.vitals.rangesAfter": "Your usual ranges show after {count} nights",
+  "readiness.nightsLeft": "Nights left",
+  "readiness.nightsLeftOne": "Night left",
+  "readiness.nightsLeftA11y": "Readiness: {count} nights left before the first score",
+  "readiness.nightsLeftA11yOne": "Readiness: 1 night left before the first score",
+  "load.soFar": "So far",
+  "loadx.soFarCaption": "So far today · synced {time}"
 }

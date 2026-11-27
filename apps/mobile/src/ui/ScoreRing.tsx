@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import type { ParityLevel } from '@/data/types';
 import { formatNumber } from '@/lib/format';
@@ -9,6 +9,12 @@ import { Num } from './Num';
 import { ParityBadge } from './ParityBadge';
 import { Ring } from './Ring';
 import { useTheme } from './theme';
+
+export interface BuildingRing {
+  left: number;
+  have: number;
+  need: number;
+}
 
 interface Props {
   label: string;
@@ -25,6 +31,8 @@ interface Props {
   unit?: string;
   sublabel?: string;
   tickValue?: number | null;
+  building?: BuildingRing | null;
+  onExplain?: () => void;
   testID?: string;
 }
 
@@ -43,38 +51,64 @@ export function ScoreRing({
   unit,
   sublabel,
   tickValue = null,
+  building = null,
+  onExplain,
   testID,
 }: Props) {
   const { colors } = useTheme();
   const { language, t, reason: reasonLabel } = useT();
+  const explainable = onExplain !== undefined && (building !== null || value === null);
   const arcColor = calibrating ? colors.textMuted : (color ?? colors.accent);
   const numberColor = calibrating ? colors.textMuted : (color ?? colors.text);
 
+  const ring = (
+    <Ring
+      size={size}
+      strokeWidth={strokeWidth}
+      fraction={value === null ? null : value / max}
+      color={building === null ? arcColor : colors.pink}
+      segments={building === null ? null : { count: building.need, filled: building.have }}
+      tickFraction={tickValue === null ? null : tickValue / max}>
+      {building !== null ? (
+        <View
+          style={{ alignItems: 'center', gap: 2 }}
+          accessible
+          accessibilityLabel={building.left === 1 ? t('readiness.nightsLeftA11yOne') : t('readiness.nightsLeftA11y', { count: building.left })}>
+          <Num size={Math.round(size * 0.38)} color={colors.pink}>
+            {formatNumber(building.left, 0, language)}
+          </Num>
+          <AppText variant="capSmall" color={colors.pink} style={{ fontSize: 9, lineHeight: 11 }}>
+            {building.left === 1 ? t('readiness.nightsLeftOne') : t('readiness.nightsLeft')}
+          </AppText>
+        </View>
+      ) : value !== null ? (
+        <View style={{ alignItems: 'center', gap: 2 }}>
+          <Num size={Math.round(size * 0.38)} color={numberColor} unit={unit} unitSize={Math.round(size * 0.17)}>
+            {formatNumber(value, decimals, language)}
+          </Num>
+          {sublabel ? (
+            <AppText variant="capSmall" color={numberColor} style={{ fontSize: 9, lineHeight: 11 }}>
+              {sublabel}
+            </AppText>
+          ) : null}
+        </View>
+      ) : (
+        <AppText variant="caption" muted style={{ textAlign: 'center', paddingHorizontal: 14 }}>
+          {reasonLabel(reason)}
+        </AppText>
+      )}
+    </Ring>
+  );
+
   return (
     <View style={{ alignItems: 'center', gap: 10 }} testID={testID}>
-      <Ring
-        size={size}
-        strokeWidth={strokeWidth}
-        fraction={value === null ? null : value / max}
-        color={arcColor}
-        tickFraction={tickValue === null ? null : tickValue / max}>
-        {value !== null ? (
-          <View style={{ alignItems: 'center', gap: 2 }}>
-            <Num size={Math.round(size * 0.38)} color={numberColor} unit={unit} unitSize={Math.round(size * 0.17)}>
-              {formatNumber(value, decimals, language)}
-            </Num>
-            {sublabel ? (
-              <AppText variant="capSmall" color={numberColor} style={{ fontSize: 9, lineHeight: 11 }}>
-                {sublabel}
-              </AppText>
-            ) : null}
-          </View>
-        ) : (
-          <AppText variant="caption" muted style={{ textAlign: 'center', paddingHorizontal: 14 }}>
-            {reasonLabel(reason)}
-          </AppText>
-        )}
-      </Ring>
+      {explainable ? (
+        <Pressable accessibilityRole="button" testID={testID ? `${testID}-why` : undefined} onPress={onExplain} style={{ minWidth: 44, minHeight: 44 }}>
+          {ring}
+        </Pressable>
+      ) : (
+        ring
+      )}
       {showLabel ? (
         <View style={{ alignItems: 'center', gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -83,11 +117,6 @@ export function ScoreRing({
             </AppText>
           </View>
           <ParityBadge level={level} />
-          {calibrating && value !== null ? (
-            <AppText variant="caption" color={colors.warning}>
-              {t('calibrating.label')}
-            </AppText>
-          ) : null}
         </View>
       ) : null}
     </View>

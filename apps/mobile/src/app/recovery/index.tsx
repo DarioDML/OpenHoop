@@ -3,18 +3,21 @@ import { View } from 'react-native';
 import { useAppData } from '@/data/context';
 import { sliceEndingAt } from '@/data/dailyDerived';
 import { baselineAt, visibleReadiness } from '@/data/derived';
+import { buildingProgress, remaining } from '@/data/progress';
 import { useT } from '@/i18n/useT';
 import { formatNumber, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { BarChart } from '@/ui/BarChart';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
+import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
 import { Divider, NoDataPage, Page, StatRow, usePercentChip } from '@/ui/daily/bits';
 import { METRIC_SLUGS, METRIC_SPECS } from '@/ui/daily/metrics';
 import { FlagNotice } from '@/ui/FlagNotice';
+import { MissingValue } from '@/ui/MetricTile';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
-import { ScoreRing } from '@/ui/ScoreRing';
+import { ScoreRing, type BuildingRing } from '@/ui/ScoreRing';
 import { SignedBar } from '@/ui/SignedBar';
 import { readinessBand, readinessColor, spacing, useTheme } from '@/ui/theme';
 
@@ -23,11 +26,16 @@ export default function ReadinessScreen() {
   const { t, language, reason } = useT();
   const { colors } = useTheme();
   const percentChip = usePercentChip();
+  const explain = useExplain();
   const index = days.length - 1;
   const day = days[index];
   if (!day) return <NoDataPage title={t('screen.readiness')} body={t('empty.body')} />;
 
-  const value = visibleReadiness(day).value;
+  const visible = visibleReadiness(day);
+  const value = visible.value;
+  const progress = buildingProgress('readiness', days, index);
+  const building: BuildingRing | null = progress === null ? null : { left: remaining(progress), have: progress.have, need: progress.need };
+  const readinessTarget: ExplainTarget = { term: 'readiness', index, shown: { value: value === null ? null : formatNumber(value, 0, language), unit: null, reason: visible.reason } };
   const band = readinessBand(value);
   const contributions = day.readinessContributions;
   const scale = contributions ? Math.max(15, ...Object.values(contributions).map((v) => Math.abs(v))) : 15;
@@ -48,8 +56,9 @@ export default function ReadinessScreen() {
             value={value}
             max={100}
             level={PARITY.readiness}
-            reason={day.readiness.reason}
-            calibrating={day.readinessCalibrating}
+            reason={visible.reason}
+            building={building}
+            onExplain={() => explain.why(readinessTarget)}
             color={readinessColor(colors, value)}
             size={168}
             strokeWidth={14}
@@ -60,11 +69,6 @@ export default function ReadinessScreen() {
         </View>
       }>
       <FlagNotice flags={day.flags} />
-      {day.readinessCalibrating ? (
-        <Card tone="warning" testID="calibrating-hint">
-          <AppText variant="label">{t('calibrating.hint')}</AppText>
-        </Card>
-      ) : null}
 
       <Card testID="card-contributions" style={{ gap: spacing.lg }}>
         <View style={{ gap: 2 }}>
@@ -73,16 +77,14 @@ export default function ReadinessScreen() {
             {t('readiness.contributionsHint')}
           </AppText>
         </View>
-        {contributions ? (
+        {contributions && value !== null ? (
           <>
             <SignedBar label={t('readiness.contrib.hrv')} value={contributions.hrv} scale={scale} />
             <SignedBar label={t('readiness.contrib.sleep')} value={contributions.sleep} scale={scale} />
             <SignedBar label={t('readiness.contrib.rhr')} value={contributions.rhr} scale={scale} />
           </>
         ) : (
-          <AppText variant="bodyStrong" muted>
-            {reason(day.readiness.reason)}
-          </AppText>
+          <MissingValue target={readinessTarget} testID="contributions" />
         )}
       </Card>
 
@@ -99,6 +101,7 @@ export default function ReadinessScreen() {
                 testID={`row-${slug}`}
                 label={t(spec.label)}
                 value={derived.value === null ? reason(derived.reason) : `${formatNumber(derived.value, spec.decimals, language)} ${t(spec.unit)}`}
+                explain={{ term: spec.term, index, shown: { value: derived.value === null ? null : formatNumber(derived.value, spec.decimals, language), unit: t(spec.unit), reason: derived.reason } }}
                 right={chip ? <Chip label={chip.label} tone={chip.tone} small /> : undefined}
                 href={`/recovery/metric/${slug}`}
               />
@@ -111,6 +114,7 @@ export default function ReadinessScreen() {
           label={t('score.sleep')}
           value={day.sleep.score.value === null ? reason(day.sleep.score.reason) : `${formatNumber(day.sleep.score.value, 0, language)}%`}
           right={sleepChip ? <Chip label={sleepChip.label} tone={sleepChip.tone} small /> : undefined}
+          explain={{ term: 'sleepScore', index, shown: { value: day.sleep.score.value === null ? null : formatNumber(day.sleep.score.value, 0, language), unit: t('unit.percent'), reason: day.sleep.score.reason } }}
           href="/sleep"
         />
       </Card>

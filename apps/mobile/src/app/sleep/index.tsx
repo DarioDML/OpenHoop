@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { formatHm, formatLongDay, formatMinutes, mainPeriod, planBedtime, sliceEndingAt } from '@/data/dailyDerived';
+import { formatHm, formatLongDay, formatMinutes, mainPeriod, planBedtime, sleepEfficiency, sliceEndingAt } from '@/data/dailyDerived';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatNumber, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -29,11 +29,13 @@ export default function SleepScreen() {
   const main = mainPeriod(day);
   const need = sleep.need.value;
   const hoursVsNeed = sleep.asleepS !== null && need !== null && need > 0 ? Math.round((sleep.asleepS / need) * 100) : null;
-  const efficiency = sleep.asleepS !== null && sleep.inBedS !== null && sleep.inBedS > 0 ? Math.round((sleep.asleepS / sleep.inBedS) * 100) : null;
+  const efficiency = sleepEfficiency(day);
   const week = sliceEndingAt(days, 7, index);
   const plan = need === null ? null : planBedtime(days, index, need);
   const tile = { style: { flexBasis: '47%', flexGrow: 1 } } as const;
   const duration = (seconds: number): string => formatDuration(t, seconds);
+  const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
+  const shown = (value: string | null, unit: string | null, reasonKey: string | null) => ({ value, unit, reason: reasonKey });
   const noSleepReason = (value: number | null): string | null => (value === null ? 'no-sleep' : null);
   const coverage = (value: number | null): string | undefined => (value === null ? undefined : t('sleep.coverage', { pct: Math.round(value * 100) }));
 
@@ -94,11 +96,11 @@ export default function SleepScreen() {
 
       <Card testID="card-contributors" style={{ gap: 0 }}>
         <CardHeader title={t('sleepx.contributors')} />
-        <StatRow label={t('sleepx.hoursVsNeed')} value={hoursVsNeed === null ? reason(sleep.need.reason) : `${hoursVsNeed}%`} testID="contrib-hours" />
+        <StatRow label={t('sleepx.hoursVsNeed')} value={hoursVsNeed === null ? reason(sleep.need.reason) : `${hoursVsNeed}%`} explain={{ term: 'hoursVsNeed', index, shown: shown(hoursVsNeed === null ? null : String(hoursVsNeed), t('unit.percent'), sleep.need.reason) }} testID="contrib-hours" />
         <Divider />
-        <StatRow label={t('metric.consistency')} value={sleep.consistency.value === null ? reason(sleep.consistency.reason) : `${formatNumber(sleep.consistency.value, 0, language)}%`} testID="contrib-consistency" />
+        <StatRow label={t('metric.consistency')} value={sleep.consistency.value === null ? reason(sleep.consistency.reason) : `${formatNumber(sleep.consistency.value, 0, language)}%`} explain={{ term: 'consistency', index, shown: shown(sleep.consistency.value === null ? null : fmt(sleep.consistency.value), t('unit.percent'), sleep.consistency.reason) }} testID="contrib-consistency" />
         <Divider />
-        <StatRow label={t('sleepx.efficiency')} value={efficiency === null ? reason('no-sleep') : `${efficiency}%`} testID="contrib-efficiency" />
+        <StatRow label={t('sleepx.efficiency')} value={efficiency === null ? reason('no-sleep') : `${efficiency}%`} explain={{ term: 'efficiency', index, shown: shown(efficiency === null ? null : String(efficiency), t('unit.percent'), 'no-sleep') }} testID="contrib-efficiency" />
         <View style={{ paddingTop: spacing.sm }}>
           <ParityBadge level={PARITY.sleepScore} long />
         </View>
@@ -138,23 +140,23 @@ export default function SleepScreen() {
         {t('sleep.summary')}
       </AppText>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
-        <MetricTile {...tile} testID="tile-asleep" label={t('metric.asleep')} value={sleep.asleepS} reason={noSleepReason(sleep.asleepS)} format={duration} level={PARITY.sleep} />
-        <MetricTile {...tile} testID="tile-inbed" label={t('metric.inBed')} value={sleep.inBedS} reason={noSleepReason(sleep.inBedS)} format={duration} level={PARITY.sleep} />
-        <MetricTile {...tile} testID="tile-need" label={t('metric.need')} value={sleep.need.value} reason={sleep.need.reason} format={duration} level={PARITY.sleepNeed} href="/sleep/need" />
-        <MetricTile {...tile} testID="tile-debt" label={t('metric.debt')} value={sleep.debt.value} reason={sleep.debt.reason} format={duration} level={PARITY.sleepNeed} href="/sleep/need" />
-        <MetricTile {...tile} testID="tile-consistency" label={t('metric.consistency')} value={sleep.consistency.value} reason={sleep.consistency.reason} unit={t('unit.percent')} level={PARITY.consistency} />
+        <MetricTile {...tile} testID="tile-asleep" explain={{ term: 'asleep', index }} label={t('metric.asleep')} value={sleep.asleepS} reason={noSleepReason(sleep.asleepS)} format={duration} level={PARITY.sleep} />
+        <MetricTile {...tile} testID="tile-inbed" explain={{ term: 'inBed', index }} label={t('metric.inBed')} value={sleep.inBedS} reason={noSleepReason(sleep.inBedS)} format={duration} level={PARITY.sleep} />
+        <MetricTile {...tile} testID="tile-need" explain={{ term: 'sleepNeed', index }} label={t('metric.need')} value={sleep.need.value} reason={sleep.need.reason} format={duration} level={PARITY.sleepNeed} href="/sleep/need" />
+        <MetricTile {...tile} testID="tile-debt" explain={{ term: 'sleepDebt', index }} label={t('metric.debt')} value={sleep.debt.value} reason={sleep.debt.reason} format={duration} level={PARITY.sleepNeed} href="/sleep/need" />
+        <MetricTile {...tile} testID="tile-consistency" explain={{ term: 'consistency', index }} label={t('metric.consistency')} value={sleep.consistency.value} reason={sleep.consistency.reason} unit={t('unit.percent')} level={PARITY.consistency} />
       </View>
 
       <AppText variant="capLarge" muted>
         {t('sleep.signals')}
       </AppText>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
-        <MetricTile {...tile} label={t('metric.hrv')} value={day.hrv.value} reason={day.hrv.reason} unit={t('unit.ms')} level={PARITY.hrv} caption={coverage(day.hrv.coverage)} href="/recovery/metric/hrv" />
-        <MetricTile {...tile} label={t('metric.restingHr')} value={day.restingHr.value} reason={day.restingHr.reason} unit={t('unit.bpm')} level={PARITY.restingHr} caption={coverage(day.restingHr.coverage)} href="/recovery/metric/rhr" />
-        <MetricTile {...tile} label={t('metric.respiratoryRate')} value={day.respiratoryRate.value} reason={day.respiratoryRate.reason} unit={t('unit.perMin')} level={PARITY.respiratoryRate} decimals={1} caption={coverage(day.respiratoryRate.coverage)} href="/recovery/metric/resp" />
-        <MetricTile {...tile} label={t('metric.spo2')} value={day.spo2.value} reason={day.spo2.reason} unit={t('unit.percent')} level={PARITY.spo2} decimals={1} caption={coverage(day.spo2.coverage)} href="/recovery/metric/spo2" />
-        <MetricTile {...tile} label={t('metric.skinTemp')} value={day.skinTempC.value} reason={day.skinTempC.reason} unit={t('unit.celsius')} level={PARITY.skinTemp} decimals={1} caption={coverage(day.skinTempC.coverage)} href="/recovery/metric/temp" />
-        <MetricTile {...tile} label={t('metric.skinTempDeviation')} value={day.skinTempDeviationC.value} reason={day.skinTempDeviationC.reason} unit={t('unit.celsiusDelta')} level={PARITY.skinTemp} decimals={2} caption={coverage(day.skinTempDeviationC.coverage)} />
+        <MetricTile {...tile} explain={{ term: 'hrv', index }} label={t('metric.hrv')} value={day.hrv.value} reason={day.hrv.reason} unit={t('unit.ms')} level={PARITY.hrv} caption={coverage(day.hrv.coverage)} href="/recovery/metric/hrv" />
+        <MetricTile {...tile} explain={{ term: 'restingHr', index }} label={t('metric.restingHr')} value={day.restingHr.value} reason={day.restingHr.reason} unit={t('unit.bpm')} level={PARITY.restingHr} caption={coverage(day.restingHr.coverage)} href="/recovery/metric/rhr" />
+        <MetricTile {...tile} explain={{ term: 'respiratoryRate', index }} label={t('metric.respiratoryRate')} value={day.respiratoryRate.value} reason={day.respiratoryRate.reason} unit={t('unit.perMin')} level={PARITY.respiratoryRate} decimals={1} caption={coverage(day.respiratoryRate.coverage)} href="/recovery/metric/resp" />
+        <MetricTile {...tile} explain={{ term: 'spo2', index }} label={t('metric.spo2')} value={day.spo2.value} reason={day.spo2.reason} unit={t('unit.percent')} level={PARITY.spo2} decimals={1} caption={coverage(day.spo2.coverage)} href="/recovery/metric/spo2" />
+        <MetricTile {...tile} explain={{ term: 'skinTemp', index }} label={t('metric.skinTemp')} value={day.skinTempC.value} reason={day.skinTempC.reason} unit={t('unit.celsius')} level={PARITY.skinTemp} decimals={1} caption={coverage(day.skinTempC.coverage)} href="/recovery/metric/temp" />
+        <MetricTile {...tile} explain={{ term: 'skinTempChange', index }} label={t('metric.skinTempDeviation')} value={day.skinTempDeviationC.value} reason={day.skinTempDeviationC.reason} unit={t('unit.celsiusDelta')} level={PARITY.skinTemp} decimals={2} caption={coverage(day.skinTempDeviationC.coverage)} />
       </View>
     </Page>
   );

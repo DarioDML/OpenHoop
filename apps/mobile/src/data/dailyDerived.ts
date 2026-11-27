@@ -264,3 +264,12 @@ export function weekdayInitials(language: 'nl' | 'en'): string[] {
     (new Date(base + i * 86400000).toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'narrow', timeZone: 'UTC' })).toUpperCase(),
   );
 }
+
+export function sleepEfficiency(day: DayRecord): number | null {
+  const { asleepS, inBedS, stages } = day.sleep;
+  if (inBedS === null || inBedS <= 0) return null;
+  const wake = stages?.totals?.wake;
+  const asleep = wake === undefined ? asleepS : inBedS - wake;
+  if (asleep === null) return null;
+  return Math.min(100, Math.max(0, Math.round((asleep / inBedS) * 100)));
+}
