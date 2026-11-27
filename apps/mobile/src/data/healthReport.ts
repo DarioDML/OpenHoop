@@ -3,7 +3,7 @@ import type { BodyMeasurement, DayRecord, LabResult } from '@openhoop/core';
 import type { TranslationKey } from '@/i18n';
 
 import { sortMeasurements } from './bodyComposition';
-import { addDays, mean, stdev } from './derived';
+import { addDays, mean, stdev, visibleReadiness } from './derived';
 import { caloriesForDay } from './energyDerived';
 import { buildHistory, groupKey, parseBiomarkerKey, rangeStatus, resultsFor, sortResults, type BiomarkerRef, type RangeStatus } from './labs';
 import type { ParityLevel, Profile } from './types';
@@ -121,7 +121,7 @@ function sleepBalance(day: DayRecord): Reading {
 }
 
 const METRICS: readonly MetricSpec[] = [
-  { id: 'readiness', section: 'scores', labelKey: 'score.readiness', level: 'B', kind: 'number', decimals: 0, unitKey: null, read: (d) => d.readiness },
+  { id: 'readiness', section: 'scores', labelKey: 'score.readiness', level: 'B', kind: 'number', decimals: 0, unitKey: null, read: (d) => visibleReadiness(d) },
   { id: 'sleepScore', section: 'scores', labelKey: 'score.sleep', level: 'B', kind: 'number', decimals: 0, unitKey: null, read: (d) => d.sleep.score },
   { id: 'load', section: 'scores', labelKey: 'score.load', level: 'B', kind: 'number', decimals: 1, unitKey: null, read: (d) => d.load },
   {

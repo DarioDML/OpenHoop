@@ -8,6 +8,7 @@ import { MAX_QUESTION_LENGTH } from '@/coach/controller';
 import { parseStoredChips, resolveChips } from '@/coach/reply';
 import { withDismissed } from '@/coach/prefs';
 import { useAppData } from '@/data/context';
+import { TERMS, isTermId } from '@/data/terms';
 import { latestValue } from '@/data/healthDerived';
 import type { MetricKey } from '@/data/derived';
 import type { TranslationKey } from '@/i18n';
@@ -47,10 +48,11 @@ export default function CoachScreen() {
   const { days, userData, updateUserData } = useAppData();
   const { state, controller } = useCoach();
   const gate = useCoachGate();
-  const params = useLocalSearchParams<{ ask?: string; conversation?: string }>();
+  const params = useLocalSearchParams<{ ask?: string; conversation?: string; term?: string }>();
   const [draft, setDraft] = useState('');
   const handledAsk = useRef<string | null>(null);
   const handledConversation = useRef<string | null>(null);
+  const handledTerm = useRef<string | null>(null);
   const chips = CHIPS.map((spec) => ({ spec, latest: latestValue(days, spec.key) })).filter((c) => c.latest !== null);
   const checkIns = useMemo(
     () => (userData.coach.checkIns ? activeCheckIns(days, userData.coach.dismissedCheckIns) : []),
@@ -59,6 +61,13 @@ export default function CoachScreen() {
 
   const ask = firstParam(params.ask);
   const conversation = firstParam(params.conversation);
+  const term = firstParam(params.term);
+
+  useEffect(() => {
+    if (term === null || handledTerm.current === term || !isTermId(term)) return;
+    handledTerm.current = term;
+    setDraft(t('explain.coachQuestion', { name: t(TERMS[term].name) }));
+  }, [term, t]);
 
   useEffect(() => {
     if (ask === null || handledAsk.current === ask) return;

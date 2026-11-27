@@ -89,6 +89,15 @@ describe('pipeline', () => {
         await weekStore.driver.close();
       });
 
+      it('stores no load so far once a day has its ten hours of heart rate', () => {
+        const scored = records.filter((r) => r.load.value !== null);
+        expect(scored.length).toBeGreaterThan(0);
+        for (const r of scored) {
+          expect(r.loadSoFar).toBeNull();
+          expect(r.loadValidMinutes).toBeGreaterThanOrEqual(600);
+        }
+      });
+
       it('yields seven records with calibrating on the first three', async () => {
         expect(records.map((r) => r.day)).toEqual([0, 1, 2, 3, 4, 5, 6].map((d) => dayKey(localMidnight(d), TZ_S)));
         for (const r of records) {
@@ -342,13 +351,16 @@ describe('pipeline', () => {
     });
 
     it('flags partial-day for a day with six hours of data', async () => {
-      const rows = awakeSamples(deviceId, localMidnight(0) + 8 * HOUR_S, 6 * HOUR_S);
+      const rows = awakeSamples(deviceId, localMidnight(0) + 8 * HOUR_S, 6 * HOUR_S, { workout: { offsetS: HOUR_S, durationS: 1_800, hr: 150 } });
       await store.insertSamples(rows);
       const records = await recompute(rows);
       expect(records).toHaveLength(1);
       expect(records[0]?.flags).toEqual(['partial-day']);
       expect(records[0]?.load).toMatchObject({ value: null, reason: 'low-coverage' });
       expect(records[0]?.sleep.score.reason).toBe('no-sleep');
+      expect(records[0]?.loadValidMinutes).toBe(360);
+      expect(records[0]?.loadSoFar).toBeGreaterThan(0);
+      expect(records[0]?.loadSoFar).toBeLessThanOrEqual(21);
     });
 
     it('prefers history over hrm for the same second and uses hrm where history is missing', async () => {

@@ -142,7 +142,7 @@ import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
 import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
-import { planAlerts, reconcile, syncFailedAlert, type Alert, type DigestFacts, type InboxEntry } from '@/lib/notificationPlan';
+import { digestFacts, planAlerts, reconcile, syncFailedAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 import { buildWidgetFile } from '@/lib/widgetSnapshot';
 import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
@@ -171,7 +171,7 @@ import { smartWakeScheduler, type SmartWakeScheduler } from '@/lib/smartWakeNati
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
 import { storageProblemOf, type StorageProblem } from './storageProblem';
-import { addDays } from './derived';
+import { readinessNightsLeft } from './progress';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
 import { OPENHOOP_PACKAGE, nativeHealthConnect, type HealthConnectApi } from './healthConnectApi';
@@ -1656,20 +1656,6 @@ export class AppController {
     return this.app.store.sleepStagesBetween(row.id, fromS, toS);
   };
 
-  private digestFacts(now: Date): (day: string) => DigestFacts | null {
-    const byDay = new Map(this.snapshot.days.map((record) => [record.day, record]));
-    return (day) => {
-      const record = byDay.get(day);
-      if (record === undefined) return null;
-      const yesterday = byDay.get(addDays(day, -1));
-      return {
-        readiness: record.readiness.value,
-        sleepScore: record.sleep.score.value,
-        load: yesterday !== undefined && yesterday.end * 1000 <= now.getTime() ? yesterday.load.value : null,
-      };
-    };
-  }
-
   private async saveNotificationState(state: NotificationState): Promise<void> {
     this.notificationState = state;
     await this.requireApp().store.setSetting(NOTIFICATION_STATE_KEY, serializeNotificationState(state));
@@ -1702,7 +1688,7 @@ export class AppController {
             prefs,
             pending: settled.pending,
             sent: settled.sent,
-            factsFor: this.digestFacts(now),
+            factsFor: digestFacts(this.snapshot.days, now),
             lastSyncAt: this.lastSyncAt === null ? null : this.lastSyncAt * 1000,
             watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
             fresh,
@@ -1731,7 +1717,7 @@ export class AppController {
         return;
       }
       const { days, userData, settings } = this.snapshot;
-      await this.widgets.publish(buildWidgetFile({ enabled: userData.widgetValues, day: days[days.length - 1], syncedAt: this.lastSyncAt, language: settings.language }));
+      await this.widgets.publish(buildWidgetFile({ enabled: userData.widgetValues, day: days[days.length - 1], syncedAt: this.lastSyncAt, language: settings.language, readinessNightsLeft: readinessNightsLeft(days, days.length - 1) }));
     });
     this.widgetChain = run.catch(() => undefined);
     return this.widgetChain;

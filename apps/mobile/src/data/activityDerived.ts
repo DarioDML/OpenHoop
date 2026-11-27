@@ -3,7 +3,7 @@ import type { DayRecord, WorkoutRecord } from '@openhoop/core';
 import type { HcStepsDay } from '@/lib/healthConnectMapping';
 
 import type { Language, Profile } from './types';
-import { addDays, baselineAt, mean, weekdayIndex, weekStart, wearStreak, type Baseline } from './derived';
+import { addDays, baselineAt, mean, weekdayIndex, weekStart, wearStreak, visibleReadiness, type Baseline } from './derived';
 
 export const LOAD_DAY_MIN = 7;
 export const MIN_REPORT_DAYS = 3;
@@ -72,7 +72,7 @@ export function periodStats(days: readonly DayRecord[]): PeriodStats {
   }
   return {
     days: days.length,
-    readiness: mean(days.map((d) => d.readiness.value)),
+    readiness: mean(days.map((d) => visibleReadiness(d).value)),
     load: mean(days.map((d) => d.load.value)),
     sleepH: mean(days.map((d) => (d.sleep.asleepS === null ? null : d.sleep.asleepS / 3600))),
     hrv: mean(days.map((d) => d.hrv.value)),

@@ -1,7 +1,7 @@
 import type { DayRecord, SleepPeriodRecord } from '@openhoop/core';
 
 import { isLoadDay, sleepNightMet } from './activityDerived';
-import { addDays, baselineAt, daysInWeek, mean, metricValue, rangeStatus, type Baseline, type MetricKey } from './derived';
+import { addDays, baselineAt, daysInWeek, mean, metricValue, rangeStatus, visibleReadiness, type Baseline, type MetricKey } from './derived';
 
 export const VITAL_KEYS = ['hrv', 'restingHr', 'respiratoryRate', 'spo2', 'skinTemp'] as const satisfies readonly MetricKey[];
 
@@ -32,6 +32,8 @@ export interface VitalsSummary {
   inRange: number;
   outside: MetricKey[];
   calibrating: boolean;
+  withValue: number;
+  total: number;
 }
 
 export function vitalsSummary(days: readonly DayRecord[], index: number): VitalsSummary {
@@ -51,7 +53,7 @@ export function vitalsSummary(days: readonly DayRecord[], index: number): Vitals
     if (status === 'within') inRange++;
     else outside.push(key);
   }
-  return { measured, inRange, outside, calibrating: withValue > 0 && measured === 0 };
+  return { measured, inRange, outside, calibrating: withValue > 0 && measured === 0, withValue, total: VITAL_KEYS.length };
 }
 
 export function mainNightSpan(day: DayRecord): { onset: number; offset: number } | null {
@@ -200,8 +202,8 @@ function compare(days: readonly DayRecord[], id: ImpactComparison['id'], pick: (
     const next = days[i + 1];
     if (!day || !next || addDays(day.day, 1) !== next.day) continue;
     const x = pick(day);
-    const readiness = next.readiness.value;
-    if (x === null || readiness === null || next.readinessCalibrating) continue;
+    const readiness = visibleReadiness(next).value;
+    if (x === null || readiness === null) continue;
     pairs.push({ x, next: readiness });
   }
   const threshold = median(pairs.map((p) => p.x));
@@ -263,4 +265,13 @@ export function weekdayInitials(language: 'nl' | 'en'): string[] {
   return Array.from({ length: 7 }, (_, i) =>
     (new Date(base + i * 86400000).toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'narrow', timeZone: 'UTC' })).toUpperCase(),
   );
+}
+
+export function sleepEfficiency(day: DayRecord): number | null {
+  const { asleepS, inBedS, stages } = day.sleep;
+  if (inBedS === null || inBedS <= 0) return null;
+  const wake = stages?.totals?.wake;
+  const asleep = wake === undefined ? asleepS : inBedS - wake;
+  if (asleep === null) return null;
+  return Math.min(100, Math.max(0, Math.round((asleep / inBedS) * 100)));
 }

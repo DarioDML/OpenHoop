@@ -54,6 +54,7 @@ let mockController = new FakeController();
 
 import HomeScreen from '@/app/(tabs)/index';
 import { LiveProvider } from '@/data/LiveProvider';
+import { ExplainProvider } from '@/ui/explain/ExplainProvider';
 
 let appDataRenders = 0;
 function AppDataConsumer() {
@@ -84,8 +85,10 @@ describe('LiveProvider', () => {
   it('updates the live cards without re-rendering app data consumers', async () => {
     await render(
       <LiveProvider>
-        <AppDataConsumer />
-        <HomeScreen />
+        <ExplainProvider>
+          <AppDataConsumer />
+          <HomeScreen />
+        </ExplainProvider>
       </LiveProvider>,
     );
     const rendersAfterMount = appDataRenders;

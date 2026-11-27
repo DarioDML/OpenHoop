@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { loadTargetBand, targetAdvice } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
-import { rangeStatus } from '@/data/derived';
+import { rangeStatus, visibleReadiness } from '@/data/derived';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 import { NoDataScreen } from '@/ui/activity/parts';
@@ -27,7 +27,7 @@ export default function LoadTargetScreen() {
 
   const band = loadTargetBand(days);
   const status = rangeStatus(day.load.value, band);
-  const advice = targetAdvice(day.readiness.value);
+  const advice = targetAdvice(visibleReadiness(day).value);
   const fmt = (v: number): string => formatNumber(v, 1, language);
 
   return (

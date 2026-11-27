@@ -3,6 +3,8 @@ import type { Href } from 'expo-router';
 
 import type { TranslationKey } from '@/i18n';
 
+import type { TermId } from './terms';
+
 import { addDays, baselineAt, mean, metricValue, rangeStatus, type Baseline, type MetricKey, type RangeStatus } from './derived';
 import { latestStressScore } from './stressDerived';
 import type { ParityLevel, Profile } from './types';
@@ -13,6 +15,7 @@ export type VitalId = 'hrv' | 'rhr' | 'resp' | 'spo2' | 'temp';
 
 export interface VitalSpec {
   id: VitalId;
+  term: TermId;
   key: MetricKey;
   level: ParityLevel;
   decimals: number;
@@ -21,11 +24,11 @@ export interface VitalSpec {
 }
 
 export const VITALS: readonly VitalSpec[] = [
-  { id: 'hrv', key: 'hrv', level: 'B', decimals: 0, labelKey: 'metric.hrv', unitKey: 'unit.ms' },
-  { id: 'rhr', key: 'restingHr', level: 'B', decimals: 0, labelKey: 'metric.restingHr', unitKey: 'unit.bpm' },
-  { id: 'resp', key: 'respiratoryRate', level: 'B', decimals: 1, labelKey: 'metric.respiratoryRate', unitKey: 'unit.perMin' },
-  { id: 'spo2', key: 'spo2', level: 'A', decimals: 0, labelKey: 'metric.spo2', unitKey: 'unit.percent' },
-  { id: 'temp', key: 'skinTemp', level: 'A', decimals: 1, labelKey: 'metric.skinTemp', unitKey: 'unit.celsius' },
+  { id: 'hrv', term: 'hrv', key: 'hrv', level: 'B', decimals: 0, labelKey: 'metric.hrv', unitKey: 'unit.ms' },
+  { id: 'rhr', term: 'restingHr', key: 'restingHr', level: 'B', decimals: 0, labelKey: 'metric.restingHr', unitKey: 'unit.bpm' },
+  { id: 'resp', term: 'respiratoryRate', key: 'respiratoryRate', level: 'B', decimals: 1, labelKey: 'metric.respiratoryRate', unitKey: 'unit.perMin' },
+  { id: 'spo2', term: 'spo2', key: 'spo2', level: 'A', decimals: 0, labelKey: 'metric.spo2', unitKey: 'unit.percent' },
+  { id: 'temp', term: 'skinTemp', key: 'skinTemp', level: 'A', decimals: 1, labelKey: 'metric.skinTemp', unitKey: 'unit.celsius' },
 ];
 
 export interface VitalReading {
@@ -118,6 +121,7 @@ export type MetricReading =
 
 export interface CatalogueItem {
   id: string;
+  term: TermId | null;
   labelKey: TranslationKey;
   category: MetricCategory;
   level: ParityLevel | null;
@@ -142,22 +146,23 @@ function seconds(key: 'asleepH' | 'sleepNeedH' | 'sleepDebtH'): CatalogueItem['r
 const none: CatalogueItem['read'] = () => ({ kind: 'none' });
 
 export const CATALOGUE: readonly CatalogueItem[] = [
-  { id: 'readiness', labelKey: 'score.readiness', category: 'readiness', level: 'B', href: '/recovery', read: numeric('readiness', 0, null) },
-  { id: 'hrv', labelKey: 'metric.hrv', category: 'readiness', level: 'B', href: '/recovery/metric/hrv', read: numeric('hrv', 0, 'unit.ms') },
-  { id: 'rhr', labelKey: 'metric.restingHr', category: 'readiness', level: 'B', href: '/recovery/metric/rhr', read: numeric('restingHr', 0, 'unit.bpm') },
-  { id: 'resp', labelKey: 'metric.respiratoryRate', category: 'readiness', level: 'B', href: '/recovery/metric/resp', read: numeric('respiratoryRate', 1, 'unit.perMin') },
-  { id: 'spo2', labelKey: 'metric.spo2', category: 'readiness', level: 'A', href: '/recovery/metric/spo2', read: numeric('spo2', 0, 'unit.percent') },
-  { id: 'temp', labelKey: 'metric.skinTemp', category: 'readiness', level: 'A', href: '/recovery/metric/temp', read: numeric('skinTemp', 1, 'unit.celsius') },
-  { id: 'tempDeviation', labelKey: 'metric.skinTempDeviation', category: 'readiness', level: 'A', href: '/recovery/metric/temp', read: numeric('skinTempDeviation', 1, 'unit.celsiusDelta') },
-  { id: 'sleepScore', labelKey: 'score.sleep', category: 'sleep', level: 'B', href: '/sleep', read: numeric('sleepScore', 0, null) },
-  { id: 'asleep', labelKey: 'metric.asleep', category: 'sleep', level: 'B', href: '/sleep/last-night', read: seconds('asleepH') },
-  { id: 'need', labelKey: 'metric.need', category: 'sleep', level: 'B', href: '/sleep/need', read: seconds('sleepNeedH') },
-  { id: 'debt', labelKey: 'metric.debt', category: 'sleep', level: 'B', href: '/sleep/need', read: seconds('sleepDebtH') },
-  { id: 'consistency', labelKey: 'metric.consistency', category: 'sleep', level: 'C', href: '/sleep/trends', read: numeric('consistency', 0, 'unit.percent') },
-  { id: 'load', labelKey: 'score.load', category: 'load', level: 'B', href: '/load', read: numeric('load', 1, null) },
-  { id: 'steps', labelKey: 'metric.steps', category: 'load', level: 'A', href: '/steps', read: numeric('steps', 0, null) },
+  { id: 'readiness', term: 'readiness', labelKey: 'score.readiness', category: 'readiness', level: 'B', href: '/recovery', read: numeric('readiness', 0, null) },
+  { id: 'hrv', term: 'hrv', labelKey: 'metric.hrv', category: 'readiness', level: 'B', href: '/recovery/metric/hrv', read: numeric('hrv', 0, 'unit.ms') },
+  { id: 'rhr', term: 'restingHr', labelKey: 'metric.restingHr', category: 'readiness', level: 'B', href: '/recovery/metric/rhr', read: numeric('restingHr', 0, 'unit.bpm') },
+  { id: 'resp', term: 'respiratoryRate', labelKey: 'metric.respiratoryRate', category: 'readiness', level: 'B', href: '/recovery/metric/resp', read: numeric('respiratoryRate', 1, 'unit.perMin') },
+  { id: 'spo2', term: 'spo2', labelKey: 'metric.spo2', category: 'readiness', level: 'A', href: '/recovery/metric/spo2', read: numeric('spo2', 0, 'unit.percent') },
+  { id: 'temp', term: 'skinTemp', labelKey: 'metric.skinTemp', category: 'readiness', level: 'A', href: '/recovery/metric/temp', read: numeric('skinTemp', 1, 'unit.celsius') },
+  { id: 'tempDeviation', term: 'skinTempChange', labelKey: 'metric.skinTempDeviation', category: 'readiness', level: 'A', href: '/recovery/metric/temp', read: numeric('skinTempDeviation', 1, 'unit.celsiusDelta') },
+  { id: 'sleepScore', term: 'sleepScore', labelKey: 'score.sleep', category: 'sleep', level: 'B', href: '/sleep', read: numeric('sleepScore', 0, null) },
+  { id: 'asleep', term: 'asleep', labelKey: 'metric.asleep', category: 'sleep', level: 'B', href: '/sleep/last-night', read: seconds('asleepH') },
+  { id: 'need', term: 'sleepNeed', labelKey: 'metric.need', category: 'sleep', level: 'B', href: '/sleep/need', read: seconds('sleepNeedH') },
+  { id: 'debt', term: 'sleepDebt', labelKey: 'metric.debt', category: 'sleep', level: 'B', href: '/sleep/need', read: seconds('sleepDebtH') },
+  { id: 'consistency', term: 'consistency', labelKey: 'metric.consistency', category: 'sleep', level: 'C', href: '/sleep/trends', read: numeric('consistency', 0, 'unit.percent') },
+  { id: 'load', term: 'load', labelKey: 'score.load', category: 'load', level: 'B', href: '/load', read: numeric('load', 1, null) },
+  { id: 'steps', term: 'steps', labelKey: 'metric.steps', category: 'load', level: 'A', href: '/steps', read: numeric('steps', 0, null) },
   {
     id: 'heartRate24h',
+    term: null,
     labelKey: 'health.metrics.heartRate24h',
     category: 'raw',
     level: 'A',
@@ -168,9 +173,10 @@ export const CATALOGUE: readonly CatalogueItem[] = [
       return avg === null ? { kind: 'none' } : { kind: 'number', value: avg, decimals: 0, unitKey: 'unit.bpm' };
     },
   },
-  { id: 'bodyAge', labelKey: 'health.metrics.bodyAge', category: 'health', level: 'C', href: '/health/body-age', read: none },
+  { id: 'bodyAge', term: null, labelKey: 'health.metrics.bodyAge', category: 'health', level: 'C', href: '/health/body-age', read: none },
   {
     id: 'vo2max',
+    term: null,
     labelKey: 'health.metrics.vo2max',
     category: 'health',
     level: 'C',
@@ -182,6 +188,7 @@ export const CATALOGUE: readonly CatalogueItem[] = [
   },
   {
     id: 'stress',
+    term: 'stress',
     labelKey: 'health.metrics.stress',
     category: 'health',
     level: 'C',
@@ -193,16 +200,17 @@ export const CATALOGUE: readonly CatalogueItem[] = [
   },
   {
     id: 'weight',
+    term: null,
     labelKey: 'health.metrics.weight',
     category: 'health',
     level: null,
     href: '/health/body-composition',
     read: (_days, weightKg) => (weightKg === null ? { kind: 'none' } : { kind: 'number', value: weightKg, decimals: 1, unitKey: 'health.unit.kg' }),
   },
-  { id: 'ecg', labelKey: 'health.metrics.ecg', category: 'health', level: null, href: '/health/ecg', read: none },
-  { id: 'bloodPressure', labelKey: 'health.metrics.bloodPressure', category: 'health', level: null, href: '/health/blood-pressure', read: none },
-  { id: 'cycle', labelKey: 'health.metrics.cycle', category: 'health', level: null, href: '/health/cycle', read: none },
-  { id: 'labs', labelKey: 'health.metrics.labs', category: 'health', level: null, href: '/health/labs', read: none },
+  { id: 'ecg', term: null, labelKey: 'health.metrics.ecg', category: 'health', level: null, href: '/health/ecg', read: none },
+  { id: 'bloodPressure', term: null, labelKey: 'health.metrics.bloodPressure', category: 'health', level: null, href: '/health/blood-pressure', read: none },
+  { id: 'cycle', term: null, labelKey: 'health.metrics.cycle', category: 'health', level: null, href: '/health/cycle', read: none },
+  { id: 'labs', term: null, labelKey: 'health.metrics.labs', category: 'health', level: null, href: '/health/labs', read: none },
 ];
 
 export function bmi(heightCm: number | null, weightKg: number | null): number | null {
