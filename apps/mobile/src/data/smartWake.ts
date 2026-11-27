@@ -1,4 +1,4 @@
-import type { AlarmMode } from './alarm';
+import { rangForThisAlarm, type AlarmMode, type AlarmPlan, type ArmedAlarm } from './alarm';
 
 export const CHECK_EVERY_S = 300;
 export const LEAVE_TO_BAND_S = 120;
@@ -52,4 +52,24 @@ export function smartWakeDecision(input: SmartWakeInput): SmartWakeDecision {
   if (mode === 'window' && lightMoment(input.recent, nowS)) return { kind: 'ring', reason: 'light' };
   if (mode === 'goal' && input.asleepS !== null && input.needS !== null && input.asleepS >= input.needS) return { kind: 'ring', reason: 'goal' };
   return { kind: 'check', at: Math.min(nowS + CHECK_EVERY_S, lastChance) };
+}
+
+export const REARM_AFTER_S = 180;
+export const MIN_DELAY_S = 60;
+
+export type WakeJob = { kind: 'smart'; at: number } | { kind: 'rearm'; at: number };
+
+/**
+ * What the phone should wake up for next. A smart alarm checks the night from its window start. Every other alarm,
+ * and a smart one the band will ring itself, gets a short wake after the ring, because the band holds one alarm and
+ * only a sync can set the next one.
+ */
+export function wakeJob(plan: AlarmPlan, armed: ArmedAlarm | null, nowS: number, available: boolean): WakeJob | null {
+  if (!available || !plan.enabled || armed === null || !armed.confirmed || armed.wakeAt <= nowS) return null;
+  if (plan.mode !== 'exact' && !rangForThisAlarm(armed)) return { kind: 'smart', at: Math.max(nowS + MIN_DELAY_S, windowStart(plan.mode, armed.wakeAt, plan.windowMin)) };
+  return { kind: 'rearm', at: armed.wakeAt + REARM_AFTER_S };
+}
+
+export function rearmDue(plan: AlarmPlan, armed: ArmedAlarm | null, nowS: number): boolean {
+  return plan.enabled && armed !== null && armed.confirmed && armed.wakeAt <= nowS;
 }

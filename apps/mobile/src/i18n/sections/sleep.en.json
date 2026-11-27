@@ -131,6 +131,10 @@
   "alarmx.repeatHint": "The alarm rings on the days you choose. Keep at least one day on.",
   "alarmx.testVibration": "Test vibration",
   "alarmx.fromPlanner": "From your sleep planner. Save to set it.",
+  "alarmx.rearmTitle": "Haptic alarm",
+  "alarmx.rearmBody": "Setting your next alarm on the band",
+  "alarmx.rearmNote": "The band holds one alarm at a time. A few minutes after each ring, OpenHoop wakes briefly to set the next one, so keep Bluetooth on and the phone near the band.",
+  "alarmx.rearmWarning": "The band holds one alarm at a time and this phone cannot wake OpenHoop by itself. Open the app after a ring and before the next alarm day, for example over the weekend before Monday, so the band gets the next alarm.",
   "alarmx.jetLagMoves": "Your jet lag plan moves the next alarm to {when}.",
 
   "editSleep.modeNight": "Edit last night",

@@ -236,7 +236,7 @@ export default function HapticAlarmScreen() {
                 accessibilityState={{ checked: on, disabled: only }}
                 disabled={only}
                 onPress={() => setDraft((plan) => ({ ...plan, days: toggleDay(plan.days, day) }))}
-                style={{ width: 42, height: 42, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.purple : colors.surfaceAlt }}>
+                style={{ width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.purple : colors.surfaceAlt }}>
                 <AppText variant="bodyStrong" color={on ? colors.primaryOn : colors.textMuted}>
                   {weekdayName(day, language, 'narrow').toUpperCase()}
                 </AppText>
@@ -247,6 +247,15 @@ export default function HapticAlarmScreen() {
         <AppText variant="caption" muted>
           {t('alarmx.repeatHint')}
         </AppText>
+        {smartOk ? (
+          <AppText variant="caption" muted testID="alarm-rearm-note">
+            {t('alarmx.rearmNote')}
+          </AppText>
+        ) : draft.days.length < 7 ? (
+          <AppText variant="label" color={colors.warning} testID="alarm-rearm-warning">
+            {t('alarmx.rearmWarning')}
+          </AppText>
+        ) : null}
       </View>
 
       <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>

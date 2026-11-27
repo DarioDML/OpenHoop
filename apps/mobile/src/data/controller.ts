@@ -168,7 +168,7 @@ import {
   type ArmedAlarm,
   type WakeOverride,
 } from './alarm';
-import { CHECK_EVERY_S, LEAVE_TO_BAND_S, smartWakeDecision, windowStart } from './smartWake';
+import { CHECK_EVERY_S, LEAVE_TO_BAND_S, REARM_AFTER_S, rearmDue, smartWakeDecision, wakeJob, windowStart } from './smartWake';
 import { jetLagWakeOverrides } from './jetLag';
 import { smartWakeScheduler, type SmartWakeScheduler } from '@/lib/smartWakeNative';
 import { newestChanged } from './bodyComposition';
@@ -307,7 +307,6 @@ const SYNC_FAILURES_NOT_ALERTED: ReadonlySet<TranslationKey> = new Set<Translati
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
 const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
 const ECG_PROGRESS_MS = 200;
-const SMART_MIN_DELAY_S = 60;
 const RING_WAIT_MS = 40_000;
 
 const ECG_WRIST_KEY = 'ecg.wrist';
@@ -1114,12 +1113,11 @@ export class AppController {
   }
 
   private scheduleSmartWake(): void {
-    const smart = this.smartAlarm();
-    if (smart === null || rangForThisAlarm(smart.live)) {
-      this.smartWake.cancel();
-      return;
-    }
-    this.queueSmartCheck(Math.max(nowSeconds() + SMART_MIN_DELAY_S, windowStart(smart.plan.mode, smart.live.wakeAt, smart.plan.windowMin)));
+    const { plan, armed, smartAvailable } = this.snapshot.alarm;
+    const job = wakeJob(plan, armed, nowSeconds(), smartAvailable);
+    if (job === null) this.smartWake.cancel();
+    else if (job.kind === 'smart') this.queueSmartCheck(job.at);
+    else this.queueRearm(job.at);
   }
 
   private queueSmartCheck(atS: number): void {
@@ -1127,7 +1125,23 @@ export class AppController {
     this.smartWake.schedule(atS, translate(language, 'alarm.smart.notifyTitle'), translate(language, 'alarm.smart.notifyBody'));
   }
 
+  private queueRearm(atS: number): void {
+    const language = this.snapshot.settings.language;
+    this.smartWake.schedule(atS, translate(language, 'alarmx.rearmTitle'), translate(language, 'alarmx.rearmBody'));
+  }
+
   smartWakeCheck = async (): Promise<void> => {
+    if (rearmDue(this.snapshot.alarm.plan, this.snapshot.alarm.armed, nowSeconds())) {
+      this.quietSync = true;
+      try {
+        await this.sync();
+      } catch (error) {
+        this.patchAlarm({ problem: alarmProblem(error) });
+      } finally {
+        this.quietSync = false;
+      }
+      return;
+    }
     const before = this.smartAlarm();
     if (before === null || rangForThisAlarm(before.live)) {
       this.smartWake.cancel();
@@ -1164,7 +1178,7 @@ export class AppController {
         needS: today?.sleep.need.value ?? null,
       });
       if (decision.kind === 'check') this.queueSmartCheck(decision.at);
-      else if (decision.kind === 'band') this.smartWake.cancel();
+      else if (decision.kind === 'band') this.queueRearm(smart.live.wakeAt + REARM_AFTER_S);
       else await this.ringSmartWake(smart.plan, smart.live);
     } catch (error) {
       this.patchAlarm({ problem: alarmProblem(error) });

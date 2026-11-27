@@ -232,6 +232,15 @@ describe('Haptic alarm', () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ enabled: true, minutes: 405 })));
   });
 
+  it('says how the next alarm reaches the band', async () => {
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm() }));
+    expect(screen.getByTestId('alarm-rearm-note')).toBeTruthy();
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ smartAvailable: false, plan: { ...DEFAULT_ALARM_PLAN, enabled: true, days: [1, 2, 3, 4, 5] } }) }));
+    expect(screen.getByTestId('alarm-rearm-warning')).toHaveTextContent(/before Monday/);
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ smartAvailable: false }) }));
+    expect(screen.queryByTestId('alarm-rearm-warning')).toBeNull();
+  });
+
   it('ignores a damaged planner time', async () => {
     mockParams = { minutes: '9999' };
     await render(withAppData(<HapticAlarmScreen />));

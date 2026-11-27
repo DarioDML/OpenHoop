@@ -131,6 +131,10 @@
   "alarmx.repeatHint": "Het alarm gaat af op de dagen die je kiest. Laat minstens één dag aan.",
   "alarmx.testVibration": "Trilling testen",
   "alarmx.fromPlanner": "Uit je slaapplanner. Bewaar om het in te stellen.",
+  "alarmx.rearmTitle": "Trilalarm",
+  "alarmx.rearmBody": "Je volgende alarm wordt op de band gezet",
+  "alarmx.rearmNote": "De band onthoudt één alarm tegelijk. Een paar minuten na elk alarm wordt OpenHoop even wakker om het volgende te zetten, dus laat Bluetooth aan en de telefoon bij de band.",
+  "alarmx.rearmWarning": "De band onthoudt één alarm tegelijk en deze telefoon kan OpenHoop niet zelf wekken. Open de app na een alarm en vóór de volgende alarmdag, bijvoorbeeld in het weekend vóór maandag, zodat de band het volgende alarm krijgt.",
   "alarmx.jetLagMoves": "Je jetlagplan verzet het volgende alarm naar {when}.",
 
   "editSleep.modeNight": "Afgelopen nacht",
