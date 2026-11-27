@@ -22,11 +22,13 @@ import readinessEn from './sections/readiness.en.json';
 import readinessNl from './sections/readiness.nl.json';
 import routeEn from './sections/route.en.json';
 import routeNl from './sections/route.nl.json';
+import sleepEn from './sections/sleep.en.json';
+import sleepNl from './sections/sleep.nl.json';
 import stravaEn from './sections/strava.en.json';
 import stravaNl from './sections/strava.nl.json';
 
-const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl, ...routeNl, ...stravaNl, ...explainNl, ...readinessNl, ...planNl };
-const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn, ...routeEn, ...stravaEn, ...explainEn, ...readinessEn, ...planEn };
+const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl, ...routeNl, ...stravaNl, ...explainNl, ...readinessNl, ...planNl, ...sleepNl };
+const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn, ...routeEn, ...stravaEn, ...explainEn, ...readinessEn, ...planEn, ...sleepEn };
 
 export type TranslationKey = keyof typeof nl;
 export type TranslationParams = Record<string, string | number>;

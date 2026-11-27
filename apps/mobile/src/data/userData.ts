@@ -21,6 +21,9 @@ export type HomeSection = (typeof HOME_SECTIONS)[number];
 export const GOALS = ['sleep', 'recovery', 'fitness', 'stress', 'health', 'performance'] as const;
 export type Goal = (typeof GOALS)[number];
 
+export const SLEEP_GOALS = ['plan', 'peak', 'getBy'] as const;
+export type SleepGoal = (typeof SLEEP_GOALS)[number];
+
 export interface NotificationPrefs {
   enabled: boolean;
   morningDigest: boolean;
@@ -66,6 +69,7 @@ export interface UserData {
   network: NetworkPrefs;
   coach: CoachPrefs;
   jetLagPlan: SavedJetLagPlan | null;
+  sleepGoal: SleepGoal | null;
   widgetValues: boolean;
   hideRouteEnds: boolean;
 }
@@ -93,6 +97,7 @@ export function defaultUserData(): UserData {
     network: defaultNetworkPrefs(),
     coach: defaultCoachPrefs(),
     jetLagPlan: null,
+    sleepGoal: null,
     widgetValues: true,
     hideRouteEnds: true,
   };
@@ -221,6 +226,7 @@ export function parseUserData(raw: string | null): UserData {
     network: parseNetworkPrefs(parsed.network),
     coach: parseCoachPrefs(parsed.coach),
     jetLagPlan: parseJetLagPlan(parsed.jetLagPlan),
+    sleepGoal: oneOf(parsed.sleepGoal, SLEEP_GOALS),
     widgetValues: parsed.widgetValues !== false,
     hideRouteEnds: typeof parsed.hideRouteEnds === 'boolean' ? parsed.hideRouteEnds : base.hideRouteEnds,
   };
