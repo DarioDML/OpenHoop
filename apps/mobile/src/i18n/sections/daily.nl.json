@@ -395,5 +395,7 @@
   "home.ac.storedLocally": "lokaal opgeslagen",
   "home.ac.mg": "MG",
   "home.ac.connected": "Band verbonden",
-  "home.ac.notConnected": "Band niet verbonden"
+  "home.ac.notConnected": "Band niet verbonden",
+  "home.pickLegendHigh": "Hoge paraatheid",
+  "home.pickNoData": "geen gegevens"
 }

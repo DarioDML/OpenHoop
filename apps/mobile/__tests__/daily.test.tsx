@@ -249,6 +249,17 @@ describe('Home sub-screens', () => {
     expect(mockReplace).toHaveBeenCalledWith(`/day/${previous?.day}`);
   });
 
+  it('marks the day being viewed, goes back to today and keeps the hint', async () => {
+    mockParams = { day: previous?.day };
+    await render(withAppData(<DatePickerScreen />));
+    expect(screen.getByTestId(`cal-${previous?.day}`).props.accessibilityState).toEqual(expect.objectContaining({ selected: true }));
+    expect(screen.getByTestId(`cal-${last?.day}`).props.accessibilityState).toEqual(expect.objectContaining({ selected: false }));
+    expect(screen.getByText(/^Only days with data can be opened/)).toBeTruthy();
+    expect(screen.getByTestId('date-picker-close')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('picker-today'));
+    expect(mockReplace).toHaveBeenCalledWith('/');
+  });
+
   it('writes the dashboard layout and keeps a previous layout', async () => {
     const updateUserData = jest.fn(async () => true);
     await render(withAppData(<CustomizeScreen />, 'en', { updateUserData, userData: { ...defaultUserData(), onboardingDone: true, dashboardTiles: ['hrv', 'steps'], previousDashboardTiles: ['spo2'] } }));

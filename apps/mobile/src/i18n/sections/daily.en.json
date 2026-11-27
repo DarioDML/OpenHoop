@@ -395,5 +395,7 @@
   "home.ac.storedLocally": "stored locally",
   "home.ac.mg": "MG",
   "home.ac.connected": "Band connected",
-  "home.ac.notConnected": "Band not connected"
+  "home.ac.notConnected": "Band not connected",
+  "home.pickLegendHigh": "High readiness",
+  "home.pickNoData": "no data"
 }
