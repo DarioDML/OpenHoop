@@ -30,6 +30,8 @@ describe('ECG reading on the simulated band', () => {
     expect(capture.rateHz).toBeCloseTo(1000, -2);
     expect(band.ecgFiltered).toBe(false);
     expect(band.ecgRawSave).toBe(false);
+    expect(capture.stopConfirmed).toBe(true);
+    expect(capture.durationMs).toBeLessThan(2_000);
     const sent = band.ecgFramesSent;
     await new Promise((resolve) => setTimeout(resolve, 250));
     expect(band.ecgFramesSent).toBe(sent);
@@ -45,6 +47,23 @@ describe('ECG reading on the simulated band', () => {
     expect(Date.now() - started).toBeLessThan(2_000);
     expect(capture.samples.length).toBeGreaterThan(0);
     await session.close();
+  });
+
+  it('sends nothing when it was cancelled before the start', async () => {
+    const { band, session } = await openBand();
+    const abort = new AbortController();
+    abort.abort();
+    await expect(recordEcg(session, { wrist: 'left', durationMs: 300, signal: abort.signal })).rejects.toMatchObject({ reason: 'cancelled' });
+    expect(band.writesReceived).toBe(0);
+    await session.close();
+  });
+
+  it('reports the stop unconfirmed when the link is gone', async () => {
+    const { band, session } = await openBand();
+    setTimeout(() => void band.disconnect(), 250);
+    const result = await recordEcg(session, { wrist: 'left', durationMs: 600, signal: new AbortController().signal }).catch((e: unknown) => e);
+    if (result instanceof Error) expect(result).toMatchObject({ reason: 'no-signal' });
+    else expect(result).toMatchObject({ stopConfirmed: false });
   });
 
   it('reports a band that refuses the reading and leaves nothing switched on', async () => {

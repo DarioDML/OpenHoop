@@ -10,11 +10,11 @@ const SUBSEC_TICKS = 32768;
 const TAIL_SAMPLES = 600;
 const WRITE = { confirmWrite: true } as const;
 
-export type EcgFailure = 'unsupported' | 'no-signal';
+export type EcgFailure = 'unsupported' | 'no-signal' | 'cancelled';
 
 export class EcgError extends Error {
   constructor(readonly reason: EcgFailure) {
-    super(reason === 'unsupported' ? 'the band refused the ECG reading' : 'no ECG samples arrived');
+    super(reason === 'unsupported' ? 'the band refused the ECG reading' : reason === 'cancelled' ? 'the ECG reading was cancelled before it started' : 'no ECG samples arrived');
     this.name = 'EcgError';
   }
 }
@@ -25,6 +25,10 @@ export interface EcgCapture {
   samples: number[];
   rateHz: number | null;
   wrist: Wrist;
+}
+
+export interface EcgReading extends EcgCapture {
+  stopConfirmed: boolean;
 }
 
 export interface EcgProgress {
@@ -70,21 +74,22 @@ async function sendFailing(session: Session, command: number, body: Uint8Array):
   }
 }
 
-export async function stopEcg(session: Session): Promise<void> {
+export async function stopEcg(session: Session): Promise<boolean> {
   const steps: [number, Uint8Array][] = [
     [Command.TOGGLE_LABRADOR_DATA_GENERATION, labradorGenerationBody('stop')],
     [Command.TOGGLE_LABRADOR_FILTERED, labradorSwitchBody(false)],
     [Command.TOGGLE_LABRADOR_RAW_SAVE, labradorSwitchBody(false)],
   ];
-  let disconnected = false;
+  let answered = true;
   for (const [command, body] of steps) {
     try {
       await session.send(command, body, WRITE);
     } catch (error) {
-      if (error instanceof DisconnectedError) disconnected = true;
+      if (!(error instanceof CommandFailedError)) answered = false;
+      if (error instanceof DisconnectedError) return false;
     }
   }
-  if (disconnected) throw new DisconnectedError();
+  return answered;
 }
 
 function waitFor(ms: number, signal: AbortSignal, schedule: Session['clock']['schedule']): Promise<void> {
@@ -105,11 +110,14 @@ function waitFor(ms: number, signal: AbortSignal, schedule: Session['clock']['sc
   });
 }
 
-export async function recordEcg(session: Session, opts: RecordEcgOptions): Promise<EcgCapture> {
+export async function recordEcg(session: Session, opts: RecordEcgOptions): Promise<EcgReading> {
+  if (opts.signal.aborted) throw new EcgError('cancelled');
   const durationMs = opts.durationMs ?? ECG_DURATION_MS;
   const samples: number[] = [];
   const blocks: Block[] = [];
   let startedMs: number | null = null;
+  let endedMs: number | undefined;
+  let stopConfirmed = true;
   const off = session.onPacket((packet) => {
     if (startedMs === null || packet.kind !== 'record' || packet.layout !== ECG_LAYOUT || packet.record.type !== 'ecgFiltered') return;
     blocks.push({ t: packet.unixS + packet.subsec / SUBSEC_TICKS, count: packet.record.samples.length });
@@ -132,17 +140,19 @@ export async function recordEcg(session: Session, opts: RecordEcgOptions): Promi
       await sendFailing(session, Command.TOGGLE_LABRADOR_DATA_GENERATION, labradorGenerationBody('restart'));
     }
     await waitFor(durationMs, opts.signal, session.clock.schedule);
+    endedMs = session.clock.now();
   } finally {
     off();
-    if (armed && session.isConnected) await stopEcg(session).catch(() => undefined);
+    if (armed) stopConfirmed = session.isConnected ? await stopEcg(session) : false;
   }
   if (samples.length === 0 || startedMs === null) throw new EcgError('no-signal');
   return {
     startedAt: Math.floor(startedMs / 1000),
-    durationMs: Math.max(0, session.clock.now() - startedMs),
+    durationMs: Math.max(0, (endedMs ?? session.clock.now()) - startedMs),
     samples,
     rateHz: sampleRate(blocks),
     wrist: opts.wrist,
+    stopConfirmed,
   };
 }
 

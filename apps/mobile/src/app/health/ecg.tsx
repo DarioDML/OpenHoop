@@ -18,9 +18,9 @@ const DURATION_S = 30;
 
 export default function EcgScreen() {
   const { t } = useT();
-  const { device, ecgActions, ecgRecordings } = useAppData();
+  const { device, ecgActions, ecgRecordings, ecgWrist } = useAppData();
   const live = useEcgLive();
-  const [wrist, setWrist] = useState<Wrist>('left');
+  const [wrist, setWrist] = useState<Wrist>(ecgWrist);
   const isMg = device.model === 'MG';
   const busy = device.connection === 'syncing' || device.connection === 'connecting';
 

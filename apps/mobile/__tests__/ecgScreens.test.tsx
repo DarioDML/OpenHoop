@@ -48,6 +48,14 @@ describe('ECG recording screen', () => {
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith({ pathname: '/health/ecg-result', params: { id: '9' } }));
   });
 
+  it('starts on the wrist chosen last time', async () => {
+    const start = jest.fn(async () => null);
+    await render(withAppData(<EcgScreen />, 'en', { device: MG, ecgWrist: 'right', ecgActions: { ...fixtureEcgActions(), start } }));
+    await fireEvent.press(screen.getByTestId('ecg-start'));
+    expect(start).toHaveBeenCalledWith('right');
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   it('shows progress and a stop button while recording', async () => {
     const stop = jest.fn();
     await render(

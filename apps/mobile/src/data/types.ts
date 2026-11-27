@@ -220,6 +220,7 @@ export interface AppData {
   alarm: AlarmView;
   alarmActions: AlarmActions;
   ecgRecordings: EcgSummary[];
+  ecgWrist: Wrist;
   ecgActions: EcgActions;
   stopLive(): Promise<void>;
   exportData(): Promise<void>;

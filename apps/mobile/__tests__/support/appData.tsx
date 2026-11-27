@@ -88,6 +88,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
     alarmActions: fixtureAlarmActions(),
     ecgRecordings: [],
+    ecgWrist: 'left',
     ecgActions: fixtureEcgActions(),
     stopLive: noop,
     exportData: noop,

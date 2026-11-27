@@ -268,6 +268,7 @@ export interface Snapshot {
   pendingDelete: PendingDelete | null;
   alarm: AlarmView;
   ecgRecordings: EcgSummary[];
+  ecgWrist: Wrist;
   ecgLive: EcgLiveState;
 }
 
@@ -290,6 +291,8 @@ const SYNC_FAILURES_NOT_ALERTED: ReadonlySet<TranslationKey> = new Set<Translati
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
 const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
 const ECG_PROGRESS_MS = 200;
+
+const ECG_WRIST_KEY = 'ecg.wrist';
 
 function ecgCleanupKey(deviceId: number): string {
   return `ecg.cleanup.${deviceId}`;
@@ -410,6 +413,7 @@ export class AppController {
       pendingDelete: null,
       alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
       ecgRecordings: [],
+      ecgWrist: 'left',
       ecgLive: IDLE_ECG,
     };
   }
@@ -535,6 +539,7 @@ export class AppController {
       healthConnect: { ...this.snapshot.healthConnect, state: healthConnectState },
       strength,
       alarm: { ...this.snapshot.alarm, plan: parseAlarmPlan(await store.getSetting(ALARM_PLAN_KEY)) },
+      ecgWrist: (await store.getSetting(ECG_WRIST_KEY)) === 'right' ? 'right' : 'left',
     });
     if (dataSource === 'band') await this.purgeDemoRecordings();
     await this.loadActiveDevice();
@@ -724,8 +729,7 @@ export class AppController {
       });
       const conn: Connection = { transport, session, deviceId: row.id, heldChunk: null };
       this.conn = conn;
-      if ((await store.getSetting(ecgCleanupKey(row.id))) === '1') {
-        await stopEcg(session).catch(() => undefined);
+      if ((await store.getSetting(ecgCleanupKey(row.id))) === '1' && (await stopEcg(session))) {
         await store.setSetting(ecgCleanupKey(row.id), '');
       }
       this.battery = await session.battery().catch(() => hello.batteryPercent);
@@ -1109,12 +1113,15 @@ export class AppController {
             this.patch({ ecgLive: { active: true, elapsedMs: progress.elapsedMs, samples: progress.samples, tail: progress.tail } });
           },
         });
-        if (conn.session.isConnected) await store.setSetting(ecgCleanupKey(conn.deviceId), '');
+        if (capture.stopConfirmed) await store.setSetting(ecgCleanupKey(conn.deviceId), '');
+        await store.setSetting(ECG_WRIST_KEY, wrist);
+        this.patch({ ecgWrist: wrist });
         const id = await insertEcgRecording(store.driver, conn.deviceId, capture);
         this.patch({ ecgRecordings: await listEcgRecordings(store.driver, conn.deviceId) });
         return id;
       });
     } catch (error) {
+      if (error instanceof EcgError && error.reason === 'cancelled') return null;
       this.fail(error instanceof EcgError ? new AppError(error.reason === 'unsupported' ? 'ecg.problem.unsupported' : 'ecg.problem.noSignal') : error);
       return null;
     } finally {
