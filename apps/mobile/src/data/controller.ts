@@ -201,8 +201,8 @@ import type { SourceFile } from './vendorExport/sources';
 import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { changesAppData } from './liveData';
-import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, serializeOptionalInteger } from './settingsCodec';
-import { analyticsChanged, analyticsProfileOf, emptyProfile, mergeProfile, serializeZoneFloors } from './profile';
+import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, storeProfile } from './settingsCodec';
+import { analyticsProfileOf, emptyProfile, mergeProfile } from './profile';
 import { createDonationWorkspace, filePartSink, removeLeftoverDonations, saveDonationParts, sharePartFile, type SaveOutcome } from './donation/files';
 import type {
   ActivityDraft,
@@ -1294,18 +1294,10 @@ export class AppController {
 
   updateProfile = async (patch: Partial<Profile>): Promise<void> => {
     const { store } = this.requireApp();
-    const before = this.snapshot.profile;
-    const profile = mergeProfile(before, patch);
-    await store.setSetting(SETTING_KEYS.birthYear, serializeOptionalInteger(profile.birthYear));
-    await store.setSetting(SETTING_KEYS.maxHeartRate, serializeOptionalInteger(profile.maxHeartRate));
-    await store.setSetting(SETTING_KEYS.birthDate, profile.birthDate ?? '');
-    await store.setSetting(SETTING_KEYS.restingHeartRate, serializeOptionalInteger(profile.restingHeartRate));
-    await store.setSetting(SETTING_KEYS.zoneMode, profile.zoneMode);
-    await store.setSetting(SETTING_KEYS.zoneFloors, serializeZoneFloors(profile.zoneFloors));
+    const { profile, recompute } = await storeProfile(store, this.snapshot.profile, patch);
     this.patch({ profile });
     const deviceId = this.deviceRow?.id;
-    const changed = analyticsChanged(before, profile);
-    if (deviceId === undefined || !changed) return;
+    if (deviceId === undefined || !recompute) return;
     void this.exclusive(async () => {
       this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
       try {

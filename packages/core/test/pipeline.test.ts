@@ -146,6 +146,18 @@ describe('pipeline', () => {
         expect(records[3]?.sleep.need.value).toBeGreaterThan(records[2]?.sleep.need.value ?? Infinity);
       });
 
+      it('counts day and workout zones with custom floors from the profile', async () => {
+        const floors = [50, 60, 70, 80, 145] as const;
+        const custom = await recomputeDays(weekStore, { ...weekOpts(), profile: { ...PROFILE, zoneFloors: floors } });
+        const day = custom[2];
+        expect(day?.zoneSeconds.reduce((a, b) => a + b, 0)).toBe(24 * HOUR_S);
+        expect(day?.zoneSeconds[5]).toBeGreaterThanOrEqual(2_400);
+        expect(records[2]?.zoneSeconds[5]).toBe(0);
+        expect(day?.workouts[0]?.zoneSeconds[5]).toBe(2_400);
+        expect(records[2]?.workouts[0]?.zoneSeconds[5]).toBe(0);
+        await recomputeDays(weekStore, weekOpts());
+      });
+
       it('stores the sleep stages of the main night next to their totals', async () => {
         for (const r of records) {
           const stages = r.sleep.stages;

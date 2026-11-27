@@ -254,6 +254,16 @@ describe('zones and workouts', () => {
     expect(w[0]?.zoneSeconds.reduce((a, b) => a + b, 0)).toBe(990);
   });
 
+  it('tallies workout zones with custom floors while detection keeps the reserve rule', () => {
+    const samples = day([[60, 600], [160, 700], [60, 600]]);
+    const reserve = detectWorkouts(samples, 60, 190);
+    const custom = detectWorkouts(samples, 60, 190, [80, 100, 120, 140, 155]);
+    expect(custom).toHaveLength(1);
+    expect(custom[0]).toMatchObject({ start: reserve[0]?.start, end: reserve[0]?.end });
+    expect(custom[0]?.zoneSeconds).toEqual([0, 0, 0, 0, 0, 700]);
+    expect(reserve[0]?.zoneSeconds[5]).toBe(0);
+  });
+
   it('splits at a 200 s dip and drops runs under 600 s', () => {
     expect(detectWorkouts(day([[60, 600], [160, 450], [100, 200], [160, 450], [60, 600]]), 60, 190)).toEqual([]);
     expect(detectWorkouts(day([[60, 100], [160, 599], [60, 100]]), 60, 190)).toEqual([]);

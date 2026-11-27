@@ -1,4 +1,4 @@
-import { parseBirthDate, parseZoneFloors, parseZoneMode, RESTING_HR_LIMITS } from './profile';
+import { analyticsChanged, mergeProfile, parseBirthDate, parseZoneFloors, parseZoneMode, RESTING_HR_LIMITS, serializeZoneFloors } from './profile';
 import type { DataSource, Language, Profile, Units } from './types';
 
 export const SETTING_KEYS = {
@@ -58,4 +58,19 @@ export function parseProfileDetails(raw: ProfileDetailsRaw, today: string): Requ
     zoneMode: parseZoneMode(raw.zoneMode),
     zoneFloors: parseZoneFloors(raw.zoneFloors),
   };
+}
+
+export interface SettingsWriter {
+  setSetting(key: string, value: string): Promise<void>;
+}
+
+export async function storeProfile(store: SettingsWriter, before: Profile, patch: Partial<Profile>): Promise<{ profile: Required<Profile>; recompute: boolean }> {
+  const profile = mergeProfile(before, patch);
+  await store.setSetting(SETTING_KEYS.birthYear, serializeOptionalInteger(profile.birthYear));
+  await store.setSetting(SETTING_KEYS.maxHeartRate, serializeOptionalInteger(profile.maxHeartRate));
+  await store.setSetting(SETTING_KEYS.birthDate, profile.birthDate ?? '');
+  await store.setSetting(SETTING_KEYS.restingHeartRate, serializeOptionalInteger(profile.restingHeartRate));
+  await store.setSetting(SETTING_KEYS.zoneMode, profile.zoneMode);
+  await store.setSetting(SETTING_KEYS.zoneFloors, serializeZoneFloors(profile.zoneFloors));
+  return { profile, recompute: analyticsChanged(before, profile) };
 }

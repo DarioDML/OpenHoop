@@ -13,7 +13,7 @@ import {
   zoneReference,
 } from '@/data/profile';
 import { createFixtureDays } from '@/data/fixtureSource';
-import { parseProfileDetails } from '@/data/settingsCodec';
+import { parseProfileDetails, SETTING_KEYS, storeProfile } from '@/data/settingsCodec';
 import { ageOnDay } from '@/data/healthspanDerived';
 
 const TODAY = '2026-11-27';
@@ -104,5 +104,31 @@ describe('heart-rate zones', () => {
     const own = zoneReference(days, { birthYear: null, maxHeartRate: 192, restingHeartRate: 50 }, nowS);
     expect(own).toMatchObject({ rest: 50, max: 192, restSource: 'profile', maxSource: 'profile' });
     expect(zoneReference([], { birthYear: null, maxHeartRate: null }, nowS)).toMatchObject({ rest: 60, max: 190, restSource: 'fallback', maxSource: 'fallback', measuredRest: null });
+  });
+});
+
+describe('saving the profile', () => {
+  function writer(): { store: { setSetting(key: string, value: string): Promise<void> }; saved: Map<string, string> } {
+    const saved = new Map<string, string>();
+    return { saved, store: { setSetting: async (key, value) => void saved.set(key, value) } };
+  }
+
+  it('stores every field and asks for a recompute only when an analytics input changes', async () => {
+    const before = { ...emptyProfile(), birthYear: 1990 };
+    const { store, saved } = writer();
+    const dateOnly = await storeProfile(store, before, { birthDate: '1990-06-15' });
+    expect(dateOnly.recompute).toBe(false);
+    expect(saved.get(SETTING_KEYS.birthDate)).toBe('1990-06-15');
+    expect(saved.get(SETTING_KEYS.birthYear)).toBe('1990');
+    expect((await storeProfile(store, before, { birthDate: '1988-06-15' })).recompute).toBe(true);
+    expect((await storeProfile(store, before, { restingHeartRate: 55 })).recompute).toBe(true);
+    expect(saved.get(SETTING_KEYS.restingHeartRate)).toBe('55');
+    expect((await storeProfile(store, before, { maxHeartRate: 190 })).recompute).toBe(true);
+    expect((await storeProfile(store, before, { zoneFloors: [100, 120, 140, 160, 180] })).recompute).toBe(false);
+    const custom = await storeProfile(store, before, { zoneMode: 'custom', zoneFloors: [100, 120, 140, 160, 180] });
+    expect(custom.recompute).toBe(true);
+    expect(saved.get(SETTING_KEYS.zoneMode)).toBe('custom');
+    expect(saved.get(SETTING_KEYS.zoneFloors)).toBe('100,120,140,160,180');
+    expect((await storeProfile(store, custom.profile, { zoneMode: 'custom' })).recompute).toBe(false);
   });
 });
