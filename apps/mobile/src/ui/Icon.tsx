@@ -69,6 +69,17 @@ export const ICON_PATHS = {
   layers: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',
   widget: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   filter: 'M4 6h16M7 12h10M10 18h4',
+  run: 'M14 4.5a1.5 1.5 0 1 0 0-.01M6 20l3-5 3 2 1-5 3 3h3M9 9l3-1 2 2',
+  walk: 'M13 4.5a1.5 1.5 0 1 0 0-.01M10 21l2-6-2.5-2.5L11 8l3 3h3M9.5 12.5L7 14',
+  gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12l2-1-1-3-2 .2-1.3-1.3L17 5l-3-1-1 2h-2L10 4 7 5l.3 2L6 8.3 4 8 3 11l2 1-2 1 1 3 2-.2 1.3 1.3L7 19l3 1 1-2h2l1 2 3-1-.3-2 1.3-1.3 2 .3 1-3z',
+  sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+  coffee: 'M5 8h12v6a5 5 0 0 1-10 0zM17 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2',
+  playCircle: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM10 8.5l5 3.5-5 3.5z',
+  calendarPlus: 'M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 3v4M16 3v4M12 10v6M9 13h6',
+  flask: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3M7.5 15h9',
+  clipboard: 'M7 4h10a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM9 4V3h6v1M9 11h6M9 15h4',
+  file: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
+  download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

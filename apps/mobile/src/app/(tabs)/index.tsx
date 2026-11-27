@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
 import { formatAgo } from '@/lib/format';
-import { AppText } from '@/ui/AppText';
 import { Hero } from '@/ui/daily/Hero';
 import { HomeBody } from '@/ui/daily/HomeBody';
 import { HomeHeader } from '@/ui/daily/HomeHeader';
@@ -13,12 +11,10 @@ import { Screen } from '@/ui/Screen';
 import { SyncBanner } from '@/ui/SyncBanner';
 import { NoticeCard } from '@/ui/NoticeCard';
 import { DeviceStateCard } from '@/ui/manage/DeviceStateCard';
-import { useTheme } from '@/ui/theme';
 
 export default function HomeScreen() {
   const { days, device, userData, sync } = useAppData();
   const { t } = useT();
-  const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const index = days.length - 1;
   const day = days[index];
@@ -58,16 +54,10 @@ export default function HomeScreen() {
       header={
         <>
           <HomeHeader days={days} index={index} />
-          <Hero days={days} index={index} variant={userData.homeHero} />
-          <View style={{ alignItems: 'center' }}>
-            <AppText variant="caption" color={colors.textMuted} testID="synced-line" style={{ textAlign: 'center' }}>
-              {syncedText}
-            </AppText>
-          </View>
+          <Hero days={days} index={index} variant={userData.homeHero} footnote={syncedText} />
         </>
       }>
       <HomeBody days={days} index={index} />
     </Screen>
   );
 }
-

@@ -102,7 +102,8 @@ describe('Home stress tile', () => {
     const latest = stressForDay(last).latest;
     await render(withAppData(<HomeScreen />));
     const level = screen.getByTestId('stress-tile-level');
-    expect(level).toHaveTextContent(new RegExp(`(Low|Medium|High) · ${formatNumber(latest?.score ?? 0, 1, 'en')}`));
+    expect(level).toHaveTextContent(/^(Low|Medium|High)$/);
+    expect(screen.getByTestId('stress-tile-score')).toHaveTextContent(formatNumber(latest?.score ?? 0, 1, 'en'));
     expect(screen.getByTestId('stress-tile-time')).toHaveTextContent(`at ${formatClock(latest?.t ?? 0, last.tzOffsetS)} · Estimate`);
     await fireEvent.press(screen.getByTestId('card-stress'));
     expect(mockPush).toHaveBeenCalledWith('/health/stress');

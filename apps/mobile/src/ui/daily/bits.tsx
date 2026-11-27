@@ -2,6 +2,7 @@ import type { DayRecord } from '@openhoop/core';
 import { router, type Href } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import type { Baseline } from '@/data/derived';
 import { percentFromBaseline, rangeStatus } from '@/data/derived';
@@ -13,6 +14,8 @@ import { Card } from '@/ui/Card';
 import type { ChipTone } from '@/ui/Chip';
 import { useExplain, useMissing, type ExplainTarget } from '@/ui/explain/ExplainProvider';
 import { MetricName } from '@/ui/explain/MetricName';
+import { Icon } from '@/ui/Icon';
+import type { IconTileStyle } from '@/ui/ListGroup';
 import { missingStatus } from '@/ui/explain/whyText';
 import { StateCard } from '@/ui/StateCard';
 import { TopBar } from '@/ui/TopBar';
@@ -224,6 +227,89 @@ export function WeekDots({ dots, color }: DotsProps) {
           }}
         />
       ))}
+    </View>
+  );
+}
+
+interface IconTileProps {
+  tile: IconTileStyle;
+  size?: number;
+  children?: ReactNode;
+  testID?: string;
+}
+
+export function IconTile({ tile, size = 36, children, testID }: IconTileProps) {
+  return (
+    <View
+      testID={testID}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size > 40 ? radius.md - 4 : radius.sm,
+        backgroundColor: tile.background,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 0,
+      }}>
+      {children ?? <Icon name={tile.icon} color={tile.color} size={Math.round(size * 0.5)} strokeWidth={size > 40 ? 1.75 : 2} />}
+    </View>
+  );
+}
+
+export function GoalSeal({ size = 20, label, testID }: { size?: number; label: string; testID?: string }) {
+  const { colors } = useTheme();
+  return (
+    <View accessible accessibilityLabel={label} testID={testID}>
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path
+          d="M12 1.5l2.6 2.3 3.4-.4.8 3.4 3 1.7-1.3 3.2 1.3 3.2-3 1.7-.8 3.4-3.4-.4L12 22.5l-2.6-2.3-3.4.4-.8-3.4-3-1.7 1.3-3.2-1.3-3.2 3-1.7.8-3.4 3.4.4z"
+          fill={colors.positive}
+        />
+        <Path d="M8 12.2l2.7 2.7L16.2 9.4" fill="none" stroke={colors.background} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </View>
+  );
+}
+
+interface ProgressBarProps {
+  fraction: number;
+  color: string;
+  height?: number;
+  testID?: string;
+}
+
+export function ProgressBar({ fraction, color, height = 8, testID }: ProgressBarProps) {
+  const { colors } = useTheme();
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(fraction) ? fraction : 0));
+  return (
+    <View testID={testID} style={{ height, borderRadius: radius.pill, backgroundColor: colors.surface3, overflow: 'hidden' }}>
+      <View style={{ width: `${clamped * 100}%`, height, borderRadius: radius.pill, backgroundColor: color }} />
+    </View>
+  );
+}
+
+interface SectionTitleProps {
+  title: string;
+  links?: ReadonlyArray<{ label: string; onPress: () => void; testID?: string }>;
+}
+
+export function SectionTitle({ title, links = [] }: SectionTitleProps) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginTop: spacing.sm, columnGap: spacing.md }}>
+      <AppText variant="h2" accessibilityRole="header" style={{ flexShrink: 1 }}>
+        {title}
+      </AppText>
+      {links.length > 0 ? (
+        <View style={{ flexDirection: 'row', gap: spacing.lg }}>
+          {links.map((link) => (
+            <Pressable key={link.label} testID={link.testID} accessibilityRole="link" onPress={link.onPress} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <AppText variant="cap" muted>
+                {link.label}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

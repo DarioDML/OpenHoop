@@ -377,5 +377,15 @@
   "notif.syncFailed.title": "Sync mislukt",
   "notif.syncFailed.body": "De laatste sync is niet afgerond. Je data blijft op de band; open OpenHoop om het opnieuw te proberen.",
   "notif.dataAtRisk.title": "Sync je band",
-  "notif.dataAtRisk.body": "Je band is al {days} dagen niet gesynct. Hij bewaart maar een beperkte geschiedenis, dus sync snel om geen data te verliezen."
+  "notif.dataAtRisk.body": "Je band is al {days} dagen niet gesynct. Hij bewaart maar een beperkte geschiedenis, dus sync snel om geen data te verliezen.",
+  "home.week.sleep": "Slaap",
+  "home.week.days": "{count}/{target} dagen",
+  "home.week.daysCount": "{count} dagen",
+  "home.week.strengthGoal": "{minutes}/{goal} min",
+  "home.week.strengthNoGoal": "{count}× · {minutes} min",
+  "home.week.goalMet": "Doel gehaald",
+  "home.tonightAlarmMode": "Wekkermodus: {mode}",
+  "home.tonightNoBed": "Nog niet gepland",
+  "home.plan.strengthMinutes": "Krachtminuten",
+  "home.plan.strengthMinutesHint": "Minuten krachttraining per week. 0 betekent geen doel."
 }

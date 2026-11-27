@@ -3,7 +3,9 @@ import type { ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
 import { addDays } from '@/data/derived';
-import { formatMinutes, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { formatMinutes, goalMet, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, strengthWeekMinutes, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
+import { parseUserData, serializeUserData } from '@/data/userData';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -87,6 +89,24 @@ describe('dailyDerived', () => {
     expect(week.recorded).toBeGreaterThan(0);
   });
 
+  it('sums finished strength minutes inside the week only', () => {
+    const session = (id: number, day: string, startedAt: number, endedAt: number | null) => ({ id, templateId: null, name: 'S', day, startedAt, endedAt, exercises: [], sets: [] });
+    const week = strengthWeekMinutes([session(1, '2026-11-23', 0, 2_700), session(2, '2026-11-25', 10_000, 11_800), session(3, '2026-11-16', 0, 3_600), session(4, '2026-11-24', 0, null)], '2026-11-25');
+    expect(week).toEqual({ minutes: 75, sessions: 2 });
+    expect(goalMet(75, 90)).toBe(false);
+    expect(goalMet(90, 90)).toBe(true);
+    expect(goalMet(3, null)).toBe(false);
+    expect(goalMet(0, 0)).toBe(false);
+  });
+
+  it('keeps a weekly strength-minutes goal and drops a bad one', () => {
+    const base = parseUserData(null);
+    const kept = parseUserData(serializeUserData({ ...base, weeklyPlan: { loadDays: 3, sleepNights: 4, strengthMinutes: 90 } }));
+    expect(kept.weeklyPlan).toEqual({ loadDays: 3, sleepNights: 4, strengthMinutes: 90 });
+    const bad = parseUserData(JSON.stringify({ weeklyPlan: { loadDays: 3, sleepNights: 4, strengthMinutes: 9_999 } }));
+    expect(bad.weeklyPlan).toEqual({ loadDays: 3, sleepNights: 4 });
+  });
+
   it('only reports impacts with enough days in both groups', () => {
     for (const impact of readinessImpacts(days)) {
       expect(impact.nHigh).toBeGreaterThanOrEqual(4);
@@ -141,6 +161,34 @@ describe('Home', () => {
     expect(mockPush).toHaveBeenCalledWith('/recovery');
     await fireEvent.press(screen.getByTestId('day-label'));
     expect(mockPush).toHaveBeenCalledWith('/home/date-picker');
+  });
+
+  it('draws the mockup tiles: vitals check tile, stress number tile, sleep row and the sync line under the dials', async () => {
+    await render(withAppData(<HomeScreen />));
+    expect(screen.getByTestId('vitals-count')).toHaveTextContent(/metrics in range/);
+    expect(screen.getByTestId('stress-tile-score')).toBeTruthy();
+    expect(screen.getByTestId('row-last-sleep')).toBeTruthy();
+    expect(screen.getByTestId('synced-line')).toHaveTextContent(/pull to sync/);
+    await fireEvent.press(screen.getByTestId('btn-add-activity'));
+    expect(mockPush).toHaveBeenCalledWith('/action-center');
+    await fireEvent.press(screen.getByTestId('btn-start-activity'));
+    expect(mockPush).toHaveBeenCalledWith('/activity/start');
+  });
+
+  it('shows tonight’s haptic alarm as a large time with its mode and band state', async () => {
+    const alarm = { plan: { ...DEFAULT_ALARM_PLAN, enabled: true, minutes: 6 * 60 + 50, mode: 'goal' as const }, armed: null, events: [], problem: null, smartAvailable: true };
+    await render(withAppData(<HomeScreen />, 'en', { alarm }));
+    expect(screen.getByTestId('tonight-alarm-time')).toHaveTextContent('06:50');
+    expect(screen.getByTestId('tonight-alarm-state')).toHaveTextContent('Not on the band yet');
+    expect(screen.getByTestId('tonight-note')).toHaveTextContent(/Alarm mode: Sleep goal/);
+    await fireEvent.press(screen.getByTestId('tonight-alarm'));
+    expect(mockPush).toHaveBeenCalledWith('/sleep/alarm');
+  });
+
+  it('says the alarm is off on the Tonight card when none is set', async () => {
+    await render(withAppData(<HomeScreen />));
+    expect(screen.getByTestId('tonight-alarm-time')).toHaveTextContent('Off');
+    expect(screen.getByTestId('tonight-alarm-state')).toHaveTextContent('No alarm set');
   });
 
   it('shows the empty state without days', async () => {
