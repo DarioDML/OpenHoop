@@ -1,4 +1,6 @@
+import appJson from '../app.json';
 import { buildNumberFor } from '../app.config';
+import packageJson from '../package.json';
 import { applyReleaseSigning } from '../plugins/withReleaseSigning';
 
 const GENERATED_GRADLE = `
@@ -54,5 +56,38 @@ describe('applyReleaseSigning', () => {
 
   it('is idempotent', () => {
     expect(applyReleaseSigning(gradle)).toBe(gradle);
+  });
+});
+
+type PluginEntry = string | [string, Record<string, unknown>];
+
+function pluginOptions(name: string): Record<string, unknown> | undefined {
+  const entry = (appJson.expo.plugins as PluginEntry[]).find((plugin) => (Array.isArray(plugin) ? plugin[0] : plugin) === name);
+  return Array.isArray(entry) ? entry[1] : undefined;
+}
+
+describe('dictation permissions', () => {
+  it('declares the microphone through the speech plugin with honest permission texts', () => {
+    const options = pluginOptions('expo-speech-recognition');
+    expect(options).toBeDefined();
+    for (const text of [options?.microphonePermission, options?.speechRecognitionPermission]) {
+      expect(typeof text).toBe('string');
+      expect(text).toContain('not saved or sent');
+    }
+  });
+
+  it('does not block the microphone that dictation needs, and keeps the other blocks', () => {
+    const blocked = appJson.expo.android.blockedPermissions;
+    expect(blocked).not.toContain('android.permission.RECORD_AUDIO');
+    expect(pluginOptions('expo-image-picker')?.microphonePermission).not.toBe(false);
+    expect(blocked).toEqual(expect.arrayContaining(['android.permission.ACCESS_NETWORK_STATE', 'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE']));
+  });
+
+  it('adds no permission to the explicit list beyond Health Connect access', () => {
+    expect(appJson.expo.android.permissions.every((permission) => permission.startsWith('android.permission.health.'))).toBe(true);
+  });
+
+  it('pins the speech library to an exact version', () => {
+    expect(packageJson.dependencies['expo-speech-recognition']).toMatch(/^\d+\.\d+\.\d+$/);
   });
 });
