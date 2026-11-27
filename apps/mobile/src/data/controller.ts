@@ -1165,7 +1165,7 @@ export class AppController {
       await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(rang));
       this.patchAlarm({ armed: rang, problem: null });
       this.smartWake.cancel();
-      const following = followingWakeAt(plan.minutes, live.wakeAt);
+      const following = followingWakeAt(plan.minutes, live.wakeAt, plan.days);
       try {
         const reading = await armAlarm(conn.session, following, nowSeconds());
         const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds(), confirmed: true, rangEarlyAt: rangAt };

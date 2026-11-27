@@ -8,7 +8,7 @@ import { fonts, radius, spacing, useTheme } from './theme';
 interface ButtonProps {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'tertiary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'danger' | 'soft';
   disabled?: boolean;
   icon?: IconName;
   style?: StyleProp<ViewStyle>;
@@ -19,7 +19,7 @@ interface ButtonProps {
 export function Button({ label, onPress, variant = 'primary', disabled = false, icon, style, testID, accessibilityLabel }: ButtonProps) {
   const { colors } = useTheme();
   const background =
-    variant === 'primary' ? colors.primary : variant === 'danger' ? colors.negativeSoft : 'transparent';
+    variant === 'primary' ? colors.primary : variant === 'danger' ? colors.negativeSoft : variant === 'soft' ? colors.surfaceAlt : 'transparent';
   const foreground =
     variant === 'primary' ? colors.primaryOn : variant === 'tertiary' ? colors.link : variant === 'danger' ? colors.negative : colors.text;
   const border = variant === 'secondary' ? colors.text : variant === 'danger' ? colors.negative : 'transparent';

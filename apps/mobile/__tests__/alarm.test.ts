@@ -1,5 +1,8 @@
 import {
   DEFAULT_ALARM_PLAN,
+  EVERY_DAY,
+  scheduledAt,
+  toggleDay,
   alarmTask,
   confirmedAlarm,
   nextWakeAt,
@@ -16,7 +19,7 @@ import {
 
 const local = (day: number, hour: number, minute: number, second = 0): Date => new Date(2026, 10, day, hour, minute, second);
 const unix = (date: Date): number => Math.floor(date.getTime() / 1000);
-const PLAN: AlarmPlan = { enabled: true, minutes: 7 * 60, mode: 'exact', windowMin: 30 };
+const PLAN: AlarmPlan = { enabled: true, minutes: 7 * 60, mode: 'exact', windowMin: 30, days: EVERY_DAY };
 
 describe('nextWakeAt', () => {
   it('takes the next occurrence of the time of day', () => {
@@ -113,5 +116,44 @@ describe('stored alarm state', () => {
   it('wraps the time of day', () => {
     expect(shiftMinutes(5, -15)).toBe(1430);
     expect(shiftMinutes(1430, 15)).toBe(5);
+  });
+});
+
+describe('repeat days and overrides', () => {
+  const WEEKDAYS = [1, 2, 3, 4, 5];
+
+  it('skips days the alarm does not repeat on', () => {
+    expect(nextWakeAt(7 * 60, local(27, 22, 0), WEEKDAYS)).toBe(unix(local(30, 7, 0)));
+    expect(nextWakeAt(7 * 60, local(26, 22, 0), WEEKDAYS)).toBe(unix(local(27, 7, 0)));
+    expect(nextWakeAt(7 * 60, local(26, 22, 0), [])).toBe(unix(local(27, 7, 0)));
+  });
+
+  it('re-arms for the next repeat day after a ring and keeps a valid alarm', () => {
+    const plan = { ...PLAN, days: WEEKDAYS };
+    const friday = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true, rangEarlyAt: null };
+    expect(alarmTask(plan, friday, local(26, 22, 0))).toEqual({ kind: 'none' });
+    expect(alarmTask(plan, friday, local(27, 9, 0))).toEqual({ kind: 'arm', wakeAt: unix(local(30, 7, 0)) });
+    expect(followingWakeAt(7 * 60, unix(local(27, 7, 0)), WEEKDAYS)).toBe(unix(local(30, 7, 0)));
+  });
+
+  it('moves the time on a day with an override and re-arms an alarm that no longer matches', () => {
+    const overrides = [{ date: '2026-11-27', minutes: 5 * 60 + 30 }];
+    expect(nextWakeAt(7 * 60, local(26, 22, 0), EVERY_DAY, overrides)).toBe(unix(local(27, 5, 30)));
+    expect(scheduledAt(unix(local(27, 5, 30)), 7 * 60, EVERY_DAY, overrides)).toBe(true);
+    expect(scheduledAt(unix(local(27, 7, 0)), 7 * 60, EVERY_DAY, overrides)).toBe(false);
+    const old = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true, rangEarlyAt: null };
+    expect(alarmTask(PLAN, old, local(26, 22, 0), overrides)).toEqual({ kind: 'arm', wakeAt: unix(local(27, 5, 30)) });
+    expect(nextWakeAt(7 * 60, local(26, 22, 0), [1], overrides)).toBe(unix(local(30, 7, 0)));
+  });
+
+  it('stores the days, reads old plans as every day and never empties the set', () => {
+    const plan = { ...PLAN, days: WEEKDAYS };
+    expect(parseAlarmPlan(serializeAlarmPlan(plan))).toEqual(plan);
+    expect(parseAlarmPlan(JSON.stringify({ enabled: true, minutes: 420, mode: 'exact', windowMin: 30 })).days).toEqual(EVERY_DAY);
+    expect(parseAlarmPlan(JSON.stringify({ ...plan, days: [9] })).days).toEqual(EVERY_DAY);
+    expect(parseAlarmPlan(JSON.stringify({ ...plan, days: [] })).days).toEqual(EVERY_DAY);
+    expect(toggleDay([1, 2], 2)).toEqual([1]);
+    expect(toggleDay([1], 1)).toEqual([1]);
+    expect(toggleDay([5, 1], 0)).toEqual([0, 1, 5]);
   });
 });

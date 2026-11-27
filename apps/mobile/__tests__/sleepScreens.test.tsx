@@ -6,7 +6,10 @@ import { formatMinutes, mainNightSpan } from '@/data/dailyDerived';
 import type { HeartRatePoint } from '@/data/types';
 import { defaultUserData } from '@/data/userData';
 
-import { FIXTURE_NOW, withAppData } from './support/appData';
+import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
+import type { AlarmView } from '@/data/types';
+
+import { FIXTURE_NOW, fixtureAlarmActions, withAppData } from './support/appData';
 
 let mockParams: Record<string, string | string[] | undefined> = {};
 const mockPush = jest.fn();
@@ -26,6 +29,7 @@ import SleepScreen from '@/app/sleep/index';
 import LastNightScreen from '@/app/sleep/last-night';
 import SleepNeedScreen from '@/app/sleep/need';
 import SleepTrendsScreen from '@/app/sleep/trends';
+import HapticAlarmScreen from '@/app/sleep/alarm';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const last = days[days.length - 1];
@@ -179,5 +183,56 @@ describe('Sleep trends', () => {
     await fireEvent.press(screen.getByText('6M'));
     expect(screen.getByText('Averages per week')).toBeTruthy();
     expect(screen.getByTestId('card-stages-trend')).toBeTruthy();
+  });
+});
+
+describe('Haptic alarm', () => {
+  const alarm = (patch: Partial<AlarmView> = {}): AlarmView => ({ plan: { ...DEFAULT_ALARM_PLAN, enabled: true, minutes: 6 * 60 + 50 }, armed: null, events: [], problem: null, smartAvailable: true, ...patch });
+
+  it('maps the alarm types and the smart window onto the smart wake modes', async () => {
+    const save = jest.fn(async () => 'on-band' as const);
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm(), alarmActions: { ...fixtureAlarmActions(), save } }));
+    expect(screen.getByTestId('alarm-window-line')).toHaveTextContent('Buzzes at 06:50');
+    await fireEvent.press(screen.getByTestId('alarm-type-goal'));
+    expect(screen.getByTestId('alarm-window-line')).toHaveTextContent('Wake window 05:20 – 06:50');
+    expect(screen.getByTestId('alarm-goal-window')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('alarm-type-window'));
+    await fireEvent.press(screen.getByText('15 min'));
+    expect(screen.getByTestId('alarm-window-line')).toHaveTextContent('Wake window 06:35 – 06:50');
+    await fireEvent.press(screen.getByText('Off'));
+    expect(screen.getByTestId('alarm-type-exact').props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(screen.getByText('30 min'));
+    await fireEvent.press(screen.getByTestId('alarm-save'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ mode: 'window', windowMin: 30 })));
+  });
+
+  it('saves the repeat days and keeps at least one on', async () => {
+    const save = jest.fn(async () => 'on-band' as const);
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: { ...DEFAULT_ALARM_PLAN, enabled: true, days: [1, 6] } }), alarmActions: { ...fixtureAlarmActions(), save } }));
+    expect(screen.getByTestId('alarm-day-1').props.accessibilityState.checked).toBe(true);
+    expect(screen.getByTestId('alarm-day-0').props.accessibilityState.checked).toBe(false);
+    await fireEvent.press(screen.getByTestId('alarm-day-6'));
+    expect(screen.getByTestId('alarm-day-1').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(screen.getByTestId('alarm-day-1'));
+    await fireEvent.press(screen.getByTestId('alarm-day-0'));
+    await fireEvent.press(screen.getByTestId('alarm-save'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ days: [0, 1] })));
+  });
+
+  it('takes the planned wake time from the sleep planner', async () => {
+    mockParams = { minutes: '405' };
+    const save = jest.fn(async () => 'on-band' as const);
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarmActions: { ...fixtureAlarmActions(), save } }));
+    expect(screen.getByTestId('alarm-time')).toHaveTextContent('06:45');
+    expect(screen.getByTestId('alarm-from-planner')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('alarm-save'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ enabled: true, minutes: 405 })));
+  });
+
+  it('ignores a damaged planner time', async () => {
+    mockParams = { minutes: '9999' };
+    await render(withAppData(<HapticAlarmScreen />));
+    expect(screen.getByTestId('alarm-time')).toHaveTextContent('07:00');
+    expect(screen.queryByTestId('alarm-from-planner')).toBeNull();
   });
 });
