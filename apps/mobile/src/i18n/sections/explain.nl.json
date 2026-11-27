@@ -185,5 +185,13 @@
   "home.vitalsRangesFrom": "Bereik vanaf nacht {night}",
   "stress.notYet": "Nog niet",
   "stress.needsCalm": "Heeft rustige, wakkere tijd nodig",
-  "load.soFarA11y": "Belasting tot nu toe vandaag: {value} van {max}"
+  "load.soFarA11y": "Belasting tot nu toe vandaag: {value} van {max}",
+  "terms.title": "Alle begrippen",
+  "terms.search": "Zoek, bijvoorbeeld HRV of slaapschuld",
+  "terms.cat.recovery": "Herstel",
+  "terms.cat.sleep": "Slaap",
+  "terms.cat.effort": "Inspanning",
+  "terms.levels": "Hoe een getal ontstaat",
+  "terms.noMatch": "Geen begrip past bij je zoekopdracht.",
+  "terms.aboutBody": "Wat elk getal in de app betekent, in gewone woorden"
 }

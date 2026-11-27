@@ -185,5 +185,13 @@
   "home.vitalsRangesFrom": "Ranges from night {night}",
   "stress.notYet": "Not yet",
   "stress.needsCalm": "Needs calm, awake time",
-  "load.soFarA11y": "Load so far today: {value} of {max}"
+  "load.soFarA11y": "Load so far today: {value} of {max}",
+  "terms.title": "All terms",
+  "terms.search": "Search, like HRV or sleep debt",
+  "terms.cat.recovery": "Recovery",
+  "terms.cat.sleep": "Sleep",
+  "terms.cat.effort": "Effort",
+  "terms.levels": "How a number is made",
+  "terms.noMatch": "No term matches your search.",
+  "terms.aboutBody": "What every number in the app means, in plain words"
 }
