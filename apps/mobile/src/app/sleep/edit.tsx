@@ -16,12 +16,13 @@ import { Button, Field, Segmented } from '@/ui/controls';
 import { Divider, NoDataPage, Page } from '@/ui/daily/bits';
 import { Icon } from '@/ui/Icon';
 import { ListRow } from '@/ui/ListGroup';
-import { Timeline24 } from '@/ui/sleep/Timeline24';
+import { Timeline24, timelineWindow } from '@/ui/sleep/Timeline24';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
 const HOUR_S = 3_600;
 const NEW_NAP = 'new';
-const NOON_MIN = 720;
+const NAP_START = '14:00';
+const NAP_END = '14:30';
 
 type Mode = 'edit' | 'nap';
 type Problem = Exclude<SleepEditOutcome, 'saved'> | 'invalid-time';
@@ -63,8 +64,8 @@ export default function EditSleepScreen() {
   const night = items.find((i) => i.kind === 'night') ?? null;
   const current: EditableSleep | null = mode === 'nap' ? null : (items.find((i) => i.key === picked) ?? night);
   const key = mode === 'nap' ? NEW_NAP : (current?.key ?? null);
-  const startText = draft !== null && draft.key === key ? draft.start : current === null ? '' : clock(current.onset);
-  const endText = draft !== null && draft.key === key ? draft.end : current === null ? '' : clock(current.offset);
+  const startText = draft !== null && draft.key === key ? draft.start : current === null ? NAP_START : clock(current.onset);
+  const endText = draft !== null && draft.key === key ? draft.end : current === null ? NAP_END : clock(current.offset);
   const manual = current === null || current.source === 'manual';
   const label = (item: EditableSleep | null): string => (item === null ? t('sleepx.editNewNap') : item.kind === 'night' ? t('sleepx.editNight') : t('sleepx.editNap'));
 
@@ -213,7 +214,7 @@ export default function EditSleepScreen() {
             testID="edit-timeline"
             start={startMin}
             end={endMin}
-            windowStart={current?.kind === 'night' ? NOON_MIN : 0}
+            windowStart={timelineWindow(parseClock(current === null ? NAP_START : clock(current.onset)) ?? 0, startMin, endMin)}
             onChange={(start, end) => edit({ start: formatMinutes(start), end: formatMinutes(end) })}
             label={t('editSleep.timelineLabel', { start: startText, end: endText })}
             startLabel={t('editSleep.dragStart')}

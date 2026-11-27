@@ -33,7 +33,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import EditSleepScreen from '@/app/sleep/edit';
-import { dragTo, relative, snap } from '@/ui/sleep/Timeline24';
+import { dragTo, handleLefts, relative, snap, timelineWindow } from '@/ui/sleep/Timeline24';
 import LastNightScreen from '@/app/sleep/last-night';
 
 const HOUR_S = 3_600;
@@ -306,5 +306,48 @@ describe('timeline drag maths', () => {
     expect(dragTo('start', 660, 1140, -40)).toBe(0);
     expect(dragTo('end', 660, 1140, 500)).toBe(665);
     expect(dragTo('end', 660, 1140, 1600)).toBe(1440);
+  });
+});
+
+describe('timeline window', () => {
+  beforeEach(() => {
+    mockParams = {};
+  });
+
+  it('starts three whole hours before the item and moves only when a typed range does not fit', () => {
+    expect(timelineWindow(23 * 60 + 14, 23 * 60 + 14, 6 * 60 + 52)).toBe(20 * 60);
+    expect(timelineWindow(8 * 60 + 30, 8 * 60 + 30, 16 * 60)).toBe(5 * 60);
+    expect(timelineWindow(23 * 60 + 30, 23 * 60 + 30, 30)).toBe(20 * 60);
+    expect(timelineWindow(60, 60, 9 * 60)).toBe(22 * 60);
+    expect(timelineWindow(23 * 60, 17 * 60, 22 * 60)).toBe(14 * 60);
+    expect(timelineWindow(23 * 60, null, null)).toBe(20 * 60);
+  });
+
+  it('keeps the two handles apart even at the smallest gap', () => {
+    const lefts = handleLefts(100, 101, 288);
+    expect(lefts.end - lefts.start).toBeGreaterThanOrEqual(24);
+    expect(handleLefts(0, 300, 288)).toEqual({ start: 0, end: 264 });
+  });
+
+  it('shows the handles for someone who sleeps by day', async () => {
+    const daySleep = withPeriods(base, [period({ onset: MIDNIGHT + 8 * HOUR_S, offset: MIDNIGHT + 16 * HOUR_S - 1 })]);
+    await render(withAppData(<EditSleepScreen />, 'en', { days: [daySleep] }));
+    await fireEvent(screen.getByTestId('edit-timeline'), 'layout', { nativeEvent: { layout: { width: 288, height: 72, x: 0, y: 0 } } });
+    expect(screen.getByTestId('edit-timeline-start').props.accessibilityValue).toEqual({ text: '08:00' });
+    expect(screen.getByTestId('edit-timeline-end').props.accessibilityValue).toEqual({ text: '16:00' });
+    expect(screen.getAllByText('05:00')).toHaveLength(2);
+  });
+
+  it('seeds a nap so it can be added by dragging', async () => {
+    const save = jest.fn(async (): Promise<SleepEditOutcome> => 'saved');
+    await render(withAppData(<EditSleepScreen />, 'en', { days: [plainDay], saveSleepEdit: save }));
+    await fireEvent.press(screen.getByText('Add nap'));
+    await fireEvent(screen.getByTestId('edit-timeline'), 'layout', { nativeEvent: { layout: { width: 288, height: 72, x: 0, y: 0 } } });
+    expect(screen.getByTestId('edit-start').props.value).toBe('14:00');
+    expect(screen.getByTestId('edit-end').props.value).toBe('14:30');
+    await fireEvent(screen.getByTestId('edit-timeline-end'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    expect(screen.getByTestId('edit-end').props.value).toBe('14:35');
+    await fireEvent.press(screen.getByTestId('edit-save'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ id: null, targetOnset: null, targetOffset: null, onset: MIDNIGHT + 14 * HOUR_S, offset: MIDNIGHT + 14 * HOUR_S + 35 * 60, replaces: null }));
   });
 });
