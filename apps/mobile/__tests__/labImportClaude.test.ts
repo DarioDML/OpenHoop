@@ -154,9 +154,9 @@ describe('lab request', () => {
   it('is refused by the gate unless the labs feature is on', () => {
     const prefs = defaultNetworkPrefs();
     expect(checkRequest(prefs, 'labs', MESSAGES_URL)).toEqual({ allowed: false, reason: 'network-off' });
-    expect(checkRequest({ enabled: true, features: { coach: true, maps: false, labs: false } }, 'labs', MESSAGES_URL)).toEqual({ allowed: false, reason: 'feature-off' });
-    expect(checkRequest({ enabled: true, features: { coach: false, maps: false, labs: true } }, 'labs', MESSAGES_URL)).toEqual({ allowed: true });
-    expect(checkRequest({ enabled: true, features: { coach: false, maps: false, labs: true } }, 'labs', 'https://tile.openstreetmap.org/1/0/0.png')).toEqual({
+    expect(checkRequest({ enabled: true, features: { coach: true, maps: false, labs: false, strava: false } }, 'labs', MESSAGES_URL)).toEqual({ allowed: false, reason: 'feature-off' });
+    expect(checkRequest({ enabled: true, features: { coach: false, maps: false, labs: true, strava: false } }, 'labs', MESSAGES_URL)).toEqual({ allowed: true });
+    expect(checkRequest({ enabled: true, features: { coach: false, maps: false, labs: true, strava: false } }, 'labs', 'https://tile.openstreetmap.org/1/0/0.png')).toEqual({
       allowed: false,
       reason: 'host-not-allowed',
     });

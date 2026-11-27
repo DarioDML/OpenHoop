@@ -50,7 +50,7 @@ jest.mock('@/coach/keyStore', () => ({
 
 jest.mock('@/net', () => ({
   netFetch: (...args: Parameters<GatedFetch>) => mockNetFetch(...args),
-  currentNetworkPrefs: () => ({ enabled: false, features: { coach: false, maps: false, labs: false } }),
+  currentNetworkPrefs: () => ({ enabled: false, features: { coach: false, maps: false, labs: false, strava: false } }),
   setNetworkPrefs: () => undefined,
 }));
 
@@ -80,7 +80,7 @@ async function open(options: { save?: Save; labs?: boolean; key?: string | null;
   const save = options.save ?? saver();
   const { controller } = makeController({ key: options.key === undefined ? TEST_KEY : options.key });
   await controller.load();
-  const network = { enabled: options.labs === true, features: { coach: false, maps: false, labs: options.labs === true } };
+  const network = { enabled: options.labs === true, features: { coach: false, maps: false, labs: options.labs === true, strava: false } };
   await render(withCoach(<LabsImportScreen />, controller, { saveLabResult: save, userData: { ...defaultUserData(), onboardingDone: true, network } }, options.language ?? 'en'));
   return save;
 }

@@ -146,12 +146,20 @@ describe('Safety lock', () => {
 
 describe('Not built screens', () => {
   it.each([
-    ['integrations', IntegrationsScreen, 'not-built-integrations'],
-    ['connect-provider', ConnectProviderScreen, 'not-built-integrations'],
     ['community', CommunityScreen, 'not-built-community'],
   ])('%s shows the not built notice', async (_name, Screen, testID) => {
     await render(withAppData(<Screen />));
     expect(screen.getByTestId(testID)).toBeTruthy();
+  });
+
+  it.each([
+    ['integrations', IntegrationsScreen, 'strava-row'],
+    ['connect-provider', ConnectProviderScreen, 'provider-strava'],
+  ])('%s links Strava instead of a not built notice', async (_name, Screen, testID) => {
+    await render(withAppData(<Screen />));
+    expect(screen.queryByTestId('not-built-integrations')).toBeNull();
+    await fireEvent.press(screen.getByTestId(testID));
+    expect(router.push).toHaveBeenCalledWith('/settings/strava');
   });
 });
 
