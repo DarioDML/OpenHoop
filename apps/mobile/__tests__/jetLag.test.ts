@@ -410,9 +410,23 @@ describe('jet lag alarm overrides', () => {
     const result = generateFromSaved(trip);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(overrides).toHaveLength(result.plan.days.length - 1);
+    const dates = result.plan.days.map((day) => brussels(day.wake.epochS).date);
+    const shared = dates.filter((date) => dates.filter((other) => other === date).length > 1);
+    expect(shared).toEqual(['2026-03-14', '2026-03-14']);
+    expect(overrides).toHaveLength(result.plan.days.length - 2);
     expect(overrides[0]).toEqual({ date: '2026-03-08', minutes: 6 * 60 });
+    expect(overrides.some((o) => o.date === '2026-03-14')).toBe(false);
     expect(overrides.map((o) => o.date)).toEqual([...new Set(overrides.map((o) => o.date))]);
+  });
+
+  it('maps each wake to one date on a phone that runs on the destination clock', () => {
+    const tokyo = (epochS: number) => {
+      const clock = zonedClock('Asia/Tokyo', epochS);
+      if (clock === null) throw new Error('no clock');
+      return { date: clock.date, minutes: clock.minutes };
+    };
+    const result = generateFromSaved(trip);
+    expect(jetLagWakeOverrides(trip, tokyo)).toHaveLength(result.ok ? result.plan.days.length : -1);
   });
 
   it('gives no overrides for a plan that cannot be made', () => {

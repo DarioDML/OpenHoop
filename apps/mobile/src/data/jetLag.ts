@@ -270,16 +270,15 @@ export function deviceClock(epochS: number): WakeOverride {
   return { date: localDate(date), minutes: date.getHours() * 60 + date.getMinutes() };
 }
 
-/** The plan's wake times as phone-local alarm times. The alarm rings once a day, so a date keeps its earliest wake. */
+/**
+ * The plan's wake times as alarm times on the phone's clock. While the phone still runs on home time, two plan wakes
+ * can land on one phone date; such a date is ambiguous and keeps the usual alarm time.
+ */
 export function jetLagWakeOverrides(saved: SavedJetLagPlan, clock: (epochS: number) => WakeOverride = deviceClock): WakeOverride[] {
   const result = generateFromSaved(saved);
   if (!result.ok) return [];
-  const out: WakeOverride[] = [];
-  for (const day of result.plan.days) {
-    const wake = clock(day.wake.epochS);
-    if (!out.some((o) => o.date === wake.date)) out.push(wake);
-  }
-  return out;
+  const wakes = result.plan.days.map((day) => clock(day.wake.epochS));
+  return wakes.filter((wake) => wakes.filter((other) => other.date === wake.date).length === 1);
 }
 
 export function zoneCity(zone: string): string {

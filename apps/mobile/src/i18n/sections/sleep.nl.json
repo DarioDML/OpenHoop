@@ -166,7 +166,7 @@
   "jetlagx.chipLight": "Licht {start}–{end}",
   "jetlagx.ask": "Pas het plan aan aan mijn vluchttijd",
   "jetlagx.shiftAlarm": "Verzet mijn alarm automatisch",
-  "jetlagx.shiftAlarmHint": "Verzet het trilalarm mee met het plan op je alarmdagen",
+  "jetlagx.shiftAlarmHint": "Verzet het trilalarm naar het wektijdstip van elke plandag op de klok van je telefoon, ook op dagen zonder alarm. Een datum met twee wektijden uit het plan houdt het gewone tijdstip.",
   "jetlagx.shiftAlarmSave": "Bewaar eerst het plan om het alarm mee te laten schuiven",
   "jetlagx.shiftAlarmOff": "Zet het trilalarm aan om het mee te laten schuiven",
   "jetlagx.planLink": "Je reis"

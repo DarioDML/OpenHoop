@@ -166,7 +166,7 @@
   "jetlagx.chipLight": "Light {start}–{end}",
   "jetlagx.ask": "Adjust the plan for my flight time",
   "jetlagx.shiftAlarm": "Shift my alarm automatically",
-  "jetlagx.shiftAlarmHint": "Moves the haptic alarm with the plan on your alarm days",
+  "jetlagx.shiftAlarmHint": "Moves the haptic alarm to each plan day's wake time on your phone's clock, also on days without an alarm. A date with two plan wakes keeps the usual time.",
   "jetlagx.shiftAlarmSave": "Save the plan first to move the alarm with it",
   "jetlagx.shiftAlarmOff": "Turn on the haptic alarm to move it with the plan",
   "jetlagx.planLink": "Your trip"

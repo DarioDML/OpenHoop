@@ -143,7 +143,9 @@ describe('repeat days and overrides', () => {
     expect(scheduledAt(unix(local(27, 7, 0)), 7 * 60, EVERY_DAY, overrides)).toBe(false);
     const old = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true, rangEarlyAt: null };
     expect(alarmTask(PLAN, old, local(26, 22, 0), overrides)).toEqual({ kind: 'arm', wakeAt: unix(local(27, 5, 30)) });
-    expect(nextWakeAt(7 * 60, local(26, 22, 0), [1], overrides)).toBe(unix(local(30, 7, 0)));
+    expect(nextWakeAt(7 * 60, local(26, 22, 0), [1], overrides)).toBe(unix(local(27, 5, 30)));
+    expect(scheduledAt(unix(local(27, 5, 30)), 7 * 60, [1], overrides)).toBe(true);
+    expect(nextWakeAt(7 * 60, local(27, 9, 0), [1], overrides)).toBe(unix(local(30, 7, 0)));
   });
 
   it('stores the days, reads old plans as every day and never empties the set', () => {

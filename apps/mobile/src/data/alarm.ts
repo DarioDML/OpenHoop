@@ -129,9 +129,10 @@ export function localDate(date: Date): string {
 }
 
 function minutesOn(day: Date, minutes: number, days: readonly number[], overrides: readonly WakeOverride[]): number | null {
-  if (!days.includes(day.getDay())) return null;
   const date = localDate(day);
-  return overrides.find((o) => o.date === date)?.minutes ?? minutes;
+  const override = overrides.find((o) => o.date === date);
+  if (override !== undefined) return override.minutes;
+  return days.includes(day.getDay()) ? minutes : null;
 }
 
 export function nextWakeAt(minutes: number, now: Date, days: readonly number[] = EVERY_DAY, overrides: readonly WakeOverride[] = []): number {
