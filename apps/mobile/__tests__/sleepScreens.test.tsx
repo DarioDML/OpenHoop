@@ -267,7 +267,7 @@ describe('Sleep planner', () => {
   it('follows the sleep score goal of the weekly plan', async () => {
     await render(withAppData(<SleepPlannerScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: defaultPlan(null) } }));
     expect(screen.getByTestId('goal-plan').props.accessibilityState.selected).toBe(true);
-    expect(screen.getByTestId('goal-plan')).toHaveTextContent(/Hit 80% sleep score · \d+:\d\d/);
+    expect(screen.getByTestId('goal-plan')).toHaveTextContent(/Hit 80% sleep score at last night's consistency · \d+:\d\d/);
   });
 
   it('sets a wind-down reminder through the notifications', async () => {

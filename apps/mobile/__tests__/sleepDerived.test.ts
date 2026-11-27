@@ -219,6 +219,11 @@ describe('trend stats and goals', () => {
     expect(planned?.reachable).toBe(true);
     expect(planned?.targetS).toBeLessThan(need);
     expect(tonightPlan(days, index, 'plan', 100)).toMatchObject({ reachable: false, targetS: need });
+    const ratio = ratioForScore(90, 60);
+    expect(ratio).not.toBeNull();
+    expect(ratio ?? 0).toBeGreaterThan(3);
+    const lowConsistency = days.map((d, i) => (i === index ? { ...d, sleep: { ...d.sleep, consistency: { value: 60, reason: null, coverage: 1, algo: 'x' } } } : d));
+    expect(tonightPlan(lowConsistency, index, 'plan', 90)).toMatchObject({ reachable: false, fraction: 1, targetS: need });
     const plan = defaultPlan(null);
     expect(planScoreOf(plan)).toBe(80);
     expect(planScoreOf({ ...plan, goals: ['loadDays'] })).toBeNull();

@@ -314,6 +314,7 @@ export function sleepTrendStats(slice: readonly DayRecord[]): TrendStats {
 
 export const PEAK_FRACTION = 1;
 export const GET_BY_FRACTION = 0.7;
+export const MAX_PLAN_FRACTION = 1.25;
 
 /**
  * The share of tonight's need that the calibrated Sleep score model turns into `score`, at the given consistency:
@@ -348,7 +349,8 @@ export function tonightPlan(days: readonly DayRecord[], index: number, goal: Sle
   const day = days[index];
   const need = day?.sleep.need.value ?? null;
   if (day === undefined || need === null) return null;
-  const ratio = goal === 'plan' && planScore !== null ? ratioForScore(planScore, day.sleep.consistency.value) : null;
+  const found = goal === 'plan' && planScore !== null ? ratioForScore(planScore, day.sleep.consistency.value) : null;
+  const ratio = found !== null && found <= MAX_PLAN_FRACTION ? found : null;
   const fraction = goal === 'getBy' ? GET_BY_FRACTION : goal === 'plan' && ratio !== null ? ratio : PEAK_FRACTION;
   const targetS = need * fraction;
   return { goal, fraction, reachable: goal !== 'plan' || ratio !== null, targetS, bed: planBedtime(days, index, targetS, wakeOverride) };
