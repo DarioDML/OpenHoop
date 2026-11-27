@@ -34,13 +34,14 @@ export default function LastNightScreen() {
   const day = days[index];
   const main = day ? mainPeriod(day) : null;
   const [points, setPoints] = useState<HeartRatePoint[]>([]);
-  const [epochs, setEpochs] = useState<StageEpochRow[]>([]);
+  const [loaded, setLoaded] = useState<{ onset: number; epochs: StageEpochRow[] } | null>(null);
   const onset = main?.onset ?? null;
   const offset = main?.offset ?? null;
   const night = day ? mainNightSpan(day) : null;
   const nightOnset = night?.onset ?? null;
   const nightOffset = night?.offset ?? null;
   const staged = (day?.sleep.stages?.totals ?? null) !== null;
+  const epochs = loaded !== null && loaded.onset === nightOnset ? loaded.epochs : [];
 
   useEffect(() => {
     if (onset === null || offset === null) {
@@ -62,17 +63,14 @@ export default function LastNightScreen() {
   }, [heartRateBetween, onset, offset]);
 
   useEffect(() => {
-    if (nightOnset === null || nightOffset === null || !staged) {
-      setEpochs([]);
-      return;
-    }
+    if (nightOnset === null || nightOffset === null || !staged) return;
     let cancelled = false;
     void sleepStagesBetween(nightOnset, nightOffset + 1).then(
       (result) => {
-        if (!cancelled) setEpochs(result);
+        if (!cancelled) setLoaded({ onset: nightOnset, epochs: result });
       },
       () => {
-        if (!cancelled) setEpochs([]);
+        if (!cancelled) setLoaded({ onset: nightOnset, epochs: [] });
       },
     );
     return () => {
