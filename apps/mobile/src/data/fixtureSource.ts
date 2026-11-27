@@ -1,5 +1,5 @@
 import { ACTIVE_HRR_FRACTION, ALGO, STRESS_WINDOW_S, type ActiveMinutes, type StressDay, type StressWindow } from '@openhoop/analytics';
-import type { DayRecord, Derived, SleepPeriodRecord, WorkoutRecord } from '@openhoop/core';
+import type { DayRecord, Derived, SleepPeriodRecord, SleepStagesSummary, WorkoutRecord } from '@openhoop/core';
 
 import type { DeviceStatus, DiscoveredBand, LockState, Profile, Settings } from './types';
 
@@ -135,6 +135,16 @@ function buildSleep(dayStart: number, rand: () => number): SleepPart {
   return { periods, asleepS: asleepMain, inBedS: inBedMain };
 }
 
+function fixtureStages(sleepPart: SleepPart | null, lowCoverage: boolean): SleepStagesSummary {
+  if (sleepPart === null) return { algo: ALGO.stages, reason: 'no-sleep', coverage: null, totals: null };
+  if (lowCoverage) return { algo: ALGO.stages, reason: 'low-coverage', coverage: null, totals: null };
+  const epochs = (seconds: number): number => Math.round(seconds / 30) * 30;
+  const deep = epochs(sleepPart.asleepS * 0.17);
+  const rem = epochs(sleepPart.asleepS * 0.24);
+  const light = epochs(sleepPart.asleepS) - deep - rem;
+  return { algo: ALGO.stages, reason: null, coverage: 0.97, totals: { wake: epochs(sleepPart.inBedS - sleepPart.asleepS), light, deep, rem } };
+}
+
 function buildDay(i: number, epochDay: number, deviceId: number, untilS: number): DayRecord {
   const rand = mulberry32(i * 7919 + 13);
   const noise = (amp: number): number => (rand() - 0.5) * 2 * amp;
@@ -201,6 +211,7 @@ function buildDay(i: number, epochDay: number, deviceId: number, untilS: number)
           ? missing(noSleep ? 'no-sleep' : 'needs-history', 'sleep-consistency@1')
           : derived(Math.round(78 + noise(12)), 'sleep-consistency@1', 1),
       score: sleepPart ? derived(sleepScoreRaw, 'sleep-score@1', 0.95) : missing('no-sleep', 'sleep-score@1'),
+      stages: fixtureStages(sleepPart, lowCoverage),
     },
     hrv,
     restingHr,

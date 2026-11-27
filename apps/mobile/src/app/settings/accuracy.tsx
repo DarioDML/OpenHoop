@@ -32,6 +32,7 @@ const LABELS: Readonly<Record<keyof typeof PARITY, TranslationKey>> = {
   workouts: 'load.workouts',
   calories: 'calories.title',
   stress: 'health.stress.title',
+  stages: 'stage.title',
   jetLag: 'sleepx.jetLag',
   vo2max: 'health.metrics.vo2max',
   pillars: 'health.hub.pillars',

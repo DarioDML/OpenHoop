@@ -14,6 +14,7 @@ import { PARITY } from '@/ui/parity';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { ScoreRing } from '@/ui/ScoreRing';
 import { SleepTimeline } from '@/ui/SleepTimeline';
+import { StageCard } from '@/ui/StageCard';
 import { spacing, useTheme } from '@/ui/theme';
 
 export default function SleepScreen() {
@@ -102,6 +103,8 @@ export default function SleepScreen() {
           <ParityBadge level={PARITY.sleepScore} long />
         </View>
       </Card>
+
+      <StageCard stages={sleep.stages} edited={sleep.periods.some((p) => !p.nap && p.source === 'edited')} />
 
       <Card style={{ gap: 0 }}>
         <StatRow label={t('sleepx.lastNight')} caption={t('sleepx.lastNightHint')} value="" href={`/sleep/last-night?day=${day.day}`} testID="link-last-night" />

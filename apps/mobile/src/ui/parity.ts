@@ -20,6 +20,7 @@ export const PARITY = {
   workouts: 'C',
   calories: 'C',
   stress: 'C',
+  stages: 'C',
   jetLag: 'C',
   vo2max: 'C',
   pillars: 'C',

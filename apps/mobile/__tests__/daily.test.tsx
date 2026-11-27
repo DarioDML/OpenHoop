@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
@@ -231,11 +231,35 @@ describe('Sleep', () => {
     expect(mockPush).toHaveBeenCalledWith('/sleep/jet-lag');
   });
 
-  it('shows last night with the stages not-built notice', async () => {
+  it('shows last night with its hypnogram and stage totals', async () => {
     mockParams = { day: last?.day };
-    await render(withAppData(<LastNightScreen />));
-    expect(screen.getByTestId('not-built-stages')).toBeTruthy();
+    const main = last?.sleep.periods.find((p) => !p.nap);
+    const sleepStagesBetween = jest.fn(async () =>
+      main === undefined ? [] : [{ t: main.onset, stage: 'wake' as const }, { t: main.onset + 30, stage: 'deep' as const }],
+    );
+    await render(withAppData(<LastNightScreen />, 'en', { sleepStagesBetween }));
     expect(screen.getByTestId('asleep-total')).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('hypnogram')).toBeTruthy());
+    expect(sleepStagesBetween).toHaveBeenCalledWith(main?.onset, (main?.offset ?? 0) + 1);
+    expect(screen.getByTestId('stage-split-deep')).toBeTruthy();
+    expect(screen.getByText(/Deep sleep tends to read high/)).toBeTruthy();
+    expect(screen.queryByTestId('not-built-stages')).toBeNull();
+  });
+
+  it('gives the reason instead of stages for a night with too few readings', async () => {
+    const thin = days.find((d) => d.sleep.stages?.reason === 'low-coverage');
+    mockParams = { day: thin?.day };
+    const sleepStagesBetween = jest.fn(async () => []);
+    await render(withAppData(<LastNightScreen />, 'en', { sleepStagesBetween }));
+    expect(screen.getByTestId('stages-reason').props.children).toBe('Not enough readings');
+    expect(screen.queryByTestId('stage-split')).toBeNull();
+    expect(sleepStagesBetween).not.toHaveBeenCalled();
+  });
+
+  it('shows the stage split on the sleep deep dive', async () => {
+    await render(withAppData(<SleepScreen />));
+    expect(screen.getByTestId('card-stages')).toBeTruthy();
+    expect(screen.getByTestId('stage-split-rem')).toBeTruthy();
   });
 
   it('refuses an invalid day on last night', async () => {
@@ -258,6 +282,8 @@ describe('Sleep', () => {
     expect(screen.getByTestId('chart-score')).toBeTruthy();
     await fireEvent.press(screen.getByText('6M'));
     expect(screen.getByTestId('chart-asleep')).toBeTruthy();
+    expect(screen.getByTestId('card-stages-trend')).toBeTruthy();
+    expect(screen.getByTestId('stages-avg-deep')).toBeTruthy();
     await render(withAppData(<SleepAlarmScreen />));
     expect(screen.getByTestId('not-built-alarm')).toBeTruthy();
   });
