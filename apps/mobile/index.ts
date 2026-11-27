@@ -1,7 +1,18 @@
 import 'expo-router/entry';
-import { Platform } from 'react-native';
+import { AppRegistry, Platform } from 'react-native';
 import { registerWidgetTaskHandler } from 'react-native-android-widget';
 
+import { appController } from './src/data/controller';
+import { SMART_WAKE_TASK } from './src/lib/smartWakeNative';
 import { widgetTaskHandler } from './src/widgets/taskHandler';
 
-if (Platform.OS === 'android') registerWidgetTaskHandler(widgetTaskHandler);
+async function smartWakeTask(): Promise<void> {
+  const controller = appController();
+  await controller.start();
+  await controller.smartWakeCheck();
+}
+
+if (Platform.OS === 'android') {
+  registerWidgetTaskHandler(widgetTaskHandler);
+  AppRegistry.registerHeadlessTask(SMART_WAKE_TASK, () => smartWakeTask);
+}

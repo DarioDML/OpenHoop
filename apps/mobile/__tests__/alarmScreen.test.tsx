@@ -27,7 +27,7 @@ function inHours(hours: number): number {
 }
 
 function alarm(patch: Partial<AlarmView>): AlarmView {
-  return { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null, ...patch };
+  return { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null, smartAvailable: true, ...patch };
 }
 
 describe('Haptic alarm', () => {
@@ -50,11 +50,11 @@ describe('Haptic alarm', () => {
 
   it('says when the alarm is on the band and when it is not yet', async () => {
     const wakeAt = inHours(30);
-    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt, armedAt: inHours(-1), confirmed: true } }) }));
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt, armedAt: inHours(-1), confirmed: true, rangEarlyAt: null } }) }));
     expect(screen.getByTestId('alarm-status-text').props.children).toMatch(/^Rings /);
-    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt: inHours(-2), armedAt: inHours(-20), confirmed: true } }) }));
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt: inHours(-2), armedAt: inHours(-20), confirmed: true, rangEarlyAt: null } }) }));
     expect(screen.getByTestId('alarm-status-text').props.children).toMatch(/^Not on the band yet/);
-    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt, armedAt: inHours(-1), confirmed: false } }) }));
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt, armedAt: inHours(-1), confirmed: false, rangEarlyAt: null } }) }));
     expect(screen.getByTestId('alarm-status-text').props.children).toMatch(/^Not on the band yet/);
   });
 
@@ -86,12 +86,39 @@ describe('Haptic alarm', () => {
     expect(screen.queryByTestId('alarm-last')).toBeNull();
   });
 
-  it('tests the alarm buzz and keeps smart wake marked as not built', async () => {
+  it('tests the alarm buzz', async () => {
     const ring = jest.fn(async () => true);
     await render(withAppData(<HapticAlarmScreen />, 'en', { alarmActions: { ...fixtureAlarmActions(), ring } }));
     await fireEvent.press(screen.getByTestId('alarm-test'));
     expect(ring).toHaveBeenCalled();
-    expect(screen.getByTestId('alarm-smart-not-built')).toBeTruthy();
+    expect(screen.queryByTestId('not-built-alarm')).toBeNull();
+  });
+
+  it('saves a smart window with its length and explains when checks start', async () => {
+    const save = jest.fn(async () => 'on-band' as const);
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarmActions: { ...fixtureAlarmActions(), save }, alarm: alarm({ plan: PLAN }) }));
+    await fireEvent.press(screen.getByText('Smart window'));
+    await fireEvent.press(screen.getByText('45 min'));
+    expect(screen.getByTestId('alarm-mode-body').props.children).toMatch(/^From 06:00 the phone connects/);
+    await fireEvent.press(screen.getByTestId('alarm-save'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ ...PLAN, mode: 'window', windowMin: 45 }));
+  });
+
+  it('explains the sleep goal with a 90-minute window', async () => {
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: { ...PLAN, mode: 'goal' } }) }));
+    expect(screen.getByTestId('alarm-mode-body').props.children).toMatch(/^From 05:15 .*sleep need/);
+  });
+
+  it('offers only the exact time where smart wake cannot run', async () => {
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: { ...PLAN, mode: 'window' }, smartAvailable: false }) }));
+    expect(screen.queryByText('Smart window')).toBeNull();
+    expect(screen.getByText(/only the exact time works/)).toBeTruthy();
+  });
+
+  it('says when a smart wake already rang', async () => {
+    const wakeAt = inHours(1);
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt, armedAt: inHours(-8), confirmed: true, rangEarlyAt: inHours(-0.5) } }) }));
+    expect(screen.getByTestId('alarm-status-text').props.children).toMatch(/^Rang early at \d\d:\d\d$/);
   });
 
   it('shows the planned time on the planner card', async () => {

@@ -3,6 +3,7 @@ import {
   alarmTask,
   confirmedAlarm,
   nextWakeAt,
+  rangEarly,
   parseAlarmPlan,
   parseArmedAlarm,
   serializeAlarmPlan,
@@ -32,23 +33,32 @@ describe('alarmTask', () => {
   });
 
   it('leaves a matching alarm alone, also in the last minute before it rings', () => {
-    const armed = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true };
+    const armed = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true, rangEarlyAt: null };
     expect(alarmTask(PLAN, armed, local(26, 22, 0))).toEqual({ kind: 'none' });
     expect(alarmTask(PLAN, armed, local(27, 6, 59, 30))).toEqual({ kind: 'none' });
   });
 
   it('re-arms for the next day once the alarm has passed, and after a time change', () => {
-    const armed = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true };
+    const armed = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true, rangEarlyAt: null };
     expect(alarmTask(PLAN, armed, local(27, 9, 0))).toEqual({ kind: 'arm', wakeAt: unix(local(28, 7, 0)) });
     expect(alarmTask({ ...PLAN, minutes: 6 * 60 + 30 }, armed, local(26, 22, 0))).toEqual({ kind: 'arm', wakeAt: unix(local(27, 6, 30)) });
   });
 
   it('treats an alarm that was sent but never confirmed as possibly armed', () => {
-    const attempt = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: false };
+    const attempt = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: false, rangEarlyAt: null };
     expect(alarmTask(PLAN, attempt, local(26, 22, 0))).toEqual({ kind: 'arm', wakeAt: unix(local(27, 7, 0)) });
     expect(alarmTask({ ...PLAN, enabled: false }, attempt, local(26, 22, 0))).toEqual({ kind: 'cancel' });
     expect(confirmedAlarm(attempt, unix(local(26, 22, 0)))).toBeNull();
-    expect(confirmedAlarm({ ...attempt, confirmed: true }, unix(local(26, 22, 0)))).not.toBeNull();
+    expect(confirmedAlarm({ ...attempt, confirmed: true, rangEarlyAt: null }, unix(local(26, 22, 0)))).not.toBeNull();
+  });
+
+  it('does not set the same morning again after a smart wake rang early', () => {
+    const rang = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true, rangEarlyAt: unix(local(27, 6, 40)) };
+    expect(alarmTask(PLAN, rang, local(27, 6, 45))).toEqual({ kind: 'none' });
+    expect(alarmTask({ ...PLAN, enabled: false }, rang, local(27, 6, 45))).toEqual({ kind: 'none' });
+    expect(confirmedAlarm(rang, unix(local(27, 6, 45)))).toBeNull();
+    expect(rangEarly(rang, unix(local(27, 6, 45)))).toBe(unix(local(27, 6, 40)));
+    expect(alarmTask(PLAN, rang, local(27, 7, 30))).toEqual({ kind: 'arm', wakeAt: unix(local(28, 7, 0)) });
   });
 
   it('keeps the wall-clock time across a daylight saving change', () => {
@@ -58,7 +68,7 @@ describe('alarmTask', () => {
   });
 
   it('cancels a pending alarm when the plan is off, and does nothing after it rang', () => {
-    const armed = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true };
+    const armed = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true, rangEarlyAt: null };
     const off = { ...PLAN, enabled: false };
     expect(alarmTask(off, armed, local(26, 22, 0))).toEqual({ kind: 'cancel' });
     expect(alarmTask(off, armed, local(27, 8, 0))).toEqual({ kind: 'none' });
@@ -77,9 +87,9 @@ describe('stored alarm state', () => {
   });
 
   it('round-trips the armed alarm and rejects damaged values', () => {
-    const armed = { wakeAt: 1_800_000_000, armedAt: 1_799_990_000, confirmed: false };
+    const armed = { wakeAt: 1_800_000_000, armedAt: 1_799_990_000, confirmed: false, rangEarlyAt: null };
     expect(parseArmedAlarm(serializeArmedAlarm(armed))).toEqual(armed);
-    expect(parseArmedAlarm(JSON.stringify({ wakeAt: 1_800_000_000, armedAt: 1_799_990_000 }))).toEqual({ ...armed, confirmed: true });
+    expect(parseArmedAlarm(JSON.stringify({ wakeAt: 1_800_000_000, armedAt: 1_799_990_000 }))).toEqual({ ...armed, confirmed: true, rangEarlyAt: null });
     expect(parseArmedAlarm(JSON.stringify({ ...armed, confirmed: 'yes' }))).toBeNull();
     expect(parseArmedAlarm(null)).toBeNull();
     expect(parseArmedAlarm(JSON.stringify({ wakeAt: 'soon', armedAt: 1 }))).toBeNull();

@@ -68,6 +68,7 @@ import {
   insertEcgRecording,
   listEcgRecordings,
   recordEcg,
+  readNightNow,
   stopEcg,
   type EcgSummary,
   rebuildStaleSamples,
@@ -155,12 +156,15 @@ import {
   alarmTask,
   armedAlarmKey,
   parseAlarmPlan,
+  confirmedAlarm,
   parseArmedAlarm,
   serializeAlarmPlan,
   serializeArmedAlarm,
   type AlarmPlan,
   type ArmedAlarm,
 } from './alarm';
+import { CHECK_EVERY_S, LEAVE_TO_BAND_S, smartWakeDecision, windowStart } from './smartWake';
+import { smartWakeScheduler, type SmartWakeScheduler } from '@/lib/smartWakeNative';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
 import { storageProblemOf, type StorageProblem } from './storageProblem';
@@ -294,6 +298,7 @@ const SYNC_FAILURES_NOT_ALERTED: ReadonlySet<TranslationKey> = new Set<Translati
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
 const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
 const ECG_PROGRESS_MS = 200;
+const SMART_MIN_DELAY_S = 60;
 
 const ECG_WRIST_KEY = 'ecg.wrist';
 
@@ -390,6 +395,7 @@ export class AppController {
     private readonly notifier: Notifier = expoNotifier,
     private readonly healthConnect: HealthConnectApi = nativeHealthConnect,
     private readonly widgets: WidgetBridge = androidWidgetBridge,
+    private readonly smartWake: SmartWakeScheduler = smartWakeScheduler,
   ) {
     const language = detectLanguage(getLocales()[0]?.languageCode);
     this.snapshot = {
@@ -415,7 +421,7 @@ export class AppController {
       healthConnect: { availability: 'checking', granted: [], state: defaultHealthConnectState(), syncing: false },
       activities: [],
       pendingDelete: null,
-      alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
+      alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null, smartAvailable: false },
       ecgRecordings: [],
       ecgWrist: 'left',
       ecgLive: IDLE_ECG,
@@ -491,7 +497,12 @@ export class AppController {
     return run;
   }
 
-  async start(): Promise<void> {
+  start(): Promise<void> {
+    this.startRun ??= this.startOnce();
+    return this.startRun;
+  }
+
+  private async startOnce(): Promise<void> {
     if (this.started) return;
     this.started = true;
     try {
@@ -542,7 +553,7 @@ export class AppController {
       inbox: this.notificationState.inbox,
       healthConnect: { ...this.snapshot.healthConnect, state: healthConnectState },
       strength,
-      alarm: { ...this.snapshot.alarm, plan: parseAlarmPlan(await store.getSetting(ALARM_PLAN_KEY)) },
+      alarm: { ...this.snapshot.alarm, plan: parseAlarmPlan(await store.getSetting(ALARM_PLAN_KEY)), smartAvailable: this.smartWake.available() },
       ecgWrist: (await store.getSetting(ECG_WRIST_KEY)) === 'right' ? 'right' : 'left',
     });
     if (dataSource === 'band') await this.purgeDemoRecordings();
@@ -1043,11 +1054,11 @@ export class AppController {
     const { plan, armed } = this.snapshot.alarm;
     const task = alarmTask(plan, armed, new Date());
     if (task.kind === 'arm') {
-      const attempt: ArmedAlarm = { wakeAt: task.wakeAt, armedAt: nowSeconds(), confirmed: false };
+      const attempt: ArmedAlarm = { wakeAt: task.wakeAt, armedAt: nowSeconds(), confirmed: false, rangEarlyAt: null };
       await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(attempt));
       this.patchAlarm({ armed: attempt });
       const reading = await armAlarm(conn.session, task.wakeAt, nowSeconds());
-      const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds(), confirmed: true };
+      const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds(), confirmed: true, rangEarlyAt: null };
       await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(next));
       this.patchAlarm({ armed: next, problem: null });
     } else if (task.kind === 'cancel') {
@@ -1057,6 +1068,69 @@ export class AppController {
     } else {
       this.patchAlarm({ problem: null });
     }
+    this.scheduleSmartWake();
+  }
+
+  private scheduleSmartWake(): void {
+    const { plan, armed } = this.snapshot.alarm;
+    const live = confirmedAlarm(armed, nowSeconds());
+    if (!plan.enabled || plan.mode === 'exact' || live === null) {
+      this.smartWake.cancel();
+      return;
+    }
+    this.queueSmartCheck(Math.max(nowSeconds() + SMART_MIN_DELAY_S, windowStart(plan.mode, live.wakeAt, plan.windowMin)));
+  }
+
+  private queueSmartCheck(atS: number): void {
+    const language = this.snapshot.settings.language;
+    this.smartWake.schedule(atS, translate(language, 'alarm.smart.notifyTitle'), translate(language, 'alarm.smart.notifyBody'));
+  }
+
+  smartWakeCheck = async (): Promise<void> => {
+    const { plan, armed } = this.snapshot.alarm;
+    const live = confirmedAlarm(armed, nowSeconds());
+    if (!plan.enabled || plan.mode === 'exact' || live === null) {
+      this.smartWake.cancel();
+      return;
+    }
+    const mode = plan.mode;
+    try {
+      await this.sync();
+      const deviceId = this.deviceRow?.id;
+      if (deviceId === undefined) return;
+      const nowS = nowSeconds();
+      const night = await readNightNow(this.requireApp().store, deviceId, nowS);
+      const today = this.snapshot.days[this.snapshot.days.length - 1];
+      const decision = smartWakeDecision({
+        mode,
+        wakeAt: live.wakeAt,
+        windowMin: plan.windowMin,
+        nowS,
+        recent: night.recent,
+        awake: night.awake,
+        asleepS: night.asleepS,
+        needS: today?.sleep.need.value ?? null,
+      });
+      if (decision.kind === 'check') this.queueSmartCheck(decision.at);
+      else if (decision.kind === 'ring') await this.ringSmartWake(live);
+    } catch (error) {
+      const retry = nowSeconds() + CHECK_EVERY_S;
+      if (retry < live.wakeAt - LEAVE_TO_BAND_S) this.queueSmartCheck(retry);
+      this.patchAlarm({ problem: alarmProblem(error) });
+    }
+  };
+
+  private async ringSmartWake(live: ArmedAlarm): Promise<void> {
+    await this.exclusive(async () => {
+      const conn = await this.ensureConnection();
+      const { store } = this.requireApp();
+      await ringAlarm(conn.session);
+      await cancelAlarm(conn.session);
+      const rang: ArmedAlarm = { ...live, rangEarlyAt: nowSeconds() };
+      await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(rang));
+      this.patchAlarm({ armed: rang, problem: null });
+      this.smartWake.cancel();
+    });
   }
 
   private patchAlarm(patch: Partial<AlarmView>): void {
@@ -1080,6 +1154,7 @@ export class AppController {
   };
 
   private ecgAbort: AbortController | null = null;
+  private startRun: Promise<void> | null = null;
 
   private readonly ecgActionSet: EcgActions = {
     start: (wrist: Wrist) => this.startEcg(wrist),
@@ -2073,4 +2148,11 @@ export class AppController {
       installHealthConnect: this.installHealthConnect,
     };
   }
+}
+
+let shared: AppController | null = null;
+
+export function appController(): AppController {
+  shared ??= new AppController();
+  return shared;
 }

@@ -16,6 +16,7 @@ export interface ArmedAlarm {
   wakeAt: number;
   armedAt: number;
   confirmed: boolean;
+  rangEarlyAt: number | null;
 }
 
 export const ALARM_PLAN_KEY = 'alarm.plan';
@@ -59,18 +60,23 @@ export function serializeAlarmPlan(plan: AlarmPlan): string {
 export function parseArmedAlarm(raw: string | null): ArmedAlarm | null {
   const value = parseJson(raw);
   if (!isRecord(value)) return null;
-  const { wakeAt, armedAt, confirmed } = value;
+  const { wakeAt, armedAt, confirmed, rangEarlyAt } = value;
   if (typeof wakeAt !== 'number' || typeof armedAt !== 'number' || !Number.isFinite(wakeAt) || !Number.isFinite(armedAt) || wakeAt <= 0 || armedAt <= 0) return null;
   if (confirmed !== undefined && typeof confirmed !== 'boolean') return null;
-  return { wakeAt, armedAt, confirmed: confirmed ?? true };
+  if (rangEarlyAt !== undefined && rangEarlyAt !== null && (typeof rangEarlyAt !== 'number' || !Number.isFinite(rangEarlyAt))) return null;
+  return { wakeAt, armedAt, confirmed: confirmed ?? true, rangEarlyAt: rangEarlyAt ?? null };
 }
 
 export function serializeArmedAlarm(armed: ArmedAlarm): string {
-  return JSON.stringify({ wakeAt: armed.wakeAt, armedAt: armed.armedAt, confirmed: armed.confirmed });
+  return JSON.stringify({ wakeAt: armed.wakeAt, armedAt: armed.armedAt, confirmed: armed.confirmed, rangEarlyAt: armed.rangEarlyAt });
 }
 
 export function confirmedAlarm(armed: ArmedAlarm | null, nowS: number): ArmedAlarm | null {
-  return armed !== null && armed.confirmed && armed.wakeAt > nowS ? armed : null;
+  return armed !== null && armed.confirmed && armed.rangEarlyAt === null && armed.wakeAt > nowS ? armed : null;
+}
+
+export function rangEarly(armed: ArmedAlarm | null, nowS: number): number | null {
+  return armed !== null && armed.rangEarlyAt !== null && armed.wakeAt > nowS ? armed.rangEarlyAt : null;
 }
 
 export function shiftMinutes(minutes: number, delta: number): number {
@@ -93,7 +99,7 @@ export type AlarmTask = { kind: 'arm'; wakeAt: number } | { kind: 'cancel' } | {
 export function alarmTask(plan: AlarmPlan, armed: ArmedAlarm | null, now: Date): AlarmTask {
   const nowS = now.getTime() / 1000;
   const live = armed !== null && armed.wakeAt > nowS ? armed : null;
-  if (!plan.enabled) return live === null ? { kind: 'none' } : { kind: 'cancel' };
+  if (!plan.enabled) return live === null || live.rangEarlyAt !== null ? { kind: 'none' } : { kind: 'cancel' };
   const wakeAt = nextWakeAt(plan.minutes, now);
   if (live !== null && live.confirmed && live.wakeAt <= wakeAt && localMinutes(live.wakeAt) === plan.minutes) return { kind: 'none' };
   return { kind: 'arm', wakeAt };

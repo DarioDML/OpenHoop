@@ -141,6 +141,10 @@ export function validHr(hr: number | null): number | null {
   return hr !== null && hr >= HR_MIN && hr <= HR_MAX ? hr : null;
 }
 
+export function samplesFromRows(rows: SampleRow[]): Sample[] {
+  return toBlock(rows).samples;
+}
+
 function toBlock(rows: SampleRow[]): Block {
   const samples: Sample[] = [];
   const chunks: (number | null)[] = [];
