@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
+import { addDays, visibleReadiness } from '@/data/derived';
 import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
+import type { JournalAnswer } from '@/data/userData';
+import { defaultUserData } from '@/data/userData';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -22,6 +25,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import ReadinessScreen from '@/app/recovery/index';
 import RecoveryTrendsScreen from '@/app/recovery/trends';
+import ImpactsScreen from '@/app/recovery/impacts';
 
 const days = createFixtureDays(FIXTURE_NOW);
 
@@ -139,5 +143,46 @@ describe('Readiness trends', () => {
     await fireEvent.press(screen.getByRole('tab', { name: '1M' }));
     expect(screen.getByText('Weekly average')).toBeTruthy();
     expect(screen.getAllByTestId(/^chart-readiness-\d{4}/).length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe('Readiness impacts', () => {
+  function taggedJournal(): Record<string, Record<string, JournalAnswer>> {
+    const journal: Record<string, Record<string, JournalAnswer>> = {};
+    const scored = days.map((d) => visibleReadiness(d).value).filter((v): v is number => v !== null).sort((a, b) => a - b);
+    const median = scored[Math.floor(scored.length / 2)] ?? 60;
+    let tagged = 0;
+    for (const d of days) {
+      const value = visibleReadiness(d).value;
+      if (value === null) continue;
+      journal[addDays(d.day, -1)] = { sauna: value >= median, alcohol: value < median ? 2 : 0, ...(tagged < 2 ? { 'late-meal': true } : {}) };
+      tagged += 1;
+    }
+    return journal;
+  }
+
+  it('ranks journal behaviours by their effect on next-day readiness', async () => {
+    await render(withAppData(<ImpactsScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, journal: taggedJournal() } }));
+    expect(screen.getByTestId('behaviour-sauna-value')).toHaveTextContent(/^\+\d+%$/);
+    expect(screen.getByTestId('behaviour-alcohol-value')).toHaveTextContent(/^−\d+%$/);
+    expect(screen.getByTestId('behaviour-sauna-caption')).toHaveTextContent(/^\d+ logged days · (High|Medium|Low) confidence$/);
+    expect(screen.getByTestId('behaviour-sauna-bar')).toBeTruthy();
+    expect(screen.getByTestId('needs-late-meal')).toHaveTextContent('Late meal: 2 of 5 days logged.');
+    expect(screen.getByTestId('needs-melatonin')).toHaveTextContent('Melatonin: 0 of 5 days logged.');
+  });
+
+  it('explains how impacts work from the header', async () => {
+    await render(withAppData(<ImpactsScreen />));
+    await fireEvent.press(screen.getByTestId('impacts-info'));
+    expect(within(screen.getByTestId('impacts-info-sheet')).getByText('Correlation, not proof')).toBeTruthy();
+  });
+
+  it('sends an empty journal to the journal and keeps the computed impacts', async () => {
+    await render(withAppData(<ImpactsScreen />));
+    expect(screen.getByTestId('behaviours-empty')).toBeTruthy();
+    expect(screen.queryByTestId('needs-more')).toBeNull();
+    expect(screen.getAllByTestId(/^impact-(sleep|load)$/).length).toBeGreaterThan(0);
+    await fireEvent.press(screen.getByText('Open journal'));
+    expect(mockPush).toHaveBeenCalledWith('/journal');
   });
 });

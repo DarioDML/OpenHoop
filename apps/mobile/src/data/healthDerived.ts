@@ -250,13 +250,12 @@ export interface BehaviourComparison {
   enough: boolean;
 }
 
-export function compareBehaviour(
-  days: readonly DayRecord[],
-  journal: Record<string, Record<string, JournalAnswer>>,
-  questionId: string,
-  metric: MetricKey,
-  minDays = MIN_DAYS_PER_SIDE,
-): BehaviourComparison {
+export interface BehaviourSamples {
+  withValues: number[];
+  withoutValues: number[];
+}
+
+export function behaviourSamples(days: readonly DayRecord[], journal: Record<string, Record<string, JournalAnswer>>, questionId: string, metric: MetricKey): BehaviourSamples {
   const byDay = new Map(days.map((d) => [d.day, d]));
   const withValues: number[] = [];
   const withoutValues: number[] = [];
@@ -269,6 +268,17 @@ export function compareBehaviour(
     if (value === null) continue;
     (yes ? withValues : withoutValues).push(value);
   }
+  return { withValues, withoutValues };
+}
+
+export function compareBehaviour(
+  days: readonly DayRecord[],
+  journal: Record<string, Record<string, JournalAnswer>>,
+  questionId: string,
+  metric: MetricKey,
+  minDays = MIN_DAYS_PER_SIDE,
+): BehaviourComparison {
+  const { withValues, withoutValues } = behaviourSamples(days, journal, questionId, metric);
   const withAvg = mean(withValues);
   const withoutAvg = mean(withoutValues);
   const deltaPct = withAvg !== null && withoutAvg !== null && withoutAvg !== 0 ? ((withAvg - withoutAvg) / Math.abs(withoutAvg)) * 100 : null;
