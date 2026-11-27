@@ -147,6 +147,7 @@ export interface AlarmView {
   armed: ArmedAlarm | null;
   events: AlarmEvent[];
   problem: Notice | null;
+  smartAvailable: boolean;
 }
 
 export type AlarmSaveOutcome = 'on-band' | 'pending';

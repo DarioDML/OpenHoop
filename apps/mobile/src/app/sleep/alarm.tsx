@@ -2,7 +2,8 @@ import type { AlarmEvent } from '@openhoop/core';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { confirmedAlarm, shiftMinutes, type AlarmPlan } from '@/data/alarm';
+import { ALARM_MODES, WINDOW_CHOICES_MIN, confirmedAlarm, rangEarly, shiftMinutes, type AlarmMode, type AlarmPlan } from '@/data/alarm';
+import { GOAL_WINDOW_S } from '@/data/smartWake';
 import { useAppData } from '@/data/context';
 import { formatMinutes } from '@/data/dailyDerived';
 import { useT, type TFunction } from '@/i18n/useT';
@@ -10,16 +11,19 @@ import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { formatClock, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Button } from '@/ui/controls';
+import { Button, Segmented } from '@/ui/controls';
 import { Callout, Page } from '@/ui/daily/bits';
 import { ToggleRow } from '@/ui/manage/rows';
-import { NotBuilt } from '@/ui/NotBuilt';
 import { Num } from '@/ui/Num';
 import { spacing, useTheme } from '@/ui/theme';
 
 const STEP_MIN = 5;
 const HOUR_MIN = 60;
 const RING_WINDOW_S = 120;
+
+function clockAt(unixS: number): string {
+  return formatClock(unixS, deviceTzOffsetS(new Date(unixS * 1000)));
+}
 
 function localDay(unixS: number): string {
   return unixToIsoDate(unixS, deviceTzOffsetS(new Date(unixS * 1000)));
@@ -74,7 +78,17 @@ export default function HapticAlarmScreen() {
   };
 
   const armed = confirmedAlarm(alarm.armed, nowS);
+  const early = rangEarly(alarm.armed, nowS);
   const status = armed !== null ? t('alarm.status.armed', { when: wakeLabel(t, language, armed.wakeAt, nowS) }) : t(alarm.plan.enabled ? 'alarm.status.pending' : 'alarm.status.off');
+  const smartOk = alarm.smartAvailable;
+  const startMin = draft.mode === 'goal' ? GOAL_WINDOW_S / 60 : draft.windowMin;
+  const modeBody =
+    !smartOk || draft.mode === 'exact'
+      ? t('sleepx.alarmExact')
+      : t(draft.mode === 'goal' ? 'alarm.smart.howGoal' : 'alarm.smart.howWindow', {
+          start: formatMinutes(shiftMinutes(draft.minutes, -startMin)),
+          time: formatMinutes(draft.minutes),
+        });
   const rang = lastRing(alarm.events);
   const busy = saving || device.connection === 'syncing' || device.connection === 'connecting';
 
@@ -106,8 +120,30 @@ export default function HapticAlarmScreen() {
           {stepper(STEP_MIN, '+', 'alarm-later', t('alarm.later'))}
           {stepper(HOUR_MIN, '»', 'alarm-hour-later', t('alarm.hourLater'))}
         </View>
-        <AppText variant="label" muted>
-          {t('sleepx.alarmExact')}
+        <AppText variant="capSmall" muted>
+          {t('alarm.mode.title')}
+        </AppText>
+        <Segmented<AlarmMode>
+          value={smartOk ? draft.mode : 'exact'}
+          onChange={(mode) => setDraft((plan) => ({ ...plan, mode }))}
+          options={ALARM_MODES.filter((mode) => smartOk || mode === 'exact').map((mode) => ({ value: mode, label: t(`alarm.mode.${mode}`) }))}
+          testID="alarm-mode"
+        />
+        {smartOk && draft.mode === 'window' ? (
+          <>
+            <AppText variant="capSmall" muted>
+              {t('alarm.window.title')}
+            </AppText>
+            <Segmented<string>
+              value={String(draft.windowMin)}
+              onChange={(value) => setDraft((plan) => ({ ...plan, windowMin: Number(value) }))}
+              options={WINDOW_CHOICES_MIN.map((minutes) => ({ value: String(minutes), label: t('alarm.window.minutes', { minutes }) }))}
+              testID="alarm-window"
+            />
+          </>
+        ) : null}
+        <AppText variant="label" muted testID="alarm-mode-body">
+          {modeBody}
         </AppText>
         <Button label={saving ? t('alarm.saving') : t('alarm.save')} onPress={() => void save()} disabled={busy || samePlan(draft, alarm.plan)} testID="alarm-save" />
       </Card>
@@ -119,6 +155,11 @@ export default function HapticAlarmScreen() {
         <AppText variant="bodyStrong" testID="alarm-status-text">
           {status}
         </AppText>
+        {early !== null ? (
+          <AppText variant="label" muted testID="alarm-rang-early">
+            {t('alarm.status.rangEarly', { time: clockAt(early) })}
+          </AppText>
+        ) : null}
         {alarm.problem !== null ? (
           <AppText variant="label" color={colors.warning} testID="alarm-problem">
             {t(alarm.problem.key, alarm.problem.params)}
@@ -135,15 +176,11 @@ export default function HapticAlarmScreen() {
 
       <Button label={ringing ? t('alarm.ringing') : t('alarm.test')} variant="secondary" onPress={() => void ring()} disabled={busy || ringing} testID="alarm-test" />
 
-      <View style={{ gap: spacing.sm }}>
+      <View style={{ gap: spacing.sm }} testID="alarm-smart">
         <AppText variant="bodyStrong">{t('alarm.smartTitle')}</AppText>
         <AppText variant="label" muted>
-          {t('sleepx.alarmGoal')}
+          {smartOk ? t('alarm.smart.needs') : t('alarm.smart.unavailable')}
         </AppText>
-        <AppText variant="label" muted>
-          {t('sleepx.alarmWindow')}
-        </AppText>
-        <NotBuilt issue="alarm" compact body={t('alarm.smartNotBuilt')} testID="alarm-smart-not-built" />
       </View>
 
       <Callout title={t('alarm.howTitle')} body={t('alarm.howBody')} />

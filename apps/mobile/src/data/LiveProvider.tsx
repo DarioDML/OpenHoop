@@ -3,7 +3,7 @@ import { AppState, View } from 'react-native';
 
 import { darkColors } from '@/ui/theme';
 
-import { AppController } from './controller';
+import { appController } from './controller';
 import { AppDataContext, LiveDataContext } from './context';
 import { expoNotifier } from './notifier';
 
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function LiveProvider({ children }: Props) {
-  const controller = useMemo(() => new AppController(), []);
+  const controller = useMemo(() => appController(), []);
   const value = useSyncExternalStore(controller.subscribe, controller.getAppData);
 
   useEffect(() => {

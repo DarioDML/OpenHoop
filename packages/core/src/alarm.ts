@@ -91,6 +91,27 @@ export async function ringAlarm(session: Session): Promise<AlarmStatus | null> {
   return status;
 }
 
+export const RING_PLAYED: ReadonlySet<AlarmStatus> = new Set<AlarmStatus>(['played-successfully', 'haptics-stopped']);
+
+export async function ringAlarmUntilDone(session: Session, maxWaitMs: number): Promise<{ played: boolean; ended: boolean }> {
+  let resolveEnd: (ended: boolean) => void = () => undefined;
+  const ended = new Promise<boolean>((resolve) => {
+    resolveEnd = resolve;
+  });
+  const off = session.onPacket((packet) => {
+    if (packet.kind === 'event' && packet.event === ALARM_EVENT.hapticsEnded) resolveEnd(true);
+  });
+  const cancelTimer = session.clock.schedule(maxWaitMs, () => resolveEnd(false));
+  try {
+    const status = await ringAlarm(session);
+    if (status === null || !RING_PLAYED.has(status)) return { played: false, ended: false };
+    return { played: true, ended: await ended };
+  } finally {
+    off();
+    cancelTimer();
+  }
+}
+
 export type AlarmEventKind = 'set' | 'fired' | 'app-fired' | 'disabled' | 'haptics-fired' | 'haptics-ended';
 
 export interface AlarmEvent {

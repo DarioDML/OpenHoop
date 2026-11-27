@@ -15,7 +15,7 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/data/notifier', () => ({ expoNotifier: { onReceived: () => () => undefined } }));
-jest.mock('@/data/controller', () => ({ AppController: jest.fn().mockImplementation(() => mockController) }));
+jest.mock('@/data/controller', () => ({ appController: jest.fn().mockImplementation(() => mockController) }));
 
 class FakeController {
   private readonly listeners = new Set<() => void>();

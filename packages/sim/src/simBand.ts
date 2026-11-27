@@ -8,6 +8,7 @@ import {
   encodeCommandResponse,
   encodeDataRangeBody,
   encodeEcgFiltered,
+  encodeEvent,
   encodeHelloBody,
   encodeMetadata,
   encodeRealtimeHr,
@@ -41,6 +42,7 @@ export interface SimOptions {
   };
   ecgUnsupported?: boolean;
   ecgIntervalMs?: number;
+  alarmRingMs?: number;
 }
 
 export interface WireEntry {
@@ -58,6 +60,7 @@ const YIELD_EVERY = 128;
 const DEFAULT_MTU = 244;
 const DEFAULT_LIVE_MS = 1000;
 const DEFAULT_ECG_INTERVAL_MS = 400;
+const DEFAULT_ALARM_RING_MS = 300;
 const ECG_BLOCK = 100;
 const SUBSEC_TICKS = 32768;
 const DEFAULT_WIRE_CAP = 5000;
@@ -230,6 +233,7 @@ export class SimBand implements Transport {
   private ecgIndex = 0;
   private readonly ecgUnsupported: boolean;
   private readonly ecgIntervalMs: number;
+  private readonly alarmRingMs: number;
   private dataFrames = 0;
   private fragmentCount = 0;
 
@@ -252,6 +256,7 @@ export class SimBand implements Transport {
     this.liveIntervalMs = opts.liveIntervalMs ?? DEFAULT_LIVE_MS;
     this.ecgUnsupported = opts.ecgUnsupported === true;
     this.ecgIntervalMs = opts.ecgIntervalMs ?? DEFAULT_ECG_INTERVAL_MS;
+    this.alarmRingMs = opts.alarmRingMs ?? DEFAULT_ALARM_RING_MS;
     this.wireLogCap = opts.wireLogCap ?? DEFAULT_WIRE_CAP;
     this.modelName = opts.model === 'MG' ? 'WHOOP MG' : 'WHOOP 5.0';
     this.deviceId = `sim:${opts.seed}`;
@@ -642,7 +647,13 @@ export class SimBand implements Transport {
       case Command.RUN_ALARM:
         this.writesReceived += 1;
         this.alarmsRun += 1;
-        this.reply(command, seq, SUCCESS, Uint8Array.of(2, ALARM_PLAYED));
+        this.reply(command, seq, PENDING, Uint8Array.of(2, 0, 0));
+        this.enqueueFrame(GATT.eventsFromStrap, encodeEvent({ event: 58, unixS: this.bandNow() }), NO_GEN);
+        this.enqueueFrame(GATT.eventsFromStrap, encodeEvent({ event: 60, unixS: this.bandNow(), payload: new Uint8Array(4) }), NO_GEN);
+        this.reply(command, seq, SUCCESS, Uint8Array.of(2, ALARM_PLAYED, 0));
+        setTimeout(() => {
+          if (this.connected) this.enqueueFrame(GATT.eventsFromStrap, encodeEvent({ event: 100, unixS: this.bandNow(), payload: Uint8Array.of(1, 0, 0, 0) }), NO_GEN);
+        }, this.alarmRingMs);
         return true;
       case Command.DISABLE_ALARM:
         this.writesReceived += 1;
