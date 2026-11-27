@@ -5,6 +5,7 @@ import { createFixtureDays } from '@/data/fixtureSource';
 import { formatMinutes, mainNightSpan } from '@/data/dailyDerived';
 import type { HeartRatePoint } from '@/data/types';
 import { defaultUserData, type SavedJetLagPlan, type UserData } from '@/data/userData';
+import { defaultPlan } from '@/data/weeklyPlan';
 
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
 import type { AlarmView } from '@/data/types';
@@ -90,7 +91,7 @@ describe('Sleep deep dive', () => {
   });
 
   it('follows the weekly plan by default once there is one', async () => {
-    await render(withAppData(<SleepScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: { loadDays: 3, sleepNights: 4 } } }));
+    await render(withAppData(<SleepScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: defaultPlan(null) } }));
     expect(screen.getByTestId('planner-goal')).toHaveTextContent('Follow weekly plan');
   });
 
@@ -254,7 +255,7 @@ describe('Sleep planner', () => {
     const updateUserData = jest.fn(async () => true);
     await render(withAppData(<SleepPlannerScreen />, 'en', { updateUserData }));
     expect(screen.getByTestId('goal-plan').props.accessibilityState.disabled).toBe(true);
-    expect(screen.getByTestId('goal-plan')).toHaveTextContent(/Set up a weekly plan first/);
+    expect(screen.getByTestId('goal-plan')).toHaveTextContent(/Add a sleep score goal to your weekly plan first/);
     expect(screen.getByTestId('goal-peak').props.accessibilityState.selected).toBe(true);
     expect(screen.getByTestId('goal-getBy')).toHaveTextContent(/70% of need · \d:\d\d/);
     const peakBed = screen.getByTestId('plan-bed').props.children;
@@ -263,10 +264,10 @@ describe('Sleep planner', () => {
     expect(screen.getByTestId('plan-bed').props.children).not.toEqual(peakBed);
   });
 
-  it('follows the weekly plan with its nights', async () => {
-    await render(withAppData(<SleepPlannerScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: { loadDays: 3, sleepNights: 4 } } }));
+  it('follows the sleep score goal of the weekly plan', async () => {
+    await render(withAppData(<SleepPlannerScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: defaultPlan(null) } }));
     expect(screen.getByTestId('goal-plan').props.accessibilityState.selected).toBe(true);
-    expect(screen.getByTestId('goal-plan')).toHaveTextContent(/of 4 full nights this week|Week's 4 full nights done/);
+    expect(screen.getByTestId('goal-plan')).toHaveTextContent(/Hit 80% sleep score · \d+:\d\d/);
   });
 
   it('sets a wind-down reminder through the notifications', async () => {

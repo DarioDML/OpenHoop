@@ -1,7 +1,8 @@
-import { DEFAULT_CALIBRATION, strainNeedMs } from '@openhoop/analytics';
+import { DEFAULT_CALIBRATION, sleepScore, strainNeedMs } from '@openhoop/analytics';
 import type { DayRecord, StageEpochRow } from '@openhoop/core';
 
 import { createFixtureDays } from '@/data/fixtureSource';
+import { defaultPlan } from '@/data/weeklyPlan';
 import {
   AWAKE_TYPICAL_MAX_S,
   RESTORATIVE_TYPICAL,
@@ -9,11 +10,13 @@ import {
   bedWakeWindow,
   clockFromNoon,
   contributorStatus,
-  goalFraction,
+  effectiveGoal,
   needBreakdown,
   needSegments,
   nightEvents,
-  planNights,
+  planScoreOf,
+  ratioForScore,
+  tonightPlan,
   rangeFlag,
   restorativePct,
   sleepContributors,
@@ -196,18 +199,33 @@ describe('trend stats and goals', () => {
     expect(stats.debtS).toBe([...days].reverse().find((d) => d.sleep.debt.value !== null)?.sleep.debt.value);
   });
 
-  it('follows the weekly plan: full need until the week is met', () => {
+  it('inverts the Sleep score model to find the sleep a score needs', () => {
+    for (const [score, consistency] of [[90, 80], [80, 81], [60, null], [92, 95]] as const) {
+      const ratio = ratioForScore(score, consistency);
+      expect(ratio).not.toBeNull();
+      if (ratio === null) continue;
+      const back = sleepScore({ asleepMs: ratio * 8 * 3_600_000, needMs: 8 * 3_600_000, consistency });
+      expect(back.ok && back.value).toBeCloseTo(score, 6);
+    }
+    expect(ratioForScore(100, 80)).toBeNull();
+  });
+
+  it('plans tonight for each goal and follows only a plan with a sleep score goal', () => {
     const index = days.length - 1;
-    const plan = planNights(days, index, 4);
-    expect(plan).not.toBeNull();
-    if (plan === null) return;
-    expect(plan.left).toBeGreaterThanOrEqual(1);
-    expect(plan.left).toBeLessThanOrEqual(7);
-    expect(goalFraction('plan', { target: 4, met: 2, left: 3 })).toBe(1);
-    expect(goalFraction('plan', { target: 4, met: 4, left: 3 })).toBe(0.85);
-    expect(goalFraction('plan', null)).toBe(1);
-    expect(goalFraction('peak', null)).toBe(1);
-    expect(goalFraction('getBy', null)).toBe(0.7);
+    const need = days[index]?.sleep.need.value ?? 0;
+    expect(tonightPlan(days, index, 'peak', null)?.targetS).toBe(need);
+    expect(tonightPlan(days, index, 'getBy', null)?.targetS).toBeCloseTo(need * 0.7, 6);
+    const planned = tonightPlan(days, index, 'plan', 80);
+    expect(planned?.reachable).toBe(true);
+    expect(planned?.targetS).toBeLessThan(need);
+    expect(tonightPlan(days, index, 'plan', 100)).toMatchObject({ reachable: false, targetS: need });
+    const plan = defaultPlan(null);
+    expect(planScoreOf(plan)).toBe(80);
+    expect(planScoreOf({ ...plan, goals: ['loadDays'] })).toBeNull();
+    expect(planScoreOf(null)).toBeNull();
+    expect(effectiveGoal(null, 80)).toBe('plan');
+    expect(effectiveGoal('plan', null)).toBe('peak');
+    expect(effectiveGoal('getBy', null)).toBe('getBy');
   });
 });
 

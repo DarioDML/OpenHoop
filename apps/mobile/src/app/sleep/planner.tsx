@@ -4,7 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { formatHm, formatMinutes, typicalWake } from '@/data/dailyDerived';
-import { GET_BY_FRACTION, PLAN_MET_FRACTION, WIND_DOWN_LEAD_MIN, effectiveGoal, planNights, tonightPlan, windDownAt } from '@/data/sleepDerived';
+import { GET_BY_FRACTION, WIND_DOWN_LEAD_MIN, effectiveGoal, planScoreOf, tonightPlan, windDownAt } from '@/data/sleepDerived';
 import { SLEEP_GOALS, type SleepGoal } from '@/data/userData';
 import { useT } from '@/i18n/useT';
 import { formatDuration } from '@/lib/format';
@@ -30,8 +30,8 @@ export default function SleepPlannerScreen() {
   const { days, userData, updateUserData, notificationPermission, requestNotificationPermission } = useAppData();
   const { t } = useT();
   const { colors } = useTheme();
-  const weekly = userData.weeklyPlan;
-  const [goal, setGoal] = useState<SleepGoal>(() => effectiveGoal(userData.sleepGoal, weekly !== null));
+  const planScore = planScoreOf(userData.weeklyPlan);
+  const [goal, setGoal] = useState<SleepGoal>(() => effectiveGoal(userData.sleepGoal, planScore));
   const [wakeShift, setWakeShift] = useState(0);
   const [wind, setWind] = useState<WindState>(null);
   const [busy, setBusy] = useState(false);
@@ -42,9 +42,9 @@ export default function SleepPlannerScreen() {
   const need = day.sleep.need.value;
   const typical = typicalWake(days, index);
   const wakeOverride = typical === null ? null : (((typical.minutes + wakeShift) % 1440) + 1440) % 1440;
-  const tonight = tonightPlan(days, index, goal, weekly?.sleepNights ?? null, wakeOverride);
+  const tonight = tonightPlan(days, index, goal, planScore, wakeOverride);
   const plan = tonight?.bed ?? null;
-  const nights = weekly === null ? null : planNights(days, index, weekly.sleepNights);
+  const planned = tonightPlan(days, index, 'plan', planScore);
 
   const choose = (next: SleepGoal): void => {
     setGoal(next);
@@ -54,11 +54,9 @@ export default function SleepPlannerScreen() {
 
   const hint = (id: SleepGoal): string => {
     if (id === 'plan') {
-      if (nights === null) return t('planner.goal.planNone');
-      if (need === null) return t('planner.goal.noNeed');
-      return nights.met >= nights.target
-        ? t('planner.goal.planMetHint', { target: nights.target, need: formatHm(need * PLAN_MET_FRACTION) })
-        : t('planner.goal.planHint', { met: nights.met, target: nights.target, need: formatHm(need) });
+      if (planScore === null) return t('planner.goal.planNone');
+      if (planned === null || need === null) return t('planner.goal.noNeed');
+      return t(planned.reachable ? 'planner.goal.planHint' : 'planner.goal.planOut', { score: planScore, need: formatHm(planned.targetS) });
     }
     if (need === null) return t('planner.goal.noNeed');
     return id === 'peak' ? t('planner.goal.peakHint', { need: formatHm(need) }) : t('planner.goal.getByHint', { need: formatHm(need * GET_BY_FRACTION) });
@@ -120,7 +118,7 @@ export default function SleepPlannerScreen() {
             label={t(`planner.goal.${id}`)}
             subtitle={hint(id)}
             selected={goal === id}
-            disabled={id === 'plan' && weekly === null}
+            disabled={id === 'plan' && planScore === null}
             onSelect={() => choose(id)}
           />
         ))}

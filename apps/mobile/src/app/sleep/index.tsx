@@ -7,6 +7,7 @@ import {
   SLEEP_STRESS_BUCKET_S,
   effectiveGoal,
   needBreakdown,
+  planScoreOf,
   sleepContributors,
   sleepStress,
   tonightPlan,
@@ -81,8 +82,9 @@ export default function SleepScreen() {
   const contributors = sleepContributors(day, stress?.pct ?? null, stressReason);
   const weakest = weakestContributor(contributors);
   const breakdown = needBreakdown(days, index);
-  const goal = effectiveGoal(userData.sleepGoal, userData.weeklyPlan !== null);
-  const plan = tonightPlan(days, index, goal, userData.weeklyPlan?.sleepNights ?? null);
+  const planScore = planScoreOf(userData.weeklyPlan);
+  const goal = effectiveGoal(userData.sleepGoal, planScore);
+  const plan = tonightPlan(days, index, goal, planScore);
   const bed = plan?.bed ?? null;
   const week = sliceEndingAt(days, 7, index);
   const tile = { style: { flexBasis: '47%', flexGrow: 1 } } as const;

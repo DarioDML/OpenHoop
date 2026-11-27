@@ -2,10 +2,10 @@ import { DEFAULT_CALIBRATION, STAGE_EPOCH_S, STRESS_HIGH_FROM, STRESS_MIN_DAY_WI
 import type { DayRecord, StageEpochRow } from '@openhoop/core';
 
 import { localMinutes, mainNightSpan, planBedtime, sleepEfficiency, type BedtimePlan } from './dailyDerived';
-import { addDays, daysInWeek, mean, weekdayIndex } from './derived';
-import { sleepNightMet } from './activityDerived';
+import { mean } from './derived';
 import type { HeartRatePoint } from './types';
 import type { SleepGoal } from './userData';
+import type { WeeklyPlan } from './weeklyPlan';
 
 export type ContributorStatus = 'optimal' | 'sufficient' | 'poor';
 export type ContributorId = 'hoursVsNeed' | 'consistency' | 'efficiency' | 'sleepStress';
@@ -314,51 +314,44 @@ export function sleepTrendStats(slice: readonly DayRecord[]): TrendStats {
 
 export const PEAK_FRACTION = 1;
 export const GET_BY_FRACTION = 0.7;
-export const PLAN_MET_FRACTION = 0.85;
 
-export interface PlanNights {
-  target: number;
-  met: number;
-  left: number;
+/**
+ * The share of tonight's need that the calibrated Sleep score model turns into `score`, at the given consistency:
+ * the inverse of score = intercept - weight * ratio^exponent + consistencyWeight * (consistency - neutral).
+ * Null when the score sits above what any amount of sleep can reach at that consistency.
+ */
+export function ratioForScore(score: number, consistency: number | null, c: Calibration = DEFAULT_CALIBRATION): number | null {
+  const ceiling = c.sleepScoreIntercept + c.sleepScoreConsistencyWeight * ((consistency ?? c.sleepScoreConsistencyNeutral) - c.sleepScoreConsistencyNeutral);
+  const gap = ceiling - score;
+  if (!Number.isFinite(gap) || gap <= 0) return null;
+  return (gap / c.sleepScoreRatioWeight) ** (1 / c.sleepScoreRatioExponent);
 }
 
-/** Tonight's sleep lands on tomorrow's record, so the week that counts is tomorrow's. */
-export function planNights(days: readonly DayRecord[], index: number, sleepNights: number): PlanNights | null {
-  const day = days[index];
-  if (day === undefined) return null;
-  const tomorrow = addDays(day.day, 1);
-  const week = daysInWeek(days, tomorrow);
-  const met = week.filter((d) => d !== null && d.day < tomorrow && sleepNightMet(d) === true).length;
-  return { target: sleepNights, met, left: 7 - weekdayIndex(tomorrow) };
+export function planScoreOf(plan: WeeklyPlan | null): number | null {
+  return plan !== null && plan.goals.includes('sleepScore') ? plan.sleepScoreMin : null;
 }
 
-export function goalFraction(goal: SleepGoal, plan: PlanNights | null): number {
-  if (goal === 'peak') return PEAK_FRACTION;
-  if (goal === 'getBy') return GET_BY_FRACTION;
-  if (plan === null) return PEAK_FRACTION;
-  return plan.met >= plan.target ? PLAN_MET_FRACTION : PEAK_FRACTION;
-}
-
-export function effectiveGoal(goal: SleepGoal | null, hasWeeklyPlan: boolean): SleepGoal {
-  if (goal === null) return hasWeeklyPlan ? 'plan' : 'peak';
-  return goal === 'plan' && !hasWeeklyPlan ? 'peak' : goal;
+export function effectiveGoal(goal: SleepGoal | null, planScore: number | null): SleepGoal {
+  if (goal === null) return planScore === null ? 'peak' : 'plan';
+  return goal === 'plan' && planScore === null ? 'peak' : goal;
 }
 
 export interface TonightPlan {
   goal: SleepGoal;
   fraction: number;
+  reachable: boolean;
   targetS: number;
   bed: BedtimePlan | null;
-  nights: PlanNights | null;
 }
 
-export function tonightPlan(days: readonly DayRecord[], index: number, goal: SleepGoal, sleepNights: number | null, wakeOverride: number | null = null): TonightPlan | null {
-  const need = days[index]?.sleep.need.value ?? null;
-  if (need === null) return null;
-  const nights = sleepNights === null ? null : planNights(days, index, sleepNights);
-  const fraction = goalFraction(goal, nights);
+export function tonightPlan(days: readonly DayRecord[], index: number, goal: SleepGoal, planScore: number | null, wakeOverride: number | null = null): TonightPlan | null {
+  const day = days[index];
+  const need = day?.sleep.need.value ?? null;
+  if (day === undefined || need === null) return null;
+  const ratio = goal === 'plan' && planScore !== null ? ratioForScore(planScore, day.sleep.consistency.value) : null;
+  const fraction = goal === 'getBy' ? GET_BY_FRACTION : goal === 'plan' && ratio !== null ? ratio : PEAK_FRACTION;
   const targetS = need * fraction;
-  return { goal, fraction, targetS, bed: planBedtime(days, index, targetS, wakeOverride), nights };
+  return { goal, fraction, reachable: goal !== 'plan' || ratio !== null, targetS, bed: planBedtime(days, index, targetS, wakeOverride) };
 }
 
 export const WIND_DOWN_LEAD_MIN = 30;
