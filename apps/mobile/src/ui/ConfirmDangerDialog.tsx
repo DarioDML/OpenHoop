@@ -38,7 +38,7 @@ export function ConfirmDangerDialog({ visible, commandName, title, body, confirm
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: spacing.lg }}>
         <View style={{ backgroundColor: colors.sheet, borderRadius: radius.lg, padding: spacing.xl, gap: spacing.lg, borderWidth: 1, borderColor: colors.negative }}>
           <AppText variant="cardTitle" accessibilityRole="header" style={{ fontSize: 20 }}>
@@ -52,6 +52,8 @@ export function ConfirmDangerDialog({ visible, commandName, title, body, confirm
             autoCapitalize="characters"
             autoCorrect={false}
             placeholder={commandName}
+            returnKeyType="done"
+            onSubmitEditing={confirm}
             testID="danger-input"
           />
           <View style={{ gap: spacing.sm }}>

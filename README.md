@@ -172,6 +172,12 @@ On Android, OpenHoop can write heart rate (minute averages), resting heart rate,
 - Third-party cloud services (for example Strava) are not built.
 - Android home-screen widgets cannot open the encrypted database. While at least one OpenHoop widget is on the home screen, the app keeps a small unencrypted file in its private cache with only the numbers the widget shows (Readiness, Sleep score, Load, resting heart rate, HRV, or the reason a value is missing), the day, the sync time and the app language. There is no name and no raw data in it. Android also keeps the drawn widget images in the app's private storage. Turning "Show values on widgets" off replaces the file with one that holds no values; removing the last widget deletes the file and the images. Neither is included in Android backups.
 
+## Band actions and settings
+
+Device settings can make the band buzz once (Test haptics) or for about four seconds (Find band, with a Stop button), and switch the standard Bluetooth heart rate service on or off (Heart rate broadcast, which gym equipment and other apps use). Switching it off also stops live heart rate in OpenHoop. The band keeps that setting after a restart and does not report it, so OpenHoop shows only what it last set itself.
+
+Feature flags and device settings whose value is 1 (on) or 2 (off) can be changed under Configuration and flags. A change is written to the band's memory, stays after a restart and needs the typed word CHANGE; the command gate refuses to build a flag or setting write without that confirmation. OpenHoop keeps the value from before its first change in the stored configuration, also after a new read, and puts it back in one tap. Other values, such as the 0 that every device setting reads on the MG, are never changed, because there is no known way to put them back. Wiping, restarting, unpairing and firmware updates are still never sent.
+
 ## Not a medical device
 
 OpenHoop is not a medical device. It does not diagnose, treat or monitor any condition, and it makes no rhythm classification and no blood pressure value. Its numbers are estimates from a consumer sensor and from models that have not been validated for clinical use. Do not use them for medical decisions.

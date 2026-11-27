@@ -9,3 +9,4 @@ export * from './batteryPack';
 export * from './bandEvents';
 export * from './decode';
 export * from './encode';
+export * from './requests';

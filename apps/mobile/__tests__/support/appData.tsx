@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { AppDataContext, LiveDataContext } from '@/data/context';
 import { createFixtureDays, createFixtureDevice, createFixtureSettings } from '@/data/fixtureSource';
-import type { AppData, Language, LiveData, LiveDataStore, StrengthActions } from '@/data/types';
+import type { AppData, BandActions, Language, LiveData, LiveDataStore, StrengthActions } from '@/data/types';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 
@@ -21,6 +21,16 @@ export function fixtureStrengthActions(): StrengthActions {
     removeSet: async () => true,
     finishSession: async () => true,
     removeSession: async () => true,
+  };
+}
+
+export function fixtureBandActions(): BandActions {
+  return {
+    buzz: async () => true,
+    stopBuzz: async () => true,
+    setHeartRateBroadcast: async () => true,
+    writeConfig: async () => true,
+    restoreConfig: async () => true,
   };
 }
 
@@ -65,6 +75,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     sync: noop,
     startLive: noop,
     readBandConfig: noop,
+    bandActions: fixtureBandActions(),
     stopLive: noop,
     exportData: noop,
     listDonationDays: async () => [],

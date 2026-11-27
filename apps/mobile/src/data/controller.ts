@@ -48,6 +48,15 @@ import {
   latestBandStatus,
   latestBatteryPack,
   readKeys,
+  buzz,
+  stopBuzz,
+  setHeartRateProfile,
+  writeConfigValue,
+  configWriteCommand,
+  ConfigWriteError,
+  TEST_BUZZ_LOOPS,
+  FIND_BAND_LOOPS,
+  type KeyKind,
   rebuildStaleSamples,
   recomputeStaleDays,
   recomputeDays,
@@ -103,7 +112,7 @@ import {
   type DonationDay,
   type DonationProgress,
 } from '@openhoop/core';
-import { formatFirmware } from '@openhoop/protocol';
+import { commandName, formatFirmware } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
 import Constants from 'expo-constants';
 import { getRandomBytes } from 'expo-crypto';
@@ -124,7 +133,8 @@ import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
 import { setNetworkPrefs } from '@/net';
 import { strictestPrefs } from '@/net/features';
 
-import { buildSnapshot, serializeSnapshot } from './bandConfig';
+import { applyConfigWrite, buildSnapshot, carryOver, changeFor, parseBandConfig, recordOriginal, serializeSnapshot, type ConfigKind, type WritableValue } from './bandConfig';
+import { hrBroadcastKey, parseHrBroadcast, serializeHrBroadcast, type HrBroadcastState } from './hrBroadcast';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
 import { storageProblemOf, type StorageProblem } from './storageProblem';
@@ -161,6 +171,8 @@ import { createDonationWorkspace, filePartSink, removeLeftoverDonations, saveDon
 import type {
   ActivityDraft,
   AppData,
+  BandActions,
+  BandBuzz,
   BuiltDonation,
   ConnectionState,
   DataSource,
@@ -259,8 +271,11 @@ function emptyDevice(): DeviceStatus {
     configSnapshot: null,
     batteryPack: null,
     band: null,
+    hrBroadcast: null,
   };
 }
+
+const CORE_KIND: Readonly<Record<ConfigKind, KeyKind>> = { flag: 'featureFlags', config: 'deviceConfig' };
 
 function toModel(text: string | null): BandModel | null {
   if (text === null) return null;
@@ -297,6 +312,7 @@ export class AppController {
   private battery: number | null = null;
   private batteryPack: BatteryPackState | null = null;
   private bandStatus: BandStatus | null = null;
+  private hrBroadcast: HrBroadcastState | null = null;
   private backlogPages: number | null = null;
   private lastSyncAt: number | null = null;
   private lastSyncCounts: SyncCounts | null = null;
@@ -387,6 +403,7 @@ export class AppController {
         configSnapshot: row?.configSnapshot ?? null,
         batteryPack: this.batteryPack,
         band: this.bandStatus,
+        hrBroadcast: this.hrBroadcast,
       },
     });
   }
@@ -521,9 +538,11 @@ export class AppController {
     this.lastSyncCounts = null;
     this.batteryPack = null;
     this.bandStatus = null;
+    this.hrBroadcast = null;
     let ownerSince: string | null = null;
     if (this.deviceRow !== null) {
       await this.loadBandReports(this.deviceRow.id);
+      this.hrBroadcast = parseHrBroadcast(await store.getSetting(hrBroadcastKey(this.deviceRow.id)));
       const state = await store.getSyncState(this.deviceRow.id);
       this.lastSyncAt = state?.lastSyncAt ?? null;
       const savedLock = await store.getSetting(this.lockKey(this.deviceRow.id));
@@ -898,24 +917,77 @@ export class AppController {
         const flags = await readKeys(conn.session, 'featureFlags');
         const config = await readKeys(conn.session, 'deviceConfig');
         if (flags.length + config.length === 0) throw new AppError('error.bandConfigEmpty');
-        const snapshot = buildSnapshot(nowSeconds(), this.snapshot.settings.dataSource, flags, config);
-        const row = this.deviceRow;
-        if (row === null) throw new AppError('error.noBandPaired');
-        this.deviceRow = await this.requireApp().store.upsertDevice({
-          bleId: row.bleId,
-          name: row.name,
-          model: row.model,
-          firmware: row.firmware,
-          serial: row.serial,
-          ownerSince: row.ownerSince,
-          configSnapshot: serializeSnapshot(snapshot),
-        });
-        this.patchDevice();
+        const fresh = buildSnapshot(nowSeconds(), this.snapshot.settings.dataSource, flags, config);
+        const previous = parseBandConfig(this.deviceRow?.configSnapshot ?? null);
+        await this.storeConfigSnapshot(serializeSnapshot(carryOver(previous.status === 'ok' ? previous.snapshot : null, fresh)));
       });
     } catch (error) {
       this.fail(error);
     }
   };
+
+  private async storeConfigSnapshot(json: string): Promise<void> {
+    const row = this.deviceRow;
+    if (row === null) throw new AppError('error.noBandPaired');
+    this.deviceRow = await this.requireApp().store.upsertDevice({
+      bleId: row.bleId,
+      name: row.name,
+      model: row.model,
+      firmware: row.firmware,
+      serial: row.serial,
+      ownerSince: row.ownerSince,
+      configSnapshot: json,
+    });
+    this.patchDevice();
+  }
+
+  private async onBand(task: (conn: Connection) => Promise<void>, blockDuringLive: boolean): Promise<boolean> {
+    if (this.syncRun !== null || (blockDuringLive && this.liveAbort !== null)) {
+      this.fail(new AppError('error.bandBusy'));
+      return false;
+    }
+    try {
+      await this.exclusive(async () => task(await this.ensureConnection()));
+      return true;
+    } catch (error) {
+      this.fail(error instanceof ConfigWriteError ? new AppError(error.reason === 'not-writable' ? 'error.configNotWritable' : 'error.configNotApplied') : error);
+      return false;
+    }
+  }
+
+  private readonly bandActionSet: BandActions = {
+    buzz: (kind: BandBuzz) => this.onBand((conn) => buzz(conn.session, kind === 'find' ? FIND_BAND_LOOPS : TEST_BUZZ_LOOPS), false),
+    stopBuzz: () => this.onBand((conn) => stopBuzz(conn.session), false),
+    setHeartRateBroadcast: (on: boolean) =>
+      this.onBand(async (conn) => {
+        await setHeartRateProfile(conn.session, on);
+        const state: HrBroadcastState = { on, at: nowSeconds() };
+        await this.requireApp().store.setSetting(hrBroadcastKey(conn.deviceId), serializeHrBroadcast(state));
+        this.hrBroadcast = state;
+        this.patchDevice();
+      }, true),
+    writeConfig: (kind: ConfigKind, key: string, value: WritableValue) => this.onBand((conn) => this.writeConfigOn(conn, kind, key, value), true),
+    restoreConfig: (kind: ConfigKind, key: string) =>
+      this.onBand(async (conn) => {
+        const state = parseBandConfig(this.deviceRow?.configSnapshot ?? null);
+        const change = state.status === 'ok' ? changeFor(state.snapshot, kind, key) : null;
+        if (change === null) throw new AppError('error.configNoChange');
+        await this.writeConfigOn(conn, kind, key, change.original);
+      }, true),
+  };
+
+  private async writeConfigOn(conn: Connection, kind: ConfigKind, key: string, value: WritableValue): Promise<void> {
+    const state = parseBandConfig(this.deviceRow?.configSnapshot ?? null);
+    if (state.status !== 'ok') throw new AppError('error.configNotRead');
+    const coreKind = CORE_KIND[kind];
+    const grant = { confirmDangerous: commandName(configWriteCommand(coreKind)) };
+    let snapshot = state.snapshot;
+    const result = await writeConfigValue(conn.session, coreKind, key, value, grant, async (before) => {
+      snapshot = recordOriginal(snapshot, kind, key, before, nowSeconds());
+      await this.storeConfigSnapshot(serializeSnapshot(snapshot));
+    });
+    await this.storeConfigSnapshot(serializeSnapshot(applyConfigWrite(snapshot, kind, key, result.before, result.after, nowSeconds())));
+  }
 
   stopLive = async (): Promise<void> => {
     await this.stopLiveInternal();
@@ -975,7 +1047,8 @@ export class AppController {
       try {
         this.deviceRow = await store.driver.transaction(async (tx) => {
           const inner = bindStore(tx);
-          const updated = await inner.upsertDevice({ ...row, ownerSince: unix });
+          const current = this.deviceRow ?? row;
+          const updated = await inner.upsertDevice({ ...current, ownerSince: unix });
           if (later) await deleteDataBefore(inner, row.id, unix);
           return updated;
         });
@@ -1756,6 +1829,7 @@ export class AppController {
       sync: this.sync,
       startLive: this.startLive,
       readBandConfig: this.readBandConfig,
+      bandActions: this.bandActionSet,
       stopLive: this.stopLive,
       exportData: this.exportData,
       listDonationDays: this.listDonationDays,

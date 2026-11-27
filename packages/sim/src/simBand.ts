@@ -10,6 +10,7 @@ import {
   encodeHelloBody,
   encodeMetadata,
   encodeRealtimeHr,
+  MAX_HAPTIC_LOOPS,
   parseFirmware,
   toHex,
 } from '@openhoop/protocol';
@@ -44,6 +45,7 @@ export interface WireEntry {
   hex: string;
 }
 
+const FAILURE = 0;
 const SUCCESS = 1;
 const PENDING = 2;
 const UNSUPPORTED = 3;
@@ -85,6 +87,7 @@ const DEVICE_CONFIG: readonly (readonly [string, string])[] = [
 ];
 
 type KeyTable = readonly (readonly [string, string])[];
+type MutableKeyTable = [string, string][];
 type Notify = (data: Uint8Array) => void;
 type Timer = ReturnType<typeof setTimeout>;
 
@@ -101,6 +104,8 @@ interface Pending {
 }
 
 const NO_GEN = -1;
+const HAPTIC_INVALID_LOOPS = 3;
+const HAPTIC_PLAYED = 5;
 
 function ascii(text: string): Uint8Array {
   const out = new Uint8Array(text.length);
@@ -151,6 +156,10 @@ export class SimBand implements Transport {
   writesReceived = 0;
   dangerousReceived = 0;
   forbiddenReceived = 0;
+  hapticsPlayed = 0;
+  hrProfileOn = true;
+  readonly flags: MutableKeyTable = FEATURE_FLAGS.map(([key, value]): [string, string] => [key, value]);
+  readonly deviceConfig: MutableKeyTable = DEVICE_CONFIG.map(([key, value]): [string, string] => [key, value]);
 
   private readonly seed: number;
   private readonly now: () => number;
@@ -485,6 +494,7 @@ export class SimBand implements Transport {
   }
 
   private handle(command: number, seq: number, args: Uint8Array): void {
+    if (this.handleBandWrite(command, seq, args)) return;
     const cls = commandClass(command);
     if (cls === 'forbidden') {
       this.forbiddenReceived += 1;
@@ -543,26 +553,72 @@ export class SimBand implements Transport {
         this.refreshLive();
         return;
       case Command.START_FF_KEY_EXCHANGE:
-        this.startKeys(command, seq, FEATURE_FLAGS);
+        this.startKeys(command, seq, this.flags);
         return;
       case Command.START_DEVICE_CONFIG_KEY_EXCHANGE:
-        this.startKeys(command, seq, DEVICE_CONFIG);
+        this.startKeys(command, seq, this.deviceConfig);
         return;
       case Command.SEND_NEXT_FF:
-        this.nextKey(command, seq, FEATURE_FLAGS, Command.START_FF_KEY_EXCHANGE);
+        this.nextKey(command, seq, this.flags, Command.START_FF_KEY_EXCHANGE);
         return;
       case Command.SEND_NEXT_DEVICE_CONFIG:
-        this.nextKey(command, seq, DEVICE_CONFIG, Command.START_DEVICE_CONFIG_KEY_EXCHANGE);
+        this.nextKey(command, seq, this.deviceConfig, Command.START_DEVICE_CONFIG_KEY_EXCHANGE);
         return;
       case Command.GET_FF_VALUE:
-        this.keyValue(command, seq, args, FEATURE_FLAGS);
+        this.keyValue(command, seq, args, this.flags);
         return;
       case Command.GET_DEVICE_CONFIG_VALUE:
-        this.keyValue(command, seq, args, DEVICE_CONFIG);
+        this.keyValue(command, seq, args, this.deviceConfig);
         return;
       default:
         this.reply(command, seq, cls === 'session' ? SUCCESS : UNSUPPORTED);
     }
+  }
+
+  private handleBandWrite(command: number, seq: number, args: Uint8Array): boolean {
+    switch (command) {
+      case Command.RUN_HAPTIC_PATTERN_MAVERICK:
+        this.writesReceived += 1;
+        if ((args[11] ?? 0) > MAX_HAPTIC_LOOPS) {
+          this.reply(command, seq, FAILURE, Uint8Array.of(1, HAPTIC_INVALID_LOOPS, 0));
+          return true;
+        }
+        this.hapticsPlayed += 1;
+        this.reply(command, seq, PENDING, Uint8Array.of(1, 1, 0));
+        this.reply(command, seq, SUCCESS, Uint8Array.of(1, HAPTIC_PLAYED, 0));
+        return true;
+      case Command.STOP_HAPTICS:
+        this.writesReceived += 1;
+        this.reply(command, seq, SUCCESS);
+        return true;
+      case Command.TOGGLE_GENERIC_HR_PROFILE:
+        this.writesReceived += 1;
+        this.hrProfileOn = args[0] === 1;
+        this.reply(command, seq, SUCCESS);
+        return true;
+      case Command.SET_FF_VALUE:
+        this.dangerousReceived += 1;
+        this.setKey(command, seq, args, this.flags);
+        return true;
+      case Command.SET_DEVICE_CONFIG_VALUE:
+        this.dangerousReceived += 1;
+        this.setKey(command, seq, args, this.deviceConfig);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private setKey(command: number, seq: number, args: Uint8Array, table: MutableKeyTable): void {
+    const key = readKey(args.subarray(1, 1 + KEY_LENGTH));
+    const value = readKey(args.subarray(1 + KEY_LENGTH, 1 + 2 * KEY_LENGTH));
+    const entry = table.find(([name]) => name === key);
+    if (args[0] !== 1 || entry === undefined || value.length === 0) {
+      this.reply(command, seq, FAILURE);
+      return;
+    }
+    entry[1] = value;
+    this.reply(command, seq, SUCCESS);
   }
 
   private dataRangeBody(): Uint8Array {

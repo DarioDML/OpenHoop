@@ -6,9 +6,11 @@ import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { HcDataType } from '@/lib/healthConnectMapping';
 import type { InboxEntry } from '@/lib/notificationPlan';
 
+import type { ConfigKind, WritableValue } from './bandConfig';
 import type { SaveOutcome } from './donation/files';
 import type { HcAvailability } from './healthConnectApi';
 import type { HealthConnectState } from './healthConnectState';
+import type { HrBroadcastState } from './hrBroadcast';
 import type { PermissionState } from './notifier';
 
 import type { SleepEditRequest } from './sleepEditForm';
@@ -40,6 +42,7 @@ export interface DeviceStatus {
   configSnapshot: string | null;
   batteryPack: BatteryPackState | null;
   band: BandStatus | null;
+  hrBroadcast: HrBroadcastState | null;
 }
 
 export interface LiveState {
@@ -125,6 +128,16 @@ export interface StrengthActions {
   removeSession(id: number): Promise<boolean>;
 }
 
+export type BandBuzz = 'test' | 'find';
+
+export interface BandActions {
+  buzz(kind: BandBuzz): Promise<boolean>;
+  stopBuzz(): Promise<boolean>;
+  setHeartRateBroadcast(on: boolean): Promise<boolean>;
+  writeConfig(kind: ConfigKind, key: string, value: WritableValue): Promise<boolean>;
+  restoreConfig(kind: ConfigKind, key: string): Promise<boolean>;
+}
+
 export interface HealthConnectView {
   availability: HcAvailability | 'checking';
   granted: string[];
@@ -174,6 +187,7 @@ export interface AppData {
   sync(): Promise<void>;
   startLive(): Promise<void>;
   readBandConfig(): Promise<void>;
+  bandActions: BandActions;
   stopLive(): Promise<void>;
   exportData(): Promise<void>;
   listDonationDays(): Promise<DonationDay[]>;
