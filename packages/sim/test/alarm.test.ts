@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AlarmError, Session, armAlarm, cancelAlarm, readAlarm, ringAlarm } from '@openhoop/core';
+import { AlarmError, Session, armAlarm, cancelAlarm, readAlarm, ringAlarm, ringAlarmUntilDone } from '@openhoop/core';
 import { SimBand } from '../src/index';
 
 const NOW_S = Date.UTC(2027, 0, 15, 22, 0, 0) / 1000;
@@ -57,6 +57,15 @@ describe('band alarm on the simulated band', () => {
     const error = await armAlarm(session, NOW_S + 3600, NOW_S).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(AlarmError);
     expect(error).toMatchObject({ reason: 'rejected', status: 'invalid-alarm-time' });
+    await session.close();
+  });
+
+  it('rings and waits until the band reports the buzz ended', async () => {
+    const { band, session } = await openBand();
+    await armAlarm(session, NOW_S + 3600, NOW_S);
+    const result = await ringAlarmUntilDone(session, 5_000);
+    expect(result).toEqual({ played: true, ended: true });
+    expect(band.alarmsRun).toBe(1);
     await session.close();
   });
 
