@@ -129,6 +129,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     notificationPermission: 'undetermined',
     refreshNotifications: noop,
     setNotificationsEnabled: async () => 'granted',
+    requestNotificationPermission: async () => 'granted',
     refreshWidgets: noop,
     refreshWidgetsAfterPin: noop,
     markInboxRead: noop,

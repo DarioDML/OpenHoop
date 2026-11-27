@@ -21,6 +21,7 @@ import {
   sleepTrendStats,
   typicalStageRanges,
   weakestContributor,
+  windDownAt,
 } from '@/data/sleepDerived';
 
 import { FIXTURE_NOW } from './support/appData';
@@ -207,5 +208,19 @@ describe('trend stats and goals', () => {
     expect(goalFraction('plan', null)).toBe(1);
     expect(goalFraction('peak', null)).toBe(1);
     expect(goalFraction('getBy', null)).toBe(0.7);
+  });
+});
+
+describe('wind-down time', () => {
+  const now = new Date(2026, 10, 25, 20, 0);
+
+  it('reminds half an hour before the next bedtime', () => {
+    expect(windDownAt(22 * 60 + 55, now)).toBe(new Date(2026, 10, 25, 22, 25).getTime());
+    expect(windDownAt(30, now)).toBe(new Date(2026, 10, 26, 0, 0).getTime());
+    expect(windDownAt(19 * 60, now)).toBe(new Date(2026, 10, 26, 18, 30).getTime());
+  });
+
+  it('gives nothing when bedtime is closer than the lead', () => {
+    expect(windDownAt(20 * 60 + 20, now)).toBeNull();
   });
 });

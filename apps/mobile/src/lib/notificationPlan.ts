@@ -61,7 +61,8 @@ export type AlertPayload =
   | ({ kind: 'digest'; day: string } & DigestFacts)
   | { kind: 'syncFailed' }
   | { kind: 'dataAtRisk'; days: number }
-  | ({ kind: 'goal' } & GoalFact);
+  | ({ kind: 'goal' } & GoalFact)
+  | { kind: 'windDown'; bed: number };
 
 export type AlertKind = AlertPayload['kind'];
 export type Alert = AlertPayload & { id: string; at: number };
@@ -77,6 +78,17 @@ export interface PlanInput {
   watchBand: boolean;
   fresh?: readonly Alert[];
   goals?: readonly GoalFact[];
+  windDown?: WindDown | null;
+}
+
+export interface WindDown {
+  at: number;
+  bed: number;
+}
+
+export function windDownAlert(windDown: WindDown | null | undefined, now: Date): Alert | null {
+  if (windDown === null || windDown === undefined || windDown.at <= now.getTime()) return null;
+  return { kind: 'windDown', id: `wind:${windDown.at}`, at: windDown.at, bed: windDown.bed };
 }
 
 function pad(n: number): string {
@@ -168,13 +180,17 @@ export function planGoals(input: Pick<PlanInput, 'now' | 'prefs' | 'sent' | 'pen
 function wanted(alert: Alert, prefs: NotificationPrefs): boolean {
   if (alert.kind === 'digest') return prefs.morningDigest;
   if (alert.kind === 'goal') return prefs.goals;
+  if (alert.kind === 'windDown') return true;
   return prefs.syncProblems;
 }
 
 export function planAlerts(input: PlanInput): Alert[] {
   const { prefs, now } = input;
-  if (!prefs.enabled) return [];
+  const wind = windDownAlert(input.windDown, now);
+  const dueWind = input.pending.filter((alert) => alert.kind === 'windDown' && alert.at <= now.getTime());
+  if (!prefs.enabled) return [...dueWind, ...(wind === null ? [] : [wind])];
   const planned: Alert[] = input.pending.filter((alert) => (alert.at <= now.getTime() || alert.kind === 'goal') && wanted(alert, prefs));
+  if (wind !== null) planned.push(wind);
   if (prefs.syncProblems) {
     for (const alert of input.pending) {
       if (alert.kind === 'syncFailed' && alert.at > now.getTime()) planned.push(alert);

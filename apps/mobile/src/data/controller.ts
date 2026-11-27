@@ -143,7 +143,7 @@ import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, todayIsoDate, unixToIsoDate } from '@/lib/dates';
 import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
-import { digestFacts, goalFacts, localDay, planAlerts, reconcile, syncFailedAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
+import { digestFacts, goalFacts, localDay, planAlerts, reconcile, syncFailedAlert, windDownAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 import { buildWidgetFile } from '@/lib/widgetSnapshot';
 import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
@@ -1402,7 +1402,7 @@ export class AppController {
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
         setNetworkPrefs(next.network);
         this.patch({ userData: next });
-        if (patch.notifications !== undefined || patch.weeklyPlan !== undefined) void this.refreshNotifications();
+        if (patch.notifications !== undefined || patch.weeklyPlan !== undefined || patch.windDown !== undefined) void this.refreshNotifications();
         if (patch.widgetValues !== undefined) void this.refreshWidgets();
         return true;
       } catch (error) {
@@ -1696,7 +1696,9 @@ export class AppController {
       const prefs = userData.notifications;
       const delivered = permission === 'granted';
       const settled = reconcile(this.notificationState, now, delivered, stillScheduled);
-      const active = prefs.enabled && delivered;
+      const wind = userData.windDown;
+      const winding = windDownAlert(wind, now) !== null || settled.pending.some((alert) => alert.kind === 'windDown');
+      const active = (prefs.enabled || winding) && delivered;
       const recentIds = [...settled.pending.map((alert) => alert.id), ...settled.sent];
       const failure = options.syncFailed === true ? syncFailedAlert(now, prefs, recentIds) : null;
       const fresh: Alert[] = failure === null ? [] : [failure];
@@ -1714,6 +1716,7 @@ export class AppController {
             lastSyncAt: this.lastSyncAt === null ? null : this.lastSyncAt * 1000,
             watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
             fresh,
+            windDown: wind,
           })
         : [];
       this.patch({ notificationPermission: permission });
@@ -1760,6 +1763,13 @@ export class AppController {
       await new Promise<void>((resolve) => setTimeout(resolve, PIN_WAIT_MS));
     }
     await this.refreshWidgets();
+  };
+
+  requestNotificationPermission = async (): Promise<PermissionState> => {
+    const channel = translate(this.snapshot.settings.language, 'notif.channel');
+    const permission = await this.notifier.request(channel).catch((): PermissionState => 'denied');
+    this.patch({ notificationPermission: permission });
+    return permission;
   };
 
   setNotificationsEnabled = async (enabled: boolean): Promise<PermissionState> => {
@@ -2185,6 +2195,7 @@ export class AppController {
       clearNotice: this.clearNotice,
       refreshNotifications: this.refreshNotifications,
       setNotificationsEnabled: this.setNotificationsEnabled,
+      requestNotificationPermission: this.requestNotificationPermission,
       refreshWidgets: this.refreshWidgets,
       refreshWidgetsAfterPin: this.refreshWidgetsAfterPin,
       markInboxRead: this.markInboxRead,

@@ -360,3 +360,16 @@ export function tonightPlan(days: readonly DayRecord[], index: number, goal: Sle
   const targetS = need * fraction;
   return { goal, fraction, targetS, bed: planBedtime(days, index, targetS, wakeOverride), nights };
 }
+
+export const WIND_DOWN_LEAD_MIN = 30;
+
+/** Epoch ms of the reminder before the next bedtime, or null when that bedtime is closer than the lead. */
+export function windDownAt(bedMinutes: number, now: Date, leadMin = WIND_DOWN_LEAD_MIN): number | null {
+  for (let add = 0; add <= 1; add++) {
+    const bed = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add, Math.floor(bedMinutes / 60), bedMinutes % 60, 0, 0);
+    if (bed.getTime() <= now.getTime()) continue;
+    const at = bed.getTime() - leadMin * 60_000;
+    return at > now.getTime() ? at : null;
+  }
+  return null;
+}

@@ -315,3 +315,38 @@ describe('inbox', () => {
     });
   });
 });
+
+describe('wind-down reminder', () => {
+  const bedtime = at(25, 22, 55).getTime();
+  const windDown = { at: bedtime - 30 * 60_000, bed: 22 * 60 + 55 };
+
+  it('plans the reminder even when the other alerts are off, and ignores one in the past', () => {
+    const planned = planAlerts(input({ prefs: { ...PREFS, enabled: false }, windDown }));
+    expect(planned).toEqual([{ kind: 'windDown', id: `wind:${windDown.at}`, at: windDown.at, bed: windDown.bed }]);
+    expect(planAlerts(input({ prefs: { ...PREFS, enabled: false }, windDown, now: at(25, 23) }))).toEqual([]);
+    expect(planAlerts(input({ windDown })).some((alert) => alert.kind === 'windDown')).toBe(true);
+  });
+
+  it('keeps a due reminder for the inbox and reads it back from storage', () => {
+    const due: Alert = { kind: 'windDown', id: `wind:${windDown.at}`, at: windDown.at, bed: windDown.bed };
+    expect(planAlerts(input({ prefs: { ...PREFS, enabled: false }, pending: [due], now: at(25, 23) }))).toEqual([due]);
+    const state = { pending: [due], inbox: [{ ...due, read: false }], sent: [due.id] };
+    expect(parseNotificationState(serializeNotificationState(state))).toEqual(state);
+    expect(parseNotificationState(JSON.stringify({ pending: [{ ...due, bed: 2000 }], inbox: [], sent: [] })).pending).toEqual([]);
+  });
+
+  it('says when to be in bed', () => {
+    const text = alertText('en', { kind: 'windDown', bed: 22 * 60 + 55 });
+    expect(text.title).toBe('Time to wind down');
+    expect(text.body).toBe('Dim the lights and put the screen away. Aim to be in bed by 22:55.');
+  });
+
+  it('stores the reminder in user data and drops damaged values', () => {
+    const data = { ...defaultUserData(), windDown };
+    expect(parseUserData(JSON.stringify(data)).windDown).toEqual(windDown);
+    expect(parseUserData(JSON.stringify({ ...data, windDown: { at: -1, bed: 60 } })).windDown).toBeNull();
+    expect(parseUserData(JSON.stringify({ ...data, windDown: { at: 5, bed: 1440 } })).windDown).toBeNull();
+    expect(parseUserData(JSON.stringify({ ...data, sleepGoal: 'getBy' })).sleepGoal).toBe('getBy');
+    expect(parseUserData(JSON.stringify({ ...data, sleepGoal: 'nap' })).sleepGoal).toBeNull();
+  });
+});

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { formatMinutes, mainNightSpan } from '@/data/dailyDerived';
 import type { HeartRatePoint } from '@/data/types';
-import { defaultUserData } from '@/data/userData';
+import { defaultUserData, type UserData } from '@/data/userData';
 
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
 import type { AlarmView } from '@/data/types';
@@ -30,6 +30,7 @@ import LastNightScreen from '@/app/sleep/last-night';
 import SleepNeedScreen from '@/app/sleep/need';
 import SleepTrendsScreen from '@/app/sleep/trends';
 import HapticAlarmScreen from '@/app/sleep/alarm';
+import SleepPlannerScreen from '@/app/sleep/planner';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const last = days[days.length - 1];
@@ -234,5 +235,66 @@ describe('Haptic alarm', () => {
     await render(withAppData(<HapticAlarmScreen />));
     expect(screen.getByTestId('alarm-time')).toHaveTextContent('07:00');
     expect(screen.queryByTestId('alarm-from-planner')).toBeNull();
+  });
+});
+
+describe('Sleep planner', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({
+      now: FIXTURE_NOW,
+      doNotFake: ['hrtime', 'nextTick', 'performance', 'queueMicrotask', 'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback', 'cancelIdleCallback', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'],
+    });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('offers three goals, stores the choice and scales the hours', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<SleepPlannerScreen />, 'en', { updateUserData }));
+    expect(screen.getByTestId('goal-plan').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('goal-plan')).toHaveTextContent(/Set up a weekly plan first/);
+    expect(screen.getByTestId('goal-peak').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('goal-getBy')).toHaveTextContent(/70% of need · \d:\d\d/);
+    const peakBed = screen.getByTestId('plan-bed').props.children;
+    await fireEvent.press(screen.getByTestId('goal-getBy'));
+    expect(updateUserData).toHaveBeenCalledWith({ sleepGoal: 'getBy' });
+    expect(screen.getByTestId('plan-bed').props.children).not.toEqual(peakBed);
+  });
+
+  it('follows the weekly plan with its nights', async () => {
+    await render(withAppData(<SleepPlannerScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: { loadDays: 3, sleepNights: 4 } } }));
+    expect(screen.getByTestId('goal-plan').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('goal-plan')).toHaveTextContent(/of 4 full nights this week|Week's 4 full nights done/);
+  });
+
+  it('sets a wind-down reminder through the notifications', async () => {
+    const updateUserData = jest.fn(async (patch: Partial<UserData>) => patch !== null);
+    const requestNotificationPermission = jest.fn(async () => 'granted' as const);
+    await render(withAppData(<SleepPlannerScreen />, 'en', { updateUserData, requestNotificationPermission }));
+    await fireEvent.press(screen.getByTestId('planner-wind-down'));
+    await waitFor(() => expect(screen.getByTestId('planner-wind-status')).toHaveTextContent(/^Reminder set for \d\d:\d\d, 30 minutes before bed\.$/));
+    expect(requestNotificationPermission).toHaveBeenCalled();
+    const windDown = updateUserData.mock.calls[0]?.[0].windDown ?? null;
+    expect(windDown).not.toBeNull();
+    const at = windDown?.at ?? 0;
+    const bed = windDown?.bed ?? -1;
+    expect(at).toBeGreaterThan(FIXTURE_NOW.getTime());
+    const reminder = new Date(at);
+    expect(((reminder.getHours() * 60 + reminder.getMinutes() + 30) % 1440)).toBe(bed);
+  });
+
+  it('says so when notifications are not allowed', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<SleepPlannerScreen />, 'en', { updateUserData, requestNotificationPermission: async () => 'denied' as const }));
+    await fireEvent.press(screen.getByTestId('planner-wind-down'));
+    await waitFor(() => expect(screen.getByTestId('planner-wind-status')).toHaveTextContent(/^Notifications are not allowed/));
+    expect(updateUserData).not.toHaveBeenCalled();
+  });
+
+  it('sends the planned wake time to the alarm', async () => {
+    await render(withAppData(<SleepPlannerScreen />));
+    await fireEvent.press(screen.getByTestId('planner-set-alarm'));
+    expect(String(mockPush.mock.calls[0]?.[0])).toMatch(/^\/sleep\/alarm\?minutes=\d+$/);
   });
 });

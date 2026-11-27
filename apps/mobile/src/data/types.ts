@@ -269,6 +269,7 @@ export interface AppData {
   clearNotice(): void;
   refreshNotifications(): Promise<void>;
   setNotificationsEnabled(enabled: boolean): Promise<PermissionState>;
+  requestNotificationPermission(): Promise<PermissionState>;
   refreshWidgets(): Promise<void>;
   refreshWidgetsAfterPin(): Promise<void>;
   markInboxRead(ids?: readonly string[]): Promise<void>;
