@@ -294,5 +294,19 @@
   "loadTarget.reached": "Je hebt het doel van vandaag gehaald. De bovengrens is {high}.",
   "loadTarget.above": "Je bent over de bovengrens van je doel ({high}).",
   "loadTarget.today": "Doel vandaag: {low}–{high}",
-  "loadTarget.levelNote": "Wordt bijgewerkt na elke synchronisatie en elke paar seconden tijdens een live activiteit. Spierbelasting telt nog niet mee."
+  "loadTarget.levelNote": "Wordt bijgewerkt na elke synchronisatie en elke paar seconden tijdens een live activiteit. Spierbelasting telt nog niet mee.",
+  "stepsScreen.today": "Stappen vandaag",
+  "stepsScreen.goalLine": "{percent}% van {goal} · nog {left}",
+  "stepsScreen.goalReached": "{percent}% van {goal} · doel gehaald",
+  "stepsScreen.byHour": "Per uur",
+  "stepsScreen.byHourPending": "De verdeling per uur verschijnt na de volgende synchronisatie.",
+  "stepsScreen.byHourHc": "Health Connect geeft alleen een dagtotaal, dus voor deze dag is er geen verdeling per uur.",
+  "stepsScreen.byHourEmpty": "De band heeft vandaag nog geen stappen geteld.",
+  "stepsScreen.byHourGap": "Een streepje betekent dat de band in dat uur niets vastlegde.",
+  "stepsScreen.hourA11y": "{hour}:00",
+  "stepsScreen.last7": "Laatste 7 dagen",
+  "stepsScreen.last30": "Laatste 30 dagen",
+  "stepsScreen.avgShort": "gem. {value}k",
+  "stepsScreen.thousands": "Duizenden stappen per dag.",
+  "stepsScreen.levelNote": "Geteld door de eigen stappenteller van de band. De nauwkeurigheid tegenover een referentie is nog niet gemeten."
 }

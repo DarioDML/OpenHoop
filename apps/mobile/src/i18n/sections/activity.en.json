@@ -294,5 +294,19 @@
   "loadTarget.reached": "You reached today's target. The top is {high}.",
   "loadTarget.above": "You passed the top of today's target ({high}).",
   "loadTarget.today": "Today's target: {low}–{high}",
-  "loadTarget.levelNote": "Updates after each sync, and every few seconds during a live activity. Muscular load is not included yet."
+  "loadTarget.levelNote": "Updates after each sync, and every few seconds during a live activity. Muscular load is not included yet.",
+  "stepsScreen.today": "Steps today",
+  "stepsScreen.goalLine": "{percent}% of {goal} · {left} to go",
+  "stepsScreen.goalReached": "{percent}% of {goal} · goal reached",
+  "stepsScreen.byHour": "By hour",
+  "stepsScreen.byHourPending": "The split per hour appears after the next sync.",
+  "stepsScreen.byHourHc": "Health Connect only gives a day total, so there is no split per hour for this day.",
+  "stepsScreen.byHourEmpty": "The band has not counted any steps yet today.",
+  "stepsScreen.byHourGap": "A dash means the band recorded nothing in that hour.",
+  "stepsScreen.hourA11y": "{hour}:00",
+  "stepsScreen.last7": "Last 7 days",
+  "stepsScreen.last30": "Last 30 days",
+  "stepsScreen.avgShort": "avg {value}k",
+  "stepsScreen.thousands": "Thousands of steps per day.",
+  "stepsScreen.levelNote": "Counted by the band's own step counter. Accuracy against a reference is not measured yet."
 }

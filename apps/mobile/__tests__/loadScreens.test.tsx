@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { defaultLoadBuzzPrefs } from '@/data/loadBuzz';
 import { aimAt } from '@/data/loadDerived';
+import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 
@@ -23,6 +24,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import LoadScreen from '@/app/load/index';
 import LoadTargetScreen from '@/app/load/target';
+import StepsScreen from '@/app/steps';
 
 const days = createFixtureDays(FIXTURE_NOW);
 
@@ -201,5 +203,49 @@ describe('Load target screen', () => {
     expect(screen.getByTestId('about-sheet')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('target-start'));
     expect(router.push).toHaveBeenCalledWith('/activity/start');
+  });
+});
+
+describe('Steps screen', () => {
+  it('shows a ring against the goal, the hours of today and the last 7 days', async () => {
+    const last = lastDay();
+    const goal = 20_000;
+    await render(withAppData(<StepsScreen />, 'en', { userData: { ...defaultUserData(), stepsGoal: goal } }));
+    expect(screen.getByTestId('steps-today')).toHaveTextContent(String(last.steps));
+    const steps = last.steps ?? 0;
+    expect(screen.getByTestId('steps-goal-line')).toHaveTextContent(`${Math.round((steps / goal) * 100)}% of ${goal} · ${goal - steps} to go`);
+    const hours = last.stepsByHour ?? [];
+    expect(hours.length).toBeGreaterThan(0);
+    for (const hour of hours) expect(screen.getByTestId(`steps-by-hour-${hour.t}`)).toBeTruthy();
+    expect(screen.getByTestId(`steps-by-hour-${hours[0]?.t}`).props.accessibilityLabel).toBe(`7:00: ${hours[0]?.steps}`);
+    const week = days.slice(-7);
+    for (const day of week) expect(screen.getByTestId(`steps-week-${day.day}`)).toBeTruthy();
+    expect(screen.getByTestId(`steps-week-${last.day}`)).toHaveTextContent(new RegExp(`^${(Math.round(steps / 100) / 10).toFixed(1).replace('.', '\\.')}`));
+    expect(screen.getByTestId('steps-avg-short')).toHaveTextContent(/^avg \d+\.\dk$/);
+    expect(screen.getByTestId('steps-level')).toHaveTextContent(/not measured yet/);
+  });
+
+  it('says the goal is reached', async () => {
+    await render(withAppData(<StepsScreen />, 'en', { userData: { ...defaultUserData(), stepsGoal: 1000 } }));
+    expect(screen.getByTestId('steps-goal-line')).toHaveTextContent(/goal reached$/);
+  });
+
+  it('explains a missing split per hour', async () => {
+    const last = lastDay();
+    const view = await render(withAppData(<StepsScreen />, 'en', { days: [...days.slice(0, -1), { ...last, stepsByHour: undefined }] }));
+    expect(screen.getByTestId('steps-hour-note')).toHaveTextContent('The split per hour appears after the next sync.');
+    await view.rerender(withAppData(<StepsScreen />, 'en', { days: [...days.slice(0, -1), { ...last, steps: null, stepsByHour: [] }] }));
+    expect(screen.getByTestId('steps-today-none')).toBeTruthy();
+    expect(screen.getByTestId('steps-hour-note')).toHaveTextContent('The band has not counted any steps yet today.');
+    const healthConnect = { availability: 'available' as const, granted: [], state: { ...defaultHealthConnectState(), steps: [{ day: last.day, steps: 4_321, origins: [] }] }, syncing: false };
+    await view.rerender(withAppData(<StepsScreen />, 'en', { days: [...days.slice(0, -1), { ...last, steps: null }], healthConnect }));
+    expect(screen.getByTestId('steps-hour-note')).toHaveTextContent(/Health Connect only gives a day total/);
+  });
+
+  it('switches to 30 days', async () => {
+    await render(withAppData(<StepsScreen />));
+    await fireEvent.press(screen.getByText('30 days'));
+    expect(screen.getByText('Last 30 days')).toBeTruthy();
+    expect(screen.queryByTestId('steps-week')).toBeNull();
   });
 });
