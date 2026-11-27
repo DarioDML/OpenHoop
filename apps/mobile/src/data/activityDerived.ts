@@ -182,13 +182,12 @@ export function formatMonthYear(day: string, language: Language): string {
   return date.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
-export function longestStreak(days: readonly DayRecord[]): number {
+export function longestRun(days: readonly DayRecord[], test: (day: DayRecord) => boolean): number {
   let best = 0;
   let run = 0;
   let previous: string | null = null;
   for (const d of days) {
-    const worn = d.heartRate.avg !== null || d.sleep.asleepS !== null;
-    if (!worn) {
+    if (!test(d)) {
       run = 0;
       previous = null;
       continue;
@@ -200,38 +199,72 @@ export function longestStreak(days: readonly DayRecord[]): number {
   return best;
 }
 
+export function longestStreak(days: readonly DayRecord[]): number {
+  return longestRun(days, (d) => d.heartRate.avg !== null || d.sleep.asleepS !== null);
+}
+
 export interface Lifetime {
   daysTracked: number;
   nights: number;
   workouts: number;
   steps: number;
   memberSince: string | null;
+  wornS: number | null;
 }
 
 export function lifetimeStats(days: readonly DayRecord[]): Lifetime {
+  const worn = days.map((d) => d.worn?.value ?? null).filter((v): v is number => v !== null);
   return {
     daysTracked: days.length,
     nights: days.filter((d) => d.sleep.asleepS !== null).length,
     workouts: days.reduce((sum, d) => sum + d.workouts.length, 0),
     steps: days.reduce((sum, d) => sum + (d.steps ?? 0), 0),
     memberSince: days[0]?.day ?? null,
+    wornS: worn.length === 0 ? null : worn.reduce((a, b) => a + b, 0),
   };
 }
 
-export type AchievementGroup = 'streak' | 'nights' | 'workouts';
+export const POINTS_PER_LEVEL = 3;
+
+export interface LevelInfo {
+  level: number;
+  points: number;
+  maxPoints: number;
+  toNext: number | null;
+  unlocked: number;
+  total: number;
+}
+
+export function levelOf(list: readonly Achievement[]): LevelInfo {
+  const points = list.reduce((sum, a) => sum + (a.unlocked ? a.tier : 0), 0);
+  const maxPoints = list.reduce((sum, a) => sum + a.tier, 0);
+  const level = 1 + Math.floor(points / POINTS_PER_LEVEL);
+  const nextAt = level * POINTS_PER_LEVEL;
+  return { level, points, maxPoints, toNext: nextAt > maxPoints ? null : nextAt - points, unlocked: list.filter((a) => a.unlocked).length, total: list.length };
+}
+
+export type AchievementGroup = 'streak' | 'nights' | 'workouts' | 'steps10k' | 'highLoad' | 'readyStreak';
 
 export interface Achievement {
   id: string;
   group: AchievementGroup;
+  tier: number;
   target: number;
   current: number;
   unlocked: boolean;
 }
 
+export const STEPS_BADGE_MIN = 10_000;
+export const HIGH_LOAD_MIN = 15;
+export const HIGH_READINESS_MIN = 67;
+
 const TIERS: Record<AchievementGroup, readonly number[]> = {
   streak: [3, 7, 14, 30],
   nights: [7, 30, 90],
   workouts: [1, 10, 25],
+  steps10k: [1, 10, 50],
+  highLoad: [1, 10],
+  readyStreak: [3, 7],
 };
 
 export function achievements(days: readonly DayRecord[]): Achievement[] {
@@ -240,12 +273,18 @@ export function achievements(days: readonly DayRecord[]): Achievement[] {
     streak: Math.max(wearStreak(days), longestStreak(days)),
     nights: stats.nights,
     workouts: stats.workouts,
+    steps10k: days.filter((d) => d.steps !== null && d.steps >= STEPS_BADGE_MIN).length,
+    highLoad: days.filter((d) => d.load.value !== null && d.load.value >= HIGH_LOAD_MIN).length,
+    readyStreak: longestRun(days, (d) => {
+      const value = visibleReadiness(d).value;
+      return value !== null && value >= HIGH_READINESS_MIN;
+    }),
   };
   const out: Achievement[] = [];
   (Object.keys(TIERS) as AchievementGroup[]).forEach((group) => {
-    for (const target of TIERS[group]) {
-      out.push({ id: `${group}-${target}`, group, target, current: currents[group], unlocked: currents[group] >= target });
-    }
+    TIERS[group].forEach((target, index) => {
+      out.push({ id: `${group}-${target}`, group, tier: index + 1, target, current: currents[group], unlocked: currents[group] >= target });
+    });
   });
   return out;
 }
