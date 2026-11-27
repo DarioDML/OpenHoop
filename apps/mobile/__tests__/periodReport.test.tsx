@@ -1,5 +1,6 @@
 import type { DayRecord } from '@openhoop/core';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 
@@ -62,6 +63,7 @@ jest.mock('expo-file-system', () => {
   return { Directory: MockDirectory, File: MockFile, Paths: { cache: new MockDirectory('cache') } };
 });
 
+import MonthlyReportScreen from '@/app/plan/monthly-report';
 import WeeklyReportScreen from '@/app/plan/weekly-report';
 
 const days = createFixtureDays(FIXTURE_NOW);
@@ -189,5 +191,47 @@ describe('weekly report screen', () => {
     expect(screen.getByTestId('report-few')).toBeTruthy();
     expect(screen.queryByTestId('report-verdict')).toBeNull();
     expect(screen.queryByTestId('report-share')).toBeNull();
+  });
+});
+
+describe('monthly report story', () => {
+  it('opens on the overview page with tiles, best day and focus', async () => {
+    await render(withAppData(<MonthlyReportScreen />));
+    expect(screen.getByTestId('report-page-label')).toHaveTextContent(/^Page 1 of 5 · /);
+    expect(screen.getByTestId('report-headline')).toBeTruthy();
+    for (const id of ['report-sleepscore', 'report-readiness', 'report-hrv', 'report-loaddays-tile', 'report-best-day', 'report-focus']) expect(screen.getByTestId(id)).toBeTruthy();
+    expect(within(screen.getByTestId('report-best-day')).getByText(/^Readiness \d+%$/)).toBeTruthy();
+  });
+
+  it('pages through readiness, sleep, load and the comparison, then closes', async () => {
+    await render(withAppData(<MonthlyReportScreen />));
+    await fireEvent.press(screen.getByTestId('report-next'));
+    expect(screen.getByTestId('report-page-label')).toHaveTextContent(/^Page 2 of 5/);
+    expect(screen.getByTestId('report-readiness-chart')).toBeTruthy();
+    expect(screen.getByTestId('report-row-hrv')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('report-next'));
+    expect(screen.getByTestId('report-sleep-chart')).toBeTruthy();
+    expect(screen.getByTestId('report-sleep')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('report-next'));
+    expect(screen.getByTestId('report-load-chart')).toBeTruthy();
+    expect(screen.getByTestId('report-loaddays')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('report-next'));
+    expect(screen.getByTestId('report-headline')).toHaveTextContent('Compared with the 30 days before.');
+    for (const id of ['report-row-readiness', 'report-row-load', 'report-row-sleep', 'report-row-hrv', 'report-row-restingHr']) expect(screen.getByTestId(id)).toBeTruthy();
+    expect(screen.queryByTestId('report-next')).toBeNull();
+    await fireEvent.press(screen.getByTestId('report-done'));
+    expect(router.back).toHaveBeenCalled();
+  });
+
+  it('jumps to a page from the progress dots', async () => {
+    await render(withAppData(<MonthlyReportScreen />));
+    await fireEvent.press(screen.getByTestId('report-page-4'));
+    expect(screen.getByTestId('report-load-chart')).toBeTruthy();
+  });
+
+  it('stays honest with too few days', async () => {
+    await render(withAppData(<MonthlyReportScreen />, 'en', { days: days.slice(-2) }));
+    expect(screen.getByTestId('report-few')).toBeTruthy();
+    expect(screen.queryByTestId('report-pages')).toBeNull();
   });
 });
