@@ -23,6 +23,7 @@ import type { VendorImportResult } from './vendorExport/summary';
 
 export type Language = 'nl' | 'en';
 export type DataSource = 'demo' | 'band';
+export type Units = 'metric' | 'imperial';
 export type LockState = 'open' | 'locked' | 'no-data' | 'unknown';
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'syncing';
 
@@ -63,6 +64,7 @@ export interface Settings {
   language: Language;
   dataSource: DataSource;
   ownerSince: string | null;
+  units: Units;
 }
 
 export interface DiscoveredBand {

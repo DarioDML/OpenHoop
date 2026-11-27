@@ -193,7 +193,7 @@ import type { SourceFile } from './vendorExport/sources';
 import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { changesAppData } from './liveData';
-import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOptionalInteger } from './settingsCodec';
+import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseUnits, serializeOptionalInteger } from './settingsCodec';
 import { createDonationWorkspace, filePartSink, removeLeftoverDonations, saveDonationParts, sharePartFile, type SaveOutcome } from './donation/files';
 import type {
   ActivityDraft,
@@ -400,7 +400,7 @@ export class AppController {
       device: emptyDevice(),
       live: IDLE_LIVE,
       profile: { birthYear: null, maxHeartRate: null },
-      settings: { language, dataSource: 'demo', ownerSince: null },
+      settings: { language, dataSource: 'demo', ownerSince: null, units: 'metric' },
       userData: defaultUserData(),
       bodyMeasurements: [],
       journalNotes: [],
@@ -513,6 +513,7 @@ export class AppController {
     await this.activityStore().purgeDeleted(null);
     const language = parseLanguage(await store.getSetting(SETTING_KEYS.language)) ?? this.snapshot.settings.language;
     const dataSource = parseDataSource(await store.getSetting(SETTING_KEYS.dataSource));
+    const units = parseUnits(await store.getSetting(SETTING_KEYS.units));
     const profile = parseProfile(
       await store.getSetting(SETTING_KEYS.birthYear),
       await store.getSetting(SETTING_KEYS.maxHeartRate),
@@ -531,7 +532,7 @@ export class AppController {
     const strength = await listStrengthData(this.app.driver);
     const journalNotes = await listJournalNotes(this.app.driver);
     this.patch({
-      settings: { ...this.snapshot.settings, language, dataSource },
+      settings: { ...this.snapshot.settings, language, dataSource, units },
       profile,
       userData,
       bodyMeasurements,
@@ -1204,6 +1205,10 @@ export class AppController {
       this.patchDevice();
       void this.refreshNotifications();
       void this.refreshWidgets();
+    }
+    if (patch.units !== undefined && patch.units !== current.units) {
+      await store.setSetting(SETTING_KEYS.units, patch.units);
+      this.patch({ settings: { ...this.snapshot.settings, units: patch.units } });
     }
     if (patch.ownerSince !== undefined && patch.ownerSince !== null && patch.ownerSince !== current.ownerSince) {
       await this.changeOwnerSince(patch.ownerSince);

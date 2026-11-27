@@ -270,7 +270,7 @@ export const FIXTURE_PROFILE: Profile = { birthYear: 1990, maxHeartRate: null };
 
 export function createFixtureSettings(language: Settings['language'], now: Date = new Date()): Settings {
   const first = createFixtureDays(now)[0];
-  return { language, dataSource: 'demo', ownerSince: first?.day ?? null };
+  return { language, dataSource: 'demo', ownerSince: first?.day ?? null, units: 'metric' };
 }
 
 export const FIXTURE_BANDS: DiscoveredBand[] = [
