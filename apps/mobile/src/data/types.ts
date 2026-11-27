@@ -1,6 +1,6 @@
 import type { Interval } from '@openhoop/analytics';
 import type { Wrist } from '@openhoop/protocol';
-import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, EcgSummary, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, EcgSummary, StageEpochRow, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { StorageProblem } from '@/data/storageProblem';
 import type { TranslationKey, TranslationParams } from '@/i18n';
@@ -250,6 +250,7 @@ export interface AppData {
   importVendorFiles(files: SourceFile[], rejected: FileReport[]): Promise<VendorImportResult | null>;
   removeVendorData(): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
+  sleepStagesBetween(fromS: number, toS: number): Promise<StageEpochRow[]>;
   routeFor(activityId: number): Promise<RoutePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;
   deleteSleepEdit(id: number): Promise<boolean>;

@@ -1,4 +1,4 @@
-import type { ActiveMinutes, StressDay } from '@openhoop/analytics';
+import type { ActiveMinutes, SleepStage, StageTotals, StressDay } from '@openhoop/analytics';
 
 export type SqlValue = string | number | null | Uint8Array;
 
@@ -133,6 +133,18 @@ export interface WorkoutRecord {
   label: string | null;
 }
 
+export interface StageEpochRow {
+  t: number;
+  stage: SleepStage;
+}
+
+export interface SleepStagesSummary {
+  algo: string;
+  reason: string | null;
+  coverage: number | null;
+  totals: StageTotals | null;
+}
+
 export interface DayRecord {
   deviceId: number;
   day: string;
@@ -148,6 +160,7 @@ export interface DayRecord {
     debt: Derived;
     consistency: Derived;
     score: Derived;
+    stages?: SleepStagesSummary;
   };
   hrv: Derived;
   restingHr: Derived;
@@ -174,6 +187,7 @@ export type ExportTable =
   | 'daily_metrics'
   | 'sleeps'
   | 'sleep_edits'
+  | 'sleep_stages'
   | 'workouts'
   | 'activities'
   | 'events'
@@ -238,6 +252,8 @@ export interface Store {
   getSetting(key: string): Promise<string | null>;
   setSetting(key: string, value: string): Promise<void>;
   clearDerived(deviceId: number): Promise<void>;
+  replaceSleepStages(deviceId: number, from: number, to: number, epochs: readonly StageEpochRow[]): Promise<void>;
+  sleepStagesBetween(deviceId: number, from: number, to: number): Promise<StageEpochRow[]>;
   listSleepEdits(deviceId: number): Promise<SleepEditRow[]>;
   saveSleepEdit(edit: SleepEditInput): Promise<number>;
   deleteSleepEdit(deviceId: number, id: number): Promise<boolean>;

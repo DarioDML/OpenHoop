@@ -93,6 +93,7 @@ import {
   updateJournalNote,
   type BandModel,
   type BandStatus,
+  type StageEpochRow,
   type BatteryPackState,
   type HeldChunk,
   type BodyImportResult,
@@ -563,7 +564,7 @@ export class AppController {
     try {
       const { store } = this.requireApp();
       const rebuilt = await rebuildStaleSamples(store, (deviceId) => this.recompute(deviceId, null));
-      const recomputed = await recomputeStaleDays(store, (deviceId) => this.recompute(deviceId, null));
+      const recomputed = await recomputeStaleDays(store, (deviceId) => (rebuilt.includes(deviceId) ? Promise.resolve() : this.recompute(deviceId, null)));
       if (rebuilt.length === 0 && recomputed.length === 0) return;
       if (this.deviceRow !== null) await this.loadBandReports(this.deviceRow.id);
       this.patch({ syncProgress: null });
@@ -1542,6 +1543,12 @@ export class AppController {
     return this.app.store.heartRateBuckets(row.id, fromS, toS, bucketS);
   };
 
+  sleepStagesBetween = async (fromS: number, toS: number): Promise<StageEpochRow[]> => {
+    const row = this.deviceRow;
+    if (this.app === null || row === null || toS <= fromS) return [];
+    return this.app.store.sleepStagesBetween(row.id, fromS, toS);
+  };
+
   private digestFacts(now: Date): (day: string) => DigestFacts | null {
     const byDay = new Map(this.snapshot.days.map((record) => [record.day, record]));
     return (day) => {
@@ -2037,6 +2044,7 @@ export class AppController {
       removeAllCycleData: this.removeAllCycleData,
       strengthActions: this.strengthActionSet,
       heartRateBetween: this.heartRateBetween,
+      sleepStagesBetween: this.sleepStagesBetween,
       routeFor: this.routeFor,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
