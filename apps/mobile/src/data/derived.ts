@@ -1,11 +1,30 @@
-import type { DayRecord } from '@openhoop/core';
+import type { DayRecord, Derived } from '@openhoop/core';
 
 export type MetricKey = 'readiness' | 'load' | 'sleepScore' | 'hrv' | 'restingHr' | 'respiratoryRate' | 'spo2' | 'skinTemp' | 'skinTempDeviation' | 'steps' | 'asleepH' | 'sleepNeedH' | 'sleepDebtH' | 'consistency';
+
+export function visibleReadiness(day: DayRecord): Derived {
+  if (!day.readinessCalibrating || day.readiness.value === null) return day.readiness;
+  return { ...day.readiness, value: null, reason: 'needs-history', coverage: null };
+}
+
+export interface ShownLoad {
+  value: number | null;
+  soFar: boolean;
+  reason: string | null;
+}
+
+export function shownLoad(days: readonly DayRecord[], index: number): ShownLoad {
+  const day = days[index];
+  if (day === undefined) return { value: null, soFar: false, reason: null };
+  const { value, reason } = day.load;
+  if (value === null && index === days.length - 1 && day.loadSoFar != null) return { value: day.loadSoFar, soFar: true, reason: null };
+  return { value, soFar: false, reason };
+}
 
 export function metricValue(day: DayRecord, key: MetricKey): number | null {
   switch (key) {
     case 'readiness':
-      return day.readiness.value;
+      return visibleReadiness(day).value;
     case 'load':
       return day.load.value;
     case 'sleepScore':

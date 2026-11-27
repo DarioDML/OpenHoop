@@ -10,7 +10,6 @@
   "daily.range.1M": "1M",
   "daily.range.6M": "6M",
   "brief.readiness": "Readiness: {band}, {value}%.",
-  "brief.readinessCalibrating": "Readiness: {band}, {value}%. OpenHoop is still calibrating, so treat this as an indication.",
   "brief.hrv.within": "HRV was {value} ms, within your normal range of {low}–{high} ms.",
   "brief.hrv.above": "HRV was {value} ms, {pct}% above your 30-day average and above your normal range of {low}–{high} ms.",
   "brief.hrv.below": "HRV was {value} ms, {pct}% below your 30-day average and below your normal range of {low}–{high} ms.",

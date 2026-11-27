@@ -1,3 +1,6 @@
+import type { DayRecord } from '@openhoop/core';
+
+import { addDays, visibleReadiness } from '@/data/derived';
 import type { NotificationPrefs } from '@/data/userData';
 
 export const DIGEST_CLOCK = '07:00';
@@ -12,6 +15,20 @@ export interface DigestFacts {
   readiness: number | null;
   sleepScore: number | null;
   load: number | null;
+}
+
+export function digestFacts(days: readonly DayRecord[], now: Date): (day: string) => DigestFacts | null {
+  const byDay = new Map(days.map((record) => [record.day, record]));
+  return (day) => {
+    const record = byDay.get(day);
+    if (record === undefined) return null;
+    const yesterday = byDay.get(addDays(day, -1));
+    return {
+      readiness: visibleReadiness(record).value,
+      sleepScore: record.sleep.score.value,
+      load: yesterday !== undefined && yesterday.end * 1000 <= now.getTime() ? yesterday.load.value : null,
+    };
+  };
 }
 
 export type AlertPayload =

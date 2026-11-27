@@ -2,7 +2,7 @@ import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { sliceEndingAt } from '@/data/dailyDerived';
-import { baselineAt } from '@/data/derived';
+import { baselineAt, visibleReadiness } from '@/data/derived';
 import { useT } from '@/i18n/useT';
 import { formatNumber, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -27,7 +27,7 @@ export default function ReadinessScreen() {
   const day = days[index];
   if (!day) return <NoDataPage title={t('screen.readiness')} body={t('empty.body')} />;
 
-  const value = day.readiness.value;
+  const value = visibleReadiness(day).value;
   const band = readinessBand(value);
   const contributions = day.readinessContributions;
   const scale = contributions ? Math.max(15, ...Object.values(contributions).map((v) => Math.abs(v))) : 15;
@@ -119,7 +119,7 @@ export default function ReadinessScreen() {
         <CardHeader title={t('readinessx.last7')} action={`${t('readinessx.trends')} ›`} href="/recovery/trends" />
         <BarChart
           testID="chart-readiness-week"
-          data={week.map((d) => d.readiness.value)}
+          data={week.map((d) => visibleReadiness(d).value)}
           max={100}
           formatTick={(v) => formatNumber(v, 0, language)}
           startLabel={week[0] ? formatShortDay(week[0].day, language) : undefined}

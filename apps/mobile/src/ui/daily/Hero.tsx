@@ -2,7 +2,7 @@ import type { DayRecord } from '@openhoop/core';
 import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import { metricValue } from '@/data/derived';
+import { metricValue, visibleReadiness } from '@/data/derived';
 import type { HomeHero } from '@/data/userData';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
@@ -104,7 +104,7 @@ function useHeroValues(days: readonly DayRecord[], index: number) {
   const { t } = useT();
   const day = days[index];
   const yesterday = index > 0 ? days[index - 1] : undefined;
-  const readiness = day?.readiness.value ?? null;
+  const readiness = day ? visibleReadiness(day).value : null;
   const calibrating = day?.readinessCalibrating ?? false;
   const band = readinessBand(readiness);
   const readinessTone = calibrating ? colors.textMuted : readinessColor(colors, readiness);

@@ -1,7 +1,7 @@
 import type { DayRecord, SleepPeriodRecord } from '@openhoop/core';
 
 import { isLoadDay, sleepNightMet } from './activityDerived';
-import { addDays, baselineAt, daysInWeek, mean, metricValue, rangeStatus, type Baseline, type MetricKey } from './derived';
+import { addDays, baselineAt, daysInWeek, mean, metricValue, rangeStatus, visibleReadiness, type Baseline, type MetricKey } from './derived';
 
 export const VITAL_KEYS = ['hrv', 'restingHr', 'respiratoryRate', 'spo2', 'skinTemp'] as const satisfies readonly MetricKey[];
 
@@ -200,8 +200,8 @@ function compare(days: readonly DayRecord[], id: ImpactComparison['id'], pick: (
     const next = days[i + 1];
     if (!day || !next || addDays(day.day, 1) !== next.day) continue;
     const x = pick(day);
-    const readiness = next.readiness.value;
-    if (x === null || readiness === null || next.readinessCalibrating) continue;
+    const readiness = visibleReadiness(next).value;
+    if (x === null || readiness === null) continue;
     pairs.push({ x, next: readiness });
   }
   const threshold = median(pairs.map((p) => p.x));

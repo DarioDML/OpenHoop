@@ -156,5 +156,9 @@
   "why.status.worn": "Worn {worn} of {hours} h",
   "why.status.notRecorded": "Not recorded",
   "why.status.thin": "Too little signal",
-  "explain.aboutLink": "About {name} ›"
+  "explain.aboutLink": "About {name} ›",
+  "brief.readinessHidden": "Readiness appears after {count} more nights.",
+  "brief.readinessHiddenOne": "Readiness appears after 1 more night.",
+  "widget.nightsLeft": "{count} nights left",
+  "widget.nightsLeftOne": "1 night left"
 }

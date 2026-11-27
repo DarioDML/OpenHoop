@@ -16,6 +16,7 @@ function values(overrides: Partial<WidgetValues> = {}): WidgetValues {
     syncedAt: NOW_S - 2 * 3_600,
     readiness: { value: 72, reason: null },
     calibrating: false,
+    nightsLeft: null,
     sleep: { value: 81, reason: null },
     load: { value: 12.4, reason: null },
     restingHr: { value: 52, reason: null },
@@ -27,9 +28,9 @@ function values(overrides: Partial<WidgetValues> = {}): WidgetValues {
 describe('buildWidgetFile', () => {
   it('keeps only the displayed values of the latest day', () => {
     if (!latest) throw new Error('fixture has no days');
-    const file = buildWidgetFile({ enabled: true, day: latest, syncedAt: NOW_S, language: 'nl' });
+    const file = buildWidgetFile({ enabled: true, day: latest, syncedAt: NOW_S, language: 'nl', readinessNightsLeft: null });
     if (file.kind !== 'values') throw new Error('expected values');
-    expect(Object.keys(file).sort()).toEqual(['calibrating', 'day', 'hrv', 'kind', 'language', 'load', 'readiness', 'restingHr', 'sleep', 'syncedAt', 'v']);
+    expect(Object.keys(file).sort()).toEqual(['calibrating', 'day', 'hrv', 'kind', 'language', 'load', 'nightsLeft', 'readiness', 'restingHr', 'sleep', 'syncedAt', 'v']);
     expect(file.day).toBe(latest.day);
     expect(file.readiness.value).toBe(latest.readiness.value === null ? null : Math.round(latest.readiness.value));
     expect(file.language).toBe('nl');
@@ -42,15 +43,15 @@ describe('buildWidgetFile', () => {
   it('stores a reason instead of a value and maps unknown reasons', () => {
     if (!latest) throw new Error('fixture has no days');
     const day = { ...latest, readiness: { ...latest.readiness, value: null, reason: 'needs-history' }, load: { ...latest.load, value: null, reason: 'something-new' } };
-    const file = buildWidgetFile({ enabled: true, day, syncedAt: null, language: 'en' });
+    const file = buildWidgetFile({ enabled: true, day, syncedAt: null, language: 'en', readinessNightsLeft: null });
     if (file.kind !== 'values') throw new Error('expected values');
     expect(file.readiness).toEqual({ value: null, reason: 'needs-history' });
     expect(file.load).toEqual({ value: null, reason: 'unknown' });
   });
 
   it('stores no values when turned off or when there is no day', () => {
-    expect(buildWidgetFile({ enabled: false, day: latest, syncedAt: NOW_S, language: 'en' })).toEqual({ v: 1, kind: 'off', language: 'en' });
-    expect(buildWidgetFile({ enabled: true, day: undefined, syncedAt: NOW_S, language: 'nl' })).toEqual({ v: 1, kind: 'empty', language: 'nl' });
+    expect(buildWidgetFile({ enabled: false, day: latest, syncedAt: NOW_S, language: 'en', readinessNightsLeft: null })).toEqual({ v: 1, kind: 'off', language: 'en' });
+    expect(buildWidgetFile({ enabled: true, day: undefined, syncedAt: NOW_S, language: 'nl', readinessNightsLeft: null })).toEqual({ v: 1, kind: 'empty', language: 'nl' });
   });
 });
 
@@ -97,10 +98,10 @@ describe('widgetView', () => {
     expect(view.vitals[1]).toMatchObject({ value: '–', note: 'Not enough readings' });
   });
 
-  it('labels a calibrating readiness and keeps it neutral', () => {
+  it('hides a calibrating readiness and keeps it neutral', () => {
     const view = widgetView(values({ calibrating: true }), context);
     if (view.kind !== 'values') throw new Error('expected values');
-    expect(view.scores[0]).toMatchObject({ value: '72%', note: 'Calibrating', tone: 'muted' });
+    expect(view.scores[0]).toMatchObject({ value: '–', note: 'Needs more nights first', tone: 'muted' });
   });
 
   it('marks old snapshots with their day and age', () => {

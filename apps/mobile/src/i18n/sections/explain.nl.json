@@ -156,5 +156,9 @@
   "why.status.worn": "{worn} van {hours} u gedragen",
   "why.status.notRecorded": "Niet vastgelegd",
   "why.status.thin": "Te weinig signaal",
-  "explain.aboutLink": "Over {name} ›"
+  "explain.aboutLink": "Over {name} ›",
+  "brief.readinessHidden": "Paraatheid verschijnt na nog {count} nachten.",
+  "brief.readinessHiddenOne": "Paraatheid verschijnt na nog 1 nacht.",
+  "widget.nightsLeft": "Nog {count} nachten",
+  "widget.nightsLeftOne": "Nog 1 nacht"
 }
