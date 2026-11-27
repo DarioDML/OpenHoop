@@ -157,3 +157,17 @@ it.each([
   const text = whyText(t, language, explainMissing(input('calories', 'no-profile', { profileGaps: [...gaps] })));
   expect(text.rows.some((r) => r.body === expected)).toBe(true);
 });
+
+it('keeps the expected weekday after midnight while the next night has not happened yet', () => {
+  const afterMidnight = Date.UTC(2026, 10, 27, 23, 14) / 1000;
+  const day = firstNightDay({ end: Date.UTC(2026, 10, 27, 18, 36) / 1000 });
+  const expl = explainMissing(input('readiness', 'needs-history', { days: [day], nowS: afterMidnight, lastSyncAt: day.end }));
+  expect(expl.expectedDay).toBe('2026-11-30');
+  expect(whyText(tEn, 'en', expl).rows[2]?.title).toBe('Expected Monday morning');
+});
+
+it('counts from today once the band has sent nothing for over a day', () => {
+  const later = Date.UTC(2026, 10, 30, 8, 0) / 1000;
+  const day = firstNightDay({ end: Date.UTC(2026, 10, 27, 18, 36) / 1000 });
+  expect(explainMissing(input('readiness', 'needs-history', { days: [day], nowS: later, lastSyncAt: day.end })).expectedDay).toBe('2026-12-03');
+});
