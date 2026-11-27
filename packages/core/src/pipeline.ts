@@ -1,6 +1,8 @@
 import {
   ALGO,
   DEFAULT_CALIBRATION,
+  LOAD_MIN_VALID_MINUTES,
+  READINESS_CALIBRATING_NIGHTS,
   activeMinutes,
   activeThresholdBpm,
   classifyStages,
@@ -10,6 +12,8 @@ import {
   detectWorkouts,
   effectiveMaxHr,
   groupNights,
+  loadFromSum,
+  loadSum,
   minuteMeans,
   nightlyHrv,
   nightlySkinTemp,
@@ -59,9 +63,8 @@ const CLOCK_OFFSET_LIMIT_S = 120;
 const PARTIAL_DAY_SAMPLES = 20 * HOUR_S;
 const BASELINE_DAYS = 14;
 const STRESS_HISTORY_DAYS = 28;
-const SKIN_BASELINE_MIN_DAYS = 3;
+export const SKIN_BASELINE_MIN_DAYS = 3;
 const RESTING_HR_FALLBACK = 60;
-const CALIBRATING_NIGHTS = 3;
 const HR_MIN = 25;
 const HR_MAX = 230;
 const STEP_MODULUS = 65_536;
@@ -412,7 +415,7 @@ async function computeDay(
   let score: Derived;
   let readinessDerived: Derived;
   let contributions: DayRecord['readinessContributions'] = null;
-  let calibrating = readinessHistory.length < CALIBRATING_NIGHTS;
+  let calibrating = readinessHistory.length < READINESS_CALIBRATING_NIGHTS;
   let nightRestingHr: number | null = null;
 
   if (main === null) {
@@ -507,6 +510,11 @@ async function computeDay(
 
   const minuteHr = minuteMeans(samples, start, end);
   const load = derive(dayLoad(minuteHr, rest, maxHr, calibration));
+  const counted = loadSum(minuteHr, rest, maxHr, calibration);
+  const loadSoFar =
+    load.value === null && counted.valid > 0 && counted.valid < LOAD_MIN_VALID_MINUTES && maxHr > rest
+      ? loadFromSum(counted.sum, calibration)
+      : null;
 
   const hrSeries = samples.map((s) => s.hr);
   const zones: number[] = maxHr > rest ? [...zoneSeconds(hrSeries, rest, maxHr)] : [0, 0, 0, 0, 0, 0];
@@ -578,6 +586,8 @@ async function computeDay(
     readinessCalibrating: calibrating,
     readinessContributions: contributions,
     load,
+    loadSoFar,
+    loadValidMinutes: counted.valid,
     zoneSeconds: zones,
     steps: countSteps(samples),
     heartRate: { min: hrMin, avg: hrCount > 0 ? hrSum / hrCount : null, max: hrMax },

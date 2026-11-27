@@ -11,8 +11,8 @@ export { SLEEP_MAX_HR, groupNights, isAsleepSample, sleepPeriods } from './sleep
 export { lowerBound, sortedUnique } from './series';
 export { DEFAULT_CALIBRATION, effectiveMaxHr } from './calibration';
 export type { Calibration, Profile } from './calibration';
-export { debtMs, sleepConsistency, sleepNeedMs, sleepScore, strainNeedMs } from './sleepNeed';
-export { readiness } from './readiness';
+export { CONSISTENCY_MIN_NIGHTS, CONSISTENCY_NIGHTS, debtMs, sleepConsistency, sleepNeedMs, sleepScore, strainNeedMs } from './sleepNeed';
+export { READINESS_CALIBRATING_NIGHTS, readiness } from './readiness';
 export type { ReadinessNight, ReadinessResult } from './readiness';
 export { zoneSeconds } from './zones';
 export type { ZoneSeconds } from './zones';
@@ -32,7 +32,7 @@ export {
   restingKcalPerDay,
 } from './energy';
 export type { ActiveHrBin, ActiveMinutes, BodyProfile, EnergyEstimate, EnergySex } from './energy';
-export { dayLoad, loadFromSum, loadSum, sumFromLoad } from './load';
+export { LOAD_MAX, LOAD_MIN_VALID_MINUTES, dayLoad, loadFromSum, loadSum, sumFromLoad } from './load';
 export {
   ACTIVITY_MAX_S,
   ACTIVITY_MIN_COVERAGE,
@@ -60,6 +60,7 @@ export {
   STRESS_HIGH_FROM,
   STRESS_MAX_SCORE,
   STRESS_MEDIUM_FROM,
+  STRESS_MIN_DAY_WINDOWS,
   STRESS_WINDOW_S,
   dayStress,
   parseStressDay,

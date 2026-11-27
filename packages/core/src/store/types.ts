@@ -172,6 +172,8 @@ export interface DayRecord {
   readinessCalibrating: boolean;
   readinessContributions: { hrv: number; sleep: number; rhr: number } | null;
   load: Derived;
+  loadSoFar?: number | null;
+  loadValidMinutes?: number;
   zoneSeconds: number[];
   steps: number | null;
   heartRate: { min: number | null; avg: number | null; max: number | null };
