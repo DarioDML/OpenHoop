@@ -24,6 +24,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import SleepScreen from '@/app/sleep/index';
 import LastNightScreen from '@/app/sleep/last-night';
+import SleepNeedScreen from '@/app/sleep/need';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const last = days[days.length - 1];
@@ -136,5 +137,26 @@ describe('Last night', () => {
     expect(screen.queryByTestId('card-time-in-stage')).toBeNull();
     await fireEvent.press(screen.getByTestId('link-edit-sleep'));
     expect(mockPush).toHaveBeenCalledWith(`/sleep/edit?day=${thin?.day}`);
+  });
+});
+
+describe('Sleep need', () => {
+  it('builds tonight\'s need from its parts with signed amounts', async () => {
+    await render(withAppData(<SleepNeedScreen />));
+    expect(screen.getByTestId('need-value')).toBeTruthy();
+    expect(screen.getByTestId('need-bar')).toBeTruthy();
+    expect(screen.getByTestId('need-part-baseline-value')).toHaveTextContent('7:44');
+    expect(screen.getByTestId('need-part-load-value')).toHaveTextContent(/^\+\d:\d\d$/);
+    expect(screen.getByTestId('need-part-debt-value')).toHaveTextContent(/^\+\d:\d\d$/);
+    expect(screen.getByTestId('need-part-naps-value')).toHaveTextContent(/^−\d:\d\d$/);
+    expect(screen.getByTestId('typical-need')).toBeTruthy();
+    expect(screen.getByTestId('need-level')).toBeTruthy();
+  });
+
+  it('opens the explanation from the info button and says why a need is missing', async () => {
+    await render(withAppData(<SleepNeedScreen />, 'en', { days: days.slice(0, 1) }));
+    expect(screen.getByTestId('need-no-breakdown')).toHaveTextContent('Needs more nights first');
+    await fireEvent.press(screen.getByTestId('need-info'));
+    expect(screen.getByTestId('about-sheet')).toBeTruthy();
   });
 });

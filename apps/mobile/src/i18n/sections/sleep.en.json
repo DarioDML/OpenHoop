@@ -76,7 +76,6 @@
   "sleepNeed.otherHint": "Not explained by the parts above, for example demo data or a need worked out by an older version",
   "sleepNeed.recent": "Your recent nights",
   "sleepNeed.debtNow": "Sleep debt after last night",
-  "sleepNeed.noBreakdown": "The parts appear once there is a night before this one.",
   "sleepNeed.level": "Sleep need is a fitted model. Its gap to the reference app on your nights: not measured yet.",
 
   "sleepTrends.bedWake": "Bed & wake times",
