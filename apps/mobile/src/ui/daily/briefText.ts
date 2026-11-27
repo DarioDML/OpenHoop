@@ -86,45 +86,6 @@ export function briefLines(t: TFunction, language: Language, days: readonly DayR
   return lines;
 }
 
-export function eveningLines(t: TFunction, language: Language, days: readonly DayRecord[], index: number, stepsGoal: number | null): BriefLine[] {
-  const day = days[index];
-  if (!day) return [];
-  const lines: BriefLine[] = [];
-
-  const load = day.load.value;
-  if (load !== null) {
-    const recent = days
-      .slice(Math.max(0, index - 7), index)
-      .map((d) => d.load.value)
-      .filter((v): v is number => v !== null);
-    const average = recent.length >= 3 ? recent.reduce((sum, v) => sum + v, 0) / recent.length : null;
-    lines.push({
-      id: 'load',
-      text:
-        average === null
-          ? t('brief.load', { value: formatNumber(load, 1, language) })
-          : t('brief.loadAvg', { value: formatNumber(load, 1, language), avg: formatNumber(average, 1, language) }),
-    });
-  }
-
-  if (day.steps !== null) {
-    lines.push({
-      id: 'steps',
-      text:
-        stepsGoal === null
-          ? t('brief.steps', { steps: formatNumber(day.steps, 0, language) })
-          : t('brief.stepsGoal', { steps: formatNumber(day.steps, 0, language), goal: formatNumber(stepsGoal, 0, language) }),
-    });
-  }
-
-  if (day.workouts.length > 0) lines.push({ id: 'workouts', text: t('brief.workouts', { count: day.workouts.length }) });
-
-  const bedtime = tonightBedtime(days, index);
-  if (bedtime) lines.push({ id: 'bedtime', text: t('brief.bedtime', { bed: bedtime.bed, wake: bedtime.wake, need: bedtime.need }) });
-
-  return lines;
-}
-
 export type PlanTone = 'info' | 'purple' | 'warning' | 'positive' | 'neutral';
 
 export interface PlanItem {

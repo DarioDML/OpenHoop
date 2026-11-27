@@ -1,12 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { createFixtureDays } from '@/data/fixtureSource';
+import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { addDays } from '@/data/derived';
 import { formatMinutes, goalMet, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, strengthWeekMinutes, vitalsSummary, weekProgress } from '@/data/dailyDerived';
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
 import { moveItem, reorderTarget, shiftFor } from '@/lib/reorder';
 import { worstBehaviour } from '@/ui/daily/briefText';
+import { eveningSummary, journalRows, loadReview, screensOffMinutes, stepsReview } from '@/data/eveningReview';
 import { parseUserData, serializeUserData } from '@/data/userData';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
@@ -32,6 +33,7 @@ import PastDayScreen from '@/app/day/[day]';
 import CustomizeScreen from '@/app/home/customize';
 import DatePickerScreen from '@/app/home/date-picker';
 import MorningBriefScreen from '@/app/home/morning-brief';
+import EveningReviewScreen from '@/app/home/evening-review';
 import NotificationsScreen from '@/app/home/notifications';
 import WidgetsScreen from '@/app/home/widgets';
 import ReadinessScreen from '@/app/recovery/index';
@@ -126,6 +128,33 @@ describe('dailyDerived', () => {
     expect(shiftFor(3, 0, 2, 56)).toBe(0);
     expect(shiftFor(1, 3, 1, 56)).toBe(56);
     expect(shiftFor(0, 0, 2, 56)).toBe(0);
+  });
+
+  it('reviews the evening from load, steps and today’s journal answers', () => {
+    const index = days.length - 1;
+    const load = loadReview(days, index);
+    expect(load?.value).toBe(last?.load.value);
+    if (load !== null && load.low !== null && load.high !== null) {
+      const expected = load.value < load.low ? 'below' : load.value > load.high ? 'above' : 'onTarget';
+      expect(load.mark).toBe(expected);
+    }
+    expect(stepsReview(9_214, 8_000)).toEqual({ steps: 9_214, goal: 8_000, met: true });
+    expect(stepsReview(5_000, null)?.met).toBe(false);
+    expect(stepsReview(null, 8_000)).toBeNull();
+    const journal = { '2026-11-25': { 'caffeine-late': true, 'read-before-sleep': false, alcohol: 2, sauna: true } };
+    const rows = journalRows(journal, '2026-11-25', ['alcohol', 'caffeine-late', 'read-before-sleep', 'sauna']);
+    expect(rows.map((row) => [row.question.id, row.mark])).toEqual([
+      ['alcohol', 'watch'],
+      ['caffeine-late', 'late'],
+      ['sauna', null],
+    ]);
+    const onTarget = { value: 9.8, low: 8.2, high: 14, mark: 'onTarget' as const, weekAverage: null };
+    expect(eveningSummary(onTarget, null, rows)).toEqual({ lead: 'solid', watch: [rows[0], rows[1]] });
+    expect(eveningSummary({ ...onTarget, mark: 'above' }, null, []).lead).toBe('hard');
+    expect(eveningSummary({ ...onTarget, mark: 'below' }, stepsReview(9_000, 8_000), []).lead).toBe('solid');
+    expect(eveningSummary(null, null, []).lead).toBe('quiet');
+    expect(screensOffMinutes(22 * 60 + 50)).toBe(22 * 60 + 5);
+    expect(screensOffMinutes(20)).toBe(24 * 60 - 25);
   });
 
   it('only reports impacts with enough days in both groups', () => {
@@ -349,6 +378,30 @@ describe('Home sub-screens', () => {
     await render(withAppData(<MorningBriefScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, journal } }));
     expect(screen.getByTestId('pill-habit')).toHaveTextContent(/^−\d+% readiness$/);
     expect(worstBehaviour(days, {}, null)).toBeNull();
+  });
+
+  it('reviews the evening with key behaviours, wind-down tips and tonight', async () => {
+    const today = last?.day ?? '';
+    const userData = { ...defaultUserData(), onboardingDone: true, stepsGoal: 1_000, journal: { [today]: { 'caffeine-late': true } } };
+    await render(withAppData(<EveningReviewScreen />, 'en', { userData }));
+    expect(screen.getByTestId('evening-summary')).toHaveTextContent(/One thing to watch: caffeine after 14:00\.$/);
+    expect(screen.getByTestId('behaviour-caffeine-late-mark')).toHaveTextContent('! late');
+    expect(screen.getByTestId('stat-load')).toBeTruthy();
+    expect(screen.getByTestId('stat-steps')).toBeTruthy();
+    expect(screen.getByTestId('stat-readiness')).toBeTruthy();
+    expect(within(screen.getByTestId('card-wind-down')).getByText(/^Keep the room around 18 °C\.$/)).toBeTruthy();
+    expect(within(screen.getByTestId('card-wind-down')).getByText(/late caffeine/)).toBeTruthy();
+    expect(screen.getByTestId('evening-tonight-note')).toHaveTextContent('Bedtime · No alarm set');
+    await fireEvent.press(screen.getByTestId('card-evening-tonight'));
+    expect(mockPush).toHaveBeenCalledWith('/sleep/planner');
+  });
+
+  it('asks for the journal when nothing was logged and uses imperial room temperature', async () => {
+    await render(withAppData(<EveningReviewScreen />, 'en', { settings: { ...createFixtureSettings('en', FIXTURE_NOW), units: 'imperial' } }));
+    expect(screen.getByTestId('behaviour-journal-empty')).toHaveTextContent(/Nothing logged in your journal today/);
+    expect(within(screen.getByTestId('card-wind-down')).getByText(/^Keep the room around 64 °F\.$/)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('behaviour-journal-empty'));
+    expect(mockPush).toHaveBeenCalledWith('/journal');
   });
 
   it('no longer marks notifications or widgets as not built', async () => {

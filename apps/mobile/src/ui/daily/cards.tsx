@@ -503,7 +503,7 @@ export function WeekCard({ days, index }: DayProps) {
   );
 }
 
-function alarmValue(alarm: AlarmView, nowS: number): { time: string | null; armed: boolean } {
+export function alarmValue(alarm: AlarmView, nowS: number): { time: string | null; armed: boolean } {
   const armed = confirmedAlarm(alarm.armed, nowS);
   if (armed !== null) return { time: formatClock(armed.wakeAt, deviceTzOffsetS(new Date(armed.wakeAt * 1000))), armed: true };
   return { time: alarm.plan.enabled ? formatMinutes(alarm.plan.minutes) : null, armed: false };

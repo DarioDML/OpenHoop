@@ -8,14 +8,8 @@ import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
 import { Icon, type IconName } from '@/ui/Icon';
 import { radius, spacing, useTheme, type ColorTokens, type Tint } from '@/ui/theme';
 
-import { router } from 'expo-router';
-import { Button } from '@/ui/controls';
-import { Num } from '@/ui/Num';
-import { ParityBadge } from '@/ui/ParityBadge';
-import { PARITY } from '@/ui/parity';
-
 import { Page } from './bits';
-import type { BriefLine, PlanItem, PlanTone } from './briefText';
+import type { PlanItem, PlanTone } from './briefText';
 
 export interface BriefStat {
   id: string;
@@ -140,87 +134,6 @@ export function BriefShell({ title, tint, icon, iconColor, heading, sub, childre
         </View>
       }>
       {children}
-    </Page>
-  );
-}
-
-interface LegacyProps {
-  title: string;
-  heading: string;
-  stats: BriefStat[];
-  lines: BriefLine[];
-  linesTitle: string;
-  emptyText: string;
-  testID: string;
-}
-
-export function BriefPage({ title, heading, stats, lines, linesTitle, emptyText, testID }: LegacyProps) {
-  const { t } = useT();
-  const { colors } = useTheme();
-  return (
-    <Page
-      title={title}
-      tint="home"
-      testID={testID}
-      hero={
-        <View style={{ gap: spacing.lg }}>
-          <AppText variant="h2" accessibilityRole="header">
-            {heading}
-          </AppText>
-          <View style={{ flexDirection: 'row', gap: spacing.xl }}>
-            {stats.map((stat) => (
-              <View key={stat.id} style={{ gap: 4 }} testID={`stat-${stat.id}`}>
-                <AppText variant="capSmall" muted>
-                  {stat.label}
-                </AppText>
-                {stat.value === null ? (
-                  <AppText variant="label" muted>
-                    {stat.missing ?? t('reason.no-data')}
-                  </AppText>
-                ) : (
-                  <Num size={34} unit={stat.unit}>
-                    {stat.value}
-                  </Num>
-                )}
-              </View>
-            ))}
-          </View>
-        </View>
-      }
-      footer={<Button label={t('home.askCoach')} variant="secondary" onPress={() => router.push('/coach')} />}>
-      <AppText variant="capLarge" muted>
-        {linesTitle}
-      </AppText>
-      {lines.length > 0 ? (
-        <Card style={{ gap: spacing.lg }}>
-          {lines.map((line, i) => (
-            <View key={line.id} style={{ flexDirection: 'row', gap: spacing.md }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-                <AppText variant="caption" numeric style={{ fontWeight: '600' }}>
-                  {i + 1}
-                </AppText>
-              </View>
-              <AppText variant="body" style={{ flex: 1 }} testID={`line-${line.id}`}>
-                {line.text}
-              </AppText>
-            </View>
-          ))}
-        </Card>
-      ) : (
-        <Card>
-          <AppText variant="body" muted>
-            {emptyText}
-          </AppText>
-        </Card>
-      )}
-      <Card tone="outline" style={{ gap: 6 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <ParityBadge level={PARITY.readiness} long />
-        </View>
-        <AppText variant="caption" muted>
-          {t('home.briefNote')}
-        </AppText>
-      </Card>
     </Page>
   );
 }
