@@ -10,7 +10,7 @@ export type Sex = 'female' | 'male' | 'other';
 export type HomeHero = 'classic' | 'compact';
 export type JournalAnswer = boolean | number;
 
-export const DASHBOARD_TILES = ['hrv', 'restingHr', 'steps', 'respiratoryRate', 'spo2', 'skinTemp', 'sleepDebt', 'calories'] as const;
+export const DASHBOARD_TILES = ['hrv', 'restingHr', 'steps', 'respiratoryRate', 'spo2', 'skinTemp', 'sleepDebt', 'calories', 'wearTime'] as const;
 export type DashboardTile = (typeof DASHBOARD_TILES)[number];
 
 export const HOME_SECTIONS = ['summary', 'brief', 'coach', 'live', 'myDay', 'week', 'tonight', 'dashboard'] as const;

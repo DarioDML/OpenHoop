@@ -217,6 +217,21 @@ async function insertPackEventsRaw(driver: SqlDriver, rows: PackEventRow[], chun
   );
 }
 
+async function listEvents(
+  driver: SqlDriver,
+  deviceId: number,
+  events: readonly number[],
+  tail: string,
+  tailParams: SqlValue[] = [],
+): Promise<EventRow[]> {
+  if (events.length === 0) return [];
+  const rows = await driver.all<{ device_id: number; t: number; event: number; name: string; payload_hex: string }>(
+    `SELECT device_id, t, event, name, payload_hex FROM events WHERE device_id = ? AND event IN (${events.map(() => '?').join(', ')}) ${tail}`,
+    [deviceId, ...events, ...tailParams],
+  );
+  return rows.map((r) => ({ deviceId: r.device_id, t: r.t, event: r.event, name: r.name, payloadHex: r.payload_hex }));
+}
+
 async function writeSyncState(driver: SqlDriver, s: SyncStateRow): Promise<void> {
   await driver.run(
     `INSERT INTO sync_state (device_id, last_end_token, last_sync_at, newest_sample_t, read_page, write_page, trim_page, total_pages)
@@ -366,6 +381,14 @@ export function bindStore(driver: SqlDriver): Store {
     async listChunkIds(deviceId) {
       const rows = await driver.all<{ id: number }>('SELECT id FROM raw_chunks WHERE device_id = ? ORDER BY id', [deviceId]);
       return rows.map((r) => r.id);
+    },
+
+    async eventsOf(deviceId, events) {
+      return listEvents(driver, deviceId, events, 'ORDER BY t, id');
+    },
+
+    async latestEventsOf(deviceId, events, limit) {
+      return listEvents(driver, deviceId, events, 'ORDER BY t DESC, id DESC LIMIT ?', [limit]);
     },
 
     async insertPackEvents(rows, chunkId) {

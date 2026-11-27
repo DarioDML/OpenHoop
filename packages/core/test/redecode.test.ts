@@ -3,8 +3,8 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { encodeBiometric, toHex } from '@openhoop/protocol';
 import {
   ChunkIntegrityError,
-  DERIVED_VERSION,
-  DERIVED_VERSION_KEY,
+  DAY_RECORD_VERSION,
+  DAY_RECORD_VERSION_KEY,
   SAMPLE_DECODER_VERSION,
   SAMPLE_DECODER_VERSION_KEY,
   openStore,
@@ -128,29 +128,39 @@ describe('rebuildStaleSamples', () => {
 
 describe('recomputeStaleDays', () => {
   let store: Store;
+  let deviceId: number;
+  let recomputed: number[];
+  const recompute = (id: number): Promise<void> => {
+    recomputed.push(id);
+    return Promise.resolve();
+  };
 
   beforeEach(async () => {
     store = await openStore(openStrictDriver());
+    deviceId = (await store.upsertDevice(DEVICE)).id;
+    await store.upsertDevice({ ...DEVICE, bleId: 'EMPTY' });
+    recomputed = [];
+    await store.insertSamples(simulateDays(deviceId, { days: 1 }).slice(0, 10));
   });
   afterEach(async () => {
     await store.driver.close();
   });
 
-  it('recomputes every device with samples once, and again after a failed run', async () => {
-    const withSamples = (await store.upsertDevice(DEVICE)).id;
-    await store.upsertDevice({ ...DEVICE, bleId: 'DD:EE:FF' });
-    await store.insertSamples(simulateDays(withSamples, { days: 1 }).slice(0, 5));
-    await expect(recomputeStaleDays(store, () => Promise.reject(new Error('killed')))).rejects.toThrow('killed');
-    expect(await store.getSetting(DERIVED_VERSION_KEY)).toBeNull();
-    const seen: number[] = [];
-    const recompute = (id: number): Promise<void> => {
-      seen.push(id);
-      return Promise.resolve();
-    };
-    expect(await recomputeStaleDays(store, recompute)).toEqual([withSamples]);
-    expect(await store.getSetting(DERIVED_VERSION_KEY)).toBe(String(DERIVED_VERSION));
+  it('recomputes every device with samples once', async () => {
+    expect(await recomputeStaleDays(store, recompute)).toEqual([deviceId]);
+    expect(recomputed).toEqual([deviceId]);
+    expect(await store.getSetting(DAY_RECORD_VERSION_KEY)).toBe(String(DAY_RECORD_VERSION));
+  });
+
+  it('does nothing once the day records are current', async () => {
+    await store.setSetting(DAY_RECORD_VERSION_KEY, String(DAY_RECORD_VERSION));
     expect(await recomputeStaleDays(store, recompute)).toEqual([]);
-    expect(seen).toEqual([withSamples]);
+    expect(recomputed).toEqual([]);
+  });
+
+  it('keeps the version stale when a recompute fails', async () => {
+    await expect(recomputeStaleDays(store, () => Promise.reject(new Error('killed')))).rejects.toThrow('killed');
+    expect(await store.getSetting(DAY_RECORD_VERSION_KEY)).toBeNull();
   });
 });
 

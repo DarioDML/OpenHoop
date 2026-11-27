@@ -13,6 +13,8 @@ export * from './config';
 export * from './pipeline';
 export * from './redecode';
 export * from './batteryPack';
+export * from './wear';
+export * from './bandStatus';
 export * from './bodyMeasurements';
 export * from './cycle';
 export * from './strength';

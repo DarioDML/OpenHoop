@@ -71,6 +71,8 @@ export function DeviceStateCard() {
           body={t('states.lowBattery.body', { percent: device.batteryPercent ?? 0 })}
         />
       );
+    case 'charging':
+      return <StateCard testID="device-state-charging" icon="plug" tone="positive" title={t('states.charging.title')} body={t('states.charging.body')} />;
     case 'firstDay':
       return <StateCard testID="device-state-firstDay" icon="moon" tone="purple" title={t('states.firstDay.title')} body={t('states.firstDay.body')} />;
   }
