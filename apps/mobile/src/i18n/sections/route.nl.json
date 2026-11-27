@@ -42,5 +42,12 @@
   "network.maps.title": "Kaarten",
   "network.maps.sends": "Verstuurt: de nummers van de kaarttegels rond een bewaarde route wanneer je die opent, die ongeveer tonen waar de route lag, plus je IP-adres en de naam en versie van de app. De route zelf wordt nooit verstuurd.",
   "network.maps.to": "Naar: de OpenStreetMap Foundation (tile.openstreetmap.org), onder haar privacybeleid. Tegels laden alleen terwijl je een bewaarde route bekijkt; er wordt niets vooraf gedownload.",
-  "route.accuracyLabel": "Afstand, tempo en hoogtewinst van een route"
+  "route.accuracyLabel": "Afstand, tempo en hoogtewinst van een route",
+  "route.splitLabelUnit": "{unit} {index}",
+  "route.mapLabelUnit": "Routekaart, {distance} {unit}",
+  "route.needsDistanceUnit": "Nodig: {distance}",
+  "route.live.signal.none": "Geen GPS-signaal",
+  "route.live.signal.weak": "Zwak GPS-signaal",
+  "route.live.signal.fair": "Redelijk GPS-signaal",
+  "route.live.signal.good": "Goed GPS-signaal"
 }

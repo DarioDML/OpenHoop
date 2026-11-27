@@ -55,6 +55,22 @@ export function distanceUnit(units: Units): string {
   return units === 'imperial' ? 'mi' : 'km';
 }
 
+export function unitLengthM(units: Units): number {
+  return units === 'imperial' ? M_PER_MI : 1000;
+}
+
+export function formatSpeed(kmh: number, units: Units, language: Language, decimals = 1): Measure {
+  const value = units === 'imperial' ? kmh / (M_PER_MI / 1000) : kmh;
+  return { value: formatNumber(value, decimals, language), unit: units === 'imperial' ? 'mph' : 'km/h' };
+}
+
+export const M_PER_FT = 0.3048;
+
+export function formatShortDistance(meters: number, units: Units, language: Language): Measure {
+  if (units === 'imperial') return { value: formatNumber(Math.round(meters / M_PER_FT / 10) * 10, 0, language), unit: 'ft' };
+  return { value: formatNumber(Math.round(meters), 0, language), unit: 'm' };
+}
+
 export function formatDistance(meters: number, units: Units, language: Language, decimals = 2): Measure {
   return { value: formatNumber(distanceIn(meters, units), decimals, language), unit: distanceUnit(units) };
 }

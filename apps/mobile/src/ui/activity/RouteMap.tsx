@@ -18,6 +18,7 @@ interface Props {
   network: NetworkPrefs | null;
   label: string;
   height?: number;
+  rounded?: boolean;
   testID?: string;
 }
 
@@ -40,7 +41,7 @@ function segments(points: readonly RoutePoint[], view: MapView): string[] {
   return out;
 }
 
-export function RouteMap({ points, markers, markerLabel, network, label, height = 220, testID }: Props) {
+export function RouteMap({ points, markers, markerLabel, network, label, height = 220, rounded = true, testID }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const onLayout = (event: LayoutChangeEvent): void => setWidth(Math.round(event.nativeEvent.layout.width));
@@ -68,7 +69,7 @@ export function RouteMap({ points, markers, markerLabel, network, label, height 
       accessible
       accessibilityRole="image"
       accessibilityLabel={label}
-      style={{ height, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surfaceAlt }}>
+      style={{ height, borderRadius: rounded ? radius.md : 0, overflow: 'hidden', backgroundColor: colors.surfaceAlt }}>
       {tiles.map((tile) =>
         tile.source === undefined ? null : (
           <Image

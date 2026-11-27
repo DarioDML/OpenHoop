@@ -169,6 +169,41 @@ describe('live GPS activity', () => {
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/details', params: { id: '42' } });
   });
 
+  it('shows the GPS signal and the latest splits, per mile with imperial units', async () => {
+    let nowMs = FIXTURE_NOW.getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    mockParams = { type: 'running', start: '1' };
+    const settings = { language: 'en' as const, dataSource: 'demo' as const, ownerSince: null, units: 'imperial' as const };
+    await render(withAppData(<GpsActivityScreen />, 'en', { settings }));
+    await waitFor(() => expect(screen.getByTestId('gps-pause')).toBeTruthy());
+    expect(screen.getByTestId('gps-signal').props.accessibilityLabel).toBe('No GPS signal');
+    expect(screen.getByTestId('gps-pace')).toHaveTextContent(/Needs 330 ft/);
+    for (let i = 0; i < 170; i++) {
+      nowMs += 2000;
+      await act(async () => mockOnLocation?.(location(nowMs, i * 10)));
+    }
+    expect(screen.getByTestId('gps-signal').props.accessibilityLabel).toMatch(/^Good GPS signal · GPS accuracy ±5 m$/);
+    expect(screen.getByTestId('gps-distance')).toHaveTextContent(/1\.05\s*mi/);
+    await fireEvent.press(screen.getByTestId('gps-pause'));
+    expect(screen.getByTestId('gps-pace')).toHaveTextContent(/\d:\d\d\s*\/mi/);
+    expect(screen.getByTestId('gps-splits')).toHaveTextContent(/mi 1/);
+    expect(screen.queryByText(/mi 2/)).toBeNull();
+  });
+
+  it('lists the newest kilometre splits first', async () => {
+    let nowMs = FIXTURE_NOW.getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    mockParams = { type: 'running', start: '1' };
+    await render(withAppData(<GpsActivityScreen />));
+    await waitFor(() => expect(screen.getByTestId('gps-pause')).toBeTruthy());
+    expect(screen.queryByTestId('gps-splits')).toBeNull();
+    for (let i = 0; i < 205; i++) {
+      nowMs += 2000;
+      await act(async () => mockOnLocation?.(location(nowMs, i * 10)));
+    }
+    expect(screen.getAllByText(/^km \d$/).map((node) => node.props.children)).toEqual(['km 2', 'km 1']);
+  }, 30_000);
+
   it('starts a new segment after a pause and ignores fixes while paused', async () => {
     let nowMs = FIXTURE_NOW.getTime();
     jest.spyOn(Date, 'now').mockImplementation(() => nowMs);

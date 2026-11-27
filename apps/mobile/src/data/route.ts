@@ -1,6 +1,9 @@
 import type { RoutePoint } from '@openhoop/core';
 
 import type { LatLon } from '@/lib/mercator';
+import { unitLengthM } from '@/lib/units';
+
+import type { Units } from './types';
 
 import type { ActivityType } from './activityDerived';
 
@@ -182,11 +185,13 @@ export interface RouteMarker extends LatLon {
   movingS: number;
 }
 
-export function markerStepM(totalM: number): number {
-  if (totalM >= 40_000) return 10_000;
-  if (totalM >= 15_000) return 5_000;
-  if (totalM >= 1_500) return 1_000;
-  return 500;
+export function markerStepM(totalM: number, units: Units = 'metric'): number {
+  const unit = unitLengthM(units);
+  const total = totalM / unit;
+  if (total >= 40) return 10 * unit;
+  if (total >= 15) return 5 * unit;
+  if (total >= 1.5) return unit;
+  return unit / 2;
 }
 
 export function distanceMarkers(points: readonly RoutePoint[], stepM: number): RouteMarker[] {
@@ -242,4 +247,25 @@ export interface Split {
 
 export function splits(markers: readonly RouteMarker[]): Split[] {
   return markers.map((m, i) => ({ index: i + 1, distanceM: m.distanceM, durationS: m.movingS - (markers[i - 1]?.movingS ?? 0) }));
+}
+
+export function routeSplits(points: readonly RoutePoint[], units: Units): Split[] {
+  return splits(distanceMarkers(points, unitLengthM(units)));
+}
+
+export function latestSplits(all: readonly Split[], count: number): Split[] {
+  return all.slice(Math.max(0, all.length - count)).reverse();
+}
+
+export type GpsSignal = 0 | 1 | 2 | 3;
+
+export const GOOD_ACCURACY_M = 10;
+export const FAIR_ACCURACY_M = 20;
+
+export function gpsSignal(recording: boolean, accuracyM: number | null): GpsSignal {
+  if (!recording || accuracyM === null || !Number.isFinite(accuracyM) || accuracyM < 0) return 0;
+  if (accuracyM <= GOOD_ACCURACY_M) return 3;
+  if (accuracyM <= FAIR_ACCURACY_M) return 2;
+  if (accuracyM <= MAX_ACCURACY_M) return 1;
+  return 0;
 }

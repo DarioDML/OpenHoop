@@ -42,5 +42,12 @@
   "network.maps.title": "Maps",
   "network.maps.sends": "Sends: the numbers of the map tiles around a saved route when you open it, which show roughly where the route was, plus your IP address and the app name and version. The route itself is never sent.",
   "network.maps.to": "To: the OpenStreetMap Foundation (tile.openstreetmap.org), under its privacy policy. Tiles load only while you look at a saved route; nothing is downloaded in advance.",
-  "route.accuracyLabel": "Route distance, pace and elevation gain"
+  "route.accuracyLabel": "Route distance, pace and elevation gain",
+  "route.splitLabelUnit": "{unit} {index}",
+  "route.mapLabelUnit": "Route map, {distance} {unit}",
+  "route.needsDistanceUnit": "Needs {distance}",
+  "route.live.signal.none": "No GPS signal",
+  "route.live.signal.weak": "Weak GPS signal",
+  "route.live.signal.fair": "Fair GPS signal",
+  "route.live.signal.good": "Good GPS signal"
 }
