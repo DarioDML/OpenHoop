@@ -1757,6 +1757,10 @@ export class AppController {
       const state: HealthConnectState = isExportType(type)
         ? { ...current, export: { ...current.export, [type]: enabled } }
         : { ...current, import: { ...current.import, [type]: enabled } };
+      if (type === 'steps' && !enabled) {
+        state.steps = [];
+        state.lastStepsImportS = null;
+      }
       await this.saveHealthConnectState(state);
       if (!enabled || this.snapshot.healthConnect.availability !== 'available') return true;
       const permission = permissionFor(type);
@@ -1802,6 +1806,8 @@ export class AppController {
           ...this.snapshot.healthConnect.state,
           heartRateCursorS: outcome.heartRateCursorS,
           lastImportS: outcome.lastImportS,
+          lastStepsImportS: outcome.lastStepsImportS,
+          steps: outcome.steps,
           lastSync: outcome.report,
         });
         await this.readGranted();

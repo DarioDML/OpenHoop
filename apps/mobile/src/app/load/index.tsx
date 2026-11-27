@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { loadTargetBand } from '@/data/activityDerived';
+import { loadTargetBand, stepsForDay } from '@/data/activityDerived';
 import { dayEntries, dayTotals } from '@/data/activities';
 import { rangeStatus } from '@/data/derived';
 import { useT } from '@/i18n/useT';
@@ -27,7 +27,7 @@ import { TopBar } from '@/ui/TopBar';
 import { displayedZones, ZoneBar } from '@/ui/ZoneBar';
 
 export default function LoadScreen() {
-  const { days, userData, activities } = useAppData();
+  const { days, userData, activities, healthConnect } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const day = days[days.length - 1];
@@ -39,6 +39,7 @@ export default function LoadScreen() {
   const band = loadTargetBand(days);
   const status = rangeStatus(day.load.value, band);
   const stepsGoal = userData.stepsGoal;
+  const steps = stepsForDay(day, healthConnect.state.steps);
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
   const entries = dayEntries(days, day, activities);
   const totals = dayTotals(entries);
@@ -121,20 +122,28 @@ export default function LoadScreen() {
 
       <Card href="/steps" accessibilityLabel={t('metric.steps')} testID="steps-card">
         <CardHeader title={t('metric.steps')} chevron />
-        {day.steps === null ? (
+        {steps.steps === null ? (
           <AppText variant="body" muted>
             {t('steps.none')}
           </AppText>
         ) : (
           <>
-            <Num size={40}>{fmt(day.steps)}</Num>
+            <Num size={40}>{fmt(steps.steps)}</Num>
             {stepsGoal !== null ? (
               <>
-                <ProgressBar fraction={day.steps / stepsGoal} label={t('metric.steps')} />
+                <ProgressBar fraction={steps.steps / stepsGoal} label={t('metric.steps')} />
                 <AppText variant="label" muted>
-                  {t('steps.ofGoal', { percent: Math.round((day.steps / stepsGoal) * 100), goal: fmt(stepsGoal) })}
+                  {t('steps.ofGoal', { percent: Math.round((steps.steps / stepsGoal) * 100), goal: fmt(stepsGoal) })}
                 </AppText>
               </>
+            ) : null}
+            {steps.source === 'healthConnect' ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <ParityBadge level="D" />
+                <AppText variant="caption" muted testID="steps-card-source">
+                  {t('steps.fromHealthConnect')}
+                </AppText>
+              </View>
             ) : null}
           </>
         )}

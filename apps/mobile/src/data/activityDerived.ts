@@ -1,5 +1,7 @@
 import type { DayRecord, WorkoutRecord } from '@openhoop/core';
 
+import type { HcStepsDay } from '@/lib/healthConnectMapping';
+
 import type { Language, Profile } from './types';
 import { addDays, baselineAt, mean, weekdayIndex, weekStart, wearStreak, type Baseline } from './derived';
 
@@ -272,8 +274,40 @@ export interface StepsStats {
   goalDays: number | null;
 }
 
-export function stepsStats(days: readonly DayRecord[], goal: number | null): StepsStats {
-  const withSteps = days.filter((d): d is DayRecord & { steps: number } => d.steps !== null);
+export type StepsSource = 'band' | 'healthConnect';
+
+export interface StepsDay {
+  day: string;
+  steps: number | null;
+  source: StepsSource | null;
+  origins: readonly string[];
+}
+
+function bandSteps(day: DayRecord): StepsDay {
+  return { day: day.day, steps: day.steps, source: day.steps === null ? null : 'band', origins: [] };
+}
+
+function importedSteps(entry: HcStepsDay): StepsDay {
+  return { day: entry.day, steps: entry.steps, source: 'healthConnect', origins: entry.origins };
+}
+
+export function stepsForDay(day: DayRecord, imported: readonly HcStepsDay[]): StepsDay {
+  if (day.steps !== null) return bandSteps(day);
+  const entry = imported.find((e) => e.day === day.day);
+  return entry === undefined ? bandSteps(day) : importedSteps(entry);
+}
+
+export function mergeSteps(days: readonly DayRecord[], imported: readonly HcStepsDay[]): StepsDay[] {
+  const byDay = new Map<string, StepsDay>();
+  for (const entry of imported) byDay.set(entry.day, importedSteps(entry));
+  for (const day of days) {
+    if (day.steps !== null || !byDay.has(day.day)) byDay.set(day.day, bandSteps(day));
+  }
+  return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
+}
+
+export function stepsStats(days: ReadonlyArray<Pick<StepsDay, 'day' | 'steps'>>, goal: number | null): StepsStats {
+  const withSteps = days.filter((d): d is { day: string; steps: number } => d.steps !== null);
   const total = withSteps.reduce((sum, d) => sum + d.steps, 0);
   let best: StepsStats['best'] = null;
   for (const d of withSteps) {

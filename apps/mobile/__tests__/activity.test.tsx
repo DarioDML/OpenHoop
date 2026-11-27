@@ -18,7 +18,9 @@ import {
   trendOf,
   weekProgress,
 } from '@/data/activityDerived';
+import { mergeSteps, stepsForDay } from '@/data/activityDerived';
 import { createFixtureDays } from '@/data/fixtureSource';
+import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
@@ -221,6 +223,42 @@ describe('steps', () => {
     await render(withAppData(<StepsScreen />));
     expect(screen.getByTestId('steps-today')).toBeTruthy();
     expect(screen.getByTestId('steps-set-goal')).toBeTruthy();
+  });
+
+  it('lets band steps win and fills only days without band steps from Health Connect', () => {
+    const last = days[days.length - 1];
+    const previous = days[days.length - 2];
+    if (last === undefined || previous === undefined) throw new Error('fixture');
+    const gap = { ...previous, steps: null };
+    const imported = [
+      { day: '2020-01-01', steps: 4_000, origins: [] },
+      { day: gap.day, steps: 5_000, origins: ['com.phone'] },
+      { day: last.day, steps: 1, origins: ['com.phone'] },
+    ];
+    const merged = mergeSteps([gap, last], imported);
+    expect(merged.map((entry) => [entry.day, entry.steps, entry.source])).toEqual([
+      ['2020-01-01', 4_000, 'healthConnect'],
+      [gap.day, 5_000, 'healthConnect'],
+      [last.day, last.steps, 'band'],
+    ]);
+    expect(stepsForDay(gap, imported)).toEqual({ day: gap.day, steps: 5_000, source: 'healthConnect', origins: ['com.phone'] });
+    expect(stepsForDay(last, imported).source).toBe('band');
+    expect(stepsForDay({ ...last, steps: null }, []).source).toBeNull();
+  });
+
+  it('shows steps from Health Connect on a day without band steps, labelled with the app', async () => {
+    const shown = days.map((day, index) => (index === days.length - 1 ? { ...day, steps: null } : day));
+    const today = shown[shown.length - 1]?.day ?? '';
+    const healthConnect = {
+      availability: 'available' as const,
+      granted: [],
+      syncing: false,
+      state: { ...defaultHealthConnectState(), steps: [{ day: today, steps: 6_543, origins: ['com.phone'] }] },
+    };
+    await render(withAppData(<StepsScreen />, 'en', { days: shown, healthConnect }));
+    expect(screen.getByText(/^6\D?543$/).props.testID).toBe('steps-today');
+    expect(screen.getByTestId('steps-today-source').props.children).toBe('From Health Connect (com.phone)');
+    expect(screen.getByTestId('steps-hc-days').props.children).toContain('Days from Health Connect: 1.');
   });
 
   it('shows goal progress when a goal is set', async () => {

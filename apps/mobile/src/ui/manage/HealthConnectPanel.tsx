@@ -26,6 +26,7 @@ const TITLES: Record<HcDataType, TranslationKey> = {
   skinTemperature: 'hc.type.skinTemperature',
   weight: 'hc.type.weight',
   bodyFat: 'hc.type.bodyFat',
+  steps: 'hc.type.steps',
 };
 
 const SUBTITLES: Record<HcDataType, TranslationKey> = {
@@ -39,6 +40,7 @@ const SUBTITLES: Record<HcDataType, TranslationKey> = {
   skinTemperature: 'hc.type.skinTemperatureBody',
   weight: 'hc.type.weightBody',
   bodyFat: 'hc.type.bodyFatBody',
+  steps: 'hc.type.stepsBody',
 };
 
 function nowSeconds(): number {

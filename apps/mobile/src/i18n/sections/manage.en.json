@@ -464,6 +464,8 @@
   "hc.type.weightBody": "Added to your body log with the app it came from. Your own entries are never overwritten.",
   "hc.type.bodyFat": "Body fat",
   "hc.type.bodyFatBody": "Only with a weight from the same app and day",
+  "hc.type.steps": "Steps",
+  "hc.type.stepsBody": "Only for days without steps from the band. A day with band steps always keeps the band value. Turning this off removes the copied steps from OpenHoop.",
   "hc.window": "OpenHoop writes the last {days} days and replaces only what it wrote itself. Data from other apps is never changed.",
   "hc.denied": "Not allowed in Health Connect",
   "hc.allow": "Allow access",
