@@ -26,6 +26,7 @@ jest.mock('react-native-safe-area-context', () => ({
 import ReadinessScreen from '@/app/recovery/index';
 import RecoveryTrendsScreen from '@/app/recovery/trends';
 import ImpactsScreen from '@/app/recovery/impacts';
+import MetricDetailScreen from '@/app/recovery/metric/[metric]';
 
 const days = createFixtureDays(FIXTURE_NOW);
 
@@ -184,5 +185,36 @@ describe('Readiness impacts', () => {
     expect(screen.getAllByTestId(/^impact-(sleep|load)$/).length).toBeGreaterThan(0);
     await fireEvent.press(screen.getByText('Open journal'));
     expect(mockPush).toHaveBeenCalledWith('/journal');
+  });
+});
+
+describe('Metric detail', () => {
+  it('shows one status chip under the value and the level note as footer', async () => {
+    mockParams = { metric: 'hrv' };
+    await render(withAppData(<MetricDetailScreen />));
+    expect(screen.getAllByTestId('chip-status')).toHaveLength(1);
+    expect(screen.getByTestId('chip-status')).toHaveTextContent(/^(✓ within range|! \d+% (over|under) baseline)$/);
+    expect(screen.getByTestId('baseline-pct')).toBeTruthy();
+    expect(screen.getByTestId('metric-level')).toHaveTextContent(/beat-to-beat timing/);
+    expect(screen.getByText(/^HRV · 30 days$/)).toBeTruthy();
+  });
+
+  it('labels the metric tabs with short names and switches between them', async () => {
+    mockParams = { metric: 'rhr' };
+    await render(withAppData(<MetricDetailScreen />));
+    expect(within(screen.getByTestId('pill-rhr')).getByText('Resting HR')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('pill-spo2'));
+    expect(mockReplace).toHaveBeenCalledWith('/recovery/metric/spo2');
+  });
+
+  it('shows skin temperature as a deviation and keeps the measured value, in the chosen units', async () => {
+    const last = days[days.length - 1];
+    if (last === undefined) throw new Error('no fixture day');
+    const tempDays = [...days.slice(0, -1), { ...last, skinTempC: { ...last.skinTempC, value: 34, reason: null }, skinTempDeviationC: { ...last.skinTempDeviationC, value: -0.4, reason: null } }];
+    mockParams = { metric: 'temp' };
+    await render(withAppData(<MetricDetailScreen />, 'en', { days: tempDays, settings: { ...createFixtureSettings('en', FIXTURE_NOW), units: 'imperial' } }));
+    expect(screen.getByTestId('metric-value')).toHaveTextContent('−0.7 °F');
+    expect(screen.getByTestId('metric-absolute')).toHaveTextContent('Measured skin temperature: 93.2 °F');
+    expect(screen.getByTestId('baseline-range')).toHaveTextContent(/°F$/);
   });
 });

@@ -4,20 +4,21 @@ import { Pressable, ScrollView, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { sliceEndingAt, singleParam, TREND_RANGES, type TrendRange } from '@/data/dailyDerived';
-import { baselineAt } from '@/data/derived';
+import { baselineAt, percentFromBaseline, rangeStatus } from '@/data/derived';
 import { useT } from '@/i18n/useT';
-import { formatNumber, formatShortDay } from '@/lib/format';
+import { formatNumber, formatShortDay, formatSigned } from '@/lib/format';
+import { formatTemperature, formatTemperatureDelta, temperatureDeltaIn, temperatureIn, temperatureUnit, useUnits } from '@/lib/units';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Chip, Pill } from '@/ui/Chip';
-import { NoDataPage, Page, usePercentChip, useRangeChip } from '@/ui/daily/bits';
+import { Chip, Pill, type ChipTone } from '@/ui/Chip';
+import { NoDataPage, Page } from '@/ui/daily/bits';
 import { RangeSwitch } from '@/ui/daily/charts';
 import { isMetricSlug, METRIC_SLUGS, METRIC_SPECS } from '@/ui/daily/metrics';
-import { LineChart } from '@/ui/LineChart';
-import { Num } from '@/ui/Num';
-import { ParityBadge } from '@/ui/ParityBadge';
 import { useExplain, useMissing, type ExplainTarget } from '@/ui/explain/ExplainProvider';
 import { missingStatus } from '@/ui/explain/whyText';
+import { LevelNote } from '@/ui/LevelNote';
+import { LineChart } from '@/ui/LineChart';
+import { Num } from '@/ui/Num';
 import { spacing, useTheme } from '@/ui/theme';
 import { IconButton } from '@/ui/TopBar';
 
@@ -41,8 +42,7 @@ export default function MetricDetailScreen() {
   const { t, language } = useT();
   const explain = useExplain();
   const { colors } = useTheme();
-  const rangeChip = useRangeChip();
-  const percentChip = usePercentChip();
+  const units = useUnits();
   const [range, setRange] = useState<TrendRange>('1M');
   const slug = singleParam(params.metric);
   const index = days.length - 1;
@@ -50,67 +50,109 @@ export default function MetricDetailScreen() {
 
   if (!isMetricSlug(slug)) return <NoDataPage title={t('metricDetail.title')} body={t('metricDetail.unknown')} />;
   const spec = METRIC_SPECS[slug];
-  if (!day) return <NoDataPage title={t(spec.label)} body={t('empty.body')} />;
+  const title = t(`readinessShort.${slug}`);
+  if (!day) return <NoDataPage title={title} body={t('empty.body')} />;
 
+  const temp = slug === 'temp';
+  const show = (celsiusOrValue: number): number => (temp ? temperatureIn(celsiusOrValue, units) : celsiusOrValue);
+  const unit = temp ? temperatureUnit(units) : t(spec.unit);
+  const withUnit = (text: string): string => (unit === '%' ? `${text}%` : `${text} ${unit}`);
   const derived = spec.pick(day);
   const baseline = baselineAt(days, index, spec.key);
-  const chip = rangeChip(derived.value, baseline, spec.decimals);
-  const pct = percentChip(derived.value, baseline);
+  const status = rangeStatus(derived.value, baseline);
+  const pct = percentFromBaseline(derived.value, baseline);
   const slice = sliceEndingAt(days, TREND_RANGES[range]);
-  const values = slice.map((d) => spec.pick(d).value);
+  const values = slice.map((d) => {
+    const v = spec.pick(d).value;
+    return v === null ? null : show(v);
+  });
   const first = slice[0];
-  const unit = t(spec.unit);
   const name = t(spec.label);
-  const valueText = derived.value === null ? null : formatNumber(derived.value, spec.decimals, language);
+  const valueText = derived.value === null ? null : formatNumber(show(derived.value), spec.decimals, language);
   const target: ExplainTarget = { term: spec.term, index, shown: { value: valueText, unit, reason: derived.reason } };
+  const deviation = temp ? day.skinTempDeviationC : null;
+  const deviationShown = deviation === null || deviation.value === null ? null : formatTemperatureDelta(deviation.value, units, language);
+  const heroValue = temp ? (deviationShown?.value ?? null) : valueText;
+  const heroUnit = temp ? (deviationShown?.unit ?? unit) : unit;
+  const heroTarget: ExplainTarget = temp && deviation !== null ? { term: 'skinTempChange', index, shown: { value: heroValue, unit: heroUnit, reason: deviation.reason } } : target;
+
+  const chip: { label: string; tone: ChipTone; testID: string } | null = (() => {
+    if (derived.value === null || baseline === null) return derived.value === null ? null : { label: t('range.calibrating'), tone: 'neutral', testID: 'chip-status' };
+    if (status === 'within') return { label: t('metricScreen.status.within'), tone: 'positive', testID: 'chip-status' };
+    const gap = temp
+      ? `${formatNumber(temperatureDeltaIn(Math.abs(derived.value - baseline.mean), units), 1, language)} ${unit}`
+      : `${formatNumber(Math.abs(pct ?? 0), 0, language)}%`;
+    return { label: t(status === 'above' ? 'metricScreen.status.over' : 'metricScreen.status.under', { value: gap }), tone: 'warning', testID: 'chip-status' };
+  })();
 
   return (
     <Page
-      title={t(spec.label)}
+      title={title}
       tint="recovery"
       right={<IconButton icon="info" label={t('explain.whatIs', { name })} onPress={() => explain.about(target)} testID="metric-about" />}
       testID="metric-detail"
       hero={
-        <View style={{ gap: spacing.md }}>
+        <View style={{ gap: spacing.lg }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
             {METRIC_SLUGS.map((s) => (
-              <Pill key={s} testID={`pill-${s}`} label={t(METRIC_SPECS[s].label)} selected={s === slug} onPress={() => router.replace(`/recovery/metric/${s}`)} />
+              <Pill key={s} testID={`pill-${s}`} label={t(`readinessShort.${s}`)} selected={s === slug} onPress={() => router.replace(`/recovery/metric/${s}`)} />
             ))}
           </ScrollView>
-          <View style={{ gap: 6 }}>
-            <AppText variant="capSmall" muted>
+          <View style={{ gap: spacing.sm }}>
+            <AppText variant="cap" soft>
               {t('metricDetail.lastNight')}
             </AppText>
-            {valueText === null ? (
-              <MissingHero target={target} />
-            ) : (
-              <Num size={64} unit={unit} testID="metric-value">
-                {valueText}
-              </Num>
-            )}
-            <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
-              {pct ? <Chip label={pct.label} tone={pct.tone} testID="chip-pct" /> : null}
-              {chip ? <Chip label={chip.label} tone={chip.tone} testID="chip-range" /> : null}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.sm }}>
+              {heroValue === null ? (
+                <MissingHero target={heroTarget} />
+              ) : (
+                <Num size={80} unit={heroUnit} unitSize={36} unitColor={colors.textMuted} testID="metric-value">
+                  {heroValue}
+                </Num>
+              )}
+              {chip ? (
+                <View style={{ paddingBottom: 6 }}>
+                  <Chip label={chip.label} tone={chip.tone} testID={chip.testID} />
+                </View>
+              ) : null}
             </View>
+            {temp && valueText !== null ? (
+              <AppText variant="label" muted testID="metric-absolute">
+                {t('metricScreen.measuredTemp', { value: withUnit(valueText) })}
+              </AppText>
+            ) : null}
           </View>
         </View>
       }>
-      <Card style={{ gap: spacing.sm }} testID="card-baseline">
-        <AppText variant="capSmall" muted>
-          {t('metricDetail.baseline')}
-        </AppText>
+      <Card style={{ gap: spacing.md }} testID="card-baseline">
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md }}>
+          <AppText variant="cap" muted>
+            {t('metricDetail.baseline')}
+          </AppText>
+          {baseline ? (
+            <Num size={22} testID="baseline-mean">
+              {withUnit(temp ? formatTemperature(baseline.mean, units, language).value : formatNumber(baseline.mean, spec.decimals, language))}
+            </Num>
+          ) : null}
+        </View>
         {baseline ? (
-          <>
-            <AppText variant="value" numeric testID="baseline-mean">
-              {formatNumber(baseline.mean, spec.decimals, language)} {unit}
-            </AppText>
+          <View style={{ gap: 4 }}>
             <AppText variant="label" muted testID="baseline-range">
-              {t('metricDetail.normalRange', { low: formatNumber(baseline.low, spec.decimals, language), high: formatNumber(baseline.high, spec.decimals, language), unit })}
+              {t('metricDetail.normalRange', {
+                low: formatNumber(show(baseline.low), spec.decimals, language),
+                high: formatNumber(show(baseline.high), spec.decimals, language),
+                unit,
+              })}
             </AppText>
             <AppText variant="caption" muted>
               {t('metricDetail.baselineNights', { count: baseline.count })}
             </AppText>
-          </>
+            {pct === null || temp ? null : (
+              <AppText variant="caption" muted testID="baseline-pct">
+                {Math.round(pct) === 0 ? t('daily.vsBaselineSame') : t('daily.vsBaseline', { value: formatSigned(Math.round(pct), 0, language) })}
+              </AppText>
+            )}
+          </View>
         ) : (
           <AppText variant="body" muted testID="baseline-none">
             {t('metricDetail.baselineNone')}
@@ -120,13 +162,15 @@ export default function MetricDetailScreen() {
 
       <RangeSwitch value={range} onChange={setRange} />
       <Card style={{ gap: spacing.md }}>
-        <AppText variant="bodyStrong">{t('metricDetail.chartTitle', { metric: t(spec.label) })}</AppText>
+        <AppText variant="cap" muted>
+          {t('metricScreen.chartTitle', { metric: title, days: TREND_RANGES[range] })}
+        </AppText>
         <LineChart
           testID="chart-metric"
           data={values}
-          minSpan={spec.minSpan}
-          color={colors.accent}
-          band={baseline ? { low: baseline.low, high: baseline.high } : null}
+          minSpan={temp ? temperatureDeltaIn(spec.minSpan, units) : spec.minSpan}
+          color={colors.text}
+          band={baseline ? { low: show(baseline.low), high: show(baseline.high) } : null}
           formatTick={(v) => formatNumber(v, spec.decimals, language)}
           emptyLabel={t('trends.noValues')}
           startLabel={first ? formatShortDay(first.day, language) : undefined}
@@ -139,19 +183,14 @@ export default function MetricDetailScreen() {
         ) : null}
       </Card>
 
-      <Card style={{ gap: spacing.sm }}>
+      <Card style={{ gap: spacing.md }}>
         <AppText variant="cardTitle">{t('metricDetail.whatItMeans')}</AppText>
-        <AppText variant="body" muted>
+        <AppText variant="body" soft>
           {t(spec.meaning)}
         </AppText>
       </Card>
 
-      <Card tone="outline" style={{ gap: spacing.sm }}>
-        <ParityBadge level={spec.level} long />
-        <AppText variant="caption" muted>
-          {t(spec.method)}
-        </AppText>
-      </Card>
+      <LevelNote level={spec.level} text={t(spec.method)} testID="metric-level" />
     </Page>
   );
 }
