@@ -66,6 +66,17 @@ describe('band actions on the simulated band', () => {
     await session.close();
   });
 
+  it('hands over the original value before it sends the write', async () => {
+    const { band, session } = await openBand();
+    const seen: { before: string; writesSoFar: number }[] = [];
+    await writeConfigValue(session, 'featureFlags', 'enable_sig12', '1', { confirmDangerous: 'SET_FF_VALUE' }, async (before) => {
+      seen.push({ before, writesSoFar: band.dangerousReceived });
+    });
+    expect(seen).toEqual([{ before: '2', writesSoFar: 0 }]);
+    expect(band.dangerousReceived).toBe(1);
+    await session.close();
+  });
+
   it('sends nothing when the value is already set', async () => {
     const { band, session } = await openBand();
     const result = await writeConfigValue(session, 'featureFlags', 'enable_sig12', '2', { confirmDangerous: 'SET_FF_VALUE' });

@@ -133,7 +133,7 @@ import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
 import { setNetworkPrefs } from '@/net';
 import { strictestPrefs } from '@/net/features';
 
-import { applyConfigWrite, buildSnapshot, carryOver, changeFor, parseBandConfig, serializeSnapshot, type ConfigKind, type WritableValue } from './bandConfig';
+import { applyConfigWrite, buildSnapshot, carryOver, changeFor, parseBandConfig, recordOriginal, serializeSnapshot, type ConfigKind, type WritableValue } from './bandConfig';
 import { hrBroadcastKey, parseHrBroadcast, serializeHrBroadcast, type HrBroadcastState } from './hrBroadcast';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
@@ -978,8 +978,12 @@ export class AppController {
     if (state.status !== 'ok') throw new AppError('error.configNotRead');
     const coreKind = CORE_KIND[kind];
     const grant = { confirmDangerous: commandName(configWriteCommand(coreKind)) };
-    const result = await writeConfigValue(conn.session, coreKind, key, value, grant);
-    await this.storeConfigSnapshot(serializeSnapshot(applyConfigWrite(state.snapshot, kind, key, result.before, result.after, nowSeconds())));
+    let snapshot = state.snapshot;
+    const result = await writeConfigValue(conn.session, coreKind, key, value, grant, async (before) => {
+      snapshot = recordOriginal(snapshot, kind, key, before, nowSeconds());
+      await this.storeConfigSnapshot(serializeSnapshot(snapshot));
+    });
+    await this.storeConfigSnapshot(serializeSnapshot(applyConfigWrite(snapshot, kind, key, result.before, result.after, nowSeconds())));
   }
 
   stopLive = async (): Promise<void> => {
@@ -1040,7 +1044,8 @@ export class AppController {
       try {
         this.deviceRow = await store.driver.transaction(async (tx) => {
           const inner = bindStore(tx);
-          const updated = await inner.upsertDevice({ ...row, ownerSince: unix });
+          const current = this.deviceRow ?? row;
+          const updated = await inner.upsertDevice({ ...current, ownerSince: unix });
           if (later) await deleteDataBefore(inner, row.id, unix);
           return updated;
         });

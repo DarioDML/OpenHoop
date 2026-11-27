@@ -173,6 +173,11 @@ export function applyConfigWrite(snapshot: BandConfigSnapshot, kind: ConfigKind,
   );
 }
 
+export function recordOriginal(snapshot: BandConfigSnapshot, kind: ConfigKind, key: string, original: WritableValue, at: number): BandConfigSnapshot {
+  if (changeFor(snapshot, kind, key) !== null) return snapshot;
+  return buildSnapshot(snapshot.readAt, snapshot.source, snapshot.flags, snapshot.config, [...snapshot.changes, { kind, key, original, at }]);
+}
+
 export function carryOver(previous: BandConfigSnapshot | null, next: BandConfigSnapshot): BandConfigSnapshot {
   if (previous === null || previous.source !== next.source) return next;
   const changes = previous.changes.filter((change) => {

@@ -70,11 +70,13 @@ export async function writeConfigValue(
   key: string,
   value: ConfigWriteValue,
   grant: CommandGrant,
+  beforeWrite?: (before: ConfigWriteValue) => Promise<void>,
 ): Promise<ConfigWriteResult> {
   const command = WRITE_COMMANDS[kind].set;
   const before = await readConfigValue(session, kind, key);
   if (!isWritableValue(before)) throw new ConfigWriteError('not-writable', before, null);
   if (before === value) return { before, after: value };
+  await beforeWrite?.(before);
   await session.send(command, configWriteBody(key, value), grant);
   const after = await readConfigValue(session, kind, key);
   if (after !== value) throw new ConfigWriteError('not-applied', before, after);

@@ -10,6 +10,7 @@ import {
   buildSnapshot,
   carryOver,
   changeFor,
+  recordOriginal,
   describeFields,
   parseBandConfig,
   serializeSnapshot,
@@ -144,6 +145,17 @@ describe('changes made from OpenHoop', () => {
     expect(changeFor(once, 'config', 'make_hrfm_visible')).toBeNull();
     const back = applyConfigWrite(once, 'flag', 'make_hrfm_visible', '1', '2', 1_700_000_200);
     expect(back.changes).toEqual([]);
+  });
+
+  it('keeps the first original value when a write is about to be sent', () => {
+    const pending = recordOriginal(SNAPSHOT, 'flag', 'make_hrfm_visible', '2', 7);
+    expect(pending.flags.find((entry) => entry.key === 'make_hrfm_visible')?.valueText).toBe('2');
+    expect(changeFor(pending, 'flag', 'make_hrfm_visible')?.original).toBe('2');
+    expect(recordOriginal(pending, 'flag', 'make_hrfm_visible', '1', 8)).toBe(pending);
+    const done = applyConfigWrite(pending, 'flag', 'make_hrfm_visible', '2', '1', 9);
+    expect(done.changes).toEqual([{ kind: 'flag', key: 'make_hrfm_visible', original: '2', at: 7 }]);
+    const reread = buildSnapshot(10, 'demo', [flag('make_hrfm_visible', '2')], []);
+    expect(carryOver(pending, reread).changes).toEqual([]);
   });
 
   it('round-trips changes and still parses snapshots stored without them', () => {
