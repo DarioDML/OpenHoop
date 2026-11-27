@@ -50,6 +50,7 @@ export const ALGO = {
   workouts: 'workouts.hrr50@1',
   energy: 'energy.keytel-mifflin@1',
   stress: 'stress.hr-hrv-z5m@1',
+  stages: 'stages.lr-hmm30s@1',
 } as const;
 
 export type AlgoId = (typeof ALGO)[keyof typeof ALGO];
