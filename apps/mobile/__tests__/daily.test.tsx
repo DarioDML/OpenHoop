@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { addDays } from '@/data/derived';
-import { formatMinutes, goalMet, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, strengthWeekMinutes, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { formatLongDay, formatMinutes, goalMet, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, strengthWeekMinutes, vitalsSummary, weekProgress } from '@/data/dailyDerived';
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
 import { moveItem, reorderTarget, shiftFor } from '@/lib/reorder';
 import { worstBehaviour } from '@/ui/daily/briefText';
@@ -277,6 +277,22 @@ describe('Past day', () => {
     expect(screen.getByTestId('past-day')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('back-today'));
     expect(mockReplace).toHaveBeenCalledWith('/');
+  });
+
+  it('has a plain title bar with the date, day arrows, a calendar button and a coach pill about that day', async () => {
+    mockParams = { day: previous?.day };
+    await render(withAppData(<PastDayScreen />));
+    const label = formatLongDay(previous?.day ?? '', 'en');
+    expect(screen.getByTestId('past-day-title')).toHaveTextContent(label);
+    expect(screen.queryByTestId('avatar')).toBeNull();
+    await fireEvent.press(screen.getByTestId('past-day-calendar'));
+    expect(mockPush).toHaveBeenCalledWith(`/home/date-picker?day=${previous?.day}`);
+    await fireEvent.press(screen.getByTestId('day-next'));
+    expect(mockReplace).toHaveBeenCalledWith('/');
+    await fireEvent.press(screen.getByTestId('past-day-ask'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/coach', params: { ask: `Ask about ${label}` } });
+    expect(screen.getByTestId('vitals-count')).toBeTruthy();
+    expect(screen.getByTestId('row-last-sleep')).toBeTruthy();
   });
 
   it('shows the no-data card for unknown or invalid days', async () => {

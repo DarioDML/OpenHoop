@@ -460,5 +460,6 @@
   "evening.b.nap": "Nap",
   "evening.b.highStress": "A stressful day",
   "evening.b.water": "Water",
-  "evening.b.outdoors": "Time outdoors"
+  "evening.b.outdoors": "Time outdoors",
+  "home.askAboutDay": "Ask about {day}"
 }

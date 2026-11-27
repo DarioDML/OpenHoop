@@ -18,7 +18,7 @@ interface Props {
   index: number;
 }
 
-function ChevronButton({ direction, enabled, onPress, label }: { direction: 'prev' | 'next'; enabled: boolean; onPress: () => void; label: string }) {
+export function ChevronButton({ direction, enabled, onPress, label }: { direction: 'prev' | 'next'; enabled: boolean; onPress: () => void; label: string }) {
   const { colors } = useTheme();
   return (
     <Pressable

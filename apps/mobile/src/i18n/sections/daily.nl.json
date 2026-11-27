@@ -460,5 +460,6 @@
   "evening.b.nap": "Dutje",
   "evening.b.highStress": "Een stressvolle dag",
   "evening.b.water": "Water",
-  "evening.b.outdoors": "Tijd buiten"
+  "evening.b.outdoors": "Tijd buiten",
+  "home.askAboutDay": "Vraag naar {day}"
 }
