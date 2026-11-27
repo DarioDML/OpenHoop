@@ -19,7 +19,7 @@ import { spacing, useTheme } from '@/ui/theme';
 
 const WAKE_STEP_MIN = 15;
 
-type WindState = { kind: 'set'; at: number } | { kind: 'denied' } | { kind: 'failed' } | { kind: 'past' } | null;
+type WindState = { kind: 'set'; at: number; bed: number } | { kind: 'denied' } | { kind: 'failed' } | { kind: 'past' } | null;
 
 function clockOf(ms: number): string {
   const date = new Date(ms);
@@ -45,11 +45,22 @@ export default function SleepPlannerScreen() {
   const tonight = tonightPlan(days, index, goal, planScore, wakeOverride);
   const plan = tonight?.bed ?? null;
   const planned = tonightPlan(days, index, 'plan', planScore);
+  const stored = userData.windDown !== null && userData.windDown.at > Date.now() ? userData.windDown : null;
+  const reminder = wind?.kind === 'set' ? { at: wind.at, bed: wind.bed } : stored;
 
   const choose = (next: SleepGoal): void => {
     setGoal(next);
     setWind(null);
-    void updateUserData({ sleepGoal: next });
+    void updateUserData(reminder === null ? { sleepGoal: next } : { sleepGoal: next, windDown: null });
+  };
+
+  const cancelReminder = async (): Promise<void> => {
+    setBusy(true);
+    try {
+      setWind((await updateUserData({ windDown: null })) ? null : { kind: 'failed' });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const hint = (id: SleepGoal): string => {
@@ -76,7 +87,7 @@ export default function SleepPlannerScreen() {
         setWind({ kind: 'denied' });
         return;
       }
-      setWind((await updateUserData({ windDown: { at, bed: plan.bedMinutes } })) ? { kind: 'set', at } : { kind: 'failed' });
+      setWind((await updateUserData({ windDown: { at, bed: plan.bedMinutes } })) ? { kind: 'set', at, bed: plan.bedMinutes } : { kind: 'failed' });
     } finally {
       setBusy(false);
     }
@@ -95,15 +106,13 @@ export default function SleepPlannerScreen() {
   );
 
   const windText =
-    wind === null
+    wind === null || wind.kind === 'set'
       ? null
-      : wind.kind === 'set'
-        ? t('planner.windDownSet', { time: clockOf(wind.at), lead: WIND_DOWN_LEAD_MIN })
-        : wind.kind === 'denied'
-          ? t('planner.windDownDenied')
-          : wind.kind === 'past'
-            ? t('planner.windDownPast', { lead: WIND_DOWN_LEAD_MIN })
-            : t('planner.windDownFailed');
+      : wind.kind === 'denied'
+        ? t('planner.windDownDenied')
+        : wind.kind === 'past'
+          ? t('planner.windDownPast', { lead: WIND_DOWN_LEAD_MIN })
+          : t('planner.windDownFailed');
 
   return (
     <Page title={t('sleepx.planner')} tint="sleep" testID="sleep-planner">
@@ -173,8 +182,22 @@ export default function SleepPlannerScreen() {
           <Button label={t('planner.windDown')} variant="soft" testID="planner-wind-down" disabled={busy} onPress={() => void remind()} />
         </>
       ) : null}
+      {reminder !== null ? (
+        <Card testID="planner-wind-active" style={{ gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Icon name="bell" color={colors.positive} size={18} />
+            <AppText variant="bodyStrong" style={{ flex: 1 }} testID="planner-wind-status" accessibilityLiveRegion="polite">
+              {t('planner.windDownSet', { time: clockOf(reminder.at), lead: WIND_DOWN_LEAD_MIN, bed: formatMinutes(reminder.bed) })}
+            </AppText>
+          </View>
+          <AppText variant="caption" muted>
+            {t('planner.windDownQuiet')}
+          </AppText>
+          <Button label={t('planner.windDownCancel')} variant="tertiary" testID="planner-wind-cancel" disabled={busy} onPress={() => void cancelReminder()} />
+        </Card>
+      ) : null}
       {windText !== null ? (
-        <AppText variant="label" color={wind?.kind === 'set' ? colors.positive : colors.warning} testID="planner-wind-status" accessibilityLiveRegion="polite">
+        <AppText variant="label" color={colors.warning} testID="planner-wind-problem" accessibilityLiveRegion="polite">
           {windText}
         </AppText>
       ) : null}

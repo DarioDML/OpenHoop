@@ -275,7 +275,7 @@ describe('Sleep planner', () => {
     const requestNotificationPermission = jest.fn(async () => 'granted' as const);
     await render(withAppData(<SleepPlannerScreen />, 'en', { updateUserData, requestNotificationPermission }));
     await fireEvent.press(screen.getByTestId('planner-wind-down'));
-    await waitFor(() => expect(screen.getByTestId('planner-wind-status')).toHaveTextContent(/^Reminder set for \d\d:\d\d, 30 minutes before bed\.$/));
+    await waitFor(() => expect(screen.getByTestId('planner-wind-status')).toHaveTextContent(/^Reminder set for \d\d:\d\d, 30 minutes before bed by \d\d:\d\d\.$/));
     expect(requestNotificationPermission).toHaveBeenCalled();
     const windDown = updateUserData.mock.calls[0]?.[0].windDown ?? null;
     expect(windDown).not.toBeNull();
@@ -290,8 +290,28 @@ describe('Sleep planner', () => {
     const updateUserData = jest.fn(async () => true);
     await render(withAppData(<SleepPlannerScreen />, 'en', { updateUserData, requestNotificationPermission: async () => 'denied' as const }));
     await fireEvent.press(screen.getByTestId('planner-wind-down'));
-    await waitFor(() => expect(screen.getByTestId('planner-wind-status')).toHaveTextContent(/^Notifications are not allowed/));
+    await waitFor(() => expect(screen.getByTestId('planner-wind-problem')).toHaveTextContent(/^Notifications are not allowed/));
     expect(updateUserData).not.toHaveBeenCalled();
+  });
+
+  it('shows a set reminder with a cancel, and clears it when the goal changes', async () => {
+    const updateUserData = jest.fn(async (patch: Partial<UserData>) => patch !== null);
+    const windDown = { at: FIXTURE_NOW.getTime() + 8 * 3_600_000, bed: 22 * 60 + 55 };
+    const userData = { ...defaultUserData(), onboardingDone: true, windDown };
+    await render(withAppData(<SleepPlannerScreen />, 'en', { updateUserData, userData }));
+    expect(screen.getByTestId('planner-wind-status')).toHaveTextContent(/before bed by 22:55\.$/);
+    expect(screen.getByTestId('planner-wind-active')).toHaveTextContent(/quiet hours/);
+    await fireEvent.press(screen.getByTestId('planner-wind-cancel'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ windDown: null }));
+    updateUserData.mockClear();
+    await render(withAppData(<SleepPlannerScreen />, 'en', { updateUserData, userData }));
+    await fireEvent.press(screen.getByTestId('goal-getBy'));
+    expect(updateUserData).toHaveBeenCalledWith({ sleepGoal: 'getBy', windDown: null });
+  });
+
+  it('ignores a reminder that has passed', async () => {
+    await render(withAppData(<SleepPlannerScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, windDown: { at: FIXTURE_NOW.getTime() - 60_000, bed: 60 } } }));
+    expect(screen.queryByTestId('planner-wind-active')).toBeNull();
   });
 
   it('sends the planned wake time to the alarm', async () => {

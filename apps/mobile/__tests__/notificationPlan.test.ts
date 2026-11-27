@@ -335,6 +335,13 @@ describe('wind-down reminder', () => {
     expect(parseNotificationState(JSON.stringify({ pending: [{ ...due, bed: 2000 }], inbox: [], sent: [] })).pending).toEqual([]);
   });
 
+  it('replaces a pending reminder when a new one is set and drops it when cancelled', () => {
+    const old: Alert = { kind: 'windDown', id: `wind:${windDown.at}`, at: windDown.at, bed: windDown.bed };
+    const later = { at: windDown.at + 3_600_000, bed: windDown.bed + 60 };
+    expect(planAlerts(input({ prefs: { ...PREFS, enabled: false }, pending: [old], windDown: later }))).toEqual([{ kind: 'windDown', id: `wind:${later.at}`, at: later.at, bed: later.bed }]);
+    expect(planAlerts(input({ prefs: { ...PREFS, enabled: false }, pending: [old], windDown: null }))).toEqual([]);
+  });
+
   it('says when to be in bed', () => {
     const text = alertText('en', { kind: 'windDown', bed: 22 * 60 + 55 });
     expect(text.title).toBe('Time to wind down');
