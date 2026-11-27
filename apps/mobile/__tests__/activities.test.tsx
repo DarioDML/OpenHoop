@@ -234,6 +234,15 @@ describe('live session', () => {
     expect(hudFor(s, T + 600, null, ref, null)).toMatchObject({ zone: null, projectedDayLoad: null });
     expect(hudFor(IDLE_SESSION, T, 160, ref, today)).toMatchObject({ activeS: 0, load: null, zone: 3 });
   });
+
+  it('uses custom zone floors for the live zone and the session zones', () => {
+    let s = liveReducer(IDLE_SESSION, { kind: 'start', at: T });
+    for (let i = 0; i < 120; i++) s = liveReducer(s, { kind: 'beat', at: T + i, hr: 160 });
+    const ref = { rest: 60, max: 190, zoneFloors: [80, 100, 120, 140, 155] as const };
+    expect(hudFor(s, T + 120, 160, ref, null).zone).toBe(5);
+    expect(hudFor(s, T + 120, 130, ref, null).zone).toBe(3);
+    expect(hudFor(s, T + 120, 160, { rest: 60, max: 190 }, null).zone).toBe(3);
+  });
 });
 
 describe('add activity screen', () => {

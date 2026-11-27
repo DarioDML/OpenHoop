@@ -143,10 +143,12 @@ interface StepperProps {
   min: number;
   max: number;
   onChange: (value: number) => void;
+  step?: number;
+  format?: (value: number) => string;
   testID: string;
 }
 
-export function Stepper({ label, hint, value, min, max, onChange, testID }: StepperProps) {
+export function Stepper({ label, hint, value, min, max, onChange, step = 1, format, testID }: StepperProps) {
   const { colors } = useTheme();
   const { t } = useT();
   const button = (delta: number, name: 'minus' | 'plus') => {
@@ -182,13 +184,13 @@ export function Stepper({ label, hint, value, min, max, onChange, testID }: Step
             {hint}
           </AppText>
         </View>
-        {button(-1, 'minus')}
-        <View style={{ minWidth: 36, alignItems: 'center' }}>
-          <Num size={40} testID={`${testID}-value`}>
-            {String(value)}
+        {button(-step, 'minus')}
+        <View style={{ minWidth: 36, alignItems: 'center', flexShrink: 1 }}>
+          <Num size={format ? 30 : 40} testID={`${testID}-value`} adjustsFontSizeToFit={format !== undefined}>
+            {format ? format(value) : String(value)}
           </Num>
         </View>
-        {button(1, 'plus')}
+        {button(step, 'plus')}
       </View>
     </Card>
   );

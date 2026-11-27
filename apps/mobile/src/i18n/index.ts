@@ -16,6 +16,8 @@ import strengthEn from './sections/strength.en.json';
 import strengthNl from './sections/strength.nl.json';
 import manageEn from './sections/manage.en.json';
 import manageNl from './sections/manage.nl.json';
+import planEn from './sections/plan.en.json';
+import planNl from './sections/plan.nl.json';
 import readinessEn from './sections/readiness.en.json';
 import readinessNl from './sections/readiness.nl.json';
 import routeEn from './sections/route.en.json';
@@ -23,8 +25,8 @@ import routeNl from './sections/route.nl.json';
 import stravaEn from './sections/strava.en.json';
 import stravaNl from './sections/strava.nl.json';
 
-const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl, ...routeNl, ...stravaNl, ...explainNl, ...readinessNl };
-const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn, ...routeEn, ...stravaEn, ...explainEn, ...readinessEn };
+const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl, ...routeNl, ...stravaNl, ...explainNl, ...readinessNl, ...planNl };
+const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn, ...routeEn, ...stravaEn, ...explainEn, ...readinessEn, ...planEn };
 
 export type TranslationKey = keyof typeof nl;
 export type TranslationParams = Record<string, string | number>;

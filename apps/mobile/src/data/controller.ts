@@ -128,6 +128,7 @@ import {
   type DonationDay,
   type DonationProgress,
 } from '@openhoop/core';
+import type { Profile as AnalyticsProfile } from '@openhoop/analytics';
 import { commandName, formatFirmware, type Wrist } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
 import Constants from 'expo-constants';
@@ -140,7 +141,7 @@ import { dayEntries } from './activities';
 import { BleManagerTransport } from '@/ble/bleManagerTransport';
 import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
-import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, unixToIsoDate } from '@/lib/dates';
+import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, todayIsoDate, unixToIsoDate } from '@/lib/dates';
 import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
 import { digestFacts, planAlerts, reconcile, syncFailedAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
@@ -200,7 +201,8 @@ import type { SourceFile } from './vendorExport/sources';
 import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { changesAppData } from './liveData';
-import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseUnits, serializeOptionalInteger } from './settingsCodec';
+import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, storeProfile } from './settingsCodec';
+import { analyticsProfileOf, emptyProfile, mergeProfile } from './profile';
 import { createDonationWorkspace, filePartSink, removeLeftoverDonations, saveDonationParts, sharePartFile, type SaveOutcome } from './donation/files';
 import type {
   ActivityDraft,
@@ -409,7 +411,7 @@ export class AppController {
       sleepEdits: [],
       device: emptyDevice(),
       live: IDLE_LIVE,
-      profile: { birthYear: null, maxHeartRate: null },
+      profile: emptyProfile(),
       settings: { language, dataSource: 'demo', ownerSince: null, units: 'metric' },
       userData: defaultUserData(),
       bodyMeasurements: [],
@@ -529,11 +531,21 @@ export class AppController {
     const language = parseLanguage(await store.getSetting(SETTING_KEYS.language)) ?? this.snapshot.settings.language;
     const dataSource = parseDataSource(await store.getSetting(SETTING_KEYS.dataSource));
     const units = parseUnits(await store.getSetting(SETTING_KEYS.units));
-    const profile = parseProfile(
+    const baseProfile = parseProfile(
       await store.getSetting(SETTING_KEYS.birthYear),
       await store.getSetting(SETTING_KEYS.maxHeartRate),
       new Date().getFullYear(),
     );
+    const profileDetails = parseProfileDetails(
+      {
+        birthDate: await store.getSetting(SETTING_KEYS.birthDate),
+        restingHeartRate: await store.getSetting(SETTING_KEYS.restingHeartRate),
+        zoneMode: await store.getSetting(SETTING_KEYS.zoneMode),
+        zoneFloors: await store.getSetting(SETTING_KEYS.zoneFloors),
+      },
+      todayIsoDate(),
+    );
+    const profile = mergeProfile(baseProfile, profileDetails);
     const rawUserData = await store.getSetting(USER_DATA_KEY);
     const userData = parseUserData(rawUserData);
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
@@ -675,9 +687,8 @@ export class AppController {
     for (const row of stale) await activities.setMetrics(row.id, await this.metricsFor(deviceId, row, days));
   }
 
-  private analyticsProfile(): { maxHr: number | null; birthYear: number | null; restingHr: number | null } {
-    const { birthYear, maxHeartRate } = this.snapshot.profile;
-    return { maxHr: maxHeartRate, birthYear, restingHr: null };
+  private analyticsProfile(): AnalyticsProfile {
+    return analyticsProfileOf(this.snapshot.profile);
   }
 
   private createDemoBand(newestSampleT: number | null): SimBand {
@@ -1283,14 +1294,10 @@ export class AppController {
 
   updateProfile = async (patch: Partial<Profile>): Promise<void> => {
     const { store } = this.requireApp();
-    const before = this.snapshot.profile;
-    const profile = { ...before, ...patch };
-    await store.setSetting(SETTING_KEYS.birthYear, serializeOptionalInteger(profile.birthYear));
-    await store.setSetting(SETTING_KEYS.maxHeartRate, serializeOptionalInteger(profile.maxHeartRate));
+    const { profile, recompute } = await storeProfile(store, this.snapshot.profile, patch);
     this.patch({ profile });
     const deviceId = this.deviceRow?.id;
-    const changed = profile.birthYear !== before.birthYear || profile.maxHeartRate !== before.maxHeartRate;
-    if (deviceId === undefined || !changed) return;
+    if (deviceId === undefined || !recompute) return;
     void this.exclusive(async () => {
       this.patch({ syncProgress: this.progressView('compute', 0, null, 0, 0) });
       try {

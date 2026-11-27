@@ -1,7 +1,10 @@
+import type { ZoneFloors } from './zones';
+
 export interface Profile {
   maxHr: number | null;
   birthYear: number | null;
   restingHr: number | null;
+  zoneFloors?: ZoneFloors | null;
 }
 
 export interface Calibration {

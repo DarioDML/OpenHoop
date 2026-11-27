@@ -3,7 +3,7 @@ import type { DayRecord, WorkoutRecord } from '@openhoop/core';
 import type { HcStepsDay } from '@/lib/healthConnectMapping';
 
 import type { Language, Profile } from './types';
-import { addDays, baselineAt, mean, weekdayIndex, weekStart, wearStreak, visibleReadiness, type Baseline } from './derived';
+import { addDays, baselineAt, mean, wearStreak, visibleReadiness, type Baseline } from './derived';
 
 export const LOAD_DAY_MIN = 7;
 export const MIN_REPORT_DAYS = 3;
@@ -20,38 +20,6 @@ export function sleepNightMet(day: DayRecord | null): boolean | null {
   const need = day.sleep.need.value;
   if (day.sleep.asleepS === null || need === null) return null;
   return day.sleep.asleepS >= need;
-}
-
-export interface WeekProgress {
-  start: string;
-  elapsed: number;
-  remaining: number;
-  daysWithData: number;
-  loadDays: number;
-  sleepNightsMet: number;
-  sleepNightsMeasured: number;
-}
-
-export function weekProgress(days: readonly DayRecord[], today: string): WeekProgress {
-  const start = weekStart(today);
-  const elapsed = weekdayIndex(today) + 1;
-  const byDay = new Map(days.map((d) => [d.day, d]));
-  let daysWithData = 0;
-  let loadDays = 0;
-  let met = 0;
-  let measured = 0;
-  for (let i = 0; i < elapsed; i++) {
-    const day = byDay.get(addDays(start, i)) ?? null;
-    if (day === null) continue;
-    daysWithData++;
-    if (isLoadDay(day)) loadDays++;
-    const ok = sleepNightMet(day);
-    if (ok !== null) {
-      measured++;
-      if (ok) met++;
-    }
-  }
-  return { start, elapsed, remaining: 7 - elapsed, daysWithData, loadDays, sleepNightsMet: met, sleepNightsMeasured: measured };
 }
 
 export interface PeriodStats {
@@ -115,10 +83,13 @@ export function loadTargetBand(days: readonly DayRecord[]): Baseline | null {
 
 export type TargetAdvice = 'lower' | 'middle' | 'upper' | 'unknown';
 
+export const READINESS_LOW = 34;
+export const READINESS_HIGH = 67;
+
 export function targetAdvice(readiness: number | null): TargetAdvice {
   if (readiness === null) return 'unknown';
-  if (readiness < 34) return 'lower';
-  if (readiness >= 67) return 'upper';
+  if (readiness < READINESS_LOW) return 'lower';
+  if (readiness >= READINESS_HIGH) return 'upper';
   return 'middle';
 }
 
@@ -182,13 +153,12 @@ export function formatMonthYear(day: string, language: Language): string {
   return date.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
-export function longestStreak(days: readonly DayRecord[]): number {
+export function longestRun(days: readonly DayRecord[], test: (day: DayRecord) => boolean): number {
   let best = 0;
   let run = 0;
   let previous: string | null = null;
   for (const d of days) {
-    const worn = d.heartRate.avg !== null || d.sleep.asleepS !== null;
-    if (!worn) {
+    if (!test(d)) {
       run = 0;
       previous = null;
       continue;
@@ -200,38 +170,98 @@ export function longestStreak(days: readonly DayRecord[]): number {
   return best;
 }
 
+/**
+ * Run of days meeting `test` that ends at the newest day. A newest day without a value yet (null) never breaks the run;
+ * with `openToday`, a newest day that has not met the test yet is skipped too, for values that keep growing during the day.
+ */
+export function currentRun(days: readonly DayRecord[], test: (day: DayRecord) => boolean | null, openToday = false): number {
+  let run = 0;
+  let next: string | null = null;
+  for (let i = days.length - 1; i >= 0; i--) {
+    const d = days[i];
+    if (d === undefined) break;
+    if (next !== null && addDays(d.day, 1) !== next) break;
+    const ok = test(d);
+    if (ok !== true) {
+      const newest = i === days.length - 1;
+      if (newest && (ok === null || openToday)) {
+        next = d.day;
+        continue;
+      }
+      break;
+    }
+    run++;
+    next = d.day;
+  }
+  return run;
+}
+
+export function longestStreak(days: readonly DayRecord[]): number {
+  return longestRun(days, (d) => d.heartRate.avg !== null || d.sleep.asleepS !== null);
+}
+
 export interface Lifetime {
   daysTracked: number;
   nights: number;
   workouts: number;
   steps: number;
   memberSince: string | null;
+  wornS: number | null;
 }
 
 export function lifetimeStats(days: readonly DayRecord[]): Lifetime {
+  const worn = days.map((d) => d.worn?.value ?? null).filter((v): v is number => v !== null);
   return {
     daysTracked: days.length,
     nights: days.filter((d) => d.sleep.asleepS !== null).length,
     workouts: days.reduce((sum, d) => sum + d.workouts.length, 0),
     steps: days.reduce((sum, d) => sum + (d.steps ?? 0), 0),
     memberSince: days[0]?.day ?? null,
+    wornS: worn.length === 0 ? null : worn.reduce((a, b) => a + b, 0),
   };
 }
 
-export type AchievementGroup = 'streak' | 'nights' | 'workouts';
+export const POINTS_PER_LEVEL = 3;
+
+export interface LevelInfo {
+  level: number;
+  points: number;
+  maxPoints: number;
+  toNext: number | null;
+  unlocked: number;
+  total: number;
+}
+
+export function levelOf(list: readonly Achievement[]): LevelInfo {
+  const points = list.reduce((sum, a) => sum + (a.unlocked ? a.tier : 0), 0);
+  const maxPoints = list.reduce((sum, a) => sum + a.tier, 0);
+  const level = 1 + Math.floor(points / POINTS_PER_LEVEL);
+  const nextAt = level * POINTS_PER_LEVEL;
+  return { level, points, maxPoints, toNext: nextAt > maxPoints ? null : nextAt - points, unlocked: list.filter((a) => a.unlocked).length, total: list.length };
+}
+
+export type AchievementGroup = 'streak' | 'nights' | 'workouts' | 'steps10k' | 'highLoad' | 'readyStreak';
 
 export interface Achievement {
   id: string;
   group: AchievementGroup;
+  tier: number;
   target: number;
   current: number;
   unlocked: boolean;
 }
 
+export const STEPS_BADGE_MIN = 10_000;
+export const HIGH_LOAD_MIN = 15;
+export const HIGH_READINESS_MIN = READINESS_HIGH;
+
 const TIERS: Record<AchievementGroup, readonly number[]> = {
   streak: [3, 7, 14, 30],
   nights: [7, 30, 90],
   workouts: [1, 10, 25],
+  steps10k: [1, 10, 50],
+  highLoad: [1, 10],
+  readyStreak: [3, 7],
 };
 
 export function achievements(days: readonly DayRecord[]): Achievement[] {
@@ -240,12 +270,18 @@ export function achievements(days: readonly DayRecord[]): Achievement[] {
     streak: Math.max(wearStreak(days), longestStreak(days)),
     nights: stats.nights,
     workouts: stats.workouts,
+    steps10k: days.filter((d) => d.steps !== null && d.steps >= STEPS_BADGE_MIN).length,
+    highLoad: days.filter((d) => d.load.value !== null && d.load.value >= HIGH_LOAD_MIN).length,
+    readyStreak: longestRun(days, (d) => {
+      const value = visibleReadiness(d).value;
+      return value !== null && value >= HIGH_READINESS_MIN;
+    }),
   };
   const out: Achievement[] = [];
   (Object.keys(TIERS) as AchievementGroup[]).forEach((group) => {
-    for (const target of TIERS[group]) {
-      out.push({ id: `${group}-${target}`, group, target, current: currents[group], unlocked: currents[group] >= target });
-    }
+    TIERS[group].forEach((target, index) => {
+      out.push({ id: `${group}-${target}`, group, tier: index + 1, target, current: currents[group], unlocked: currents[group] >= target });
+    });
   });
   return out;
 }

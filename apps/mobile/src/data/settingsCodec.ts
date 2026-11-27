@@ -1,3 +1,4 @@
+import { analyticsChanged, mergeProfile, parseBirthDate, parseZoneFloors, parseZoneMode, RESTING_HR_LIMITS, serializeZoneFloors } from './profile';
 import type { DataSource, Language, Profile, Units } from './types';
 
 export const SETTING_KEYS = {
@@ -6,6 +7,10 @@ export const SETTING_KEYS = {
   units: 'ui.units',
   birthYear: 'profile.birthYear',
   maxHeartRate: 'profile.maxHeartRate',
+  birthDate: 'profile.birthDate',
+  restingHeartRate: 'profile.restingHeartRate',
+  zoneMode: 'profile.zoneMode',
+  zoneFloors: 'profile.zoneFloors',
   bandBleId: 'band.bleId',
   demoSeeded: 'demo.seeded',
 } as const;
@@ -37,4 +42,35 @@ export function parseProfile(birthYear: string | null, maxHeartRate: string | nu
     birthYear: parseOptionalInteger(birthYear, 1900, currentYear),
     maxHeartRate: parseOptionalInteger(maxHeartRate, 120, 230),
   };
+}
+
+export interface ProfileDetailsRaw {
+  birthDate: string | null;
+  restingHeartRate: string | null;
+  zoneMode: string | null;
+  zoneFloors: string | null;
+}
+
+export function parseProfileDetails(raw: ProfileDetailsRaw, today: string): Required<Pick<Profile, 'birthDate' | 'restingHeartRate' | 'zoneMode' | 'zoneFloors'>> {
+  return {
+    birthDate: parseBirthDate(raw.birthDate, today),
+    restingHeartRate: parseOptionalInteger(raw.restingHeartRate, RESTING_HR_LIMITS.min, RESTING_HR_LIMITS.max),
+    zoneMode: parseZoneMode(raw.zoneMode),
+    zoneFloors: parseZoneFloors(raw.zoneFloors),
+  };
+}
+
+export interface SettingsWriter {
+  setSetting(key: string, value: string): Promise<void>;
+}
+
+export async function storeProfile(store: SettingsWriter, before: Profile, patch: Partial<Profile>): Promise<{ profile: Required<Profile>; recompute: boolean }> {
+  const profile = mergeProfile(before, patch);
+  await store.setSetting(SETTING_KEYS.birthYear, serializeOptionalInteger(profile.birthYear));
+  await store.setSetting(SETTING_KEYS.maxHeartRate, serializeOptionalInteger(profile.maxHeartRate));
+  await store.setSetting(SETTING_KEYS.birthDate, profile.birthDate ?? '');
+  await store.setSetting(SETTING_KEYS.restingHeartRate, serializeOptionalInteger(profile.restingHeartRate));
+  await store.setSetting(SETTING_KEYS.zoneMode, profile.zoneMode);
+  await store.setSetting(SETTING_KEYS.zoneFloors, serializeZoneFloors(profile.zoneFloors));
+  return { profile, recompute: analyticsChanged(before, profile) };
 }

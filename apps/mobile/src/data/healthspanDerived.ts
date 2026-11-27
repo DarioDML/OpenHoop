@@ -15,6 +15,7 @@ import type { ActivityDayInput, ActivityPillar, BaselineComparison, NormComparis
 import type { DayRecord } from '@openhoop/core';
 
 import { addDays } from './derived';
+import { ageOn } from './profile';
 import type { Profile } from './types';
 import type { UserData } from './userData';
 
@@ -38,10 +39,8 @@ export interface Vo2View {
 }
 
 export function ageOnDay(profile: Profile, day: string): number | null {
-  const year = Number.parseInt(day.slice(0, 4), 10);
-  if (!Number.isFinite(year) || profile.birthYear === null) return null;
-  const age = year - profile.birthYear;
-  return isAdultAge(age) ? age : null;
+  const age = ageOn(profile, day);
+  return age !== null && isAdultAge(age) ? age : null;
 }
 
 type DayIndex = ReadonlyMap<string, DayRecord>;

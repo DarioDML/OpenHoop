@@ -16,12 +16,12 @@ import {
   resolveWorkout,
   stepsStats,
   trendOf,
-  weekProgress,
 } from '@/data/activityDerived';
 import { mergeSteps, stepsForDay } from '@/data/activityDerived';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
+import { defaultPlan } from '@/data/weeklyPlan';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -109,14 +109,6 @@ describe('activityDerived', () => {
     expect(trendOf(8, 10)).toBe('down');
   });
 
-  it('counts week progress only over elapsed days', () => {
-    const last = days[days.length - 1];
-    const progress = weekProgress(days, last?.day ?? '');
-    expect(progress.elapsed + progress.remaining).toBe(7);
-    expect(progress.daysWithData).toBeLessThanOrEqual(progress.elapsed);
-    expect(progress.sleepNightsMet).toBeLessThanOrEqual(progress.sleepNightsMeasured);
-  });
-
   it('derives steps statistics and achievements from real days', () => {
     const stats = stepsStats(days.slice(-7), 8000);
     expect(stats.daysWithData).toBe(7);
@@ -202,6 +194,19 @@ describe('activity screens', () => {
     expect(await screen.findByTestId('live-short')).toBeTruthy();
   });
 
+  it('names custom zones on the live screen instead of the reserve', async () => {
+    mockParams = { type: 'running' };
+    await render(
+      withAppData(<LiveActivityScreen />, 'en', {
+        live: { active: true, heartRate: 150, lastRrMs: 400, updatedAt: 1 },
+        profile: { birthYear: null, maxHeartRate: 200, zoneMode: 'custom', zoneFloors: [100, 120, 140, 160, 180] },
+      }),
+    );
+    expect(screen.getByText('Your custom zones start at 100 · 120 · 140 · 160 · 180 bpm')).toBeTruthy();
+    expect(screen.getByText('Zone 3')).toBeTruthy();
+    expect(screen.queryByText(/heart rate reserve/)).toBeNull();
+  });
+
   it('shows the real workout on the details screen', async () => {
     const withWorkout = days.find((d) => d.workouts.length > 0);
     const workout = withWorkout?.workouts[0];
@@ -277,9 +282,9 @@ describe('plan', () => {
   });
 
   it('shows progress against the plan', async () => {
-    await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { loadDays: 3, sleepNights: 5 } } }));
-    expect(screen.getByTestId('plan-goal-load')).toBeTruthy();
-    expect(screen.getByTestId('plan-goal-sleep')).toBeTruthy();
+    await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { ...defaultPlan(null), goals: ['loadDays', 'sleepScore'] } } }));
+    expect(screen.getByTestId('plan-goal-loadDays')).toBeTruthy();
+    expect(screen.getByTestId('plan-goal-sleepScore')).toBeTruthy();
   });
 
   it('saves the plan through updateUserData', async () => {
@@ -287,7 +292,7 @@ describe('plan', () => {
     await render(withAppData(<PlanSetupScreen />, 'en', { updateUserData }));
     await fireEvent.press(screen.getByTestId('plan-load-days-plus'));
     await fireEvent.press(screen.getByTestId('plan-save'));
-    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ weeklyPlan: { loadDays: 4, sleepNights: 5 } }));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ weeklyPlan: { ...defaultPlan(null), loadDays: 4 } }));
   });
 
   it('builds the weekly and monthly reports from real days', async () => {
@@ -340,7 +345,7 @@ describe('profile', () => {
     await fireEvent.changeText(screen.getByTestId('profile-birth-input'), '1990');
     await fireEvent.changeText(screen.getByTestId('profile-maxhr-input'), '190');
     await fireEvent.press(screen.getByTestId('profile-save'));
-    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ birthYear: 1990, maxHeartRate: 190 }));
-    expect(updateUserData).toHaveBeenCalledWith({ name: null, heightCm: 180, weightKg: 72.5, sex: null, stepsGoal: null });
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ birthYear: 1990, birthDate: null, maxHeartRate: 190, restingHeartRate: null, zoneMode: 'auto', zoneFloors: null }));
+    expect(updateUserData).toHaveBeenCalledWith({ name: null, heightCm: 180, weightKg: 72.5, sex: null, stepsGoal: null, goals: [] });
   });
 });

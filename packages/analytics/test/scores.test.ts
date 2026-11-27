@@ -6,11 +6,14 @@ import {
   debtMs,
   detectWorkouts,
   effectiveMaxHr,
+  hrrZoneFloors,
+  isZoneFloors,
   readiness,
   sleepConsistency,
   sleepNeedMs,
   sleepScore,
   strainNeedMs,
+  zoneIndex,
   zoneSeconds,
 } from '../src';
 import type { Sample } from '../src';
@@ -215,6 +218,28 @@ describe('zones and workouts', () => {
     expect(zoneSeconds([80, 100, 115, 125, 135, 145, 90], 50, 150)).toEqual([1, 2, 1, 1, 1, 1]);
   });
 
+  it('gives the same zones from heart-rate reserve floors', () => {
+    const floors = hrrZoneFloors(50, 150);
+    expect(floors).toEqual([90, 110, 120, 130, 140]);
+    expect(zoneSeconds([80, 100, 115, 125, 135, 145, 90], 50, 150, floors)).toEqual([1, 2, 1, 1, 1, 1]);
+  });
+
+  it('uses custom bpm floors instead of the reserve when given', () => {
+    const floors = [100, 120, 140, 160, 180] as const;
+    expect(zoneIndex(99, 50, 150, floors)).toBe(0);
+    expect(zoneIndex(100, 50, 150, floors)).toBe(1);
+    expect(zoneIndex(185, 50, 150, floors)).toBe(5);
+    expect(zoneSeconds([90, 130, 150, 170, 190], 200, 100, floors)).toEqual([1, 0, 1, 1, 1, 1]);
+  });
+
+  it('accepts only five rising floors in a heart-rate range', () => {
+    expect(isZoneFloors([100, 120, 140, 160, 180])).toBe(true);
+    expect(isZoneFloors([100, 120, 120, 160, 180])).toBe(false);
+    expect(isZoneFloors([100, 120, 140, 160])).toBe(false);
+    expect(isZoneFloors([10, 120, 140, 160, 180])).toBe(false);
+    expect(isZoneFloors(null)).toBe(false);
+  });
+
   function day(segments: [number, number][]): Sample[] {
     const out: Sample[] = [];
     let t = T0;
@@ -227,6 +252,16 @@ describe('zones and workouts', () => {
     expect(w).toHaveLength(1);
     expect(w[0]).toMatchObject({ start: T0 + 600, end: T0 + 600 + 990 - 1, maxHr: 160 });
     expect(w[0]?.zoneSeconds.reduce((a, b) => a + b, 0)).toBe(990);
+  });
+
+  it('tallies workout zones with custom floors while detection keeps the reserve rule', () => {
+    const samples = day([[60, 600], [160, 700], [60, 600]]);
+    const reserve = detectWorkouts(samples, 60, 190);
+    const custom = detectWorkouts(samples, 60, 190, [80, 100, 120, 140, 155]);
+    expect(custom).toHaveLength(1);
+    expect(custom[0]).toMatchObject({ start: reserve[0]?.start, end: reserve[0]?.end });
+    expect(custom[0]?.zoneSeconds).toEqual([0, 0, 0, 0, 0, 700]);
+    expect(reserve[0]?.zoneSeconds[5]).toBe(0);
   });
 
   it('splits at a 200 s dip and drops runs under 600 s', () => {

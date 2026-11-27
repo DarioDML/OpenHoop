@@ -5,8 +5,8 @@ import type { ActiveMinutes } from './energy';
 import { loadFromSum, loadSum, sumFromLoad } from './load';
 import { ALGO, fail, succeed } from './types';
 import type { Outcome } from './types';
-import { zoneSeconds } from './zones';
-import type { ZoneSeconds } from './zones';
+import { isZoneFloors, zoneSeconds } from './zones';
+import type { ZoneFloors, ZoneSeconds } from './zones';
 
 export interface Interval {
   start: number;
@@ -30,6 +30,7 @@ const RESTING_DAYS = 14;
 export interface LoadReference {
   rest: number;
   max: number;
+  zoneFloors?: ZoneFloors | null;
 }
 
 export interface RestingDay {
@@ -52,7 +53,9 @@ export function loadReference(days: readonly RestingDay[], profile: Profile, at:
     const recent = values.slice(-RESTING_DAYS);
     if (recent.length > 0) rest = recent.reduce((a, b) => a + b, 0) / recent.length;
   }
-  return { rest, max: effectiveMaxHr(profile, year) };
+  const max = effectiveMaxHr(profile, year);
+  const floors = profile.zoneFloors ?? null;
+  return isZoneFloors(floors) ? { rest, max, zoneFloors: floors } : { rest, max };
 }
 
 export function normalizeIntervals(list: readonly Interval[]): Interval[] {
@@ -166,6 +169,7 @@ export function activityMetrics(
   rest: number,
   max: number,
   c: Calibration = DEFAULT_CALIBRATION,
+  floors: ZoneFloors | null = null,
 ): ActivityMetrics {
   const segments = activeSegments(window, paused);
   const activeS = segments.reduce((sum, s) => sum + (s.end - s.start), 0);
@@ -185,8 +189,9 @@ export function activityMetrics(
     total += p.hr;
     peak = peak === null ? p.hr : Math.max(peak, p.hr);
   }
-  const zonesValid = Number.isFinite(rest) && Number.isFinite(max) && max > rest;
-  const zones: ZoneSeconds = zonesValid ? zoneSeconds(hrs, rest, max) : [0, 0, 0, 0, 0, 0];
+  const custom = isZoneFloors(floors) ? floors : null;
+  const zonesValid = custom !== null || (Number.isFinite(rest) && Number.isFinite(max) && max > rest);
+  const zones: ZoneSeconds = zonesValid ? zoneSeconds(hrs, rest, max, custom) : [0, 0, 0, 0, 0, 0];
   const minuteHr = segmentMinutes(points, segments);
   return {
     activeS,

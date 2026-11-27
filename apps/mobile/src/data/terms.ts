@@ -27,6 +27,7 @@ export const TERM_IDS = [
   'calories',
   'steps',
   'wearTime',
+  'level',
 ] as const;
 export type TermId = (typeof TERM_IDS)[number];
 export type TermCategory = 'recovery' | 'sleep' | 'effort';
@@ -93,6 +94,7 @@ export const TERMS: Readonly<Record<TermId, TermSpec>> = {
   calories: { id: 'calories', category: 'effort', window: 'day', name: 'daily.tile.calories', short: null, body: 'term.calories.body', method: 'explain.method.own', level: PARITY.calories, lists: null },
   steps: { id: 'steps', category: 'effort', window: 'day', name: 'metric.steps', short: null, body: 'term.steps.body', method: 'explain.method.band', level: PARITY.steps, lists: null },
   wearTime: { id: 'wearTime', category: 'effort', window: 'day', name: 'metric.wearTime', short: null, body: 'term.wearTime.body', method: 'explain.method.band', level: PARITY.wearTime, lists: null },
+  level: { id: 'level', category: 'effort', window: 'day', name: 'profile.level.title', short: null, body: 'term.level.body', method: 'explain.method.own', level: null, lists: null },
 };
 
 export function isTermId(value: string | null | undefined): value is TermId {

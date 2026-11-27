@@ -12,6 +12,7 @@ import {
   detectWorkouts,
   effectiveMaxHr,
   groupNights,
+  isZoneFloors,
   loadFromSum,
   loadSum,
   minuteMeans,
@@ -521,8 +522,9 @@ async function computeDay(
       : null;
 
   const hrSeries = samples.map((s) => s.hr);
-  const zones: number[] = maxHr > rest ? [...zoneSeconds(hrSeries, rest, maxHr)] : [0, 0, 0, 0, 0, 0];
-  const auto: WorkoutRecord[] = detectWorkouts(samples, rest, maxHr).map((w) => ({
+  const floors = isZoneFloors(ctx.profile.zoneFloors) ? ctx.profile.zoneFloors : null;
+  const zones: number[] = floors !== null || maxHr > rest ? [...zoneSeconds(hrSeries, rest, maxHr, floors)] : [0, 0, 0, 0, 0, 0];
+  const auto: WorkoutRecord[] = detectWorkouts(samples, rest, maxHr, floors).map((w) => ({
     start: w.start,
     end: w.end,
     zoneSeconds: [...w.zoneSeconds],
