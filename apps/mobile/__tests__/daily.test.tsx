@@ -165,7 +165,7 @@ describe('Home', () => {
 
   it('shows why calories are missing and the stress tile has a value instead of a not-built notice', async () => {
     await render(withAppData(<HomeScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, dashboardTiles: ['hrv', 'calories'] } }));
-    expect(screen.getByTestId('tile-calories-reason')).toHaveTextContent('Body profile incomplete');
+    expect(screen.getByTestId('tile-calories-reason')).toHaveTextContent('Body profile incomplete ›');
     expect(screen.queryByText('Issue #13')).toBeNull();
     expect(screen.queryByText('Issue #15')).toBeNull();
     expect(screen.getByTestId('stress-tile-level')).toBeTruthy();

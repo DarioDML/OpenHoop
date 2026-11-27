@@ -178,5 +178,12 @@
   "readiness.nightsLeftA11y": "Readiness: {count} nights left before the first score",
   "readiness.nightsLeftA11yOne": "Readiness: 1 night left before the first score",
   "load.soFar": "So far",
-  "loadx.soFarCaption": "So far today · synced {time}"
+  "loadx.soFarCaption": "So far today · synced {time}",
+  "firstWeek.title": "Your first week",
+  "firstWeek.body": "These compare you with your own nights, so they wait until OpenHoop has seen a few.",
+  "home.vitalsMeasured": "{count}/{total} measured",
+  "home.vitalsRangesFrom": "Ranges from night {night}",
+  "stress.notYet": "Not yet",
+  "stress.needsCalm": "Needs calm, awake time",
+  "load.soFarA11y": "Load so far today: {value} of {max}"
 }

@@ -178,5 +178,12 @@
   "readiness.nightsLeftA11y": "Paraatheid: nog {count} nachten tot de eerste score",
   "readiness.nightsLeftA11yOne": "Paraatheid: nog 1 nacht tot de eerste score",
   "load.soFar": "Tot nu toe",
-  "loadx.soFarCaption": "Tot nu toe vandaag · gesynchroniseerd om {time}"
+  "loadx.soFarCaption": "Tot nu toe vandaag · gesynchroniseerd om {time}",
+  "firstWeek.title": "Je eerste week",
+  "firstWeek.body": "Deze vergelijken je met je eigen nachten, dus ze wachten tot OpenHoop er een paar heeft gezien.",
+  "home.vitalsMeasured": "{count}/{total} gemeten",
+  "home.vitalsRangesFrom": "Bereik vanaf nacht {night}",
+  "stress.notYet": "Nog niet",
+  "stress.needsCalm": "Heeft rustige, wakkere tijd nodig",
+  "load.soFarA11y": "Belasting tot nu toe vandaag: {value} van {max}"
 }

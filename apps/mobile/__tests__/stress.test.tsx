@@ -110,7 +110,7 @@ describe('Home stress tile', () => {
 
   it('says calibrating on the first days', async () => {
     await render(withAppData(<HomeScreen />, 'en', { days: days.slice(0, 2) }));
-    expect(screen.getByTestId('stress-tile-reason')).toHaveTextContent('Calibrating');
+    expect(screen.getByTestId('stress-tile-reason')).toHaveTextContent('Not yet');
   });
 
   it('shows the reason when stress is missing, in Dutch too', async () => {

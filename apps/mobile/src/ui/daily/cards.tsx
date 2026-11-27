@@ -6,7 +6,9 @@ import { dayEntries } from '@/data/activities';
 import { stepsForDay } from '@/data/activityDerived';
 import { activeCheckIns } from '@/coach/checkIns';
 import { useAppData } from '@/data/context';
-import { baselineAt } from '@/data/derived';
+import { MIN_BASELINE_NIGHTS, baselineAt } from '@/data/derived';
+import { buildingProgress } from '@/data/progress';
+import type { TermId } from '@/data/terms';
 import { caloriesForDay } from '@/data/energyDerived';
 import { stressForDay } from '@/data/stressDerived';
 import { formatHm, formatMinutes, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
@@ -19,6 +21,8 @@ import { formatClock, formatDuration, formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
+import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
+import { MetricName } from '@/ui/explain/MetricName';
 import { Icon, type IconName } from '@/ui/Icon';
 import { useLayout } from '@/ui/layout';
 import { MetricTile } from '@/ui/MetricTile';
@@ -44,6 +48,7 @@ function halfCard(compact: boolean): ViewStyle {
 
 export function VitalsCard({ days, index }: DayProps) {
   const { t, reason } = useT();
+  const { colors } = useTheme();
   const { compact } = useLayout();
   const summary = vitalsSummary(days, index);
   const allIn = summary.inRange === summary.measured;
@@ -59,9 +64,23 @@ export function VitalsCard({ days, index }: DayProps) {
           </AppText>
           <Chip label={allIn ? t('home.vitalsAllIn') : t('home.vitalsOutside', { count: summary.outside.length })} tone={allIn ? 'positive' : 'warning'} />
         </>
+      ) : summary.calibrating ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <View style={{ width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="check" size={18} color={colors.textMuted} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText variant="cap" testID="vitals-count">
+              {t('home.vitalsMeasured', { count: summary.withValue, total: summary.total })}
+            </AppText>
+            <AppText variant="label" muted>
+              {t('home.vitalsRangesFrom', { night: MIN_BASELINE_NIGHTS + 1 })}
+            </AppText>
+          </View>
+        </View>
       ) : (
         <AppText variant="bodyStrong" muted>
-          {summary.calibrating ? t('range.calibrating') : reason('no-data')}
+          {reason('no-data')}
         </AppText>
       )}
     </Card>
@@ -75,12 +94,17 @@ export function StressCard({ days, index }: DayProps) {
   const day = days[index];
   const view = stressForDay(day);
   const latest = view.latest;
+  const { why } = useExplain();
+  const building = latest === null && index === days.length - 1 && buildingProgress('stress', days, index) !== null;
+  const target: ExplainTarget = {
+    term: 'stress',
+    index,
+    shown: { value: latest ? formatNumber(latest.score, 1, language) : null, unit: null, reason: view.reason },
+  };
   return (
     <Card href="/health/stress" testID="card-stress" accessibilityLabel={t('home.stress')} style={[halfCard(compact), { gap: 8 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-        <AppText variant="capSmall" muted numberOfLines={1} style={{ flexShrink: 1 }}>
-          {t('home.stress')} ›
-        </AppText>
+        <MetricName target={target} label={t('home.stress')} testID="stress-tile-name" />
         <ParityBadge level={PARITY.stress} />
       </View>
       {latest && day ? (
@@ -92,6 +116,15 @@ export function StressCard({ days, index }: DayProps) {
             {t('stress.at', { time: formatClock(latest.t, day.tzOffsetS) })} · {t('stress.estimate')}
           </AppText>
         </>
+      ) : building ? (
+        <Pressable accessibilityRole="button" testID="stress-tile-why" onPress={() => why(target)} style={{ minHeight: 44, gap: 2, justifyContent: 'center' }}>
+          <AppText variant="bodyStrong" muted testID="stress-tile-reason">
+            {t('stress.notYet')}
+          </AppText>
+          <AppText variant="caption" muted>
+            {t('stress.needsCalm')}
+          </AppText>
+        </Pressable>
       ) : (
         <AppText variant="bodyStrong" muted testID="stress-tile-reason">
           {view.calibrating ? t('stress.calibratingTitle') : view.reason === 'low-coverage' ? t('stress.noWindows') : reason(view.reason ?? 'no-data')}
@@ -278,7 +311,7 @@ export function WeekCard({ days, index }: DayProps) {
   const plan = userData.weeklyPlan;
   const row = (label: string, dots: ReadonlyArray<boolean | null>, count: number, target: number | null, color: string, testID: string) => (
     <View key={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 36 }}>
-      <AppText variant="label" muted style={{ width: 96 }}>
+      <AppText variant="label" muted numberOfLines={2} style={{ width: 96 }}>
         {label}
       </AppText>
       <View style={{ flex: 1 }}>
@@ -373,6 +406,7 @@ export function DashboardGrid({ days, index }: DayProps) {
   const day = days[index];
   if (!day) return null;
   const tileStyle = { flexBasis: '47%', flexGrow: 1 } as const;
+  const explainOf = (term: TermId): { term: TermId; index: number } => ({ term, index });
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }} testID="dashboard-grid">
       {userData.dashboardTiles.map((tile) => {
@@ -389,6 +423,7 @@ export function DashboardGrid({ days, index }: DayProps) {
               reason={calories.reason}
               unit={t('calories.unit')}
               level={PARITY.calories}
+              explain={explainOf('calories')}
               href="/load"
               caption={t('calories.estimate')}
             />
@@ -406,6 +441,7 @@ export function DashboardGrid({ days, index }: DayProps) {
               value={steps.steps}
               reason={steps.steps === null ? 'no-data' : null}
               level={fromHc ? 'D' : PARITY.steps}
+              explain={explainOf('steps')}
               href="/steps"
               caption={
                 fromHc
@@ -427,6 +463,7 @@ export function DashboardGrid({ days, index }: DayProps) {
               value={day.worn?.value ?? null}
               reason={day.worn === undefined ? 'no-data' : day.worn.reason}
               level={PARITY.wearTime}
+              explain={explainOf('wearTime')}
               format={(v) => formatDuration(t, v)}
             />
           );
@@ -441,6 +478,7 @@ export function DashboardGrid({ days, index }: DayProps) {
               value={day.sleep.debt.value}
               reason={day.sleep.debt.reason}
               level={PARITY.sleepNeed}
+              explain={explainOf('sleepDebt')}
               format={(v) => formatDuration(t, v)}
               href="/sleep/need"
             />
@@ -461,6 +499,7 @@ export function DashboardGrid({ days, index }: DayProps) {
             unit={t(spec.unit)}
             decimals={spec.decimals}
             level={spec.level}
+            explain={explainOf(spec.term)}
             href={`/recovery/metric/${slug}`}
             chip={rangeChip(derived.value, baselineAt(days, index, spec.key), spec.decimals)}
           />

@@ -32,6 +32,8 @@ export interface VitalsSummary {
   inRange: number;
   outside: MetricKey[];
   calibrating: boolean;
+  withValue: number;
+  total: number;
 }
 
 export function vitalsSummary(days: readonly DayRecord[], index: number): VitalsSummary {
@@ -51,7 +53,7 @@ export function vitalsSummary(days: readonly DayRecord[], index: number): Vitals
     if (status === 'within') inRange++;
     else outside.push(key);
   }
-  return { measured, inRange, outside, calibrating: withValue > 0 && measured === 0 };
+  return { measured, inRange, outside, calibrating: withValue > 0 && measured === 0, withValue, total: VITAL_KEYS.length };
 }
 
 export function mainNightSpan(day: DayRecord): { onset: number; offset: number } | null {
