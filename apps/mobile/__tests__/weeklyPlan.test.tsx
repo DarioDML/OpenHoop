@@ -35,6 +35,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import PlanScreen from '@/app/plan/index';
 import PlanSetupScreen from '@/app/plan/setup';
+import { WeekCard } from '@/ui/daily/cards';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const today = days[days.length - 1]?.day ?? '2026-11-25';
@@ -233,5 +234,16 @@ describe('plan screen', () => {
     await render(withAppData(<PlanScreen />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { ...plan, goals: [] } } }));
     expect(screen.getByTestId('plan-no-goals')).toBeTruthy();
     expect(screen.queryByTestId('plan-summary')).toBeNull();
+  });
+});
+
+describe('home week card with a plan', () => {
+  it('shows the load target only for an active load goal and never mixes sleep criteria', async () => {
+    const index = days.length - 1;
+    await render(withAppData(<WeekCard days={days} index={index} />, 'en', { userData: { ...defaultUserData(), weeklyPlan: defaultPlan(null) } }));
+    expect(screen.getByTestId('week-load')).toHaveTextContent(/^\d+\/3$/);
+    expect(screen.getByTestId('week-sleep')).toHaveTextContent(/^\d+$/);
+    await render(withAppData(<WeekCard days={days} index={index} />, 'en', { userData: { ...defaultUserData(), weeklyPlan: { ...defaultPlan(null), goals: ['steps'] } } }));
+    expect(screen.getByTestId('week-load')).toHaveTextContent(/^\d+$/);
   });
 });

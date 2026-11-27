@@ -325,8 +325,8 @@ export function WeekCard({ days, index }: DayProps) {
   return (
     <Card href="/plan" testID="card-week" accessibilityLabel={t('home.thisWeek')}>
       <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
-      {row(t('home.weekActive'), progress.loadDots, progress.loadCount, plan?.loadDays ?? null, colors.metric.loadBright, 'week-load')}
-      {row(t('home.weekSleep'), progress.sleepDots, progress.sleepCount, plan?.sleepNights ?? null, colors.metric.sleep, 'week-sleep')}
+      {row(t('home.weekActive'), progress.loadDots, progress.loadCount, plan?.goals.includes('loadDays') ? plan.loadDays : null, colors.metric.loadBright, 'week-load')}
+      {row(t('home.weekSleep'), progress.sleepDots, progress.sleepCount, null, colors.metric.sleep, 'week-sleep')}
       {row(t('strength.week.label'), strengthWeekStats.dots, strengthWeekStats.count, null, colors.accent, 'week-strength')}
     </Card>
   );
