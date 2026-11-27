@@ -83,7 +83,7 @@ export function hudFor(state: LiveSession, nowS: number, heartRate: number | nul
   const zone = heartRate !== null && heartRate > 0 && (floors !== null || ref.max > ref.rest) ? zoneIndex(heartRate, ref.rest, ref.max, floors) : null;
   if (span === null) return { activeS: 0, load: null, loadReason: null, avgHr: null, maxHr: null, zone, projectedDayLoad: today?.load.value ?? null };
   const m = activityMetrics(state.points, span.window, span.paused, ref.rest, ref.max, undefined, floors);
-  const dayLoad = today?.load.value ?? null;
+  const dayLoad = today === null ? null : (today.load.value ?? today.loadSoFar ?? null);
   const projected =
     today === null || dayLoad === null
       ? null

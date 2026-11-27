@@ -17,7 +17,7 @@ export function nowSeconds(): number {
 }
 
 export function useLiveRecording(type: ActivityType) {
-  const { profile, days, startLive, stopLive, saveActivity } = useAppData();
+  const { profile, days, startLive, stopLive, saveActivity, reportLiveLoad } = useAppData();
   const live = useLive();
   const [session, dispatch] = useReducer(liveReducer, IDLE_SESSION);
   const [now, setNow] = useState(nowSeconds);
@@ -82,6 +82,11 @@ export function useLiveRecording(type: ActivityType) {
   const today = latest !== null && latest.day === unixToIsoDate(now, tz) ? latest : null;
   const heartRate = live.active ? live.heartRate : null;
   const hud = hudFor(session, now, heartRate, ref, today);
+  const projectedTenths = hud.projectedDayLoad === null ? null : Math.round(hud.projectedDayLoad * 10);
+
+  useEffect(() => {
+    if (session.phase === 'running') reportLiveLoad(projectedTenths === null ? null : projectedTenths / 10);
+  }, [session.phase, projectedTenths, reportLiveLoad]);
 
   return { session, now, save, running, send, begin, finish, ref, today, heartRate, hud };
 }

@@ -204,6 +204,9 @@ import type { FileReport } from './vendorExport/parse';
 import type { SourceFile } from './vendorExport/sources';
 import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
+import { loadBuzzDecision, type LoadBuzzDecision } from './loadBuzz';
+import { aimAt } from './loadDerived';
+import { shownLoad } from './derived';
 import { changesAppData } from './liveData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, storeProfile } from './settingsCodec';
 import { analyticsProfileOf, emptyProfile, mergeProfile } from './profile';
@@ -304,7 +307,8 @@ export interface SyncTimings {
 
 const SYNC_FAILURES_NOT_ALERTED = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
 
-const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
+const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null, dayLoad: null };
+const LOAD_BUZZ_RETRY_MS = 60_000;
 const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
 const ECG_PROGRESS_MS = 200;
 const RING_WAIT_MS = 40_000;
@@ -388,6 +392,8 @@ export class AppController {
   private syncRun: Promise<void> | null = null;
   private liveAbort: AbortController | null = null;
   private liveRun: Promise<void> | null = null;
+  private loadBuzzRun: Promise<void> | null = null;
+  private loadBuzzRetryAt = 0;
   private lastProgressAt = 0;
   private pendingTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingCreated = false;
@@ -875,6 +881,8 @@ export class AppController {
       await this.recompute(deviceId, previousNewest === null ? null : previousNewest - INCREMENTAL_RECOMPUTE_BACK_S);
       await this.loadBandReports(deviceId);
       await this.syncAlarm(conn);
+      const days = this.snapshot.days;
+      await this.buzzForLoad(shownLoad(days, days.length - 1).value, conn);
       const computeMs = Date.now() - computeStarted;
       const after = await store.getSyncState(deviceId);
       this.lastSyncAt = after?.lastSyncAt ?? this.lastSyncAt;
@@ -981,13 +989,13 @@ export class AppController {
     try {
       const conn = await this.exclusive(() => this.ensureConnection());
       const { store } = this.requireApp();
-      this.patch({ live: { active: true, heartRate: null, lastRrMs: null, updatedAt: null } });
+      this.patch({ live: { active: true, heartRate: null, lastRrMs: null, updatedAt: null, dayLoad: null } });
       this.liveRun = recordHeartRate(conn.transport, store, {
         deviceId: conn.deviceId,
         signal: abort.signal,
         onBeat: (heartRate, rrMs) =>
           this.patch({
-            live: { active: true, heartRate, lastRrMs: rrMs[rrMs.length - 1] ?? null, updatedAt: Date.now() },
+            live: { active: true, heartRate, lastRrMs: rrMs[rrMs.length - 1] ?? null, updatedAt: Date.now(), dayLoad: this.snapshot.live.dayLoad ?? null },
           }),
       }).then(
         () => undefined,
@@ -1005,6 +1013,45 @@ export class AppController {
       this.fail(error);
     }
   };
+
+  reportLiveLoad = (dayLoad: number | null): void => {
+    if (this.liveAbort === null) return;
+    const value = dayLoad !== null && Number.isFinite(dayLoad) ? dayLoad : null;
+    if ((this.snapshot.live.dayLoad ?? null) !== value) this.patch({ live: { ...this.snapshot.live, dayLoad: value } });
+    if (value !== null) void this.buzzForLoad(value, null);
+  };
+
+  private loadBuzzFor(load: number | null): LoadBuzzDecision | null {
+    const days = this.snapshot.days;
+    const index = days.length - 1;
+    const day = days[index];
+    if (day === undefined) return null;
+    const nowS = nowSeconds();
+    return loadBuzzDecision({ prefs: this.snapshot.userData.loadBuzz, load, aim: aimAt(days, index), day: day.day, nowS, tzOffsetS: deviceTzOffsetS(new Date(nowS * 1000)) });
+  }
+
+  private async buzzForLoad(load: number | null, conn: Connection | null): Promise<void> {
+    if (this.loadBuzzRun !== null || Date.now() < this.loadBuzzRetryAt) return;
+    if (conn !== null && !conn.session.isConnected) return;
+    const decision = this.loadBuzzFor(load);
+    if (decision === null) return;
+    const run = (async (): Promise<void> => {
+      try {
+        if (conn !== null) await buzz(conn.session, decision.loops);
+        else await this.exclusive(async () => buzz((await this.ensureConnection()).session, decision.loops));
+        await this.updateUserData({ loadBuzz: { ...this.snapshot.userData.loadBuzz, lastTarget: decision.next.lastTarget, lastTop: decision.next.lastTop } });
+      } catch (error) {
+        this.loadBuzzRetryAt = Date.now() + LOAD_BUZZ_RETRY_MS;
+        if (__DEV__) console.warn(`openhoop load buzz failed: ${String(error)}`);
+      }
+    })();
+    this.loadBuzzRun = run;
+    try {
+      await run;
+    } finally {
+      this.loadBuzzRun = null;
+    }
+  }
 
   readBandConfig = async (): Promise<void> => {
     if (this.syncRun !== null || this.liveAbort !== null) {
@@ -2212,6 +2259,7 @@ export class AppController {
       pair: this.pair,
       sync: this.sync,
       startLive: this.startLive,
+      reportLiveLoad: this.reportLiveLoad,
       readBandConfig: this.readBandConfig,
       bandActions: this.bandActionSet,
       alarmActions: this.alarmActionSet,

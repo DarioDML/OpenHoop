@@ -431,6 +431,22 @@ describe('live activity screen', () => {
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/details', params: { id: '55' } });
   });
 
+  it('reports the projected day load while a session runs so the band can buzz at the target', async () => {
+    let nowMs = FIXTURE_NOW.getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    mockParams = { type: 'running' };
+    const reportLiveLoad = jest.fn();
+    const base = { profile: { birthYear: null, maxHeartRate: 200 }, reportLiveLoad };
+    const view = await render(withAppData(<LiveActivityScreen />, 'en', { ...base, live: { active: true, heartRate: null, lastRrMs: null, updatedAt: null } }));
+    expect(reportLiveLoad).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('live-begin'));
+    nowMs += 1000;
+    await act(async () => {
+      await view.rerender(withAppData(<LiveActivityScreen />, 'en', { ...base, live: { active: true, heartRate: 150, lastRrMs: 400, updatedAt: nowMs } }));
+    });
+    await waitFor(() => expect(reportLiveLoad).toHaveBeenCalled());
+  });
+
   it('shows progress toward the load target when today has a Load', async () => {
     const latest = lastDay();
     jest.spyOn(Date, 'now').mockReturnValue(latest.end * 1000);

@@ -4,6 +4,7 @@ import { defaultNetworkPrefs, type NetworkPrefs, parseNetworkPrefs } from '@/net
 import { parseIsoDate } from '@/lib/dates';
 import { isValidTimeZone } from '@/lib/timeZones';
 
+import { defaultLoadBuzzPrefs, type LoadBuzzPrefs, parseLoadBuzzPrefs } from './loadBuzz';
 import { parseWeeklyPlan, type WeeklyPlan } from './weeklyPlan';
 
 export const USER_DATA_KEY = 'user.data';
@@ -74,6 +75,7 @@ export interface UserData {
   jetLagShiftAlarm: boolean;
   widgetValues: boolean;
   hideRouteEnds: boolean;
+  loadBuzz: LoadBuzzPrefs;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -104,6 +106,7 @@ export function defaultUserData(): UserData {
     jetLagShiftAlarm: false,
     widgetValues: true,
     hideRouteEnds: true,
+    loadBuzz: defaultLoadBuzzPrefs(),
   };
 }
 
@@ -242,6 +245,7 @@ export function parseUserData(raw: string | null): UserData {
     jetLagShiftAlarm: parsed.jetLagShiftAlarm === true,
     widgetValues: parsed.widgetValues !== false,
     hideRouteEnds: typeof parsed.hideRouteEnds === 'boolean' ? parsed.hideRouteEnds : base.hideRouteEnds,
+    loadBuzz: parseLoadBuzzPrefs(parsed.loadBuzz),
   };
 }
 
