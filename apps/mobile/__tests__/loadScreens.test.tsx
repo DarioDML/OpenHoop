@@ -5,7 +5,8 @@ import { router } from 'expo-router';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { defaultLoadBuzzPrefs } from '@/data/loadBuzz';
 import { periodStats } from '@/data/activityDerived';
-import { aimAt, daysOnTarget } from '@/data/loadDerived';
+import { addDays, daysInWeek, visibleReadiness, weekStart } from '@/data/derived';
+import { aimAt, daysOnTarget, isoWeekNumber } from '@/data/loadDerived';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
@@ -26,6 +27,7 @@ jest.mock('react-native-safe-area-context', () => ({
 import LoadScreen from '@/app/load/index';
 import LoadTargetScreen from '@/app/load/target';
 import LoadTrendsScreen from '@/app/load/trends';
+import LoadWeekScreen from '@/app/load/week';
 import StepsScreen from '@/app/steps';
 
 const days = createFixtureDays(FIXTURE_NOW);
@@ -284,5 +286,36 @@ describe('Load trends screen', () => {
     await render(withAppData(<LoadTrendsScreen />, 'en', { days: days.slice(0, 3) }));
     expect(screen.getByTestId('trends-few')).toBeTruthy();
     expect(screen.getByTestId('trend-ontarget-reason')).toBeTruthy();
+  });
+});
+
+describe('Weekly overview', () => {
+  it('shows the week number, a combined chart and daily blocks', async () => {
+    const start = weekStart(lastDay().day);
+    const week = daysInWeek(days, start);
+    await render(withAppData(<LoadWeekScreen />));
+    expect(screen.getByText(`Week ${isoWeekNumber(start)}`)).toBeTruthy();
+    expect(screen.getByTestId('week-chart')).toBeTruthy();
+    week.forEach((d, i) => {
+      const load = d?.load.value ?? null;
+      expect(screen.getByTestId(`week-load-${i}`)).toHaveTextContent(load === null ? '' : load.toFixed(1));
+      const readiness = d === null ? null : visibleReadiness(d).value;
+      expect(screen.getByTestId(`week-readiness-${i}`)).toHaveTextContent(readiness === null ? '' : String(Math.round(readiness)));
+    });
+    expect(screen.getByTestId('week-legend')).toHaveTextContent('Readiness %Load');
+    if (week.some((d) => d === null)) expect(screen.getByTestId('week-empty-note')).toBeTruthy();
+    const index = week.findIndex((d) => d !== null);
+    await fireEvent.press(screen.getByTestId(`week-day-${index}`));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/day/[day]', params: { day: addDays(start, index) } });
+  });
+
+  it('goes to the previous week and opens the explanation', async () => {
+    const start = weekStart(lastDay().day);
+    await render(withAppData(<LoadWeekScreen />));
+    await fireEvent.press(screen.getByLabelText('Previous week'));
+    expect(screen.getByText(`Week ${isoWeekNumber(addDays(start, -7))}`)).toBeTruthy();
+    expect(screen.getByTestId('week-summary')).toHaveTextContent(/^Total load/);
+    await fireEvent.press(screen.getByTestId('week-info'));
+    expect(within(screen.getByTestId('week-about')).getByText('About this week')).toBeTruthy();
   });
 });

@@ -82,7 +82,6 @@
   "loadx.week.next": "Volgende week",
   "loadx.week.empty": "Deze week is geen belasting vastgelegd.",
   "loadx.week.summary": "Totale belasting {total} · {count} belastingdagen",
-  "loadx.week.noLoad": "Geen belasting",
   "loadx.week.noData": "Geen data",
   "steps.none": "Vandaag geen stappen vastgelegd.",
   "steps.ofGoal": "{percent}% van {goal}",
@@ -317,5 +316,17 @@
   "loadTrends.total": "Totale belasting",
   "loadTrends.peakChip": "{day} {date}",
   "loadTrends.loadDays": "{count} van {total} dagen waren belastingsdagen.",
-  "loadTrends.onTargetNote": "Dagen op doel tellen dagen waarop je belasting binnen het doel van die dag viel. Dagen zonder doel tellen niet mee."
+  "loadTrends.onTargetNote": "Dagen op doel tellen dagen waarop je belasting binnen het doel van die dag viel. Dagen zonder doel tellen niet mee.",
+  "loadWeek.title": "Week {week}",
+  "loadWeek.info": "Over het weekoverzicht",
+  "loadWeek.about": "Over deze week",
+  "loadWeek.aboutBody": "De grafiek zet je belasting (0–21) en je paraatheid (%) voor elke dag van de week op één schaal, zodat je ziet of zware dagen op goede nachten volgden. De blokken tonen dezelfde getallen: paraatheid bovenaan, gekleurd volgens de band, en belasting eronder. Tik op een dag om hem te openen.",
+  "loadWeek.aboutLoadDays": "Een belastingsdag is een dag met een belasting van 7 of meer.",
+  "loadWeek.chartTitle": "Belasting & paraatheid",
+  "loadWeek.chartA11y": "Belasting en paraatheid voor de week van {range}",
+  "loadWeek.blocks": "Dagblokken",
+  "loadWeek.legendReadiness": "Paraatheid %",
+  "loadWeek.emptyNote": "Een leeg blok heeft geen waarde voor die dag: nog geen data, geen belasting of paraatheid die nog kalibreert.",
+  "loadWeek.dayA11y": "{day}: paraatheid {readiness}, belasting {load}",
+  "loadWeek.noValue": "geen waarde"
 }

@@ -82,7 +82,6 @@
   "loadx.week.next": "Next week",
   "loadx.week.empty": "No load recorded this week.",
   "loadx.week.summary": "Total load {total} · {count} load days",
-  "loadx.week.noLoad": "No load",
   "loadx.week.noData": "No data",
   "steps.none": "No steps recorded today.",
   "steps.ofGoal": "{percent}% of {goal}",
@@ -317,5 +316,17 @@
   "loadTrends.total": "Total load",
   "loadTrends.peakChip": "{day} {date}",
   "loadTrends.loadDays": "{count} of {total} days were load days.",
-  "loadTrends.onTargetNote": "Days on target count days whose load landed inside that day's own target. Days without a target yet are left out."
+  "loadTrends.onTargetNote": "Days on target count days whose load landed inside that day's own target. Days without a target yet are left out.",
+  "loadWeek.title": "Week {week}",
+  "loadWeek.info": "About the weekly overview",
+  "loadWeek.about": "About this week",
+  "loadWeek.aboutBody": "The chart puts your load (0–21) and your readiness (%) for each day of the week on one scale, so you can see whether hard days followed good nights. The blocks show the same numbers: readiness on top, coloured by its band, and load below. Tap a day to open it.",
+  "loadWeek.aboutLoadDays": "A load day is a day with a load of 7 or more.",
+  "loadWeek.chartTitle": "Load & readiness",
+  "loadWeek.chartA11y": "Load and readiness for the week of {range}",
+  "loadWeek.blocks": "Daily blocks",
+  "loadWeek.legendReadiness": "Readiness %",
+  "loadWeek.emptyNote": "An empty block has no value for that day: no data yet, no load, or readiness still calibrating.",
+  "loadWeek.dayA11y": "{day}: readiness {readiness}, load {load}",
+  "loadWeek.noValue": "no value"
 }
