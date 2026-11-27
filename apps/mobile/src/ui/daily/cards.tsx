@@ -3,6 +3,7 @@ import { router, type Href } from 'expo-router';
 import { Pressable, View, type ViewStyle } from 'react-native';
 
 import { dayEntries } from '@/data/activities';
+import { stepsForDay } from '@/data/activityDerived';
 import { activeCheckIns } from '@/coach/checkIns';
 import { useAppData } from '@/data/context';
 import { baselineAt } from '@/data/derived';
@@ -359,7 +360,7 @@ export function TonightCard({ days, index }: DayProps) {
 }
 
 export function DashboardGrid({ days, index }: DayProps) {
-  const { userData, profile } = useAppData();
+  const { userData, profile, healthConnect } = useAppData();
   const { t } = useT();
   const rangeChip = useRangeChip();
   const day = days[index];
@@ -387,17 +388,25 @@ export function DashboardGrid({ days, index }: DayProps) {
           );
         }
         if (tile === 'steps') {
+          const steps = stepsForDay(day, healthConnect.state.steps);
+          const fromHc = steps.source === 'healthConnect';
           return (
             <MetricTile
               key={tile}
               style={tileStyle}
               testID="tile-steps"
               label={label}
-              value={day.steps}
-              reason={day.steps === null ? 'no-data' : null}
-              level={PARITY.steps}
+              value={steps.steps}
+              reason={steps.steps === null ? 'no-data' : null}
+              level={fromHc ? 'D' : PARITY.steps}
               href="/steps"
-              caption={userData.stepsGoal === null ? undefined : t('home.stepsGoal', { goal: userData.stepsGoal })}
+              caption={
+                fromHc
+                  ? t('steps.fromHealthConnect')
+                  : userData.stepsGoal === null
+                    ? undefined
+                    : t('home.stepsGoal', { goal: userData.stepsGoal })
+              }
             />
           );
         }

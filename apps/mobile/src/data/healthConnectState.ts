@@ -1,4 +1,15 @@
-import { HC_EXPORT_TYPES, HC_IMPORT_TYPES, type HcDataType, type HcExportType, type HcImportType, type HcPreferences } from '@/lib/healthConnectMapping';
+import {
+  HC_EXPORT_TYPES,
+  HC_IMPORT_TYPES,
+  MAX_DAY_STEPS,
+  MAX_STEPS_DAYS,
+  isStepsOrigin,
+  type HcDataType,
+  type HcExportType,
+  type HcImportType,
+  type HcPreferences,
+  type HcStepsDay,
+} from '@/lib/healthConnectMapping';
 
 export const HEALTH_CONNECT_STATE_KEY = 'healthConnect.state';
 
@@ -19,7 +30,9 @@ export interface HealthConnectState extends HcPreferences {
   afterBandSync: boolean;
   heartRateCursorS: number | null;
   lastImportS: number | null;
+  lastStepsImportS: number | null;
   lastSync: HcSyncReport | null;
+  steps: HcStepsDay[];
 }
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -42,7 +55,7 @@ function exportOff(): Record<HcExportType, boolean> {
 }
 
 function importOff(): Record<HcImportType, boolean> {
-  return { weight: false, bodyFat: false };
+  return { weight: false, bodyFat: false, steps: false };
 }
 
 export function defaultHealthConnectState(): HealthConnectState {
@@ -52,7 +65,9 @@ export function defaultHealthConnectState(): HealthConnectState {
     afterBandSync: false,
     heartRateCursorS: null,
     lastImportS: null,
+    lastStepsImportS: null,
     lastSync: null,
+    steps: [],
   };
 }
 
@@ -99,6 +114,27 @@ function parseReport(value: Json | undefined): HcSyncReport | null {
   return { at, results };
 }
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseStepsDay(value: Json | undefined): HcStepsDay | null {
+  if (!isRecord(value)) return null;
+  const { day, steps, origins } = value;
+  if (typeof day !== 'string' || !ISO_DAY.test(day)) return null;
+  if (typeof steps !== 'number' || !Number.isSafeInteger(steps) || steps < 1 || steps > MAX_DAY_STEPS) return null;
+  if (!Array.isArray(origins)) return null;
+  return { day, steps, origins: origins.filter(isStepsOrigin) };
+}
+
+function parseSteps(value: Json | undefined): HcStepsDay[] {
+  if (!Array.isArray(value)) return [];
+  const byDay = new Map<string, HcStepsDay>();
+  for (const item of value) {
+    const parsed = parseStepsDay(item);
+    if (parsed !== null) byDay.set(parsed.day, parsed);
+  }
+  return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)).slice(-MAX_STEPS_DAYS);
+}
+
 export function parseHealthConnectState(raw: string | null): HealthConnectState {
   const base = defaultHealthConnectState();
   if (raw === null || raw === '') return base;
@@ -115,7 +151,9 @@ export function parseHealthConnectState(raw: string | null): HealthConnectState 
     afterBandSync: parsed.afterBandSync === true,
     heartRateCursorS: unixOrNull(parsed.heartRateCursorS),
     lastImportS: unixOrNull(parsed.lastImportS),
+    lastStepsImportS: unixOrNull(parsed.lastStepsImportS),
     lastSync: parseReport(parsed.lastSync),
+    steps: parseSteps(parsed.steps),
   };
 }
 

@@ -59,6 +59,20 @@ describe('Integrations (M4) with Health Connect', () => {
     expect(setHealthConnectType).toHaveBeenCalledWith('sleep', true);
   });
 
+  it('offers steps as its own read switch and reports what the last sync imported', async () => {
+    const setHealthConnectType = jest.fn(async () => true);
+    const healthConnect = view(
+      { granted: ['read:Steps'] },
+      { import: { weight: false, bodyFat: false, steps: true }, lastSync: { at: NOW_S, results: { steps: { status: 'ok', count: 12 } } } },
+    );
+    await render(withAppData(<IntegrationsScreen />, 'en', { healthConnect, setHealthConnectType }));
+    expect(screen.getByTestId('hc-toggle-steps').props.value).toBe(true);
+    expect(screen.queryByTestId('hc-denied-steps')).toBeNull();
+    expect(within(screen.getByTestId('hc-result-steps')).getByText('12 new or changed')).toBeTruthy();
+    await fireEvent(screen.getByTestId('hc-toggle-steps'), 'valueChange', false);
+    expect(setHealthConnectType).toHaveBeenCalledWith('steps', false);
+  });
+
   it('keeps body fat off until weight is read', async () => {
     await render(withAppData(<IntegrationsScreen />));
     expect(screen.getByTestId('hc-toggle-bodyFat').props.disabled).toBe(true);

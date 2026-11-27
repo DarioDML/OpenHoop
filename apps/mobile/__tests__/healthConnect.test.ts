@@ -3,7 +3,7 @@ import type { HealthConnectRecord, Permission } from 'react-native-health-connec
 
 import type { HealthConnectApi } from '@/data/healthConnectApi';
 import { defaultHealthConnectState, parseHealthConnectState, serializeHealthConnectState, type HealthConnectState } from '@/data/healthConnectState';
-import { EXPORT_WINDOW_DAYS, FIRST_IMPORT_DAYS, runHealthConnectSync, type HcSyncContext } from '@/data/healthConnectSync';
+import { EXPORT_WINDOW_DAYS, FIRST_IMPORT_DAYS, IMPORT_OVERLAP_DAYS, runHealthConnectSync, type HcSyncContext } from '@/data/healthConnectSync';
 import {
   clientRecordId,
   exerciseSessionRecords,
@@ -11,7 +11,9 @@ import {
   type HcExercise,
   heartRateRecords,
   hrvRecords,
+  mergeStepsImport,
   planBodyImport,
+  planStepsImport,
   restingHeartRateRecords,
   skinTemperatureRecords,
   sleepSessionRecords,
@@ -169,9 +171,11 @@ describe('Health Connect mapping', () => {
     expect(wantedPermissions(state)).toEqual([]);
     state.export.hrv = true;
     state.import.weight = true;
+    state.import.steps = true;
     expect(wantedPermissions(state)).toEqual([
       { accessType: 'write', recordType: 'HeartRateVariabilityRmssd' },
       { accessType: 'read', recordType: 'Weight' },
+      { accessType: 'read', recordType: 'Steps' },
     ]);
   });
 });
@@ -229,14 +233,95 @@ describe('Health Connect body import plan', () => {
   });
 });
 
+describe('Health Connect steps import plan', () => {
+  const bucket = (day: string, count: unknown, origins: unknown = ['com.phone']): unknown => ({
+    startTime: `${day}T00:00`,
+    endTime: `${day}T23:59:59.999`,
+    result: { COUNT_TOTAL: count, dataOrigins: origins },
+  });
+
+  it('keeps one rounded daily total per local day with the apps that wrote it', () => {
+    expect(
+      planStepsImport([bucket('2026-11-24', 8_011.6, ['com.watch', 'com.phone', 'com.phone', 'app.openhoop.mobile']), bucket('2026-11-23', 300)], 'app.openhoop.mobile'),
+    ).toEqual([
+      { day: '2026-11-23', steps: 300, origins: ['com.phone'] },
+      { day: '2026-11-24', steps: 8_012, origins: ['com.phone', 'com.watch'] },
+    ]);
+  });
+
+  it('drops empty, impossible and malformed buckets', () => {
+    expect(
+      planStepsImport(
+        [
+          bucket('2026-11-24', 0),
+          bucket('2026-11-23', 250_000),
+          bucket('2026-11-22', Number.NaN),
+          bucket('2026-11-21', '500'),
+          { startTime: 'yesterday', result: { COUNT_TOTAL: 10 } },
+          { startTime: '2026-11-20T00:00' },
+          null,
+          bucket('2026-11-19', 42, 'com.phone'),
+        ],
+        'app.openhoop.mobile',
+      ),
+    ).toEqual([{ day: '2026-11-19', steps: 42, origins: [] }]);
+  });
+
+  it('replaces the re-read window, keeps older days and counts what changed', () => {
+    const stored = [
+      { day: '2026-10-01', steps: 1_000, origins: [] },
+      { day: '2026-11-20', steps: 2_000, origins: ['com.phone'] },
+      { day: '2026-11-21', steps: 3_000, origins: ['com.phone'] },
+      { day: '2026-11-22', steps: 4_000, origins: [] },
+    ];
+    const fresh = [
+      { day: '2026-11-20', steps: 2_000, origins: ['com.phone'] },
+      { day: '2026-11-21', steps: 3_500, origins: ['com.phone'] },
+      { day: '2026-11-23', steps: 5_000, origins: [] },
+    ];
+    const merged = mergeStepsImport(stored, fresh, '2026-11-20');
+    expect(merged.days.map((d) => [d.day, d.steps])).toEqual([
+      ['2026-10-01', 1_000],
+      ['2026-11-20', 2_000],
+      ['2026-11-21', 3_500],
+      ['2026-11-23', 5_000],
+    ]);
+    expect(merged.changed).toBe(3);
+  });
+});
+
 describe('Health Connect state', () => {
   it('round-trips and starts with everything off', () => {
     const state = defaultHealthConnectState();
     expect(Object.values(state.export).some(Boolean)).toBe(false);
     expect(state.afterBandSync).toBe(false);
+    expect(state.import.steps).toBe(false);
     state.export.sleep = true;
-    state.lastSync = { at: NOW_S, results: { sleep: { status: 'ok', count: 3 }, weight: { status: 'error', step: 'read' } } };
+    state.import.steps = true;
+    state.lastStepsImportS = NOW_S;
+    state.steps = [{ day: '2026-11-24', steps: 8_012, origins: ['com.phone'] }];
+    state.lastSync = { at: NOW_S, results: { sleep: { status: 'ok', count: 3 }, weight: { status: 'error', step: 'read' }, steps: { status: 'ok', count: 1 } } };
     expect(parseHealthConnectState(serializeHealthConnectState(state))).toEqual(state);
+  });
+
+  it('keeps only valid imported step days, one per day', () => {
+    const parsed = parseHealthConnectState(
+      JSON.stringify({
+        steps: [
+          { day: '2026-11-24', steps: 100, origins: ['com.phone', 7, ''] },
+          { day: '2026-11-24', steps: 200, origins: [] },
+          { day: '24-11-2026', steps: 100, origins: [] },
+          { day: '2026-11-23', steps: 1.5, origins: [] },
+          { day: '2026-11-22', steps: 900_000, origins: [] },
+          { day: '2026-11-21', steps: 50 },
+          'x',
+        ],
+        lastStepsImportS: 'soon',
+      }),
+    );
+    expect(parsed.steps).toEqual([{ day: '2026-11-24', steps: 200, origins: [] }]);
+    expect(parsed.lastStepsImportS).toBeNull();
+    expect(parseHealthConnectState(JSON.stringify({ steps: { day: '2026-11-24' } })).steps).toEqual([]);
   });
 
   it('drops anything it does not recognise', () => {
@@ -260,13 +345,23 @@ interface FakeApi extends HealthConnectApi {
   inserted: HealthConnectRecord[][];
   deleted: string[];
   reads: { type: string; fromS: number }[];
+  stepReads: { fromS: number; toS: number }[];
 }
 
-function fakeApi(granted: Permission[], options: { failInsert?: string; failRead?: string; weights?: unknown[]; fats?: unknown[] } = {}): FakeApi {
+interface FakeOptions {
+  failInsert?: string;
+  failRead?: string;
+  weights?: unknown[];
+  fats?: unknown[];
+  steps?: unknown[];
+}
+
+function fakeApi(granted: Permission[], options: FakeOptions = {}): FakeApi {
   const api: FakeApi = {
     inserted: [],
     deleted: [],
     reads: [],
+    stepReads: [],
     availability: async () => 'available',
     grantedPermissions: async () => new Set(granted.map((p) => `${p.accessType}:${p.recordType}`)),
     requestPermissions: async () => new Set(),
@@ -282,6 +377,11 @@ function fakeApi(granted: Permission[], options: { failInsert?: string; failRead
       api.reads.push({ type, fromS });
       if (type === options.failRead) throw new Error('read failed');
       return type === 'Weight' ? (options.weights ?? []) : (options.fats ?? []);
+    },
+    stepsByDay: async (fromS, toS) => {
+      api.stepReads.push({ fromS, toS });
+      if (options.failRead === 'Steps') throw new Error('read failed');
+      return api.stepReads.length === 1 ? (options.steps ?? []) : [];
     },
     openSettings: () => undefined,
     openStore: async () => undefined,
@@ -460,6 +560,53 @@ describe('Health Connect sync', () => {
     );
     expect(storeFails.report.results.weight).toEqual({ status: 'error', step: 'store' });
     expect(storeFails.lastImportS).toBe(NOW_S - DAY_S);
+  });
+
+  it('imports steps a year back the first time from local midnight, in month slices, and with overlap after that', async () => {
+    const state = defaultHealthConnectState();
+    state.import.steps = true;
+    const offset = 3_600;
+    const api = fakeApi([{ accessType: 'read', recordType: 'Steps' }], {
+      steps: [{ startTime: '2026-11-24T00:00', endTime: '2026-11-25T00:00', result: { COUNT_TOTAL: 9_000, dataOrigins: ['com.phone'] } }],
+    });
+    const outcome = await runHealthConnectSync(context(api, state, { tzOffsetAt: () => offset }));
+    const first = api.stepReads[0];
+    const last = api.stepReads[api.stepReads.length - 1];
+    if (first === undefined || last === undefined) throw new Error('no reads');
+    expect((first.fromS + offset) % DAY_S).toBe(0);
+    expect(first.fromS).toBeLessThanOrEqual(NOW_S - FIRST_IMPORT_DAYS * DAY_S);
+    expect(first.fromS).toBeGreaterThan(NOW_S - (FIRST_IMPORT_DAYS + 1) * DAY_S);
+    expect(last.toS).toBe(NOW_S);
+    expect(api.stepReads).toHaveLength(12);
+    for (let i = 1; i < api.stepReads.length; i++) expect(api.stepReads[i]?.fromS).toBe(api.stepReads[i - 1]?.toS);
+    expect(outcome.steps).toEqual([{ day: '2026-11-24', steps: 9_000, origins: ['com.phone'] }]);
+    expect(outcome.report.results.steps).toEqual({ status: 'ok', count: 1 });
+    expect(outcome.lastStepsImportS).toBe(NOW_S);
+    expect(api.inserted).toEqual([]);
+
+    const again = fakeApi([{ accessType: 'read', recordType: 'Steps' }]);
+    const next = await runHealthConnectSync(context(again, { ...state, steps: outcome.steps, lastStepsImportS: NOW_S - DAY_S }));
+    expect(again.stepReads[0]?.fromS).toBe(Math.floor((NOW_S - (IMPORT_OVERLAP_DAYS + 1) * DAY_S) / DAY_S) * DAY_S);
+    expect(next.steps).toEqual([]);
+    expect(next.report.results.steps).toEqual({ status: 'ok', count: 1 });
+  });
+
+  it('keeps the stored steps and the import mark when steps are revoked or cannot be read', async () => {
+    const stored = [{ day: '2026-11-24', steps: 9_000, origins: [] }];
+    const state = { ...defaultHealthConnectState(), lastStepsImportS: NOW_S - DAY_S, steps: stored };
+    state.import.steps = true;
+    const denied = await runHealthConnectSync(context(fakeApi([]), state));
+    expect(denied.report.results).toEqual({ steps: { status: 'denied' } });
+    expect(denied.steps).toBe(stored);
+    expect(denied.lastStepsImportS).toBe(NOW_S - DAY_S);
+
+    const failed = await runHealthConnectSync(context(fakeApi([{ accessType: 'read', recordType: 'Steps' }], { failRead: 'Steps' }), state));
+    expect(failed.report.results).toEqual({ steps: { status: 'error', step: 'read' } });
+    expect(failed.steps).toBe(stored);
+    expect(failed.lastStepsImportS).toBe(NOW_S - DAY_S);
+
+    const off = await runHealthConnectSync(context(fakeApi([{ accessType: 'read', recordType: 'Steps' }]), { ...state, import: { ...state.import, steps: false } }));
+    expect(off.report.results.steps).toBeUndefined();
   });
 
   it('exports every type through one entry point', () => {

@@ -1,6 +1,7 @@
 import { Linking, Platform } from 'react-native';
 import {
   SdkAvailabilityStatus,
+  aggregateGroupByPeriod,
   deleteRecordsByTimeRange,
   getGrantedPermissions,
   getSdkStatus,
@@ -26,6 +27,7 @@ export interface HealthConnectApi {
   insert(records: HealthConnectRecord[]): Promise<number>;
   deleteOwn(recordType: RecordType, fromS: number, toS: number): Promise<void>;
   readAll(recordType: HcReadType, fromS: number, toS: number): Promise<unknown[]>;
+  stepsByDay(fromS: number, toS: number): Promise<unknown[]>;
   openSettings(): void;
   openStore(): Promise<void>;
 }
@@ -104,6 +106,14 @@ export const nativeHealthConnect: HealthConnectApi = {
       if (pageToken === undefined) break;
     }
     return out;
+  },
+  async stepsByDay(fromS, toS) {
+    const groups: unknown = await aggregateGroupByPeriod({
+      recordType: 'Steps',
+      timeRangeFilter: { operator: 'between', startTime: isoTime(fromS), endTime: isoTime(toS) },
+      timeRangeSlicer: { period: 'DAYS', length: 1 },
+    });
+    return Array.isArray(groups) ? groups : [];
   },
   openSettings() {
     openHealthConnectSettings();

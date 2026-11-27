@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { View } from 'react-native';
 
-import { stepsStats } from '@/data/activityDerived';
+import { mergeSteps, stepsStats, type StepsDay } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
-import { series } from '@/data/derived';
 import { useT } from '@/i18n/useT';
 import { formatNumber, formatShortDay } from '@/lib/format';
 import { NoDataScreen, ProgressBar, StatRow, StatTile } from '@/ui/activity/parts';
@@ -12,22 +12,38 @@ import { BarChart } from '@/ui/BarChart';
 import { Card } from '@/ui/Card';
 import { Button, Segmented } from '@/ui/controls';
 import { Num } from '@/ui/Num';
+import { ParityBadge } from '@/ui/ParityBadge';
 import { Screen } from '@/ui/Screen';
 import { Section } from '@/ui/Section';
+import { spacing } from '@/ui/theme';
 import { TopBar } from '@/ui/TopBar';
 
 type Range = '7' | '30';
 
+function HealthConnectSource({ entry }: { entry: StepsDay }) {
+  const { t } = useT();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+      <ParityBadge level="D" />
+      <AppText variant="caption" muted style={{ flex: 1 }} testID="steps-today-source">
+        {entry.origins.length === 0 ? t('steps.fromHealthConnect') : t('steps.fromHealthConnectApp', { app: entry.origins.join(', ') })}
+      </AppText>
+    </View>
+  );
+}
+
 export default function StepsScreen() {
-  const { days, userData } = useAppData();
+  const { days, userData, healthConnect } = useAppData();
   const { t, language } = useT();
   const [range, setRange] = useState<Range>('7');
-  const today = days[days.length - 1];
+  const merged = mergeSteps(days, healthConnect.state.steps);
+  const today = merged[merged.length - 1];
   if (!today) return <NoDataScreen title={t('metric.steps')} />;
 
   const goal = userData.stepsGoal;
-  const shown = days.slice(-Number(range));
+  const shown = merged.slice(-Number(range));
   const stats = stepsStats(shown, goal);
+  const fromHc = shown.filter((entry) => entry.source === 'healthConnect').length;
   const fmt = (v: number): string => formatNumber(v, 0, language);
 
   return (
@@ -54,6 +70,7 @@ export default function StepsScreen() {
                   </AppText>
                 </>
               ) : null}
+              {today.source === 'healthConnect' ? <HealthConnectSource entry={today} /> : null}
             </>
           )}
         </>
@@ -83,11 +100,19 @@ export default function StepsScreen() {
       <Section title={t('steps.perDay')}>
         <Card>
           <BarChart
-            data={series(shown, 'steps')}
+            data={shown.map((entry) => entry.steps)}
             formatTick={(v) => fmt(v)}
             startLabel={formatShortDay(shown[0]?.day ?? '', language)}
             endLabel={formatShortDay(shown[shown.length - 1]?.day ?? '', language)}
           />
+          {fromHc > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+              <ParityBadge level="D" />
+              <AppText variant="caption" muted style={{ flex: 1 }} testID="steps-hc-days">
+                {t('steps.hcDays', { count: fromHc })}
+              </AppText>
+            </View>
+          ) : null}
         </Card>
       </Section>
       <StatRow>
