@@ -2,7 +2,8 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { AppDataContext, LiveDataContext } from '@/data/context';
 import { createFixtureDays, createFixtureDevice, createFixtureSettings } from '@/data/fixtureSource';
-import type { AppData, BandActions, Language, LiveData, LiveDataStore, StrengthActions } from '@/data/types';
+import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
+import type { AlarmActions, AppData, BandActions, Language, LiveData, LiveDataStore, StrengthActions } from '@/data/types';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 
@@ -32,6 +33,10 @@ export function fixtureBandActions(): BandActions {
     writeConfig: async () => true,
     restoreConfig: async () => true,
   };
+}
+
+export function fixtureAlarmActions(): AlarmActions {
+  return { save: async () => 'on-band', ring: async () => true };
 }
 
 export type AppDataOverrides = Partial<AppData & LiveData>;
@@ -76,6 +81,8 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     startLive: noop,
     readBandConfig: noop,
     bandActions: fixtureBandActions(),
+    alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
+    alarmActions: fixtureAlarmActions(),
     stopLive: noop,
     exportData: noop,
     listDonationDays: async () => [],

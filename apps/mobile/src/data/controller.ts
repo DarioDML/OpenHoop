@@ -57,6 +57,11 @@ import {
   TEST_BUZZ_LOOPS,
   FIND_BAND_LOOPS,
   type KeyKind,
+  AlarmError,
+  armAlarm,
+  cancelAlarm,
+  recentAlarmEvents,
+  ringAlarm,
   rebuildStaleSamples,
   recomputeStaleDays,
   recomputeDays,
@@ -135,6 +140,18 @@ import { strictestPrefs } from '@/net/features';
 
 import { applyConfigWrite, buildSnapshot, carryOver, changeFor, parseBandConfig, recordOriginal, serializeSnapshot, type ConfigKind, type WritableValue } from './bandConfig';
 import { hrBroadcastKey, parseHrBroadcast, serializeHrBroadcast, type HrBroadcastState } from './hrBroadcast';
+import {
+  ALARM_PLAN_KEY,
+  DEFAULT_ALARM_PLAN,
+  alarmTask,
+  armedAlarmKey,
+  parseAlarmPlan,
+  parseArmedAlarm,
+  serializeAlarmPlan,
+  serializeArmedAlarm,
+  type AlarmPlan,
+  type ArmedAlarm,
+} from './alarm';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
 import { storageProblemOf, type StorageProblem } from './storageProblem';
@@ -170,6 +187,9 @@ import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOp
 import { createDonationWorkspace, filePartSink, removeLeftoverDonations, saveDonationParts, sharePartFile, type SaveOutcome } from './donation/files';
 import type {
   ActivityDraft,
+  AlarmActions,
+  AlarmSaveOutcome,
+  AlarmView,
   AppData,
   BandActions,
   BandBuzz,
@@ -237,6 +257,7 @@ export interface Snapshot {
   healthConnect: HealthConnectView;
   activities: ActivityRow[];
   pendingDelete: PendingDelete | null;
+  alarm: AlarmView;
 }
 
 interface Connection {
@@ -276,6 +297,15 @@ function emptyDevice(): DeviceStatus {
 }
 
 const CORE_KIND: Readonly<Record<ConfigKind, KeyKind>> = { flag: 'featureFlags', config: 'deviceConfig' };
+
+function alarmProblem(error: unknown): Notice {
+  if (error instanceof AlarmError) {
+    if (error.reason === 'rejected') return { key: 'alarm.problem.rejected', params: { status: error.status ?? '?' } };
+    return { key: error.reason === 'clock-unknown' ? 'alarm.problem.clock' : error.reason === 'too-soon' ? 'alarm.problem.tooSoon' : 'alarm.problem.notArmed' };
+  }
+  const appError = toAppError(error);
+  return { key: appError.key, params: appError.params };
+}
 
 function toModel(text: string | null): BandModel | null {
   if (text === null) return null;
@@ -362,6 +392,7 @@ export class AppController {
       healthConnect: { availability: 'checking', granted: [], state: defaultHealthConnectState(), syncing: false },
       activities: [],
       pendingDelete: null,
+      alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
     };
   }
 
@@ -484,6 +515,7 @@ export class AppController {
       inbox: this.notificationState.inbox,
       healthConnect: { ...this.snapshot.healthConnect, state: healthConnectState },
       strength,
+      alarm: { ...this.snapshot.alarm, plan: parseAlarmPlan(await store.getSetting(ALARM_PLAN_KEY)) },
     });
     if (dataSource === 'band') await this.purgeDemoRecordings();
     await this.loadActiveDevice();
@@ -539,10 +571,14 @@ export class AppController {
     this.batteryPack = null;
     this.bandStatus = null;
     this.hrBroadcast = null;
+    let armed: ArmedAlarm | null = null;
+    let alarmEvents: AlarmView['events'] = [];
     let ownerSince: string | null = null;
     if (this.deviceRow !== null) {
       await this.loadBandReports(this.deviceRow.id);
       this.hrBroadcast = parseHrBroadcast(await store.getSetting(hrBroadcastKey(this.deviceRow.id)));
+      armed = parseArmedAlarm(await store.getSetting(armedAlarmKey(this.deviceRow.id)));
+      alarmEvents = await recentAlarmEvents(store, this.deviceRow.id);
       const state = await store.getSyncState(this.deviceRow.id);
       this.lastSyncAt = state?.lastSyncAt ?? null;
       const savedLock = await store.getSetting(this.lockKey(this.deviceRow.id));
@@ -551,7 +587,7 @@ export class AppController {
         ownerSince = unixToIsoDate(this.deviceRow.ownerSince, deviceTzOffsetS(new Date()));
       }
     }
-    this.patch({ settings: { ...this.snapshot.settings, ownerSince } });
+    this.patch({ settings: { ...this.snapshot.settings, ownerSince }, alarm: { ...this.snapshot.alarm, armed, events: alarmEvents, problem: null } });
     this.patchDevice();
     await this.refreshDays();
   }
@@ -775,6 +811,7 @@ export class AppController {
       const computeStarted = Date.now();
       await this.recompute(deviceId, previousNewest === null ? null : previousNewest - INCREMENTAL_RECOMPUTE_BACK_S);
       await this.loadBandReports(deviceId);
+      await this.syncAlarm(conn);
       const computeMs = Date.now() - computeStarted;
       const after = await store.getSyncState(deviceId);
       this.lastSyncAt = after?.lastSyncAt ?? this.lastSyncAt;
@@ -950,10 +987,64 @@ export class AppController {
       await this.exclusive(async () => task(await this.ensureConnection()));
       return true;
     } catch (error) {
-      this.fail(error instanceof ConfigWriteError ? new AppError(error.reason === 'not-writable' ? 'error.configNotWritable' : 'error.configNotApplied') : error);
+      if (error instanceof AlarmError) this.patch({ notice: alarmProblem(error) });
+      else this.fail(error instanceof ConfigWriteError ? new AppError(error.reason === 'not-writable' ? 'error.configNotWritable' : 'error.configNotApplied') : error);
       return false;
     }
   }
+
+  private async syncAlarm(conn: Connection): Promise<void> {
+    const { store } = this.requireApp();
+    if (conn.session.isConnected) {
+      try {
+        await this.applyAlarm(conn);
+      } catch (error) {
+        this.patchAlarm({ problem: alarmProblem(error) });
+      }
+    }
+    this.patchAlarm({ events: await recentAlarmEvents(store, conn.deviceId) });
+  }
+
+  private async applyAlarm(conn: Connection): Promise<void> {
+    const { store } = this.requireApp();
+    const { plan, armed } = this.snapshot.alarm;
+    const task = alarmTask(plan, armed, new Date());
+    if (task.kind === 'arm') {
+      const attempt: ArmedAlarm = { wakeAt: task.wakeAt, armedAt: nowSeconds(), confirmed: false };
+      await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(attempt));
+      this.patchAlarm({ armed: attempt });
+      const reading = await armAlarm(conn.session, task.wakeAt, nowSeconds());
+      const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds(), confirmed: true };
+      await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(next));
+      this.patchAlarm({ armed: next, problem: null });
+    } else if (task.kind === 'cancel') {
+      await cancelAlarm(conn.session);
+      await store.setSetting(armedAlarmKey(conn.deviceId), '');
+      this.patchAlarm({ armed: null, problem: null });
+    } else {
+      this.patchAlarm({ problem: null });
+    }
+  }
+
+  private patchAlarm(patch: Partial<AlarmView>): void {
+    this.patch({ alarm: { ...this.snapshot.alarm, ...patch } });
+  }
+
+  private readonly alarmActionSet: AlarmActions = {
+    save: async (plan: AlarmPlan): Promise<AlarmSaveOutcome> => {
+      await this.requireApp().store.setSetting(ALARM_PLAN_KEY, serializeAlarmPlan(plan));
+      this.patchAlarm({ plan });
+      if (this.syncRun !== null) return 'pending';
+      try {
+        await this.exclusive(async () => this.applyAlarm(await this.ensureConnection()));
+        return 'on-band';
+      } catch (error) {
+        this.patchAlarm({ problem: alarmProblem(error) });
+        return 'pending';
+      }
+    },
+    ring: () => this.onBand(async (conn) => void (await ringAlarm(conn.session)), false),
+  };
 
   private readonly bandActionSet: BandActions = {
     buzz: (kind: BandBuzz) => this.onBand((conn) => buzz(conn.session, kind === 'find' ? FIND_BAND_LOOPS : TEST_BUZZ_LOOPS), false),
@@ -1830,6 +1921,7 @@ export class AppController {
       startLive: this.startLive,
       readBandConfig: this.readBandConfig,
       bandActions: this.bandActionSet,
+      alarmActions: this.alarmActionSet,
       stopLive: this.stopLive,
       exportData: this.exportData,
       listDonationDays: this.listDonationDays,

@@ -8,7 +8,7 @@ import { formatDuration } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Callout, NoDataPage, Page } from '@/ui/daily/bits';
-import { PendingCard } from '@/ui/daily/cards';
+import { AlarmCard } from '@/ui/daily/cards';
 import { Icon } from '@/ui/Icon';
 import { Num } from '@/ui/Num';
 import { radius, spacing, useTheme } from '@/ui/theme';
@@ -125,7 +125,7 @@ export default function SleepPlannerScreen() {
       </Card>
 
       <View style={{ flexDirection: 'row' }}>
-        <PendingCard label={t('home.alarm')} issue="alarm" href="/sleep/alarm" testID="planner-alarm" />
+        <AlarmCard testID="planner-alarm" />
       </View>
       <Callout title={t('sleepx.plannerNoteTitle')} body={t('sleepx.plannerNote')} />
     </Page>

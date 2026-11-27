@@ -172,6 +172,10 @@ On Android, OpenHoop can write heart rate (minute averages), resting heart rate,
 - Third-party cloud services (for example Strava) are not built.
 - Android home-screen widgets cannot open the encrypted database. While at least one OpenHoop widget is on the home screen, the app keeps a small unencrypted file in its private cache with only the numbers the widget shows (Readiness, Sleep score, Load, resting heart rate, HRV, or the reason a value is missing), the day, the sync time and the app language. There is no name and no raw data in it. Android also keeps the drawn widget images in the app's private storage. Turning "Show values on widgets" off replaces the file with one that holds no values; removing the last widget deletes the file and the images. Neither is included in Android backups.
 
+## Haptic alarm
+
+The alarm screen sets one alarm on the band. The band runs it by itself at the set time, also when the phone is off or far away, and stops after 30 seconds or when you double-tap the band. OpenHoop reads the alarm back from the band before it says it is set, and converts between the phone's clock and the band's. The band rings an alarm once; after it has rung, OpenHoop sets the next day's alarm each time it syncs. Home and the sleep planner show the time, and the alarm screen says when it last rang and whether it was stopped early. Waking at a light moment or once your sleep need is met is not built yet.
+
 ## Band actions and settings
 
 Device settings can make the band buzz once (Test haptics) or for about four seconds (Find band, with a Stop button), and switch the standard Bluetooth heart rate service on or off (Heart rate broadcast, which gym equipment and other apps use). Switching it off also stops live heart rate in OpenHoop. The band keeps that setting after a restart and does not report it, so OpenHoop shows only what it last set itself.

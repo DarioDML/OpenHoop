@@ -106,6 +106,10 @@ interface Pending {
 const NO_GEN = -1;
 const HAPTIC_INVALID_LOOPS = 3;
 const HAPTIC_PLAYED = 5;
+const ALARM_VALID = 1;
+const ALARM_PLAYED = 5;
+const ALARM_INVALID_TIME = 10;
+const ALARM_INVALID_ID = 11;
 
 function ascii(text: string): Uint8Array {
   const out = new Uint8Array(text.length);
@@ -157,7 +161,9 @@ export class SimBand implements Transport {
   dangerousReceived = 0;
   forbiddenReceived = 0;
   hapticsPlayed = 0;
+  alarmsRun = 0;
   hrProfileOn = true;
+  readonly alarms = new Map<number, number>();
   readonly flags: MutableKeyTable = FEATURE_FLAGS.map(([key, value]): [string, string] => [key, value]);
   readonly deviceConfig: MutableKeyTable = DEVICE_CONFIG.map(([key, value]): [string, string] => [key, value]);
 
@@ -570,6 +576,9 @@ export class SimBand implements Transport {
       case Command.GET_DEVICE_CONFIG_VALUE:
         this.keyValue(command, seq, args, this.deviceConfig);
         return;
+      case Command.GET_ALARM_TIME:
+        this.alarmReading(command, seq, args);
+        return;
       default:
         this.reply(command, seq, cls === 'session' ? SUCCESS : UNSUPPORTED);
     }
@@ -596,6 +605,21 @@ export class SimBand implements Transport {
         this.hrProfileOn = args[0] === 1;
         this.reply(command, seq, SUCCESS);
         return true;
+      case Command.SET_ALARM_TIME:
+        this.writesReceived += 1;
+        this.setAlarm(command, seq, args);
+        return true;
+      case Command.RUN_ALARM:
+        this.writesReceived += 1;
+        this.alarmsRun += 1;
+        this.reply(command, seq, SUCCESS, Uint8Array.of(2, ALARM_PLAYED));
+        return true;
+      case Command.DISABLE_ALARM:
+        this.writesReceived += 1;
+        if (args[1] === 0xff) this.alarms.clear();
+        else this.alarms.delete(args[1] ?? 0);
+        this.reply(command, seq, SUCCESS);
+        return true;
       case Command.SET_FF_VALUE:
         this.dangerousReceived += 1;
         this.setKey(command, seq, args, this.flags);
@@ -607,6 +631,28 @@ export class SimBand implements Transport {
       default:
         return false;
     }
+  }
+
+  private setAlarm(command: number, seq: number, args: Uint8Array): void {
+    const slot = args[1] ?? 0;
+    if (args[0] !== 4 || args.length < 21 || slot < 1 || slot > 6) {
+      this.reply(command, seq, FAILURE, Uint8Array.of(3, ALARM_INVALID_ID));
+      return;
+    }
+    const at = new DataView(args.buffer, args.byteOffset, args.byteLength).getUint32(2, true);
+    if (at <= this.bandNow()) {
+      this.reply(command, seq, FAILURE, Uint8Array.of(3, ALARM_INVALID_TIME));
+      return;
+    }
+    this.alarms.set(slot, at);
+    this.reply(command, seq, SUCCESS, Uint8Array.of(3, ALARM_VALID));
+  }
+
+  private alarmReading(command: number, seq: number, args: Uint8Array): void {
+    const slot = args[1] ?? 0;
+    const at = this.alarms.get(slot);
+    const armed = at !== undefined && at > this.bandNow();
+    this.reply(command, seq, SUCCESS, concat(Uint8Array.of(4, armed ? 1 : 0), u32(at ?? 0), new Uint8Array(2)));
   }
 
   private setKey(command: number, seq: number, args: Uint8Array, table: MutableKeyTable): void {
