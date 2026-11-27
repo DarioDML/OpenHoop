@@ -17,6 +17,7 @@ interface Props {
   from: number;
   to: number;
   tzOffsetS: number;
+  labels?: boolean;
   testID?: string;
 }
 
@@ -43,7 +44,7 @@ export function stageRuns(epochs: ReadonlyArray<StageEpochRow>): Run[] {
   return runs;
 }
 
-export function Hypnogram({ epochs, from, to, tzOffsetS, testID }: Props) {
+export function Hypnogram({ epochs, from, to, tzOffsetS, labels = true, testID }: Props) {
   const { colors } = useTheme();
   const { t } = useT();
   const [width, setWidth] = useState(0);
@@ -60,15 +61,17 @@ export function Hypnogram({ epochs, from, to, tzOffsetS, testID }: Props) {
 
   return (
     <View testID={testID} style={{ flexDirection: 'row', gap: spacing.sm }}>
-      <View style={{ width: LABEL_W, gap: LANE_GAP }}>
-        {LANES.map((stage) => (
-          <View key={stage} style={{ height: LANE_H, justifyContent: 'center' }}>
-            <AppText variant="caption" muted numberOfLines={1} maxFontSizeMultiplier={1.2}>
-              {t(`stage.${stage}`)}
-            </AppText>
-          </View>
-        ))}
-      </View>
+      {labels ? (
+        <View style={{ width: LABEL_W, gap: LANE_GAP }}>
+          {LANES.map((stage) => (
+            <View key={stage} style={{ height: LANE_H, justifyContent: 'center' }}>
+              <AppText variant="caption" muted numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                {t(`stage.${stage}`)}
+              </AppText>
+            </View>
+          ))}
+        </View>
+      ) : null}
       <View style={{ flex: 1, gap: 6 }} onLayout={onLayout}>
         {width > 0 ? (
           <Svg width={width} height={height}>

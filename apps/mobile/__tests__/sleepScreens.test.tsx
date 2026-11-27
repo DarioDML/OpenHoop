@@ -23,6 +23,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import SleepScreen from '@/app/sleep/index';
+import LastNightScreen from '@/app/sleep/last-night';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const last = days[days.length - 1];
@@ -90,5 +91,50 @@ describe('Sleep deep dive', () => {
     await fireEvent.press(screen.getByTestId('sleep-about'));
     expect(screen.getByTestId('about-sheet')).toBeTruthy();
     expect(screen.getByTestId('sleep-level')).toBeTruthy();
+  });
+});
+
+describe('Last night', () => {
+  const span = last === undefined ? null : mainNightSpan(last);
+  const onset = span?.onset ?? 0;
+  const stage = (i: number, kind: 'wake' | 'light' | 'deep' | 'rem') => ({ t: onset + i * 30, stage: kind });
+
+  it('shows the heart-rate minimum, time in stage with typical ranges and the night KPIs', async () => {
+    const heartRateBetween = jest.fn(async () => [
+      { t: onset, hr: 64 },
+      { t: onset + 600, hr: 58 },
+      { t: onset + 1200, hr: 61 },
+    ]);
+    const epochs = [stage(0, 'wake'), stage(1, 'wake'), stage(2, 'light'), stage(3, 'deep'), stage(4, 'wake'), stage(5, 'rem'), stage(6, 'light')];
+    mockParams = { day: last?.day };
+    await render(withAppData(<LastNightScreen />, 'en', { heartRateBetween, sleepStagesBetween: async () => epochs }));
+    await waitFor(() => expect(screen.getByTestId('hr-min')).toHaveTextContent('Min58bpm'));
+    expect(screen.getByTestId('chart-sleep-hr')).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('kpi-latency-value')).toHaveTextContent('1'));
+    expect(screen.getByTestId('kpi-disturbances-value')).toHaveTextContent('1');
+    expect(screen.getByTestId('kpi-restorative-value')).toBeTruthy();
+    expect(screen.getByTestId('kpi-resp')).toBeTruthy();
+    for (const kind of ['wake', 'light', 'deep', 'rem']) expect(screen.getByTestId(`time-in-stage-${kind}-typical`)).toBeTruthy();
+  });
+
+  it('flags a stage outside its typical range', async () => {
+    if (last === undefined) throw new Error('no fixture day');
+    const totals = { wake: 97 * 60, light: 252 * 60, deep: 70 * 60, rem: 89 * 60 };
+    const day = { ...last, sleep: { ...last.sleep, stages: { algo: 'x', reason: null, coverage: 0.9, totals } } };
+    mockParams = { day: last.day };
+    await render(withAppData(<LastNightScreen />, 'en', { days: [...days.slice(0, -1), day] }));
+    expect(screen.getByTestId('time-in-stage-wake-flag')).toHaveTextContent('! above typical 0:00–0:50');
+    expect(screen.queryByTestId('time-in-stage-deep-flag')).toBeNull();
+    expect(screen.getByTestId('time-in-stage-wake')).toHaveTextContent('1:37');
+  });
+
+  it('says why latency is missing on a night without stages and opens the editor from the header', async () => {
+    const thin = days.find((d) => d.sleep.stages?.reason === 'low-coverage');
+    mockParams = { day: thin?.day };
+    await render(withAppData(<LastNightScreen />));
+    expect(screen.getByTestId('kpi-latency-why')).toBeTruthy();
+    expect(screen.queryByTestId('card-time-in-stage')).toBeNull();
+    await fireEvent.press(screen.getByTestId('link-edit-sleep'));
+    expect(mockPush).toHaveBeenCalledWith(`/sleep/edit?day=${thin?.day}`);
   });
 });
