@@ -14,8 +14,8 @@ export type { Calibration, Profile } from './calibration';
 export { CONSISTENCY_MIN_NIGHTS, CONSISTENCY_NIGHTS, debtMs, sleepConsistency, sleepNeedMs, sleepScore, strainNeedMs } from './sleepNeed';
 export { READINESS_CALIBRATING_NIGHTS, readiness } from './readiness';
 export type { ReadinessNight, ReadinessResult } from './readiness';
-export { zoneSeconds } from './zones';
-export type { ZoneSeconds } from './zones';
+export { ZONE_EDGES_PERCENT, ZONE_FLOOR_MAX_BPM, ZONE_FLOOR_MIN_BPM, hrrZoneFloors, isZoneFloors, zoneSeconds } from './zones';
+export type { ZoneFloors, ZoneSeconds } from './zones';
 export { detectWorkouts } from './workouts';
 export type { Workout } from './workouts';
 export {

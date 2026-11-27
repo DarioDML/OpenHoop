@@ -340,7 +340,7 @@ describe('profile', () => {
     await fireEvent.changeText(screen.getByTestId('profile-birth-input'), '1990');
     await fireEvent.changeText(screen.getByTestId('profile-maxhr-input'), '190');
     await fireEvent.press(screen.getByTestId('profile-save'));
-    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ birthYear: 1990, maxHeartRate: 190 }));
-    expect(updateUserData).toHaveBeenCalledWith({ name: null, heightCm: 180, weightKg: 72.5, sex: null, stepsGoal: null });
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ birthYear: 1990, birthDate: null, maxHeartRate: 190, restingHeartRate: null, zoneMode: 'auto', zoneFloors: null }));
+    expect(updateUserData).toHaveBeenCalledWith({ name: null, heightCm: 180, weightKg: 72.5, sex: null, stepsGoal: null, goals: [] });
   });
 });

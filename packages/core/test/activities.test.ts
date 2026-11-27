@@ -7,6 +7,7 @@ import {
   exportCsv,
   heartRatePoints,
   loadReference,
+  metricsFromPoints,
   openStore,
   parsePaused,
 } from '../src/index';
@@ -119,5 +120,17 @@ describe('activity helpers', () => {
     expect(loadReference(days, { maxHr: 180, birthYear: null, restingHr: null }, 150, 2026)).toEqual({ rest: 52, max: 180 });
     expect(loadReference([], { maxHr: null, birthYear: null, restingHr: null }, 150, 2026)).toEqual({ rest: 60, max: 190 });
     expect(loadReference(days, { maxHr: null, birthYear: null, restingHr: 48 }, 150, 2026).rest).toBe(48);
+  });
+
+  it('carries valid custom zone floors and drops broken ones', () => {
+    const floors = [100, 120, 140, 160, 180] as const;
+    expect(loadReference([], { maxHr: 190, birthYear: null, restingHr: 50, zoneFloors: floors }, 150, 2026)).toEqual({ rest: 50, max: 190, zoneFloors: floors });
+    expect(loadReference([], { maxHr: 190, birthYear: null, restingHr: 50, zoneFloors: [180, 160, 140, 120, 100] }, 150, 2026)).toEqual({ rest: 50, max: 190 });
+  });
+
+  it('counts activity zones with custom floors', () => {
+    const points = [90, 110, 130, 150, 170, 190].map((hr, i) => ({ t: i, hr }));
+    const m = metricsFromPoints(points, { start: 0, end: 6 }, [], { rest: 50, max: 190, zoneFloors: [100, 120, 140, 160, 180] });
+    expect(m.zoneSeconds).toEqual([1, 1, 1, 1, 1, 1]);
   });
 });

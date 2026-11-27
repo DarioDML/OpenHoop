@@ -1,4 +1,4 @@
-import type { Interval } from '@openhoop/analytics';
+import type { Interval, ZoneFloors } from '@openhoop/analytics';
 import type { Wrist } from '@openhoop/protocol';
 import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, EcgSummary, StageEpochRow, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
@@ -55,9 +55,15 @@ export interface LiveState {
   updatedAt: number | null;
 }
 
+export type ZoneMode = 'auto' | 'custom';
+
 export interface Profile {
   birthYear: number | null;
   maxHeartRate: number | null;
+  birthDate?: string | null;
+  restingHeartRate?: number | null;
+  zoneMode?: ZoneMode;
+  zoneFloors?: ZoneFloors | null;
 }
 
 export interface Settings {

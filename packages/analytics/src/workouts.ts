@@ -1,6 +1,7 @@
 import { sortedUnique } from './series';
 import type { Sample } from './types';
 import { zoneSeconds } from './zones';
+import type { ZoneFloors } from './zones';
 
 export const WORKOUT_MIN_S = 600;
 export const WORKOUT_MAX_GAP_S = 120;
@@ -14,7 +15,7 @@ export interface Workout {
   maxHr: number;
 }
 
-export function detectWorkouts(samples: Sample[], rest: number, max: number): Workout[] {
+export function detectWorkouts(samples: Sample[], rest: number, max: number, floors: ZoneFloors | null = null): Workout[] {
   if (!Number.isFinite(rest) || !Number.isFinite(max) || max <= rest) return [];
   const rows = sortedUnique(samples);
   const spans: [number, number][] = [];
@@ -42,7 +43,7 @@ export function detectWorkouts(samples: Sample[], rest: number, max: number): Wo
       sum += h;
       if (h > peak) peak = h;
     }
-    out.push({ start, end, zoneSeconds: zoneSeconds(hrs, rest, max), avgHr: sum / hrs.length, maxHr: peak });
+    out.push({ start, end, zoneSeconds: zoneSeconds(hrs, rest, max, floors), avgHr: sum / hrs.length, maxHr: peak });
   }
   return out;
 }

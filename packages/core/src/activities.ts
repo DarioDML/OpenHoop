@@ -275,7 +275,7 @@ export function metricsFromPoints(
   ref: LoadReference,
   calibration: Calibration = DEFAULT_CALIBRATION,
 ): ActivityMetricsRecord {
-  const m = activityMetrics(points, window, paused, ref.rest, ref.max, calibration);
+  const m = activityMetrics(points, window, paused, ref.rest, ref.max, calibration, ref.zoneFloors ?? null);
   return {
     activeS: m.activeS,
     load: m.load.ok ? m.load.value : null,

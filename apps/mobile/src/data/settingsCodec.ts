@@ -1,3 +1,4 @@
+import { parseBirthDate, parseZoneFloors, parseZoneMode, RESTING_HR_LIMITS } from './profile';
 import type { DataSource, Language, Profile, Units } from './types';
 
 export const SETTING_KEYS = {
@@ -6,6 +7,10 @@ export const SETTING_KEYS = {
   units: 'ui.units',
   birthYear: 'profile.birthYear',
   maxHeartRate: 'profile.maxHeartRate',
+  birthDate: 'profile.birthDate',
+  restingHeartRate: 'profile.restingHeartRate',
+  zoneMode: 'profile.zoneMode',
+  zoneFloors: 'profile.zoneFloors',
   bandBleId: 'band.bleId',
   demoSeeded: 'demo.seeded',
 } as const;
@@ -36,5 +41,21 @@ export function parseProfile(birthYear: string | null, maxHeartRate: string | nu
   return {
     birthYear: parseOptionalInteger(birthYear, 1900, currentYear),
     maxHeartRate: parseOptionalInteger(maxHeartRate, 120, 230),
+  };
+}
+
+export interface ProfileDetailsRaw {
+  birthDate: string | null;
+  restingHeartRate: string | null;
+  zoneMode: string | null;
+  zoneFloors: string | null;
+}
+
+export function parseProfileDetails(raw: ProfileDetailsRaw, today: string): Required<Pick<Profile, 'birthDate' | 'restingHeartRate' | 'zoneMode' | 'zoneFloors'>> {
+  return {
+    birthDate: parseBirthDate(raw.birthDate, today),
+    restingHeartRate: parseOptionalInteger(raw.restingHeartRate, RESTING_HR_LIMITS.min, RESTING_HR_LIMITS.max),
+    zoneMode: parseZoneMode(raw.zoneMode),
+    zoneFloors: parseZoneFloors(raw.zoneFloors),
   };
 }

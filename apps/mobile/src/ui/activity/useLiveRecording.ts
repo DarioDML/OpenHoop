@@ -4,6 +4,7 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import type { ActivityType } from '@/data/activityDerived';
 import { useAppData, useLive } from '@/data/context';
 import { activeSeconds, hudFor, IDLE_SESSION, liveReducer, type LiveEvent, type LiveSession } from '@/data/liveSession';
+import { analyticsProfileOf } from '@/data/profile';
 import type { RoutePoint } from '@/data/route';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 
@@ -76,7 +77,7 @@ export function useLiveRecording(type: ActivityType) {
   };
 
   const tz = deviceTzOffsetS(new Date());
-  const ref = loadReference(days, { maxHr: profile.maxHeartRate, birthYear: profile.birthYear, restingHr: null }, now, new Date(now * 1000).getFullYear());
+  const ref = loadReference(days, analyticsProfileOf(profile), now, new Date(now * 1000).getFullYear());
   const latest = days[days.length - 1] ?? null;
   const today = latest !== null && latest.day === unixToIsoDate(now, tz) ? latest : null;
   const heartRate = live.active ? live.heartRate : null;
