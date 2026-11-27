@@ -9,7 +9,7 @@ import { donationUrl, parseDonationAmount } from '@/ui/manage/links';
 import { checkMeasure, checkProfile, defaultMaxHr } from '@/ui/manage/validation';
 import { PARITY } from '@/ui/parity';
 
-import { FIXTURE_NOW, fixtureAppData, withAppData } from './support/appData';
+import { FIXTURE_NOW, fixtureAppData, fixtureBandActions, withAppData } from './support/appData';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
@@ -41,7 +41,6 @@ import WelcomeScreen from '@/app/onboarding/index';
 import AboutScreen from '@/app/settings/about';
 import AccuracyScreen from '@/app/settings/accuracy';
 import AppSettingsScreen from '@/app/settings/app';
-import BandConfigScreen from '@/app/settings/band-config';
 import BatteryPackScreen from '@/app/settings/battery-pack';
 import ConnectProviderScreen from '@/app/settings/connect-provider';
 import DeviceSettingsScreen from '@/app/settings/device';
@@ -98,6 +97,40 @@ describe('Device settings', () => {
     await render(withAppData(<DeviceSettingsScreen />, 'en', { device: { ...base.device, lockState: 'locked' } }));
     expect(screen.getByText('The band is withholding its data')).toBeTruthy();
   });
+
+  it('buzzes, finds and stops the band', async () => {
+    const buzz = jest.fn(async () => true);
+    const stopBuzz = jest.fn(async () => true);
+    await render(withAppData(<DeviceSettingsScreen />, 'en', { bandActions: { ...fixtureBandActions(), buzz, stopBuzz } }));
+    await fireEvent.press(screen.getByTestId('buzz-test'));
+    expect(buzz).toHaveBeenLastCalledWith('test');
+    expect(screen.queryByTestId('buzz-stop')).toBeNull();
+    await fireEvent.press(screen.getByTestId('buzz-find'));
+    expect(buzz).toHaveBeenLastCalledWith('find');
+    await fireEvent.press(await screen.findByTestId('buzz-stop'));
+    expect(stopBuzz).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId('buzz-stop')).toBeNull());
+  });
+
+  it('switches the heart rate broadcast and shows what was last set here', async () => {
+    const setHeartRateBroadcast = jest.fn(async () => true);
+    const base = fixtureAppData();
+    await render(
+      withAppData(<DeviceSettingsScreen />, 'en', {
+        bandActions: { ...fixtureBandActions(), setHeartRateBroadcast },
+        device: { ...base.device, hrBroadcast: { on: false, at: Math.floor(Date.now() / 1000) - 120 } },
+      }),
+    );
+    expect(screen.getByTestId('hr-broadcast-status').props.children).toBe('Last set here: Off, 2 min ago');
+    await fireEvent.press(screen.getByTestId('hr-on'));
+    expect(setHeartRateBroadcast).toHaveBeenCalledWith(true);
+  });
+
+  it('says the band does not report the broadcast setting before OpenHoop changed it', async () => {
+    await render(withAppData(<DeviceSettingsScreen />));
+    expect(screen.getByTestId('hr-broadcast-status').props.children).toMatch(/does not report/);
+    expect(screen.getByTestId('motion-not-built')).toBeTruthy();
+  });
 });
 
 describe('Safety lock', () => {
@@ -113,7 +146,6 @@ describe('Safety lock', () => {
 
 describe('Not built screens', () => {
   it.each([
-    ['band-config', BandConfigScreen, 'not-built-bandConfig'],
     ['integrations', IntegrationsScreen, 'not-built-integrations'],
     ['connect-provider', ConnectProviderScreen, 'not-built-integrations'],
     ['community', CommunityScreen, 'not-built-community'],

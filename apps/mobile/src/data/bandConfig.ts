@@ -38,12 +38,22 @@ export interface ConfigEntry {
   valueHex: string | null;
 }
 
+export type WritableValue = '1' | '2';
+
+export interface ConfigChange {
+  kind: ConfigKind;
+  key: string;
+  original: WritableValue;
+  at: number;
+}
+
 export interface BandConfigSnapshot {
   version: 1;
   readAt: number;
   source: ConfigSource;
   flags: ConfigEntry[];
   config: ConfigEntry[];
+  changes: ConfigChange[];
 }
 
 export type BandConfigState =
@@ -86,26 +96,95 @@ function isSource(value: unknown): value is ConfigSource {
   return value === 'demo' || value === 'band';
 }
 
-function isSnapshot(value: unknown): value is BandConfigSnapshot {
+export function isWritableValue(value: unknown): value is WritableValue {
+  return value === '1' || value === '2';
+}
+
+function isTime(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function isChange(value: unknown): value is ConfigChange {
   if (!isRecord(value)) return false;
-  const { version, readAt, source, flags, config } = value;
-  return (
-    version === 1 &&
-    typeof readAt === 'number' &&
-    Number.isFinite(readAt) &&
-    readAt > 0 &&
-    isSource(source) &&
-    isEntryList(flags) &&
-    isEntryList(config)
-  );
+  const { kind, key, original, at } = value;
+  return (kind === 'flag' || kind === 'config') && typeof key === 'string' && key.length > 0 && key.length <= MAX_KEY_LENGTH && isWritableValue(original) && isTime(at);
+}
+
+function isChangeList(value: unknown): value is ConfigChange[] {
+  return value === undefined || (Array.isArray(value) && value.length <= MAX_ENTRIES && value.every(isChange));
+}
+
+interface StoredSnapshot extends Omit<BandConfigSnapshot, 'changes'> {
+  changes?: ConfigChange[];
+}
+
+function isSnapshot(value: unknown): value is StoredSnapshot {
+  if (!isRecord(value)) return false;
+  const { version, readAt, source, flags, config, changes } = value;
+  return version === 1 && isTime(readAt) && isSource(source) && isEntryList(flags) && isEntryList(config) && isChangeList(changes);
 }
 
 function toEntry(entry: ConfigEntry): ConfigEntry {
   return { key: entry.key, valueText: entry.valueText, valueHex: entry.valueHex };
 }
 
-export function buildSnapshot(readAt: number, source: ConfigSource, flags: readonly ConfigEntry[], config: readonly ConfigEntry[]): BandConfigSnapshot {
-  return { version: 1, readAt, source, flags: flags.map(toEntry), config: config.map(toEntry) };
+function toChange(change: ConfigChange): ConfigChange {
+  return { kind: change.kind, key: change.key, original: change.original, at: change.at };
+}
+
+export function buildSnapshot(
+  readAt: number,
+  source: ConfigSource,
+  flags: readonly ConfigEntry[],
+  config: readonly ConfigEntry[],
+  changes: readonly ConfigChange[] = [],
+): BandConfigSnapshot {
+  return {
+    version: 1,
+    readAt,
+    source,
+    flags: flags.map(toEntry),
+    config: config.map(toEntry),
+    changes: changes.map(toChange),
+  };
+}
+
+function entriesOf(snapshot: BandConfigSnapshot, kind: ConfigKind): ConfigEntry[] {
+  return kind === 'flag' ? snapshot.flags : snapshot.config;
+}
+
+export function changeFor(snapshot: BandConfigSnapshot, kind: ConfigKind, key: string): ConfigChange | null {
+  return snapshot.changes.find((change) => change.kind === kind && change.key === key) ?? null;
+}
+
+export function applyConfigWrite(snapshot: BandConfigSnapshot, kind: ConfigKind, key: string, before: WritableValue, after: WritableValue, at: number): BandConfigSnapshot {
+  const update = (entries: ConfigEntry[]): ConfigEntry[] =>
+    entries.map((entry) => (entry.key === key ? { key, valueText: after, valueHex: null } : entry));
+  const existing = changeFor(snapshot, kind, key);
+  const others = snapshot.changes.filter((change) => change !== existing);
+  const original = existing?.original ?? before;
+  const changes = original === after ? others : [...others, existing ?? { kind, key, original, at }];
+  return buildSnapshot(
+    snapshot.readAt,
+    snapshot.source,
+    kind === 'flag' ? update(snapshot.flags) : snapshot.flags,
+    kind === 'config' ? update(snapshot.config) : snapshot.config,
+    changes,
+  );
+}
+
+export function recordOriginal(snapshot: BandConfigSnapshot, kind: ConfigKind, key: string, original: WritableValue, at: number): BandConfigSnapshot {
+  if (changeFor(snapshot, kind, key) !== null) return snapshot;
+  return buildSnapshot(snapshot.readAt, snapshot.source, snapshot.flags, snapshot.config, [...snapshot.changes, { kind, key, original, at }]);
+}
+
+export function carryOver(previous: BandConfigSnapshot | null, next: BandConfigSnapshot): BandConfigSnapshot {
+  if (previous === null || previous.source !== next.source) return next;
+  const changes = previous.changes.filter((change) => {
+    const entry = entriesOf(next, change.kind).find((item) => item.key === change.key);
+    return entry !== undefined && entry.valueText !== change.original;
+  });
+  return buildSnapshot(next.readAt, next.source, next.flags, next.config, changes);
 }
 
 export function serializeSnapshot(snapshot: BandConfigSnapshot): string {
@@ -121,7 +200,7 @@ export function parseBandConfig(raw: string | null): BandConfigState {
     return { status: 'malformed' };
   }
   if (!isSnapshot(parsed)) return { status: 'malformed' };
-  const snapshot = buildSnapshot(parsed.readAt, parsed.source, parsed.flags, parsed.config);
+  const snapshot = buildSnapshot(parsed.readAt, parsed.source, parsed.flags, parsed.config, parsed.changes ?? []);
   return snapshot.flags.length + snapshot.config.length === 0 ? { status: 'empty', snapshot } : { status: 'ok', snapshot };
 }
 
@@ -149,8 +228,8 @@ export interface ProvenanceFact {
 }
 
 export const PROVENANCE_FACTS: Readonly<Record<ProvenanceFact['id'], ProvenanceFact>> = {
-  enumeration: { id: 'enumeration', docRow: 'Feature flag and device config enumeration', verified: false },
-  valueShape: { id: 'valueShape', docRow: 'The shape of the reply when reading the value of a feature flag or a device config key', verified: false },
+  enumeration: { id: 'enumeration', docRow: 'Feature flag and device config enumeration', verified: true },
+  valueShape: { id: 'valueShape', docRow: 'The reply when reading a feature flag or device config value', verified: true },
 };
 
 export interface FieldRow {
@@ -159,6 +238,7 @@ export interface FieldRow {
   known: boolean;
   value: ValueView;
   verified: boolean;
+  writable: boolean;
 }
 
 export function describeFields(kind: ConfigKind, entries: readonly ConfigEntry[]): { known: FieldRow[]; unknown: FieldRow[] } {
@@ -167,7 +247,8 @@ export function describeFields(kind: ConfigKind, entries: readonly ConfigEntry[]
   for (const entry of entries) {
     const isKnown = kind === 'flag' ? isFlagKey(entry.key) : isConfigKey(entry.key);
     const verified = PROVENANCE_FACTS.enumeration.verified && PROVENANCE_FACTS.valueShape.verified;
-    (isKnown ? known : unknown).push({ kind, entry, known: isKnown, value: valueView(kind, entry), verified });
+    const writable = isKnown && isWritableValue(entry.valueText);
+    (isKnown ? known : unknown).push({ kind, entry, known: isKnown, value: valueView(kind, entry), verified, writable });
   }
   return { known, unknown };
 }

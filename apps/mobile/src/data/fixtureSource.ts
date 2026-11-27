@@ -262,6 +262,7 @@ export function createFixtureDevice(now: Date = new Date(), lockState: LockState
     configSnapshot: null,
     batteryPack: null,
     band: null,
+    hrBroadcast: null,
   };
 }
 

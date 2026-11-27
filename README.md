@@ -86,7 +86,7 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
 | C | Sleep consistency, sleep stages (estimate), automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training), jet lag plan (rule-based guidance), VO2 max (estimate), healthspan pillars, body age (fitness age and Phenotypic Age, two estimates), route distance, pace, speed and elevation gain from the phone GPS (estimates) |
-| D | Raw records, for example optical and motion data. Also the values you enter by hand or read from Health Connect (weight, body fat, lab results with the reference range you copied from your own report, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered, average cycle and period length, next-period estimate, pregnancy week). OpenHoop ships no reference ranges of its own |
+| D | Raw records, for example optical and motion data, and the ECG trace. Also the values you enter by hand or read from Health Connect (weight, body fat, lab results with the reference range you copied from your own report, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered, average cycle and period length, next-period estimate, pregnancy week). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
 
@@ -206,6 +206,20 @@ On Android, OpenHoop can write heart rate (minute averages), resting heart rate,
 - Sync runs when you tap "Sync now", and after each band sync if you turn that on. To withdraw a permission or delete what OpenHoop wrote, use Health Connect itself.
 - Third-party cloud services (for example Strava) are not built.
 - Android home-screen widgets cannot open the encrypted database. While at least one OpenHoop widget is on the home screen, the app keeps a small unencrypted file in its private cache with only the numbers the widget shows (Readiness, Sleep score, Load, resting heart rate, HRV, or the reason a value is missing), the day, the sync time and the app language. There is no name and no raw data in it. Android also keeps the drawn widget images in the app's private storage. Turning "Show values on widgets" off replaces the file with one that holds no values; removing the last widget deletes the file and the images. Neither is included in Android backups.
+
+## ECG
+
+On an MG band, the ECG screen records 30 seconds while you hold a fingertip of the other hand on the top of the band. OpenHoop sends the band's filtered-reading start sequence, stores the trace it streams (about 100 samples per second) and always switches the reading off again, also on the next connection when the link was lost halfway. The trace is level D: it is drawn in 5-second strips on one shared scale, stored on the phone, part of the export (`ecg_recordings.csv`) and can be shared as a CSV file. OpenHoop computes nothing from it: no heart rate, no rhythm and no verdict. The result screen shows the band's optical heart rate during the recording separately, labelled as such. OpenHoop does not check your pulse for rhythm problems and makes no blood pressure value; those screens say so.
+
+## Haptic alarm
+
+The alarm screen sets one alarm on the band. The band runs it by itself at the set time, also when the phone is off or far away, and stops after 30 seconds or when you double-tap the band. OpenHoop reads the alarm back from the band before it says it is set, and converts between the phone's clock and the band's. The band rings an alarm once; after it has rung, OpenHoop sets the next day's alarm each time it syncs. Home and the sleep planner show the time, and the alarm screen says when it last rang and whether it was stopped early. Waking at a light moment or once your sleep need is met is not built yet.
+
+## Band actions and settings
+
+Device settings can make the band buzz once (Test haptics) or for about four seconds (Find band, with a Stop button), and switch the standard Bluetooth heart rate service on or off (Heart rate broadcast, which gym equipment and other apps use). Switching it off also stops live heart rate in OpenHoop. The band keeps that setting after a restart and does not report it, so OpenHoop shows only what it last set itself.
+
+Feature flags and device settings whose value is 1 (on) or 2 (off) can be changed under Configuration and flags. A change is written to the band's memory, stays after a restart and needs the typed word CHANGE; the command gate refuses to build a flag or setting write without that confirmation. OpenHoop keeps the value from before its first change in the stored configuration, also after a new read, and puts it back in one tap. Other values, such as the 0 that every device setting reads on the MG, are never changed, because there is no known way to put them back. Wiping, restarting, unpairing and firmware updates are still never sent.
 
 ## Not a medical device
 

@@ -492,15 +492,33 @@ CREATE TABLE battery_pack_events (
 CREATE INDEX battery_pack_events_device ON battery_pack_events (device_id, t);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14];
+const V15 = `
+ALTER TABLE ecg_recordings ADD COLUMN duration_ms INTEGER NOT NULL DEFAULT 0 CHECK (duration_ms >= 0);
+ALTER TABLE ecg_recordings ADD COLUMN sample_count INTEGER NOT NULL DEFAULT 0 CHECK (sample_count >= 0);
+ALTER TABLE ecg_recordings ADD COLUMN rate_hz REAL CHECK (rate_hz IS NULL OR rate_hz > 0);
+ALTER TABLE ecg_recordings ADD COLUMN wrist TEXT CHECK (wrist IS NULL OR wrist IN ('left', 'right'));
+CREATE INDEX ecg_recordings_device ON ecg_recordings (device_id, t);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
+
+export class DatabaseTooNewError extends Error {
+  constructor(
+    readonly found: number,
+    readonly supported: number,
+  ) {
+    super(`Database schema version ${found} is newer than this app supports (${supported})`);
+    this.name = 'DatabaseTooNewError';
+  }
+}
 
 export async function migrate(driver: SqlDriver): Promise<void> {
   const rows = await driver.all<{ user_version: number }>('PRAGMA user_version');
   const current = rows[0]?.user_version ?? 0;
   if (current > SCHEMA_VERSION) {
-    throw new Error(`Database schema version ${current} is newer than this app supports (${SCHEMA_VERSION})`);
+    throw new DatabaseTooNewError(current, SCHEMA_VERSION);
   }
   for (let version = current + 1; version <= SCHEMA_VERSION; version++) {
     const script = MIGRATIONS[version - 1];

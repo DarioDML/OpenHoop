@@ -48,6 +48,28 @@ import {
   latestBandStatus,
   latestBatteryPack,
   readKeys,
+  buzz,
+  stopBuzz,
+  setHeartRateProfile,
+  writeConfigValue,
+  configWriteCommand,
+  ConfigWriteError,
+  TEST_BUZZ_LOOPS,
+  FIND_BAND_LOOPS,
+  type KeyKind,
+  AlarmError,
+  armAlarm,
+  cancelAlarm,
+  recentAlarmEvents,
+  ringAlarm,
+  EcgError,
+  deleteEcgRecording,
+  ecgSamples,
+  insertEcgRecording,
+  listEcgRecordings,
+  recordEcg,
+  stopEcg,
+  type EcgSummary,
   rebuildStaleSamples,
   recomputeStaleDays,
   recomputeDays,
@@ -104,7 +126,7 @@ import {
   type DonationDay,
   type DonationProgress,
 } from '@openhoop/core';
-import { formatFirmware } from '@openhoop/protocol';
+import { commandName, formatFirmware, type Wrist } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
 import Constants from 'expo-constants';
 import { getRandomBytes } from 'expo-crypto';
@@ -125,9 +147,23 @@ import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
 import { setNetworkPrefs } from '@/net';
 import { strictestPrefs } from '@/net/features';
 
-import { buildSnapshot, serializeSnapshot } from './bandConfig';
+import { applyConfigWrite, buildSnapshot, carryOver, changeFor, parseBandConfig, recordOriginal, serializeSnapshot, type ConfigKind, type WritableValue } from './bandConfig';
+import { hrBroadcastKey, parseHrBroadcast, serializeHrBroadcast, type HrBroadcastState } from './hrBroadcast';
+import {
+  ALARM_PLAN_KEY,
+  DEFAULT_ALARM_PLAN,
+  alarmTask,
+  armedAlarmKey,
+  parseAlarmPlan,
+  parseArmedAlarm,
+  serializeAlarmPlan,
+  serializeArmedAlarm,
+  type AlarmPlan,
+  type ArmedAlarm,
+} from './alarm';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
+import { storageProblemOf, type StorageProblem } from './storageProblem';
 import { addDays } from './derived';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
@@ -141,6 +177,7 @@ import {
 } from './healthConnectState';
 import { runHealthConnectSync } from './healthConnectSync';
 import { removeLeftoverReports } from './reportFiles';
+import { removeLeftoverEcgFiles } from './ecgShare';
 import {
   NOTIFICATION_STATE_KEY,
   emptyNotificationState,
@@ -160,7 +197,14 @@ import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, serializeOp
 import { createDonationWorkspace, filePartSink, removeLeftoverDonations, saveDonationParts, sharePartFile, type SaveOutcome } from './donation/files';
 import type {
   ActivityDraft,
+  AlarmActions,
+  AlarmSaveOutcome,
+  EcgActions,
+  EcgLiveState,
+  AlarmView,
   AppData,
+  BandActions,
+  BandBuzz,
   BuiltDonation,
   ConnectionState,
   DataSource,
@@ -204,6 +248,7 @@ const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
 
 export interface Snapshot {
   ready: boolean;
+  storageProblem: StorageProblem | null;
   days: DayRecord[];
   sleepEdits: SleepEditRow[];
   device: DeviceStatus;
@@ -224,6 +269,10 @@ export interface Snapshot {
   healthConnect: HealthConnectView;
   activities: ActivityRow[];
   pendingDelete: PendingDelete | null;
+  alarm: AlarmView;
+  ecgRecordings: EcgSummary[];
+  ecgWrist: Wrist;
+  ecgLive: EcgLiveState;
 }
 
 interface Connection {
@@ -243,6 +292,14 @@ export interface SyncTimings {
 const SYNC_FAILURES_NOT_ALERTED: ReadonlySet<TranslationKey> = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
 
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
+const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
+const ECG_PROGRESS_MS = 200;
+
+const ECG_WRIST_KEY = 'ecg.wrist';
+
+function ecgCleanupKey(deviceId: number): string {
+  return `ecg.cleanup.${deviceId}`;
+}
 
 function emptyDevice(): DeviceStatus {
   return {
@@ -258,7 +315,19 @@ function emptyDevice(): DeviceStatus {
     configSnapshot: null,
     batteryPack: null,
     band: null,
+    hrBroadcast: null,
   };
+}
+
+const CORE_KIND: Readonly<Record<ConfigKind, KeyKind>> = { flag: 'featureFlags', config: 'deviceConfig' };
+
+function alarmProblem(error: unknown): Notice {
+  if (error instanceof AlarmError) {
+    if (error.reason === 'rejected') return { key: 'alarm.problem.rejected', params: { status: error.status ?? '?' } };
+    return { key: error.reason === 'clock-unknown' ? 'alarm.problem.clock' : error.reason === 'too-soon' ? 'alarm.problem.tooSoon' : 'alarm.problem.notArmed' };
+  }
+  const appError = toAppError(error);
+  return { key: appError.key, params: appError.params };
 }
 
 function toModel(text: string | null): BandModel | null {
@@ -296,6 +365,7 @@ export class AppController {
   private battery: number | null = null;
   private batteryPack: BatteryPackState | null = null;
   private bandStatus: BandStatus | null = null;
+  private hrBroadcast: HrBroadcastState | null = null;
   private backlogPages: number | null = null;
   private lastSyncAt: number | null = null;
   private lastSyncCounts: SyncCounts | null = null;
@@ -324,6 +394,7 @@ export class AppController {
     const language = detectLanguage(getLocales()[0]?.languageCode);
     this.snapshot = {
       ready: false,
+      storageProblem: null,
       days: [],
       sleepEdits: [],
       device: emptyDevice(),
@@ -344,6 +415,10 @@ export class AppController {
       healthConnect: { availability: 'checking', granted: [], state: defaultHealthConnectState(), syncing: false },
       activities: [],
       pendingDelete: null,
+      alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
+      ecgRecordings: [],
+      ecgWrist: 'left',
+      ecgLive: IDLE_ECG,
     };
   }
 
@@ -385,6 +460,7 @@ export class AppController {
         configSnapshot: row?.configSnapshot ?? null,
         batteryPack: this.batteryPack,
         band: this.bandStatus,
+        hrBroadcast: this.hrBroadcast,
       },
     });
   }
@@ -421,6 +497,7 @@ export class AppController {
     try {
       removeLeftoverExports();
       removeLeftoverReports();
+      removeLeftoverEcgFiles();
       removeLeftoverDonations();
     } catch {
       // a leftover export or report is removed again before the next one
@@ -428,7 +505,7 @@ export class AppController {
     try {
       this.app = await openAppStore();
     } catch (error) {
-      this.patch({ ready: true });
+      this.patch({ ready: true, storageProblem: storageProblemOf(error) });
       this.fail(error instanceof AppError ? error : new AppError('error.storage', undefined, { cause: error }));
       return;
     }
@@ -465,6 +542,8 @@ export class AppController {
       inbox: this.notificationState.inbox,
       healthConnect: { ...this.snapshot.healthConnect, state: healthConnectState },
       strength,
+      alarm: { ...this.snapshot.alarm, plan: parseAlarmPlan(await store.getSetting(ALARM_PLAN_KEY)) },
+      ecgWrist: (await store.getSetting(ECG_WRIST_KEY)) === 'right' ? 'right' : 'left',
     });
     if (dataSource === 'band') await this.purgeDemoRecordings();
     await this.loadActiveDevice();
@@ -519,9 +598,17 @@ export class AppController {
     this.lastSyncCounts = null;
     this.batteryPack = null;
     this.bandStatus = null;
+    this.hrBroadcast = null;
+    let armed: ArmedAlarm | null = null;
+    let alarmEvents: AlarmView['events'] = [];
+    let ecgRecordings: EcgSummary[] = [];
     let ownerSince: string | null = null;
     if (this.deviceRow !== null) {
       await this.loadBandReports(this.deviceRow.id);
+      this.hrBroadcast = parseHrBroadcast(await store.getSetting(hrBroadcastKey(this.deviceRow.id)));
+      armed = parseArmedAlarm(await store.getSetting(armedAlarmKey(this.deviceRow.id)));
+      alarmEvents = await recentAlarmEvents(store, this.deviceRow.id);
+      ecgRecordings = await listEcgRecordings(store.driver, this.deviceRow.id);
       const state = await store.getSyncState(this.deviceRow.id);
       this.lastSyncAt = state?.lastSyncAt ?? null;
       const savedLock = await store.getSetting(this.lockKey(this.deviceRow.id));
@@ -530,7 +617,7 @@ export class AppController {
         ownerSince = unixToIsoDate(this.deviceRow.ownerSince, deviceTzOffsetS(new Date()));
       }
     }
-    this.patch({ settings: { ...this.snapshot.settings, ownerSince } });
+    this.patch({ settings: { ...this.snapshot.settings, ownerSince }, alarm: { ...this.snapshot.alarm, armed, events: alarmEvents, problem: null }, ecgRecordings });
     this.patchDevice();
     await this.refreshDays();
   }
@@ -646,6 +733,9 @@ export class AppController {
       });
       const conn: Connection = { transport, session, deviceId: row.id, heldChunk: null };
       this.conn = conn;
+      if ((await store.getSetting(ecgCleanupKey(row.id))) === '1' && (await stopEcg(session))) {
+        await store.setSetting(ecgCleanupKey(row.id), '');
+      }
       this.battery = await session.battery().catch(() => hello.batteryPercent);
       this.setConnection('connected');
       return conn;
@@ -754,6 +844,7 @@ export class AppController {
       const computeStarted = Date.now();
       await this.recompute(deviceId, previousNewest === null ? null : previousNewest - INCREMENTAL_RECOMPUTE_BACK_S);
       await this.loadBandReports(deviceId);
+      await this.syncAlarm(conn);
       const computeMs = Date.now() - computeStarted;
       const after = await store.getSyncState(deviceId);
       this.lastSyncAt = after?.lastSyncAt ?? this.lastSyncAt;
@@ -896,24 +987,186 @@ export class AppController {
         const flags = await readKeys(conn.session, 'featureFlags');
         const config = await readKeys(conn.session, 'deviceConfig');
         if (flags.length + config.length === 0) throw new AppError('error.bandConfigEmpty');
-        const snapshot = buildSnapshot(nowSeconds(), this.snapshot.settings.dataSource, flags, config);
-        const row = this.deviceRow;
-        if (row === null) throw new AppError('error.noBandPaired');
-        this.deviceRow = await this.requireApp().store.upsertDevice({
-          bleId: row.bleId,
-          name: row.name,
-          model: row.model,
-          firmware: row.firmware,
-          serial: row.serial,
-          ownerSince: row.ownerSince,
-          configSnapshot: serializeSnapshot(snapshot),
-        });
-        this.patchDevice();
+        const fresh = buildSnapshot(nowSeconds(), this.snapshot.settings.dataSource, flags, config);
+        const previous = parseBandConfig(this.deviceRow?.configSnapshot ?? null);
+        await this.storeConfigSnapshot(serializeSnapshot(carryOver(previous.status === 'ok' ? previous.snapshot : null, fresh)));
       });
     } catch (error) {
       this.fail(error);
     }
   };
+
+  private async storeConfigSnapshot(json: string): Promise<void> {
+    const row = this.deviceRow;
+    if (row === null) throw new AppError('error.noBandPaired');
+    this.deviceRow = await this.requireApp().store.upsertDevice({
+      bleId: row.bleId,
+      name: row.name,
+      model: row.model,
+      firmware: row.firmware,
+      serial: row.serial,
+      ownerSince: row.ownerSince,
+      configSnapshot: json,
+    });
+    this.patchDevice();
+  }
+
+  private async onBand(task: (conn: Connection) => Promise<void>, blockDuringLive: boolean): Promise<boolean> {
+    if (this.syncRun !== null || (blockDuringLive && this.liveAbort !== null)) {
+      this.fail(new AppError('error.bandBusy'));
+      return false;
+    }
+    try {
+      await this.exclusive(async () => task(await this.ensureConnection()));
+      return true;
+    } catch (error) {
+      if (error instanceof AlarmError) this.patch({ notice: alarmProblem(error) });
+      else this.fail(error instanceof ConfigWriteError ? new AppError(error.reason === 'not-writable' ? 'error.configNotWritable' : 'error.configNotApplied') : error);
+      return false;
+    }
+  }
+
+  private async syncAlarm(conn: Connection): Promise<void> {
+    const { store } = this.requireApp();
+    if (conn.session.isConnected) {
+      try {
+        await this.applyAlarm(conn);
+      } catch (error) {
+        this.patchAlarm({ problem: alarmProblem(error) });
+      }
+    }
+    this.patchAlarm({ events: await recentAlarmEvents(store, conn.deviceId) });
+  }
+
+  private async applyAlarm(conn: Connection): Promise<void> {
+    const { store } = this.requireApp();
+    const { plan, armed } = this.snapshot.alarm;
+    const task = alarmTask(plan, armed, new Date());
+    if (task.kind === 'arm') {
+      const attempt: ArmedAlarm = { wakeAt: task.wakeAt, armedAt: nowSeconds(), confirmed: false };
+      await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(attempt));
+      this.patchAlarm({ armed: attempt });
+      const reading = await armAlarm(conn.session, task.wakeAt, nowSeconds());
+      const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds(), confirmed: true };
+      await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(next));
+      this.patchAlarm({ armed: next, problem: null });
+    } else if (task.kind === 'cancel') {
+      await cancelAlarm(conn.session);
+      await store.setSetting(armedAlarmKey(conn.deviceId), '');
+      this.patchAlarm({ armed: null, problem: null });
+    } else {
+      this.patchAlarm({ problem: null });
+    }
+  }
+
+  private patchAlarm(patch: Partial<AlarmView>): void {
+    this.patch({ alarm: { ...this.snapshot.alarm, ...patch } });
+  }
+
+  private readonly alarmActionSet: AlarmActions = {
+    save: async (plan: AlarmPlan): Promise<AlarmSaveOutcome> => {
+      await this.requireApp().store.setSetting(ALARM_PLAN_KEY, serializeAlarmPlan(plan));
+      this.patchAlarm({ plan });
+      if (this.syncRun !== null) return 'pending';
+      try {
+        await this.exclusive(async () => this.applyAlarm(await this.ensureConnection()));
+        return 'on-band';
+      } catch (error) {
+        this.patchAlarm({ problem: alarmProblem(error) });
+        return 'pending';
+      }
+    },
+    ring: () => this.onBand(async (conn) => void (await ringAlarm(conn.session)), false),
+  };
+
+  private ecgAbort: AbortController | null = null;
+
+  private readonly ecgActionSet: EcgActions = {
+    start: (wrist: Wrist) => this.startEcg(wrist),
+    stop: () => this.ecgAbort?.abort(),
+    samples: async (id: number) => ecgSamples(this.requireApp().store.driver, id),
+    remove: async (id: number) => {
+      const { store } = this.requireApp();
+      const removed = await deleteEcgRecording(store.driver, id);
+      if (this.deviceRow !== null) this.patch({ ecgRecordings: await listEcgRecordings(store.driver, this.deviceRow.id) });
+      return removed;
+    },
+  };
+
+  private async startEcg(wrist: Wrist): Promise<number | null> {
+    if (this.syncRun !== null || this.liveAbort !== null || this.ecgAbort !== null) {
+      this.fail(new AppError('error.bandBusy'));
+      return null;
+    }
+    const abort = new AbortController();
+    this.ecgAbort = abort;
+    this.patch({ ecgLive: { ...IDLE_ECG, active: true } });
+    let lastProgress = 0;
+    try {
+      return await this.exclusive(async () => {
+        const conn = await this.ensureConnection();
+        const { store } = this.requireApp();
+        await store.setSetting(ecgCleanupKey(conn.deviceId), '1');
+        const capture = await recordEcg(conn.session, {
+          wrist,
+          signal: abort.signal,
+          onProgress: (progress) => {
+            const now = Date.now();
+            if (now - lastProgress < ECG_PROGRESS_MS) return;
+            lastProgress = now;
+            this.patch({ ecgLive: { active: true, elapsedMs: progress.elapsedMs, samples: progress.samples, tail: progress.tail } });
+          },
+        });
+        if (capture.stopConfirmed) await store.setSetting(ecgCleanupKey(conn.deviceId), '');
+        await store.setSetting(ECG_WRIST_KEY, wrist);
+        this.patch({ ecgWrist: wrist });
+        const id = await insertEcgRecording(store.driver, conn.deviceId, capture);
+        this.patch({ ecgRecordings: await listEcgRecordings(store.driver, conn.deviceId) });
+        return id;
+      });
+    } catch (error) {
+      if (error instanceof EcgError && error.reason === 'cancelled') return null;
+      this.fail(error instanceof EcgError ? new AppError(error.reason === 'unsupported' ? 'ecg.problem.unsupported' : 'ecg.problem.noSignal') : error);
+      return null;
+    } finally {
+      this.ecgAbort = null;
+      this.patch({ ecgLive: IDLE_ECG });
+    }
+  }
+
+  private readonly bandActionSet: BandActions = {
+    buzz: (kind: BandBuzz) => this.onBand((conn) => buzz(conn.session, kind === 'find' ? FIND_BAND_LOOPS : TEST_BUZZ_LOOPS), false),
+    stopBuzz: () => this.onBand((conn) => stopBuzz(conn.session), false),
+    setHeartRateBroadcast: (on: boolean) =>
+      this.onBand(async (conn) => {
+        await setHeartRateProfile(conn.session, on);
+        const state: HrBroadcastState = { on, at: nowSeconds() };
+        await this.requireApp().store.setSetting(hrBroadcastKey(conn.deviceId), serializeHrBroadcast(state));
+        this.hrBroadcast = state;
+        this.patchDevice();
+      }, true),
+    writeConfig: (kind: ConfigKind, key: string, value: WritableValue) => this.onBand((conn) => this.writeConfigOn(conn, kind, key, value), true),
+    restoreConfig: (kind: ConfigKind, key: string) =>
+      this.onBand(async (conn) => {
+        const state = parseBandConfig(this.deviceRow?.configSnapshot ?? null);
+        const change = state.status === 'ok' ? changeFor(state.snapshot, kind, key) : null;
+        if (change === null) throw new AppError('error.configNoChange');
+        await this.writeConfigOn(conn, kind, key, change.original);
+      }, true),
+  };
+
+  private async writeConfigOn(conn: Connection, kind: ConfigKind, key: string, value: WritableValue): Promise<void> {
+    const state = parseBandConfig(this.deviceRow?.configSnapshot ?? null);
+    if (state.status !== 'ok') throw new AppError('error.configNotRead');
+    const coreKind = CORE_KIND[kind];
+    const grant = { confirmDangerous: commandName(configWriteCommand(coreKind)) };
+    let snapshot = state.snapshot;
+    const result = await writeConfigValue(conn.session, coreKind, key, value, grant, async (before) => {
+      snapshot = recordOriginal(snapshot, kind, key, before, nowSeconds());
+      await this.storeConfigSnapshot(serializeSnapshot(snapshot));
+    });
+    await this.storeConfigSnapshot(serializeSnapshot(applyConfigWrite(snapshot, kind, key, result.before, result.after, nowSeconds())));
+  }
 
   stopLive = async (): Promise<void> => {
     await this.stopLiveInternal();
@@ -973,7 +1226,8 @@ export class AppController {
       try {
         this.deviceRow = await store.driver.transaction(async (tx) => {
           const inner = bindStore(tx);
-          const updated = await inner.upsertDevice({ ...row, ownerSince: unix });
+          const current = this.deviceRow ?? row;
+          const updated = await inner.upsertDevice({ ...current, ownerSince: unix });
           if (later) await deleteDataBefore(inner, row.id, unix);
           return updated;
         });
@@ -1751,7 +2005,7 @@ export class AppController {
   };
 
   private appData(): AppData {
-    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ...snapshot } = this.snapshot;
+    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ecgLive: _ecgLive, ...snapshot } = this.snapshot;
     return {
       ...snapshot,
       sleepEditLimits: { napMaxS: MANUAL_NAP_MAX_S, sleepMaxS: EDITED_SLEEP_MAX_S },
@@ -1760,6 +2014,9 @@ export class AppController {
       sync: this.sync,
       startLive: this.startLive,
       readBandConfig: this.readBandConfig,
+      bandActions: this.bandActionSet,
+      alarmActions: this.alarmActionSet,
+      ecgActions: this.ecgActionSet,
       stopLive: this.stopLive,
       exportData: this.exportData,
       listDonationDays: this.listDonationDays,

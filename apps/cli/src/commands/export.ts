@@ -17,6 +17,7 @@ const TABLES: readonly ExportTable[] = [
   'battery_pack_events',
   'console_log',
   'raw_chunks',
+  'ecg_recordings',
 ];
 const DATABASE_NAME = 'openhoop.db';
 

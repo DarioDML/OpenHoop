@@ -2,7 +2,8 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { AppDataContext, LiveDataContext } from '@/data/context';
 import { createFixtureDays, createFixtureDevice, createFixtureSettings } from '@/data/fixtureSource';
-import type { AppData, Language, LiveData, LiveDataStore, StrengthActions } from '@/data/types';
+import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
+import type { AlarmActions, AppData, BandActions, EcgActions, Language, LiveData, LiveDataStore, StrengthActions } from '@/data/types';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 
@@ -24,6 +25,24 @@ export function fixtureStrengthActions(): StrengthActions {
   };
 }
 
+export function fixtureBandActions(): BandActions {
+  return {
+    buzz: async () => true,
+    stopBuzz: async () => true,
+    setHeartRateBroadcast: async () => true,
+    writeConfig: async () => true,
+    restoreConfig: async () => true,
+  };
+}
+
+export function fixtureAlarmActions(): AlarmActions {
+  return { save: async () => 'on-band', ring: async () => true };
+}
+
+export function fixtureEcgActions(): EcgActions {
+  return { start: async () => 1, stop: () => undefined, samples: async () => [], remove: async () => true };
+}
+
 export type AppDataOverrides = Partial<AppData & LiveData>;
 
 export function fixtureLiveData(overrides: AppDataOverrides = {}): LiveData {
@@ -31,6 +50,7 @@ export function fixtureLiveData(overrides: AppDataOverrides = {}): LiveData {
     live: overrides.live ?? { active: false, heartRate: null, lastRrMs: null, updatedAt: null },
     syncProgress: overrides.syncProgress ?? null,
     pendingDelete: overrides.pendingDelete ?? null,
+    ecgLive: overrides.ecgLive ?? { active: false, elapsedMs: 0, samples: 0, tail: [] },
   };
 }
 
@@ -39,10 +59,11 @@ export function staticLiveStore(data: LiveData): LiveDataStore {
 }
 
 export function fixtureAppData(language: Language = 'en', overrides: AppDataOverrides = {}): AppData {
-  const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ...appOverrides } = overrides;
+  const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ecgLive: _ecgLive, ...appOverrides } = overrides;
   const noop = async (): Promise<void> => undefined;
   return {
     ready: true,
+    storageProblem: null,
     notice: null,
     clearNotice: () => undefined,
     days: createFixtureDays(FIXTURE_NOW),
@@ -64,6 +85,12 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     sync: noop,
     startLive: noop,
     readBandConfig: noop,
+    bandActions: fixtureBandActions(),
+    alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
+    alarmActions: fixtureAlarmActions(),
+    ecgRecordings: [],
+    ecgWrist: 'left',
+    ecgActions: fixtureEcgActions(),
     stopLive: noop,
     exportData: noop,
     listDonationDays: async () => [],

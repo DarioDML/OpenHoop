@@ -19,7 +19,8 @@ interface Props {
   heading: string;
   body: string;
   icon: IconName;
-  issue: IssueKey;
+  issue?: IssueKey;
+  notOffered?: string;
   points?: readonly string[];
   pointsTitle?: string;
   level?: ParityLevel;
@@ -31,7 +32,7 @@ interface Props {
   testID?: string;
 }
 
-export function FeaturePage({ title, heading, body, icon, issue, points, pointsTitle, level, levelNote, needsMg = false, tint = 'health', right, children, testID }: Props) {
+export function FeaturePage({ title, heading, body, icon, issue, notOffered, points, pointsTitle, level, levelNote, needsMg = false, tint = 'health', right, children, testID }: Props) {
   const { colors } = useTheme();
   const { t } = useT();
   const { device } = useAppData();
@@ -58,7 +59,16 @@ export function FeaturePage({ title, heading, body, icon, issue, points, pointsT
       {missingHardware ? (
         <StateCard icon="band" tone="pink" title={t('health.mg.needsTitle')} body={t('health.mg.needsBody')} testID="needs-mg" />
       ) : null}
-      <NotBuilt issue={issue} />
+      {notOffered !== undefined ? (
+        <Card tone="outline" testID="not-offered" style={{ gap: 6 }}>
+          <AppText variant="bodyStrong">{t('health.notOffered.title')}</AppText>
+          <AppText variant="body" muted>
+            {notOffered}
+          </AppText>
+        </Card>
+      ) : issue !== undefined ? (
+        <NotBuilt issue={issue} />
+      ) : null}
       {needsMg ? (
         <AppText variant="caption" muted testID="mg-disclaimer">
           {t('health.mg.disclaimer')}

@@ -38,6 +38,7 @@ export class CommandFailedError extends Error {
     readonly command: number,
     readonly result: number,
     detail?: string,
+    readonly body: Uint8Array = new Uint8Array(0),
   ) {
     super(`command ${command} failed with result ${result}${detail === undefined ? '' : `: ${detail}`}`);
     this.name = 'CommandFailedError';
@@ -251,7 +252,7 @@ export class Session {
     }
     this.settle(key, entry);
     if (response.result === RESULT_SUCCESS) entry.resolve(response);
-    else entry.reject(new CommandFailedError(response.command, response.result));
+    else entry.reject(new CommandFailedError(response.command, response.result, undefined, response.body));
   }
 
   private handleDisconnect(): void {

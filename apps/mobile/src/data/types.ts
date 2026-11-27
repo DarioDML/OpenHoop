@@ -1,13 +1,18 @@
 import type { Interval } from '@openhoop/analytics';
-import type { ActivityRow, ActivitySource, BandModel, BandStatus, StageEpochRow, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
+import type { Wrist } from '@openhoop/protocol';
+import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, EcgSummary, StageEpochRow, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
+import type { StorageProblem } from '@/data/storageProblem';
 import type { TranslationKey, TranslationParams } from '@/i18n';
 import type { HcDataType } from '@/lib/healthConnectMapping';
 import type { InboxEntry } from '@/lib/notificationPlan';
 
+import type { AlarmPlan, ArmedAlarm } from './alarm';
+import type { ConfigKind, WritableValue } from './bandConfig';
 import type { SaveOutcome } from './donation/files';
 import type { HcAvailability } from './healthConnectApi';
 import type { HealthConnectState } from './healthConnectState';
+import type { HrBroadcastState } from './hrBroadcast';
 import type { PermissionState } from './notifier';
 
 import type { SleepEditRequest } from './sleepEditForm';
@@ -39,6 +44,7 @@ export interface DeviceStatus {
   configSnapshot: string | null;
   batteryPack: BatteryPackState | null;
   band: BandStatus | null;
+  hrBroadcast: HrBroadcastState | null;
 }
 
 export interface LiveState {
@@ -124,6 +130,30 @@ export interface StrengthActions {
   removeSession(id: number): Promise<boolean>;
 }
 
+export type BandBuzz = 'test' | 'find';
+
+export interface BandActions {
+  buzz(kind: BandBuzz): Promise<boolean>;
+  stopBuzz(): Promise<boolean>;
+  setHeartRateBroadcast(on: boolean): Promise<boolean>;
+  writeConfig(kind: ConfigKind, key: string, value: WritableValue): Promise<boolean>;
+  restoreConfig(kind: ConfigKind, key: string): Promise<boolean>;
+}
+
+export interface AlarmView {
+  plan: AlarmPlan;
+  armed: ArmedAlarm | null;
+  events: AlarmEvent[];
+  problem: Notice | null;
+}
+
+export type AlarmSaveOutcome = 'on-band' | 'pending';
+
+export interface AlarmActions {
+  save(plan: AlarmPlan): Promise<AlarmSaveOutcome>;
+  ring(): Promise<boolean>;
+}
+
 export interface HealthConnectView {
   availability: HcAvailability | 'checking';
   granted: string[];
@@ -131,10 +161,25 @@ export interface HealthConnectView {
   syncing: boolean;
 }
 
+export interface EcgLiveState {
+  active: boolean;
+  elapsedMs: number;
+  samples: number;
+  tail: readonly number[];
+}
+
+export interface EcgActions {
+  start(wrist: Wrist): Promise<number | null>;
+  stop(): void;
+  samples(id: number): Promise<number[] | null>;
+  remove(id: number): Promise<boolean>;
+}
+
 export interface LiveData {
   live: LiveState;
   syncProgress: SyncProgressView | null;
   pendingDelete: PendingDelete | null;
+  ecgLive: EcgLiveState;
 }
 
 export interface LiveDataStore {
@@ -148,6 +193,7 @@ export interface BuiltDonation extends DonationResult {
 
 export interface AppData {
   ready: boolean;
+  storageProblem: StorageProblem | null;
   days: DayRecord[];
   sleepEdits: SleepEditRow[];
   sleepEditLimits: SleepEditLimits;
@@ -172,6 +218,12 @@ export interface AppData {
   sync(): Promise<void>;
   startLive(): Promise<void>;
   readBandConfig(): Promise<void>;
+  bandActions: BandActions;
+  alarm: AlarmView;
+  alarmActions: AlarmActions;
+  ecgRecordings: EcgSummary[];
+  ecgWrist: Wrist;
+  ecgActions: EcgActions;
   stopLive(): Promise<void>;
   exportData(): Promise<void>;
   listDonationDays(): Promise<DonationDay[]>;
