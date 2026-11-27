@@ -9,7 +9,7 @@ import type { AppData } from '@/data/types';
 import { StravaUploadCard } from '@/ui/strava/StravaUploadCard';
 
 import { withAppData } from './support/appData';
-import { CLIENT, NOW_S, STRAVA_ON, StravaHost, fakeStrava, json, makeStrava, memoryVault, tokens } from './support/strava';
+import { CLIENT, NOW_S, STRAVA_ON, StravaHost, fakeStrava, json, makeStrava, memoryLedger, memoryVault, tokens } from './support/strava';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
@@ -104,6 +104,15 @@ describe('Upload to Strava on an activity', () => {
     await fireEvent.press(screen.getByTestId('strava-upload-setup'));
     expect(router.push).toHaveBeenCalledWith('/settings/strava');
     expect(screen.queryByTestId('strava-upload')).toBeNull();
+  });
+
+  it('warns that an unanswered upload may already be on Strava and only offers an explicit upload anyway', async () => {
+    const strava = makeStrava({ vault: memoryVault(CLIENT, tokens()), ledger: memoryLedger({ 'activity:7': { status: 'sending', at: NOW_S } }) });
+    await strava.controller.load();
+    await render(withStrava(<StravaUploadCard entry={ENTRY} title="Running" tzOffsetS={0} />, strava, stravaOn()));
+    expect(screen.getByTestId('strava-upload-maybe-sent')).toBeTruthy();
+    expect(screen.queryByTestId('strava-upload')).toBeNull();
+    expect(screen.getByTestId('strava-upload-again')).toBeTruthy();
   });
 
   it('says exactly what is sent, hides the route ends by default and uploads once', async () => {

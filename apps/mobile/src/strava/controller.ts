@@ -25,6 +25,7 @@ import type { StravaVault } from './vault';
 export const REFRESH_MARGIN_S = 600;
 export const POLL_ATTEMPTS = 10;
 export const POLL_INTERVAL_MS = 2_000;
+const MAYBE_SENT: ReadonlySet<StravaErrorKind> = new Set<StravaErrorKind>(['timeout', 'network', 'server', 'invalid-response']);
 
 export type StravaConnection = 'none' | 'connected' | 'reconnect';
 export type StravaBusy = 'client' | 'connect' | 'disconnect' | null;
@@ -288,21 +289,34 @@ export class StravaController {
     }
   }
 
-  upload = (source: UploadSource): Promise<boolean> =>
+  private async forget(key: string): Promise<void> {
+    const { [key]: _gone, ...rest } = this.state.ledger;
+    await this.saveLedger(rest);
+  }
+
+  private async unsent(key: string, error: StravaErrorKind): Promise<StravaErrorKind> {
+    if (MAYBE_SENT.has(error)) return 'maybe-sent';
+    await this.forget(key);
+    return error;
+  }
+
+  upload = (source: UploadSource, again = false): Promise<boolean> =>
     this.runUpload(source.key, async () => {
-      if (this.state.ledger[source.key] !== undefined) return 'already-uploaded';
+      const existing = this.state.ledger[source.key];
+      if (existing !== undefined && !(again && existing.status === 'sending')) return existing.status === 'sending' ? 'maybe-sent' : 'already-uploaded';
       const plan = planUpload(source);
       if (plan === null) return 'rejected';
+      await this.saveLedger({ ...this.state.ledger, [source.key]: { status: 'sending', at: this.deps.now() } });
       if (plan.kind === 'manual') {
         const created = await this.authorized((access) => createManualActivity(this.deps.send, access, plan));
-        if (!created.ok) return created.error;
+        if (!created.ok) return this.unsent(source.key, created.error);
         await this.saveLedger({ ...this.state.ledger, [source.key]: { status: 'done', uploadId: null, activityId: created.value, at: this.deps.now() } });
         return null;
       }
       const created = await this.authorized((access) =>
         createUpload(this.deps.send, access, plan.tcx, { externalId: plan.externalId, name: plan.name, sportType: plan.sportType }),
       );
-      if (!created.ok) return created.error;
+      if (!created.ok) return this.unsent(source.key, created.error);
       const error = await this.record(source.key, created.value);
       if (created.value.status !== 'processing') return error;
       return this.poll(source.key, created.value.uploadId, POLL_ATTEMPTS);

@@ -7,6 +7,7 @@ const KEY = /^(activity|detected):\d{1,12}$/;
 const ID = /^\d{1,20}$/;
 
 export type LedgerEntry =
+  | { status: 'sending'; at: number }
   | { status: 'processing'; uploadId: string; at: number }
   | { status: 'done'; uploadId: string | null; activityId: string; at: number }
   | { status: 'duplicate'; uploadId: string | null; activityId: string | null; at: number };
@@ -26,6 +27,7 @@ function parseEntry(value: Json | undefined): LedgerEntry | null {
   if (!isRecord(value)) return null;
   const { status, at } = value;
   if (typeof at !== 'number' || !Number.isSafeInteger(at) || at <= 0) return null;
+  if (status === 'sending') return { status, at };
   const uploadId = idOrNull(value.uploadId);
   if (uploadId === undefined) return null;
   if (status === 'processing') return uploadId === null ? null : { status, uploadId, at };

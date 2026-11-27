@@ -50,6 +50,7 @@
   "strava.error.rate-limited": "De verzoeklimiet van Strava voor je app is op. Probeer over 15 minuten opnieuw, of morgen als de daglimiet bereikt is.",
   "strava.error.duplicate": "Strava heeft deze activiteit al en hield de bestaande. OpenHoop uploadt ze niet opnieuw.",
   "strava.error.already-uploaded": "Deze activiteit staat al op Strava.",
+  "strava.error.maybe-sent": "Strava antwoordde niet, dus deze activiteit staat misschien al op Strava. Kijk in je Strava-feed voor je ze opnieuw uploadt.",
   "strava.error.busy": "Er loopt nog een andere upload.",
   "strava.error.rejected": "Strava aanvaardde deze upload niet.",
   "strava.error.processing-failed": "Strava kon het bestand niet verwerken. Er is niets aan Strava toegevoegd, dus je kunt opnieuw proberen.",
@@ -78,6 +79,7 @@
   "strava.upload.duplicate": "Al op Strava (dubbel)",
   "strava.upload.processing": "Strava verwerkt ze nog.",
   "strava.upload.check": "Opnieuw controleren",
+  "strava.upload.again": "Toch uploaden",
   "strava.upload.connectFirst": "Verbind Strava onder Instellingen, Integraties om te uploaden.",
   "strava.upload.setUp": "Strava instellen"
 }

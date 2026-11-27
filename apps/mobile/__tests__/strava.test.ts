@@ -342,6 +342,39 @@ describe('Strava controller', () => {
     expect(b.ledger.saved['activity:7']).toEqual({ status: 'done', uploadId: '58', activityId: '9', at: NOW_S });
   });
 
+  it('writes the ledger before sending, so a lost answer or a crash never leads to a silent second upload', async () => {
+    const lost = fakeStrava([
+      () => {
+        throw new Error('connection reset');
+      },
+      json(201, { id: 4_242, name: 'Running' }),
+    ]);
+    const saved: string[] = [];
+    const ledger = memoryLedger();
+    const save = ledger.save;
+    ledger.save = async (next) => {
+      saved.push(Object.values(next).map((e) => e.status).join(','));
+      await save(next);
+    };
+    const { controller } = makeStrava({ vault: memoryVault(CLIENT, tokens()), send: lost.send, ledger });
+    await controller.load();
+    expect(await controller.upload(source({ heartRate: [] }))).toBe(false);
+    expect(saved[0]).toBe('sending');
+    expect(controller.getState().uploadErrors['activity:7']).toBe('maybe-sent');
+    expect(ledger.saved['activity:7']).toEqual({ status: 'sending', at: NOW_S });
+    expect(await controller.upload(source({ heartRate: [] }))).toBe(false);
+    expect(lost.sent).toHaveLength(1);
+    expect(await controller.upload(source({ heartRate: [] }), true)).toBe(true);
+    expect(lost.sent).toHaveLength(2);
+    expect(ledger.saved['activity:7']).toEqual({ status: 'done', uploadId: null, activityId: '4242', at: NOW_S });
+
+    const restarted = makeStrava({ vault: memoryVault(CLIENT, tokens()), ledger: memoryLedger({ 'activity:7': { status: 'sending', at: NOW_S } }) });
+    await restarted.controller.load();
+    expect(await restarted.controller.upload(source())).toBe(false);
+    expect(restarted.controller.getState().uploadErrors['activity:7']).toBe('maybe-sent');
+    expect(parseLedger(serializeLedger({ 'activity:7': { status: 'sending', at: NOW_S } }))).toEqual({ 'activity:7': { status: 'sending', at: NOW_S } });
+  });
+
   it('creates a manual activity when there is no heart rate or route', async () => {
     const { send, sent } = fakeStrava([json(201, { id: 31337, name: 'Running' })]);
     const { controller, ledger } = makeStrava({ vault: memoryVault(CLIENT, tokens()), send });

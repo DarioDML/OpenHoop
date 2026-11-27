@@ -48,6 +48,7 @@ export type StravaErrorKind =
   | 'rate-limited'
   | 'duplicate'
   | 'already-uploaded'
+  | 'maybe-sent'
   | 'busy'
   | 'rejected'
   | 'processing-failed'

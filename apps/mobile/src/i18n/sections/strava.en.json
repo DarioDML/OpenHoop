@@ -50,6 +50,7 @@
   "strava.error.rate-limited": "Strava's request limit for your app is used up. Try again in 15 minutes, or tomorrow if the daily limit is reached.",
   "strava.error.duplicate": "Strava already has this activity, so it kept the existing one. OpenHoop will not upload it again.",
   "strava.error.already-uploaded": "This activity is already on Strava.",
+  "strava.error.maybe-sent": "Strava did not answer, so this activity may already be on Strava. Check your Strava feed before you upload it again.",
   "strava.error.busy": "Another upload is still running.",
   "strava.error.rejected": "Strava did not accept this upload.",
   "strava.error.processing-failed": "Strava could not process the file. Nothing was added to Strava, so you can try again.",
@@ -78,6 +79,7 @@
   "strava.upload.duplicate": "Already on Strava (duplicate)",
   "strava.upload.processing": "Strava is still processing it.",
   "strava.upload.check": "Check again",
+  "strava.upload.again": "Upload anyway",
   "strava.upload.connectFirst": "Connect Strava under Settings, Integrations to upload.",
   "strava.upload.setUp": "Set up Strava"
 }

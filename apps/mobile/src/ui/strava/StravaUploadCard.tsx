@@ -39,6 +39,7 @@ export function StravaUploadCard({ entry, title, tzOffsetS }: Props) {
   const [open, setOpen] = useState(false);
   const [hideEnds, setHideEnds] = useState(userData.hideRouteEnds);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [retry, setRetry] = useState(false);
   const key = stravaKey(entry);
   const record = state.ledger[key];
   const error = state.uploadErrors[key];
@@ -73,10 +74,16 @@ export function StravaUploadCard({ entry, title, tzOffsetS }: Props) {
     hideEnds,
   });
 
+  const openSheet = (again: boolean): void => {
+    setHideEnds(userData.hideRouteEnds);
+    setRetry(again);
+    setOpen(true);
+  };
+
   const upload = async (): Promise<void> => {
     if (loaded === null) return;
     setOpen(false);
-    await controller.upload(source(loaded));
+    await controller.upload(source(loaded), retry);
   };
 
   const day = unixToIsoDate(entry.start, tzOffsetS);
@@ -105,18 +112,24 @@ export function StravaUploadCard({ entry, title, tzOffsetS }: Props) {
           <Button label={t('strava.upload.check')} variant="secondary" disabled={!ready || state.uploading !== null} onPress={() => void controller.checkUpload(key)} testID="strava-upload-check" />
         </>
       ) : null}
-      {record === undefined ? (
+      {uploading ? (
+        <AppText variant="label" muted testID="strava-upload-running">
+          {t('strava.upload.uploading')}
+        </AppText>
+      ) : null}
+      {record?.status === 'sending' && !uploading ? (
+        <>
+          {error === undefined ? (
+            <AppText variant="label" color={colors.warning} testID="strava-upload-maybe-sent">
+              {t('strava.error.maybe-sent')}
+            </AppText>
+          ) : null}
+          <Button label={t('strava.upload.again')} variant="tertiary" disabled={!ready || state.uploading !== null} onPress={() => openSheet(true)} testID="strava-upload-again" />
+        </>
+      ) : null}
+      {record === undefined && !uploading ? (
         ready ? (
-          <Button
-            label={uploading ? t('strava.upload.uploading') : t('strava.upload.button')}
-            variant="secondary"
-            disabled={state.uploading !== null}
-            onPress={() => {
-              setHideEnds(userData.hideRouteEnds);
-              setOpen(true);
-            }}
-            testID="strava-upload"
-          />
+          <Button label={t('strava.upload.button')} variant="secondary" disabled={state.uploading !== null} onPress={() => openSheet(false)} testID="strava-upload" />
         ) : (
           <>
             <AppText variant="label" muted>

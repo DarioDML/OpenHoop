@@ -27,7 +27,7 @@ export default function StravaSettingsScreen() {
   const [invalid, setInvalid] = useState(false);
   const networkOn = featureEnabled(userData.network, 'strava');
   const connected = state.connection === 'connected';
-  const uploaded = Object.values(state.ledger).filter((entry) => entry.status !== 'processing').length;
+  const uploaded = Object.values(state.ledger).filter((entry) => entry.status === 'done' || entry.status === 'duplicate').length;
 
   const saveClient = async (): Promise<void> => {
     if (cleanClient(clientId, clientSecret) === null) {

@@ -21,7 +21,7 @@ const settingsLedger: LedgerStore = {
 };
 
 async function openAuth(url: string, redirect: string): Promise<AuthSessionResult> {
-  const result = await openAuthSessionAsync(url, redirect, { showInRecents: false });
+  const result = await openAuthSessionAsync(url, redirect);
   return result.type === 'success' && 'url' in result && typeof result.url === 'string' ? { type: 'success', url: result.url } : { type: 'cancel' };
 }
 
