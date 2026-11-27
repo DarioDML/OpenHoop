@@ -8,6 +8,8 @@ import coachEn from './sections/coach.en.json';
 import coachNl from './sections/coach.nl.json';
 import dailyEn from './sections/daily.en.json';
 import dailyNl from './sections/daily.nl.json';
+import explainEn from './sections/explain.en.json';
+import explainNl from './sections/explain.nl.json';
 import healthEn from './sections/health.en.json';
 import healthNl from './sections/health.nl.json';
 import strengthEn from './sections/strength.en.json';
@@ -19,8 +21,8 @@ import routeNl from './sections/route.nl.json';
 import stravaEn from './sections/strava.en.json';
 import stravaNl from './sections/strava.nl.json';
 
-const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl, ...routeNl, ...stravaNl };
-const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn, ...routeEn, ...stravaEn };
+const nl = { ...coreNl, ...manageNl, ...dailyNl, ...activityNl, ...healthNl, ...coachNl, ...strengthNl, ...routeNl, ...stravaNl, ...explainNl };
+const en = { ...coreEn, ...manageEn, ...dailyEn, ...activityEn, ...healthEn, ...coachEn, ...strengthEn, ...routeEn, ...stravaEn, ...explainEn };
 
 export type TranslationKey = keyof typeof nl;
 export type TranslationParams = Record<string, string | number>;

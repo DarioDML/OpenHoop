@@ -59,6 +59,7 @@ const VALUES: WidgetValues = {
   syncedAt: 1_795_000_000,
   readiness: { value: 72, reason: null },
   calibrating: false,
+  nightsLeft: null,
   sleep: { value: null, reason: 'no-sleep' },
   load: { value: 12.4, reason: null },
   restingHr: { value: 52, reason: null },

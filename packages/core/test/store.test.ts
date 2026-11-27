@@ -387,6 +387,20 @@ describe('store', () => {
     expect(await store.getSyncState(device.id)).toEqual(syncState(device.id, { lastEndToken: null, readPage: null }));
   });
 
+  it('reads a day stored before load so far existed', async () => {
+    const old = dayRecord(device.id, '2026-11-26');
+    await store.replaceDay(old);
+    const read = await store.getDay(device.id, '2026-11-26');
+    expect(read).toEqual(old);
+    expect(read?.loadSoFar).toBeUndefined();
+  });
+
+  it('round-trips load so far and valid minutes', async () => {
+    const day = dayRecord(device.id, '2026-11-27', { loadSoFar: 4.6, loadValidMinutes: 482 });
+    await store.replaceDay(day);
+    expect(await store.getDay(device.id, '2026-11-27')).toEqual(day);
+  });
+
   it('replaceDay stores the record, indexed columns, sleeps and workouts, and replaces them', async () => {
     await store.replaceDay(dayRecord(device.id, '2026-11-24'));
     const first = dayRecord(device.id, '2026-11-25');

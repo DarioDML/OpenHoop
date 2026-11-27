@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
+import { visibleReadiness } from '@/data/derived';
 import { formatMonthTitle, monthGrid, shiftMonth, weekdayInitials } from '@/data/dailyDerived';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
@@ -95,7 +96,8 @@ export default function DatePickerScreen() {
                   </View>
                 );
               }
-              const tone = record.readinessCalibrating ? colors.textMuted : readinessColor(colors, record.readiness.value);
+              const shownReadiness = visibleReadiness(record).value;
+              const tone = readinessColor(colors, shownReadiness);
               const isLast = record.day === last.day;
               return (
                 <Pressable
@@ -119,7 +121,7 @@ export default function DatePickerScreen() {
                       {dayNumber}
                     </AppText>
                   </View>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: record.readiness.value === null ? 'transparent' : tone }} />
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: shownReadiness === null ? 'transparent' : tone }} />
                 </Pressable>
               );
             })}

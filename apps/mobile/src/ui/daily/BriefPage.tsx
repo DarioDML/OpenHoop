@@ -17,6 +17,7 @@ export interface BriefStat {
   id: string;
   label: string;
   value: string | null;
+  missing?: string;
   unit?: string;
   color?: string;
 }
@@ -52,7 +53,7 @@ export function BriefPage({ title, heading, stats, lines, linesTitle, emptyText,
                 </AppText>
                 {stat.value === null ? (
                   <AppText variant="label" muted>
-                    {t('reason.no-data')}
+                    {stat.missing ?? t('reason.no-data')}
                   </AppText>
                 ) : (
                   <Num size={34} color={stat.color} unit={stat.unit}>

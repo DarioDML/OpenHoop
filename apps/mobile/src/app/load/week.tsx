@@ -4,7 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { formatWeekday, isLoadDay } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
-import { addDays, daysInWeek, weekStart } from '@/data/derived';
+import { addDays, daysInWeek, visibleReadiness, weekStart } from '@/data/derived';
 import { useT } from '@/i18n/useT';
 import { formatNumber, formatShortDay } from '@/lib/format';
 import { NoDataScreen, ProgressBar } from '@/ui/activity/parts';
@@ -74,7 +74,7 @@ export default function LoadWeekScreen() {
       {week.map((d, i) => {
         const date = addDays(start, i);
         const loadValue = d?.load.value ?? null;
-        const readinessValue = d?.readiness.value ?? null;
+        const readinessValue = d ? visibleReadiness(d).value : null;
         const body = (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <View style={{ width: 44 }}>

@@ -110,7 +110,7 @@ describe('Home stress tile', () => {
 
   it('says calibrating on the first days', async () => {
     await render(withAppData(<HomeScreen />, 'en', { days: days.slice(0, 2) }));
-    expect(screen.getByTestId('stress-tile-reason')).toHaveTextContent('Calibrating');
+    expect(screen.getByTestId('stress-tile-reason')).toHaveTextContent('Not yet');
   });
 
   it('shows the reason when stress is missing, in Dutch too', async () => {
@@ -163,6 +163,6 @@ describe('Stress screen', () => {
 describe('metric list', () => {
   it('lists the latest stress score with level C', async () => {
     await render(withAppData(<MetricsScreen />));
-    expect(screen.getByTestId('metric-stress')).toHaveTextContent(`Stress${formatNumber(latestStressScore(days) ?? 0, 1, 'en')}C`);
+    expect(screen.getByTestId('metric-stress')).toHaveTextContent(`StressHow far your heart rate and HRV drift from your calm level while you are awake and still.${formatNumber(latestStressScore(days) ?? 0, 1, 'en')}C`);
   });
 });

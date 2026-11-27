@@ -7,6 +7,7 @@ import { CoachProvider } from '@/coach/CoachProvider';
 import { LiveProvider } from '@/data/LiveProvider';
 import { expoNotifier } from '@/data/notifier';
 import { StravaProvider } from '@/strava/StravaProvider';
+import { ExplainProvider } from '@/ui/explain/ExplainProvider';
 import { useAppFonts } from '@/ui/fonts';
 import { darkColors, useTheme } from '@/ui/theme';
 
@@ -43,7 +44,9 @@ export default function RootLayout() {
       {fontsReady ? (
         <CoachProvider>
           <StravaProvider>
-            <RootStack />
+            <ExplainProvider>
+              <RootStack />
+            </ExplainProvider>
           </StravaProvider>
         </CoachProvider>
       ) : (

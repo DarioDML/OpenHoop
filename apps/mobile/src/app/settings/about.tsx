@@ -71,6 +71,10 @@ export default function AboutScreen() {
       </Card>
 
       <ListGroup>
+        <ListRow icon={tile(colors, 'help', 'info')} title={t('terms.title')} subtitle={t('terms.aboutBody')} href="/settings/terms" testID="about-terms" />
+      </ListGroup>
+
+      <ListGroup>
         <ListRow icon={tile(colors, 'code', 'purple')} title={t('dev.title')} href="/settings/developer" testID="about-developer" />
       </ListGroup>
     </SettingsPage>

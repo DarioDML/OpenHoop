@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { sliceEndingAt, singleParam, TREND_RANGES, type TrendRange } from '@/data/dailyDerived';
@@ -16,12 +16,30 @@ import { isMetricSlug, METRIC_SLUGS, METRIC_SPECS } from '@/ui/daily/metrics';
 import { LineChart } from '@/ui/LineChart';
 import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
+import { useExplain, useMissing, type ExplainTarget } from '@/ui/explain/ExplainProvider';
+import { missingStatus } from '@/ui/explain/whyText';
 import { spacing, useTheme } from '@/ui/theme';
+import { IconButton } from '@/ui/TopBar';
+
+function MissingHero({ target }: { target: ExplainTarget }) {
+  const { t, language } = useT();
+  const explain = useExplain();
+  const missing = useMissing(target);
+  const status = missing === null ? t('why.noNumber') : missingStatus(t, language, missing, 'row');
+  return (
+    <Pressable accessibilityRole="button" testID="metric-why" onPress={() => explain.why(target)} style={{ minHeight: 44, justifyContent: 'center' }}>
+      <AppText variant="cardTitle" muted testID="metric-reason">
+        {`${status} ›`}
+      </AppText>
+    </Pressable>
+  );
+}
 
 export default function MetricDetailScreen() {
   const params = useLocalSearchParams<{ metric?: string | string[] }>();
   const { days } = useAppData();
-  const { t, language, reason } = useT();
+  const { t, language } = useT();
+  const explain = useExplain();
   const { colors } = useTheme();
   const rangeChip = useRangeChip();
   const percentChip = usePercentChip();
@@ -42,11 +60,15 @@ export default function MetricDetailScreen() {
   const values = slice.map((d) => spec.pick(d).value);
   const first = slice[0];
   const unit = t(spec.unit);
+  const name = t(spec.label);
+  const valueText = derived.value === null ? null : formatNumber(derived.value, spec.decimals, language);
+  const target: ExplainTarget = { term: spec.term, index, shown: { value: valueText, unit, reason: derived.reason } };
 
   return (
     <Page
       title={t(spec.label)}
       tint="recovery"
+      right={<IconButton icon="info" label={t('explain.whatIs', { name })} onPress={() => explain.about(target)} testID="metric-about" />}
       testID="metric-detail"
       hero={
         <View style={{ gap: spacing.md }}>
@@ -59,13 +81,11 @@ export default function MetricDetailScreen() {
             <AppText variant="capSmall" muted>
               {t('metricDetail.lastNight')}
             </AppText>
-            {derived.value === null ? (
-              <AppText variant="cardTitle" muted testID="metric-reason">
-                {reason(derived.reason)}
-              </AppText>
+            {valueText === null ? (
+              <MissingHero target={target} />
             ) : (
               <Num size={64} unit={unit} testID="metric-value">
-                {formatNumber(derived.value, spec.decimals, language)}
+                {valueText}
               </Num>
             )}
             <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>

@@ -1,6 +1,7 @@
 import type { DayRecord } from '@openhoop/core';
 
-import { baselineAt, percentFromBaseline, rangeStatus } from '@/data/derived';
+import { baselineAt, percentFromBaseline, rangeStatus, visibleReadiness } from '@/data/derived';
+import { readinessNightsLeft } from '@/data/progress';
 import { formatHm, formatMinutes, planBedtime } from '@/data/dailyDerived';
 import type { TFunction } from '@/i18n/useT';
 import { readinessBand } from '@/ui/theme';
@@ -32,13 +33,13 @@ export function briefLines(t: TFunction, language: Language, days: readonly DayR
   if (!day) return [];
   const lines: BriefLine[] = [];
 
-  const readiness = day.readiness.value;
+  const readiness = visibleReadiness(day).value;
   const band = readinessBand(readiness);
+  const nightsLeft = readinessNightsLeft(days, index);
   if (readiness !== null && band !== null) {
-    lines.push({
-      id: 'readiness',
-      text: t(day.readinessCalibrating ? 'brief.readinessCalibrating' : 'brief.readiness', { band: t(`readiness.${band}`), value: Math.round(readiness) }),
-    });
+    lines.push({ id: 'readiness', text: t('brief.readiness', { band: t(`readiness.${band}`), value: Math.round(readiness) }) });
+  } else if (nightsLeft !== null) {
+    lines.push({ id: 'readiness', text: nightsLeft === 1 ? t('brief.readinessHiddenOne') : t('brief.readinessHidden', { count: nightsLeft }) });
   }
 
   const hrv = day.hrv.value;

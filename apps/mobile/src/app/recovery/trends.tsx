@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { readinessBandCounts, sliceEndingAt, TREND_RANGES, type TrendRange } from '@/data/dailyDerived';
-import { baselineAt } from '@/data/derived';
+import { baselineAt, visibleReadiness } from '@/data/derived';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
@@ -23,7 +23,7 @@ export default function RecoveryTrendsScreen() {
   const index = days.length - 1;
   const count = TREND_RANGES[range];
   const slice = sliceEndingAt(days, count);
-  const counts = readinessBandCounts(slice.map((d) => (d.readinessCalibrating ? null : d.readiness.value)));
+  const counts = readinessBandCounts(slice.map((d) => visibleReadiness(d).value));
   const hrvBand = baselineAt(days, index, 'hrv');
 
   return (
@@ -34,7 +34,7 @@ export default function RecoveryTrendsScreen() {
           {t('trends.fewDays', { count: slice.length })}
         </AppText>
       ) : null}
-      <TrendCard testID="readiness" title={t('score.readiness')} slice={slice} pick={(d) => d.readiness.value} decimals={0} minSpan={10} level={PARITY.readiness} unit="%" />
+      <TrendCard testID="readiness" title={t('score.readiness')} slice={slice} pick={(d) => visibleReadiness(d).value} decimals={0} minSpan={10} level={PARITY.readiness} unit="%" />
       <Card style={{ gap: spacing.sm }} testID="card-band-counts">
         <AppText variant="bodyStrong">{t('readinessx.bandCounts', { days: slice.length })}</AppText>
         <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>

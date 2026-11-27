@@ -3,6 +3,7 @@ import { Platform, View } from 'react-native';
 import { requestPinWidget } from 'react-native-android-widget';
 
 import { useAppData } from '@/data/context';
+import { readinessNightsLeft } from '@/data/progress';
 import { useT } from '@/i18n/useT';
 import type { TranslationKey } from '@/i18n';
 import { todayIso } from '@/lib/format';
@@ -25,7 +26,7 @@ export default function WidgetsScreen() {
   const [pinFailed, setPinFailed] = useState(false);
   const android = Platform.OS === 'android';
   const now = new Date();
-  const file = buildWidgetFile({ enabled: userData.widgetValues, day: days[days.length - 1], syncedAt: device.lastSyncAt, language });
+  const file = buildWidgetFile({ enabled: userData.widgetValues, day: days[days.length - 1], syncedAt: device.lastSyncAt, language, readinessNightsLeft: readinessNightsLeft(days, days.length - 1) });
   const view = widgetView(file, { nowS: Math.floor(now.getTime() / 1000), today: todayIso(now), fallbackLanguage: language });
 
   const pin = async (widgetName: WidgetName): Promise<void> => {

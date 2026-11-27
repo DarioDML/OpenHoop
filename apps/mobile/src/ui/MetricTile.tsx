@@ -1,6 +1,8 @@
 import type { Href } from 'expo-router';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import type { ReactElement } from 'react';
+import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import type { TermId } from '@/data/terms';
 import type { ParityLevel } from '@/data/types';
 import { formatNumber } from '@/lib/format';
 import { useT } from '@/i18n/useT';
@@ -8,9 +10,13 @@ import { useT } from '@/i18n/useT';
 import { AppText } from './AppText';
 import { Card } from './Card';
 import { Chip, type ChipTone } from './Chip';
+import { useExplain, useMissing, type ExplainTarget } from './explain/ExplainProvider';
+import { MetricName } from './explain/MetricName';
+import { missingStatus } from './explain/whyText';
+import { Icon } from './Icon';
 import { Num } from './Num';
 import { ParityBadge } from './ParityBadge';
-import { spacing } from './theme';
+import { spacing, useTheme } from './theme';
 
 interface Props {
   label: string;
@@ -23,26 +29,56 @@ interface Props {
   caption?: string;
   chip?: { label: string; tone: ChipTone } | null;
   href?: Href;
+  explain?: { term: TermId; index: number };
   size?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
-export function MetricTile({ label, value, level, unit, reason = null, decimals = 0, format, caption, chip, href, size = 44, style, testID }: Props) {
+interface MissingValueProps {
+  target: ExplainTarget;
+  testID?: string;
+}
+
+export function MissingValue({ target, testID }: MissingValueProps): ReactElement {
+  const { t, language } = useT();
+  const explain = useExplain();
+  const missing = useMissing(target);
+  const status = missing === null ? t('why.noNumber') : missingStatus(t, language, missing, 'row');
+  return (
+    <Pressable accessibilityRole="button" testID={testID ? `${testID}-why` : undefined} onPress={() => explain.why(target)} style={{ minHeight: 44, justifyContent: 'center' }}>
+      <AppText variant="bodyStrong" muted testID={testID ? `${testID}-reason` : undefined}>
+        {`${status} ›`}
+      </AppText>
+    </Pressable>
+  );
+}
+
+export function MetricTile({ label, value, level, unit, reason = null, decimals = 0, format, caption, chip, href, explain, size = 44, style, testID }: Props) {
   const { language, reason: reasonLabel } = useT();
+  const { colors } = useTheme();
   const hasValue = value !== null;
+  const shownValue = hasValue ? (format ? format(value) : formatNumber(value, decimals, language)) : null;
+  const target: ExplainTarget | null = explain ? { term: explain.term, index: explain.index, shown: { value: shownValue, unit: unit ?? null, reason } } : null;
   return (
     <Card href={href} style={[{ gap: 10 }, style]} testID={testID} accessibilityLabel={label}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-        <AppText variant="capSmall" muted numberOfLines={1} style={{ flexShrink: 1 }}>
-          {href ? `${label} ›` : label}
-        </AppText>
-        <ParityBadge level={level} />
+        {target ? (
+          <MetricName target={target} label={label} testID={testID ? `${testID}-name` : undefined} />
+        ) : (
+          <AppText variant="capSmall" muted numberOfLines={1} style={{ flexShrink: 1 }}>
+            {href ? `${label} ›` : label}
+          </AppText>
+        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <ParityBadge level={level} />
+          {target && href ? <Icon name="chevronRight" size={14} color={colors.textMuted} /> : null}
+        </View>
       </View>
-      {hasValue ? (
+      {shownValue !== null ? (
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
           <Num size={size} testID={testID ? `${testID}-value` : undefined} adjustsFontSizeToFit style={{ flexShrink: 1 }}>
-            {format ? format(value) : formatNumber(value, decimals, language)}
+            {shownValue}
           </Num>
           {unit ? (
             <AppText variant="cardTitle" muted numberOfLines={1} style={{ fontWeight: '400', flexShrink: 1 }}>
@@ -50,6 +86,8 @@ export function MetricTile({ label, value, level, unit, reason = null, decimals 
             </AppText>
           ) : null}
         </View>
+      ) : target ? (
+        <MissingValue target={target} testID={testID} />
       ) : (
         <AppText variant="bodyStrong" muted testID={testID ? `${testID}-reason` : undefined} style={{ minHeight: 32 }}>
           {reasonLabel(reason)}

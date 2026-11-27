@@ -18,6 +18,7 @@ import { SyncBanner } from '@/ui/SyncBanner';
 import { spacing } from '@/ui/theme';
 
 import { CapRow } from './bits';
+import { FirstWeekCard } from './FirstWeekCard';
 import { CoachPill, DashboardGrid, MorningBriefCard, MyDayCard, StressCard, TonightCard, VitalsCard, WeekCard } from './cards';
 
 interface Props {
@@ -26,7 +27,6 @@ interface Props {
 }
 
 export function Notices({ day }: { day: DayRecord }) {
-  const { t } = useT();
   const { device, days } = useAppData();
   const syncProgress = useSyncProgress();
   const state = pickDeviceState({ device, days, syncProgress, nowS: Math.floor(Date.now() / 1000) });
@@ -36,11 +36,6 @@ export function Notices({ day }: { day: DayRecord }) {
       <NoticeCard />
       {state !== null && state !== 'syncing' ? <DeviceStateCard /> : null}
       <FlagNotice flags={day.flags} />
-      {day.readinessCalibrating ? (
-        <Card tone="warning" testID="calibrating-hint">
-          <AppText variant="label">{t('calibrating.hint')}</AppText>
-        </Card>
-      ) : null}
     </>
   );
 }
@@ -115,6 +110,7 @@ export function HomeBody({ days, index }: Props) {
   return (
     <>
       <Notices day={day} />
+      <FirstWeekCard days={days} index={index} />
       {userData.homeSections.map((section) => (
         <View key={section} style={{ gap: spacing.md }}>
           {sections[section]}

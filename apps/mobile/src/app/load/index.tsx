@@ -4,9 +4,9 @@ import { View } from 'react-native';
 import { useAppData } from '@/data/context';
 import { loadTargetBand, stepsForDay } from '@/data/activityDerived';
 import { dayEntries, dayTotals } from '@/data/activities';
-import { rangeStatus } from '@/data/derived';
+import { rangeStatus, shownLoad } from '@/data/derived';
 import { useT } from '@/i18n/useT';
-import { formatDuration, formatNumber, formatShortDay } from '@/lib/format';
+import { formatClock, formatDuration, formatNumber, formatShortDay } from '@/lib/format';
 import { CaloriesCard } from '@/ui/activity/CaloriesCard';
 import { EntryRow, entryHref, UndoBar } from '@/ui/activity/entries';
 import { NoDataScreen, ProgressBar, StatRow, StatTile } from '@/ui/activity/parts';
@@ -15,6 +15,7 @@ import { BarChart } from '@/ui/BarChart';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
+import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
 import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
@@ -23,13 +24,14 @@ import { ScoreRing } from '@/ui/ScoreRing';
 import { Section } from '@/ui/Section';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { spacing, useTheme } from '@/ui/theme';
-import { TopBar } from '@/ui/TopBar';
+import { IconButton, TopBar } from '@/ui/TopBar';
 import { displayedZones, ZoneBar } from '@/ui/ZoneBar';
 
 export default function LoadScreen() {
-  const { days, userData, activities, healthConnect } = useAppData();
+  const { days, userData, activities, healthConnect, device } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
+  const explain = useExplain();
   const day = days[days.length - 1];
 
   if (!day) return <NoDataScreen title={t('score.load')} />;
@@ -41,6 +43,10 @@ export default function LoadScreen() {
   const stepsGoal = userData.stepsGoal;
   const steps = stepsForDay(day, healthConnect.state.steps);
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
+  const index = days.length - 1;
+  const load = shownLoad(days, index);
+  const target: ExplainTarget = { term: 'load', index, shown: { value: load.value === null ? null : fmt(load.value, 1), unit: null, reason: load.reason } };
+  const caption = load.soFar && device.lastSyncAt !== null ? t('loadx.soFarCaption', { time: formatClock(device.lastSyncAt, day.tzOffsetS) }) : t('loadx.hero.caption');
   const entries = dayEntries(days, day, activities);
   const totals = dayTotals(entries);
 
@@ -49,15 +55,17 @@ export default function LoadScreen() {
       tint="load"
       header={
         <>
-          <TopBar title={t('score.load')} />
+          <TopBar title={t('score.load')} right={<IconButton icon="info" label={t('explain.whatIs', { name: t('score.load') })} onPress={() => explain.about(target)} testID="load-about" />} />
           <View style={{ alignItems: 'center', gap: spacing.sm }}>
             <ScoreRing
               testID="ring-load-detail"
               label={t('score.load')}
-              value={day.load.value}
+              value={load.value}
               max={21}
               level={PARITY.load}
-              reason={day.load.reason}
+              reason={load.reason}
+              sublabel={load.soFar ? t('load.soFar') : undefined}
+              onExplain={() => explain.why(target)}
               decimals={1}
               size={200}
               strokeWidth={12}
@@ -66,7 +74,7 @@ export default function LoadScreen() {
               tickValue={band ? band.mean : null}
             />
             <AppText variant="cap" muted>
-              {t('loadx.hero.caption')}
+              {caption}
             </AppText>
             <ParityBadge level={PARITY.load} long />
           </View>

@@ -43,3 +43,14 @@ export function caloriesForActivity(minutes: ActiveMinutes | null, start: number
   if (!outcome.ok) return { estimate: null, reason: outcome.reason, coverage: null, thresholdBpm };
   return { estimate: outcome.value, reason: null, coverage: outcome.coverage, thresholdBpm };
 }
+
+export type ProfileField = 'weight' | 'height' | 'sex' | 'birthYear';
+
+export function missingProfileFields(userData: UserData, profile: Profile): ProfileField[] {
+  const missing: ProfileField[] = [];
+  if (userData.weightKg === null) missing.push('weight');
+  if (userData.heightCm === null) missing.push('height');
+  if (userData.sex === null) missing.push('sex');
+  if (profile.birthYear === null) missing.push('birthYear');
+  return missing;
+}
