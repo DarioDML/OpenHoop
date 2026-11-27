@@ -1,12 +1,13 @@
 import type { AlarmEvent } from '@openhoop/core';
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { MONDAY_FIRST, WINDOW_CHOICES_MIN, confirmedAlarm, rangEarly, sameDays, shiftMinutes, toggleDay, type AlarmMode, type AlarmPlan } from '@/data/alarm';
+import { MONDAY_FIRST, WINDOW_CHOICES_MIN, confirmedAlarm, nextWakeAt, rangEarly, sameDays, shiftMinutes, toggleDay, type AlarmMode, type AlarmPlan } from '@/data/alarm';
 import { GOAL_WINDOW_S } from '@/data/smartWake';
 import { useAppData } from '@/data/context';
 import { formatHm, formatMinutes, singleParam } from '@/data/dailyDerived';
+import { jetLagWakeOverrides } from '@/data/jetLag';
 import { useT, type TFunction } from '@/i18n/useT';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { formatClock, formatShortDay } from '@/lib/format';
@@ -67,7 +68,7 @@ export default function HapticAlarmScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ minutes?: string | string[] }>();
-  const { alarm, alarmActions, device, days } = useAppData();
+  const { alarm, alarmActions, device, days, userData } = useAppData();
   const fromPlanner = plannerMinutes(singleParam(params.minutes));
   const [edit, setEdit] = useState<AlarmPlan | null>(() => (fromPlanner === null || (alarm.plan.enabled && alarm.plan.minutes === fromPlanner) ? null : { ...alarm.plan, enabled: true, minutes: fromPlanner }));
   const draft = edit ?? alarm.plan;
@@ -76,6 +77,8 @@ export default function HapticAlarmScreen() {
   const [ringing, setRinging] = useState(false);
   const nowS = Math.floor(Date.now() / 1000);
   const need = days[days.length - 1]?.sleep.need.value ?? null;
+  const shiftPlan = userData.jetLagShiftAlarm ? userData.jetLagPlan : null;
+  const overrides = useMemo(() => (shiftPlan === null ? [] : jetLagWakeOverrides(shiftPlan)), [shiftPlan]);
 
   const save = async (): Promise<void> => {
     setSaving(true);
@@ -117,6 +120,9 @@ export default function HapticAlarmScreen() {
   const rang = lastRing(alarm.events);
   const busy = saving || device.connection === 'syncing' || device.connection === 'connecting';
   const windowValue: WindowChoice = mode === 'window' ? `${draft.windowMin}` : 'off';
+  const nowDate = new Date(nowS * 1000);
+  const plainWake = nextWakeAt(draft.minutes, nowDate, draft.days);
+  const shiftedWake = overrides.length === 0 ? plainWake : nextWakeAt(draft.minutes, nowDate, draft.days, overrides);
 
   const setMode = (next: AlarmMode): void => setDraft((plan) => ({ ...plan, mode: next }));
   const setWindow = (value: WindowChoice): void =>
@@ -157,6 +163,12 @@ export default function HapticAlarmScreen() {
       {edit !== null && fromPlanner !== null && edit.minutes === fromPlanner ? (
         <AppText variant="label" muted testID="alarm-from-planner">
           {t('alarmx.fromPlanner')}
+        </AppText>
+      ) : null}
+
+      {draft.enabled && shiftedWake !== plainWake ? (
+        <AppText variant="label" color={colors.levelC} testID="alarm-jetlag">
+          {t('alarmx.jetLagMoves', { when: wakeLabel(t, language, shiftedWake, nowS) })}
         </AppText>
       ) : null}
 

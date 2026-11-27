@@ -71,6 +71,7 @@ export interface UserData {
   jetLagPlan: SavedJetLagPlan | null;
   sleepGoal: SleepGoal | null;
   windDown: { at: number; bed: number } | null;
+  jetLagShiftAlarm: boolean;
   widgetValues: boolean;
   hideRouteEnds: boolean;
 }
@@ -100,6 +101,7 @@ export function defaultUserData(): UserData {
     jetLagPlan: null,
     sleepGoal: null,
     windDown: null,
+    jetLagShiftAlarm: false,
     widgetValues: true,
     hideRouteEnds: true,
   };
@@ -237,6 +239,7 @@ export function parseUserData(raw: string | null): UserData {
     jetLagPlan: parseJetLagPlan(parsed.jetLagPlan),
     sleepGoal: oneOf(parsed.sleepGoal, SLEEP_GOALS),
     windDown: parseWindDown(parsed.windDown),
+    jetLagShiftAlarm: parsed.jetLagShiftAlarm === true,
     widgetValues: parsed.widgetValues !== false,
     hideRouteEnds: typeof parsed.hideRouteEnds === 'boolean' ? parsed.hideRouteEnds : base.hideRouteEnds,
   };

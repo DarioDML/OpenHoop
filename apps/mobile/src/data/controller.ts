@@ -166,8 +166,10 @@ import {
   serializeArmedAlarm,
   type AlarmPlan,
   type ArmedAlarm,
+  type WakeOverride,
 } from './alarm';
 import { CHECK_EVERY_S, LEAVE_TO_BAND_S, smartWakeDecision, windowStart } from './smartWake';
+import { jetLagWakeOverrides } from './jetLag';
 import { smartWakeScheduler, type SmartWakeScheduler } from '@/lib/smartWakeNative';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
@@ -1070,7 +1072,7 @@ export class AppController {
   private async applyAlarm(conn: Connection): Promise<void> {
     const { store } = this.requireApp();
     const { plan, armed } = this.snapshot.alarm;
-    const task = alarmTask(plan, armed, new Date());
+    const task = alarmTask(plan, armed, new Date(), this.alarmOverrides());
     if (task.kind === 'arm') {
       const attempt: ArmedAlarm = { wakeAt: task.wakeAt, armedAt: nowSeconds(), confirmed: false, rangEarlyAt: null };
       await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(attempt));
@@ -1088,6 +1090,21 @@ export class AppController {
     }
     this.scheduleSmartWake();
   }
+
+  private alarmOverrides(): WakeOverride[] {
+    const { jetLagPlan, jetLagShiftAlarm } = this.snapshot.userData;
+    return jetLagShiftAlarm && jetLagPlan !== null ? jetLagWakeOverrides(jetLagPlan) : [];
+  }
+
+  private reapplyAlarm = async (): Promise<void> => {
+    const { plan, armed } = this.snapshot.alarm;
+    if ((!plan.enabled && armed === null) || this.syncRun !== null || this.app === null) return;
+    try {
+      await this.exclusive(async () => this.applyAlarm(await this.ensureConnection()));
+    } catch (error) {
+      this.patchAlarm({ problem: alarmProblem(error) });
+    }
+  };
 
   private smartAlarm(): { plan: AlarmPlan & { mode: 'goal' | 'window' }; live: ArmedAlarm } | null {
     const { plan, armed } = this.snapshot.alarm;
@@ -1165,7 +1182,7 @@ export class AppController {
       await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(rang));
       this.patchAlarm({ armed: rang, problem: null });
       this.smartWake.cancel();
-      const following = followingWakeAt(plan.minutes, live.wakeAt, plan.days);
+      const following = followingWakeAt(plan.minutes, live.wakeAt, plan.days, this.alarmOverrides());
       try {
         const reading = await armAlarm(conn.session, following, nowSeconds());
         const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds(), confirmed: true, rangEarlyAt: rangAt };
@@ -1404,6 +1421,7 @@ export class AppController {
         this.patch({ userData: next });
         if (patch.notifications !== undefined || patch.weeklyPlan !== undefined || patch.windDown !== undefined) void this.refreshNotifications();
         if (patch.widgetValues !== undefined) void this.refreshWidgets();
+        if (patch.jetLagShiftAlarm !== undefined || (patch.jetLagPlan !== undefined && next.jetLagShiftAlarm)) void this.reapplyAlarm();
         return true;
       } catch (error) {
         setNetworkPrefs(network);

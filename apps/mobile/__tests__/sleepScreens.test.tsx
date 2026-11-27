@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { formatMinutes, mainNightSpan } from '@/data/dailyDerived';
 import type { HeartRatePoint } from '@/data/types';
-import { defaultUserData, type UserData } from '@/data/userData';
+import { defaultUserData, type SavedJetLagPlan, type UserData } from '@/data/userData';
 
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
 import type { AlarmView } from '@/data/types';
@@ -31,6 +31,7 @@ import SleepNeedScreen from '@/app/sleep/need';
 import SleepTrendsScreen from '@/app/sleep/trends';
 import HapticAlarmScreen from '@/app/sleep/alarm';
 import SleepPlannerScreen from '@/app/sleep/planner';
+import JetLagScreen from '@/app/sleep/jet-lag';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const last = days[days.length - 1];
@@ -296,5 +297,63 @@ describe('Sleep planner', () => {
     await render(withAppData(<SleepPlannerScreen />));
     await fireEvent.press(screen.getByTestId('planner-set-alarm'));
     expect(String(mockPush.mock.calls[0]?.[0])).toMatch(/^\/sleep\/alarm\?minutes=\d+$/);
+  });
+});
+
+const TRIP: SavedJetLagPlan = {
+  departureDate: '2026-03-10',
+  departureMinutes: 600,
+  homeZone: 'Europe/Brussels',
+  destZone: 'Asia/Tokyo',
+  preDays: null,
+  bedMinutes: 23 * 60,
+  wakeMinutes: 7 * 60,
+  anchorSource: 'entered',
+};
+
+function localIso(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+describe('Jet lag plan', () => {
+  it('shows the route, a shift chart, tips and the coach question for a saved trip', async () => {
+    await render(withAppData(<JetLagScreen />, 'en', { userData: { ...defaultUserData(), onboardingDone: true, jetLagPlan: TRIP } }));
+    expect(screen.getByTestId('jetlag-route-home')).toHaveTextContent('Brussels');
+    expect(screen.getByTestId('jetlag-route-dest')).toHaveTextContent('Tokyo');
+    expect(screen.getByTestId('jetlag-route-shift')).toHaveTextContent(/^\+8 h · /);
+    expect(screen.getByTestId('jetlag-shift-plan')).toHaveTextContent(/8 days/);
+    expect(screen.getAllByTestId('jetlag-shift--3-sleep').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('jetlag-shift--3-light').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('jetlag-tip-text')).toHaveTextContent(/^Go to bed 1 h earlier each night from Saturday\. On arrival, get outside between \d\d:\d\d and \d\d:\d\d\.$/);
+    expect(screen.getByTestId('jetlag-chip-bed')).toHaveTextContent('Bedtime −1:00/night');
+    await fireEvent.press(screen.getByTestId('jetlag-coach'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/coach', params: { ask: 'Adjust the plan for my flight time' } });
+    expect(screen.getByTestId('jetlag-day--3')).toBeTruthy();
+  });
+
+  it('turns on shifting the alarm once the plan is saved', async () => {
+    const updateUserData = jest.fn(async (patch: Partial<UserData>) => patch !== null);
+    await render(withAppData(<JetLagScreen />, 'en', { updateUserData, userData: { ...defaultUserData(), onboardingDone: true, jetLagPlan: TRIP } }));
+    await fireEvent(screen.getByTestId('jetlag-shift-alarm'), 'valueChange', true);
+    expect(updateUserData).toHaveBeenCalledWith({ jetLagShiftAlarm: true });
+  });
+
+  it('asks to save a plan before the alarm can follow it', async () => {
+    await render(withAppData(<JetLagScreen />));
+    expect(screen.getByTestId('jetlag-route-empty')).toHaveTextContent('Plan a trip');
+    expect(screen.getByText('Save the plan first to move the alarm with it')).toBeTruthy();
+    expect(screen.getByTestId('jetlag-shift-alarm').props.disabled).toBe(true);
+    expect(screen.queryByTestId('jetlag-shift-plan')).toBeNull();
+  });
+
+  it('tells the alarm screen when the plan moves the next alarm', async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const trip: SavedJetLagPlan = { ...TRIP, departureDate: localIso(tomorrow), homeZone: 'Europe/Brussels', destZone: 'America/New_York' };
+    const alarmView: AlarmView = { plan: { ...DEFAULT_ALARM_PLAN, enabled: true }, armed: null, events: [], problem: null, smartAvailable: true };
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarmView, userData: { ...defaultUserData(), onboardingDone: true, jetLagPlan: trip, jetLagShiftAlarm: true } }));
+    expect(screen.getByTestId('alarm-jetlag')).toHaveTextContent(/^Your jet lag plan moves the next alarm to /);
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarmView, userData: { ...defaultUserData(), onboardingDone: true, jetLagPlan: trip, jetLagShiftAlarm: false } }));
+    expect(screen.queryByTestId('alarm-jetlag')).toBeNull();
   });
 });

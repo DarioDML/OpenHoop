@@ -6,10 +6,13 @@ import {
   defaultPreDays,
   generateFromSaved,
   generatePlan,
+  jetLagWakeOverrides,
   normalizeShiftH,
   parseTripForm,
   sameSavedPlan,
   stepsNeeded,
+  trackSpans,
+  zoneCity,
   zoneShiftH,
   type JetLagPlan,
   type JetLagTrip,
@@ -18,7 +21,7 @@ import {
 } from '@/data/jetLag';
 import { defaultUserData, parseUserData, serializeUserData, type SavedJetLagPlan } from '@/data/userData';
 import { formatMinutes } from '@/data/dailyDerived';
-import { isValidTimeZone, wallClockToEpoch, zoneOffsetS } from '@/lib/timeZones';
+import { isValidTimeZone, wallClockToEpoch, zoneOffsetS, zonedClock } from '@/lib/timeZones';
 
 import { FIXTURE_NOW } from './support/appData';
 
@@ -382,5 +385,51 @@ describe('saved plan in userData', () => {
     ];
     for (const plan of bad) expect(parseUserData(JSON.stringify({ jetLagPlan: plan })).jetLagPlan).toBeNull();
     expect(parseUserData(JSON.stringify({ jetLagPlan: 'x' })).jetLagPlan).toBeNull();
+  });
+});
+
+describe('jet lag alarm overrides', () => {
+  const trip: SavedJetLagPlan = {
+    departureDate: '2026-03-10',
+    departureMinutes: 600,
+    homeZone: 'Europe/Brussels',
+    destZone: 'Asia/Tokyo',
+    preDays: null,
+    bedMinutes: 23 * 60,
+    wakeMinutes: 7 * 60,
+    anchorSource: 'entered',
+  };
+  const brussels = (epochS: number) => {
+    const clock = zonedClock('Europe/Brussels', epochS);
+    if (clock === null) throw new Error('no clock');
+    return { date: clock.date, minutes: clock.minutes };
+  };
+
+  it('turns every plan day into a phone-local wake time', () => {
+    const overrides = jetLagWakeOverrides(trip, brussels);
+    const result = generateFromSaved(trip);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(overrides).toHaveLength(result.plan.days.length - 1);
+    expect(overrides[0]).toEqual({ date: '2026-03-08', minutes: 6 * 60 });
+    expect(overrides.map((o) => o.date)).toEqual([...new Set(overrides.map((o) => o.date))]);
+  });
+
+  it('gives no overrides for a plan that cannot be made', () => {
+    expect(jetLagWakeOverrides({ ...trip, homeZone: 'Not/AZone' }, brussels)).toEqual([]);
+  });
+
+  it('names a zone by its city and splits a clock range on the noon track', () => {
+    expect(zoneCity('America/New_York')).toBe('New York');
+    expect(zoneCity('UTC')).toBe('UTC');
+    expect(trackSpans(23 * 60, 7 * 60)).toEqual([[660, 1140]]);
+    expect(trackSpans(9 * 60, 12 * 60)).toEqual([[1260, 1440]]);
+    expect(trackSpans(10 * 60, 14 * 60)).toEqual([[1320, 1440], [0, 120]]);
+    expect(trackSpans(600, 600)).toEqual([]);
+  });
+
+  it('stores the shift switch in user data', () => {
+    expect(parseUserData(JSON.stringify({ jetLagShiftAlarm: true })).jetLagShiftAlarm).toBe(true);
+    expect(parseUserData(JSON.stringify({ jetLagShiftAlarm: 'yes' })).jetLagShiftAlarm).toBe(false);
   });
 });

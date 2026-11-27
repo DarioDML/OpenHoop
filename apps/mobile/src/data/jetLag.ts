@@ -3,6 +3,7 @@ import type { DayRecord } from '@openhoop/core';
 import { parseIsoDate } from '@/lib/dates';
 import { addDaysIso, isValidTimeZone, wallClockToEpoch, zoneOffsetS, zonedClock, type ZonedClock } from '@/lib/timeZones';
 
+import { localDate, type WakeOverride } from './alarm';
 import { planBedtime } from './dailyDerived';
 import { parseClock } from './sleepEditForm';
 import { MAX_PRE_ADJUST_DAYS, type JetLagAnchorSource, type SavedJetLagPlan } from './userData';
@@ -262,4 +263,39 @@ export function sameSavedPlan(a: SavedJetLagPlan | null, b: SavedJetLagPlan | nu
     a.wakeMinutes === b.wakeMinutes &&
     a.anchorSource === b.anchorSource
   );
+}
+
+export function deviceClock(epochS: number): WakeOverride {
+  const date = new Date(epochS * 1000);
+  return { date: localDate(date), minutes: date.getHours() * 60 + date.getMinutes() };
+}
+
+/** The plan's wake times as phone-local alarm times. The alarm rings once a day, so a date keeps its earliest wake. */
+export function jetLagWakeOverrides(saved: SavedJetLagPlan, clock: (epochS: number) => WakeOverride = deviceClock): WakeOverride[] {
+  const result = generateFromSaved(saved);
+  if (!result.ok) return [];
+  const out: WakeOverride[] = [];
+  for (const day of result.plan.days) {
+    const wake = clock(day.wake.epochS);
+    if (!out.some((o) => o.date === wake.date)) out.push(wake);
+  }
+  return out;
+}
+
+export function zoneCity(zone: string): string {
+  const last = zone.split('/').pop() ?? zone;
+  return last.replace(/_/g, ' ');
+}
+
+export type ClockSpan = readonly [number, number];
+
+/** Splits a clock range on a noon-to-noon track into the pieces that fit inside it. */
+export function trackSpans(fromMinutes: number, toMinutes: number): ClockSpan[] {
+  const rel = (m: number): number => (((m - 720) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+  const a = rel(fromMinutes);
+  const b = rel(toMinutes);
+  if (a === b) return [];
+  if (b > a) return [[a, b]];
+  const pieces: ClockSpan[] = [[a, MINUTES_PER_DAY], [0, b]];
+  return pieces.filter(([x, y]) => y > x);
 }
