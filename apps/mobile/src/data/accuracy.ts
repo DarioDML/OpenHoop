@@ -22,16 +22,46 @@ export interface MetricComparison {
   pass: boolean | null;
 }
 
-function mainSleep(sleeps: readonly VendorSleep[]): VendorSleep | null {
-  let best: VendorSleep | null = null;
-  for (const sleep of sleeps) {
-    if (sleep.nap) continue;
-    if (best === null || (sleep.asleepMin ?? 0) > (best.asleepMin ?? 0)) best = sleep;
+export const PAIR_WINDOW_S = 3 * 3_600;
+
+function overlapS(aStart: number, aEnd: number, bStart: number, bEnd: number): number {
+  return Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart));
+}
+
+export function pairedCycle(day: DayRecord, cycles: readonly VendorCycle[]): VendorCycle | null {
+  let best: VendorCycle | null = null;
+  let bestGap = Number.POSITIVE_INFINITY;
+  for (const cycle of cycles) {
+    const gap = Math.abs(cycle.startT - day.start);
+    if (gap <= PAIR_WINDOW_S && gap < bestGap) {
+      best = cycle;
+      bestGap = gap;
+    }
   }
   return best;
 }
 
-function official(metric: AccuracyMetric, cycle: VendorCycle | undefined, sleep: VendorSleep | null): number | null {
+export function pairedSleep(day: DayRecord, sleeps: readonly VendorSleep[]): VendorSleep | null {
+  let main: DayRecord['sleep']['periods'][number] | null = null;
+  for (const period of day.sleep.periods) {
+    if (period.nap) continue;
+    if (main === null || period.asleepS > main.asleepS) main = period;
+  }
+  if (main === null) return null;
+  let best: VendorSleep | null = null;
+  let bestOverlap = 0;
+  for (const sleep of sleeps) {
+    if (sleep.nap) continue;
+    const shared = overlapS(main.onset, main.offset, sleep.onset, sleep.wake);
+    if (shared > bestOverlap) {
+      best = sleep;
+      bestOverlap = shared;
+    }
+  }
+  return best;
+}
+
+function official(metric: AccuracyMetric, cycle: VendorCycle | null, sleep: VendorSleep | null): number | null {
   switch (metric) {
     case 'readiness':
       return cycle?.recoveryPct ?? null;
@@ -74,14 +104,12 @@ function ours(metric: AccuracyMetric, day: DayRecord): number | null {
 }
 
 export function compareWithOfficial(days: readonly DayRecord[], vendor: VendorData): MetricComparison[] {
-  const cycles = new Map(vendor.cycles.map((cycle) => [cycle.day, cycle]));
-  const sleepsByDay = new Map<string, VendorSleep[]>();
-  for (const sleep of vendor.sleeps) sleepsByDay.set(sleep.day, [...(sleepsByDay.get(sleep.day) ?? []), sleep]);
+  const pairs = days.map((day) => ({ day, cycle: pairedCycle(day, vendor.cycles), sleep: pairedSleep(day, vendor.sleeps) }));
   return ACCURACY_METRICS.map((metric) => {
     const errors: number[] = [];
-    for (const day of days) {
+    for (const { day, cycle, sleep } of pairs) {
       const mine = ours(metric, day);
-      const theirs = official(metric, cycles.get(day.day), mainSleep(sleepsByDay.get(day.day) ?? []));
+      const theirs = official(metric, cycle, sleep);
       if (mine === null || theirs === null || !Number.isFinite(mine) || !Number.isFinite(theirs)) continue;
       errors.push(Math.abs(mine - theirs));
     }

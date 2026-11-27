@@ -1,7 +1,7 @@
-import type { ActivityRow, VendorCycle } from '@openhoop/core';
+import type { ActivityRow, DayRecord, VendorCycle, VendorSleep } from '@openhoop/core';
 import { act, renderHook } from '@testing-library/react-native';
 
-import { MIN_PAIRS, compareWithOfficial, summarise } from '@/data/accuracy';
+import { MIN_PAIRS, compareWithOfficial, pairedCycle, pairedSleep, summarise } from '@/data/accuracy';
 import { isoWeekNumber, weeklyCharges } from '@/data/charges';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { previewCounts, vendorFrom } from '@/data/vendorExport/preview';
@@ -222,5 +222,85 @@ describe('band charges per week', () => {
     const weeks = weeklyCharges([nowS - 3_600, nowS - 2 * 86_400, nowS - 20 * 86_400, nowS - 40 * 86_400], nowS, 0);
     expect(weeks.map((week) => week.isoWeek)).toEqual([44, 45, 46, 47, 48]);
     expect(weeks.map((week) => week.count)).toEqual([0, 1, 0, 0, 2]);
+  });
+});
+
+describe('accuracy pairs nights by time, not by date label', () => {
+  const template = createFixtureDays(FIXTURE_NOW).find((day) => day.readiness.value !== null && day.sleep.score.value !== null);
+  if (template === undefined) throw new Error('fixture has no scored day');
+  const DAY = 86_400;
+  const night = (start: number, index: number): DayRecord => ({
+    ...template,
+    day: new Date((start + 8 * 3_600) * 1000).toISOString().slice(0, 10),
+    start,
+    readiness: { ...template.readiness, value: 60 + index },
+    sleep: {
+      ...template.sleep,
+      score: { ...template.sleep.score, value: 80 + index },
+      periods: [{ onset: start, offset: start + 8 * 3_600, asleepS: 7 * 3_600, inBedS: 8 * 3_600, nap: false, source: 'detected', editId: null }],
+    },
+  });
+  const cycle = (startT: number, day: string, recoveryPct: number): VendorCycle => ({
+    startT,
+    endT: startT + DAY,
+    tzOffsetS: 3_600,
+    day,
+    recoveryPct,
+    restingHr: null,
+    hrvMs: null,
+    skinTempC: null,
+    spo2Pct: null,
+    respiratoryRate: null,
+    dayStrain: null,
+  });
+  const sleep = (onset: number, day: string, performancePct: number): VendorSleep => ({
+    onset,
+    wake: onset + 8 * 3_600,
+    tzOffsetS: 3_600,
+    day,
+    nap: false,
+    performancePct,
+    asleepMin: 420,
+    inBedMin: 480,
+    lightMin: null,
+    deepMin: null,
+    remMin: null,
+    awakeMin: null,
+    efficiencyPct: null,
+    consistencyPct: null,
+    respiratoryRate: null,
+  });
+  const onsetDay = (t: number): string => new Date((t + 3_600) * 1000).toISOString().slice(0, 10);
+
+  it('pairs a 23:00 bedtime whose official cycle carries the onset date', () => {
+    const starts = [0, 1, 2].map((i) => Date.UTC(2026, 10, 20 + i, 22, 0) / 1000);
+    const days = starts.map((start, i) => night(start, i));
+    expect(days.every((day, i) => day.day !== onsetDay(starts[i] ?? 0))).toBe(true);
+    const vendor = {
+      cycles: starts.map((start, i) => cycle(start + 300, onsetDay(start), 60 + i + 2)),
+      sleeps: starts.map((start, i) => sleep(start + 600, onsetDay(start), 80 + i - 3)),
+      workouts: [],
+      journal: [],
+    };
+    const result = compareWithOfficial(days, vendor);
+    expect(result.find((item) => item.metric === 'readiness')).toMatchObject({ pairs: 3, meanAbsError: 2 });
+    expect(result.find((item) => item.metric === 'sleepScore')).toMatchObject({ pairs: 3, meanAbsError: 3 });
+  });
+
+  it('pairs a bedtime after midnight and picks the closest of two cycles on the same date', () => {
+    const starts = [0, 1, 2].map((i) => Date.UTC(2026, 10, 21 + i, 0, 30) / 1000);
+    const days = starts.map((start, i) => night(start, i));
+    const near = starts.map((start, i) => cycle(start - 200, onsetDay(start), 60 + i + 1));
+    const decoys = starts.map((start) => cycle(start + 2 * 3_600 + 1_800, onsetDay(start), 5));
+    const result = compareWithOfficial(days, { cycles: [...decoys, ...near], sleeps: [], workouts: [], journal: [] });
+    expect(result.find((item) => item.metric === 'readiness')).toMatchObject({ pairs: 3, meanAbsError: 1 });
+    expect(pairedCycle(days[0] as DayRecord, [cycle((starts[0] ?? 0) + 4 * 3_600, 'x', 1)])).toBeNull();
+  });
+
+  it('pairs no official sleep that does not overlap our main sleep', () => {
+    const start = Date.UTC(2026, 10, 20, 22, 0) / 1000;
+    const day = night(start, 0);
+    expect(pairedSleep(day, [sleep(start + 12 * 3_600, 'x', 50)])).toBeNull();
+    expect(pairedSleep(day, [sleep(start + 12 * 3_600, 'x', 50), sleep(start - 1_800, 'y', 70)])?.performancePct).toBe(70);
   });
 });
