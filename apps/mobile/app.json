@@ -161,6 +161,42 @@
               "resizeMode": "horizontal|vertical",
               "widgetCategory": "home_screen",
               "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "OpenHoopReadiness",
+              "label": "OpenHoop readiness",
+              "description": "Today's Readiness in large type",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "widgetCategory": "home_screen",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "OpenHoopRings",
+              "label": "OpenHoop rings",
+              "description": "Sleep score, Readiness and Load as rings",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "widgetCategory": "home_screen",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "OpenHoopDay",
+              "label": "OpenHoop day",
+              "description": "Readiness with today's Load target and HRV",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "widgetCategory": "home_screen",
+              "updatePeriodMillis": 1800000
             }
           ]
         }

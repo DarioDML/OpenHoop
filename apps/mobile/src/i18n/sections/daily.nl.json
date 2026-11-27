@@ -474,5 +474,21 @@
   "home.notif.markAllRead": "Alles gelezen",
   "home.notif.settingsA11y": "Meldingsinstellingen",
   "home.notif.goalsSetting": "Weekdoelen",
-  "home.notif.goalsSettingBody": "Als je een doel uit je weekplan haalt"
+  "home.notif.goalsSettingBody": "Als je een doel uit je weekplan haalt",
+  "widget.day.high": "Klaar voor meer",
+  "widget.day.medium": "Gematigde dag",
+  "widget.day.low": "Rustige dag",
+  "widget.day.unknown": "Nog geen paraatheid",
+  "widget.day.loadOf": "{label} {value} van {low}–{high}",
+  "home.widgetsHeading": "Kijk zonder de app te openen",
+  "home.widgetsHome": "Startscherm",
+  "home.widgetReadiness": "Start · klein · Paraatheid",
+  "home.widgetRings": "Start · middel · drie ringen",
+  "home.widgetDay": "Start · middel · je dag",
+  "home.widgetDayNote": "Gebruikt de kleuren van OpenHoop. De widgetbibliotheek van OpenHoop kan je achtergrondkleuren (Material You) niet volgen.",
+  "home.widgetsLock": "Vergrendelscherm",
+  "home.widgetLockCircular": "Vergrendeld · rond",
+  "home.widgetLockRect": "Vergrendeld · rechthoekig",
+  "home.widgetsLockNotAvailable": "Niet beschikbaar op Android",
+  "home.widgetsLockBody": "Dit zijn stijlen voor het vergrendelscherm van een iPhone. Android-telefoons bieden apps geen widgets op het vergrendelscherm, en OpenHoop heeft nog geen iPhone-widgets, dus je kunt ze niet toevoegen."
 }

@@ -474,5 +474,21 @@
   "home.notif.markAllRead": "Mark all read",
   "home.notif.settingsA11y": "Notification settings",
   "home.notif.goalsSetting": "Weekly goals",
-  "home.notif.goalsSettingBody": "When you reach a goal from your weekly plan"
+  "home.notif.goalsSettingBody": "When you reach a goal from your weekly plan",
+  "widget.day.high": "Ready for more",
+  "widget.day.medium": "Moderate day",
+  "widget.day.low": "Easy day",
+  "widget.day.unknown": "No readiness yet",
+  "widget.day.loadOf": "{label} {value} of {low}–{high}",
+  "home.widgetsHeading": "Glance without opening the app",
+  "home.widgetsHome": "Home screen",
+  "home.widgetReadiness": "Home · small · Readiness",
+  "home.widgetRings": "Home · medium · three rings",
+  "home.widgetDay": "Home · medium · your day",
+  "home.widgetDayNote": "Uses OpenHoop's colours. The widget library OpenHoop uses cannot follow your wallpaper colours (Material You).",
+  "home.widgetsLock": "Lock screen",
+  "home.widgetLockCircular": "Lock · circular",
+  "home.widgetLockRect": "Lock · rectangular",
+  "home.widgetsLockNotAvailable": "Not available on Android",
+  "home.widgetsLockBody": "These are iPhone lock-screen styles. Android phones do not offer lock-screen widgets to apps, and OpenHoop has no iPhone widgets yet, so they cannot be added."
 }

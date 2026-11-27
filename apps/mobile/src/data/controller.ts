@@ -173,6 +173,7 @@ import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
 import { storageProblemOf, type StorageProblem } from './storageProblem';
 import { readinessNightsLeft } from './progress';
+import { loadTargetBand } from './activityDerived';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
 import { OPENHOOP_PACKAGE, nativeHealthConnect, type HealthConnectApi } from './healthConnectApi';
@@ -1730,7 +1731,16 @@ export class AppController {
         return;
       }
       const { days, userData, settings } = this.snapshot;
-      await this.widgets.publish(buildWidgetFile({ enabled: userData.widgetValues, day: days[days.length - 1], syncedAt: this.lastSyncAt, language: settings.language, readinessNightsLeft: readinessNightsLeft(days, days.length - 1) }));
+      await this.widgets.publish(
+        buildWidgetFile({
+          enabled: userData.widgetValues,
+          day: days[days.length - 1],
+          syncedAt: this.lastSyncAt,
+          language: settings.language,
+          readinessNightsLeft: readinessNightsLeft(days, days.length - 1),
+          loadTarget: loadTargetBand(days),
+        }),
+      );
     });
     this.widgetChain = run.catch(() => undefined);
     return this.widgetChain;

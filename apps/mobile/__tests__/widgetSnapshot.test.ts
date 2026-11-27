@@ -1,5 +1,5 @@
 import { createFixtureDays } from '@/data/fixtureSource';
-import { buildWidgetFile, parseWidgetFile, serializeWidgetFile, widgetView, type WidgetFile, type WidgetValues } from '@/lib/widgetSnapshot';
+import { buildWidgetFile, parseWidgetFile, ringSvg, serializeWidgetFile, widgetView, type WidgetFile, type WidgetValues } from '@/lib/widgetSnapshot';
 
 import { FIXTURE_NOW } from './support/appData';
 
@@ -21,6 +21,7 @@ function values(overrides: Partial<WidgetValues> = {}): WidgetValues {
     load: { value: 12.4, reason: null },
     restingHr: { value: 52, reason: null },
     hrv: { value: 64, reason: null },
+    loadTarget: null,
     ...overrides,
   };
 }
@@ -30,7 +31,7 @@ describe('buildWidgetFile', () => {
     if (!latest) throw new Error('fixture has no days');
     const file = buildWidgetFile({ enabled: true, day: latest, syncedAt: NOW_S, language: 'nl', readinessNightsLeft: null });
     if (file.kind !== 'values') throw new Error('expected values');
-    expect(Object.keys(file).sort()).toEqual(['calibrating', 'day', 'hrv', 'kind', 'language', 'load', 'nightsLeft', 'readiness', 'restingHr', 'sleep', 'syncedAt', 'v']);
+    expect(Object.keys(file).sort()).toEqual(['calibrating', 'day', 'hrv', 'kind', 'language', 'load', 'loadTarget', 'nightsLeft', 'readiness', 'restingHr', 'sleep', 'syncedAt', 'v']);
     expect(file.day).toBe(latest.day);
     expect(file.readiness.value).toBe(latest.readiness.value === null ? null : Math.round(latest.readiness.value));
     expect(file.language).toBe('nl');
@@ -117,5 +118,39 @@ describe('widgetView', () => {
     expect(widgetView({ v: 1, kind: 'off', language: 'en' }, context)).toMatchObject({ kind: 'message', title: 'Values are off' });
     expect(widgetView({ v: 1, kind: 'empty', language: 'nl' }, context)).toMatchObject({ kind: 'message', title: 'Nog geen data' });
     expect(widgetView(null, { ...context, fallbackLanguage: 'nl' })).toMatchObject({ kind: 'message', title: 'Nog geen scores' });
+  });
+});
+
+describe('widget extras', () => {
+  const context = { nowS: NOW_S, today: '2026-11-25', fallbackLanguage: 'en' as const };
+
+  it('keeps a valid load target and rejects a broken one', () => {
+    if (!latest) throw new Error('fixture has no days');
+    const file = buildWidgetFile({ enabled: true, day: latest, syncedAt: NOW_S, language: 'en', readinessNightsLeft: null, loadTarget: { low: 7.64, high: 15.61 } });
+    if (file.kind !== 'values') throw new Error('expected values');
+    expect(file.loadTarget).toEqual({ low: 7.6, high: 15.6 });
+    expect(parseWidgetFile(serializeWidgetFile(file))).toEqual(file);
+    expect(parseWidgetFile(JSON.stringify({ ...values(), loadTarget: { low: 9, high: 3 } }))).toBeNull();
+    const { loadTarget: _dropped, ...older } = values();
+    expect(parseWidgetFile(JSON.stringify(older))).toEqual(values());
+  });
+
+  it('writes a headline, a load line and ring fractions', () => {
+    const view = widgetView(values({ loadTarget: { low: 7.6, high: 15.6 } }), context);
+    if (view.kind !== 'values') throw new Error('expected values');
+    expect(view.headline).toBe('Ready for more');
+    expect(view.loadLine).toBe('Load 12.4 of 7.6–15.6');
+    expect(view.scores.map((line) => line.fraction)).toEqual([0.72, 0.81, 12.4 / 21]);
+    const calibrating = widgetView(values({ calibrating: true }), context);
+    if (calibrating.kind !== 'values') throw new Error('expected values');
+    expect(calibrating.headline).toBe('No readiness yet');
+    expect(calibrating.loadLine).toBe('Load 12.4');
+    expect(calibrating.scores[0].fraction).toBeNull();
+  });
+
+  it('draws a ring as SVG with an arc only when there is a value', () => {
+    expect(ringSvg(0.5, '#FF0000', '#333333')).toContain('stroke-dasharray');
+    expect(ringSvg(null, '#FF0000', '#333333')).not.toContain('stroke-dasharray');
+    expect(ringSvg(2, '#FF0000', '#333333')).toContain(`stroke-dasharray="${(2 * Math.PI * 29).toFixed(2)} `);
   });
 });
