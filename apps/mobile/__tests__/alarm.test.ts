@@ -3,7 +3,9 @@ import {
   alarmTask,
   confirmedAlarm,
   nextWakeAt,
+  followingWakeAt,
   rangEarly,
+  rangForThisAlarm,
   parseAlarmPlan,
   parseArmedAlarm,
   serializeAlarmPlan,
@@ -52,13 +54,25 @@ describe('alarmTask', () => {
     expect(confirmedAlarm({ ...attempt, confirmed: true, rangEarlyAt: null }, unix(local(26, 22, 0)))).not.toBeNull();
   });
 
-  it('does not set the same morning again after a smart wake rang early', () => {
-    const rang = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true, rangEarlyAt: unix(local(27, 6, 40)) };
-    expect(alarmTask(PLAN, rang, local(27, 6, 45))).toEqual({ kind: 'none' });
-    expect(alarmTask({ ...PLAN, enabled: false }, rang, local(27, 6, 45))).toEqual({ kind: 'none' });
-    expect(confirmedAlarm(rang, unix(local(27, 6, 45)))).toBeNull();
-    expect(rangEarly(rang, unix(local(27, 6, 45)))).toBe(unix(local(27, 6, 40)));
-    expect(alarmTask(PLAN, rang, local(27, 7, 30))).toEqual({ kind: 'arm', wakeAt: unix(local(28, 7, 0)) });
+  it('keeps the next morning set after a smart wake rang early, and cancels it when switched off', () => {
+    const rangAt = unix(local(27, 6, 40));
+    const tomorrow = { wakeAt: unix(local(28, 7, 0)), armedAt: rangAt, confirmed: true, rangEarlyAt: rangAt };
+    expect(alarmTask(PLAN, tomorrow, local(27, 6, 45))).toEqual({ kind: 'none' });
+    expect(alarmTask(PLAN, tomorrow, local(27, 7, 30))).toEqual({ kind: 'none' });
+    expect(alarmTask({ ...PLAN, enabled: false }, tomorrow, local(27, 6, 45))).toEqual({ kind: 'cancel' });
+    expect(confirmedAlarm(tomorrow, unix(local(27, 6, 45)))).toBe(tomorrow);
+    expect(rangForThisAlarm(tomorrow)).toBe(false);
+    expect(rangEarly(tomorrow, unix(local(27, 6, 45)))).toBe(rangAt);
+    expect(rangEarly(tomorrow, unix(local(28, 6, 45)))).toBeNull();
+  });
+
+  it('keeps today\'s record while the next morning could not be set yet', () => {
+    const rangAt = unix(local(27, 6, 40));
+    const today = { wakeAt: unix(local(27, 7, 0)), armedAt: unix(local(26, 21, 0)), confirmed: true, rangEarlyAt: rangAt };
+    expect(rangForThisAlarm(today)).toBe(true);
+    expect(alarmTask(PLAN, today, local(27, 6, 45))).toEqual({ kind: 'none' });
+    expect(alarmTask(PLAN, today, local(27, 7, 30))).toEqual({ kind: 'arm', wakeAt: unix(local(28, 7, 0)) });
+    expect(followingWakeAt(7 * 60, unix(local(27, 7, 0)))).toBe(unix(local(28, 7, 0)));
   });
 
   it('keeps the wall-clock time across a daylight saving change', () => {

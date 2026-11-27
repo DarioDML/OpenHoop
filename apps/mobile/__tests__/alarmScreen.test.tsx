@@ -118,7 +118,8 @@ describe('Haptic alarm', () => {
   it('says when a smart wake already rang', async () => {
     const wakeAt = inHours(1);
     await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm({ plan: PLAN, armed: { wakeAt, armedAt: inHours(-8), confirmed: true, rangEarlyAt: inHours(-0.5) } }) }));
-    expect(screen.getByTestId('alarm-status-text').props.children).toMatch(/^Rang early at \d\d:\d\d$/);
+    expect(screen.getByTestId('alarm-status-text').props.children).toMatch(/^Rings /);
+    expect(screen.getByTestId('alarm-rang-early').props.children).toMatch(/^Rang early at \d\d:\d\d$/);
   });
 
   it('shows the planned time on the planner card', async () => {

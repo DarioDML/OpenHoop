@@ -221,6 +221,7 @@
   "alarm.problem.tooSoon": "Dat is minder dan een minuut van nu. Kies een later tijdstip.",
   "alarm.problem.rejected": "De band weigerde het alarm ({status}).",
   "alarm.problem.notArmed": "De band bevestigde het alarm niet. Probeer opnieuw dicht bij de band.",
+  "alarm.problem.notRung": "De band speelde het alarm niet af, dus het ingestelde tijdstip blijft op de band.",
   "sleepx.edit": "Slaap bewerken",
   "sleepx.editIntro": "Corrigeer de tijden van een nacht of voeg een dutje toe dat de band miste.",
   "sleepx.editRecalc": "Jouw tijden vervangen de gedetecteerde. Slaapbehoefte, slaaptekort, Slaapscore en Paraatheid worden vanaf die dag opnieuw berekend. De metingen van de band blijven bewaard, dus je kunt de gedetecteerde tijden altijd terugzetten.",

@@ -62,6 +62,7 @@ import {
   cancelAlarm,
   recentAlarmEvents,
   ringAlarm,
+  ringAlarmUntilDone,
   EcgError,
   deleteEcgRecording,
   ecgSamples,
@@ -157,7 +158,9 @@ import {
   armedAlarmKey,
   parseAlarmPlan,
   confirmedAlarm,
+  followingWakeAt,
   parseArmedAlarm,
+  rangForThisAlarm,
   serializeAlarmPlan,
   serializeArmedAlarm,
   type AlarmPlan,
@@ -299,6 +302,7 @@ const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, u
 const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
 const ECG_PROGRESS_MS = 200;
 const SMART_MIN_DELAY_S = 60;
+const RING_WAIT_MS = 40_000;
 
 const ECG_WRIST_KEY = 'ecg.wrist';
 
@@ -868,7 +872,7 @@ export class AppController {
       if (stopNotice !== undefined) throw new AppError(stopNotice);
     } catch (error) {
       const appError = this.fail(error);
-      failed = this.snapshot.settings.dataSource === 'band' && !SYNC_FAILURES_NOT_ALERTED.has(appError.key);
+      failed = !this.quietSync && this.snapshot.settings.dataSource === 'band' && !SYNC_FAILURES_NOT_ALERTED.has(appError.key);
       throw appError;
     } finally {
       void this.refreshNotifications({ syncFailed: failed });
@@ -1071,14 +1075,20 @@ export class AppController {
     this.scheduleSmartWake();
   }
 
-  private scheduleSmartWake(): void {
+  private smartAlarm(): { plan: AlarmPlan & { mode: 'goal' | 'window' }; live: ArmedAlarm } | null {
     const { plan, armed } = this.snapshot.alarm;
     const live = confirmedAlarm(armed, nowSeconds());
-    if (!plan.enabled || plan.mode === 'exact' || live === null) {
+    if (!plan.enabled || plan.mode === 'exact' || live === null || !this.snapshot.alarm.smartAvailable) return null;
+    return { plan: { ...plan, mode: plan.mode }, live };
+  }
+
+  private scheduleSmartWake(): void {
+    const smart = this.smartAlarm();
+    if (smart === null || rangForThisAlarm(smart.live)) {
       this.smartWake.cancel();
       return;
     }
-    this.queueSmartCheck(Math.max(nowSeconds() + SMART_MIN_DELAY_S, windowStart(plan.mode, live.wakeAt, plan.windowMin)));
+    this.queueSmartCheck(Math.max(nowSeconds() + SMART_MIN_DELAY_S, windowStart(smart.plan.mode, smart.live.wakeAt, smart.plan.windowMin)));
   }
 
   private queueSmartCheck(atS: number): void {
@@ -1087,24 +1097,35 @@ export class AppController {
   }
 
   smartWakeCheck = async (): Promise<void> => {
-    const { plan, armed } = this.snapshot.alarm;
-    const live = confirmedAlarm(armed, nowSeconds());
-    if (!plan.enabled || plan.mode === 'exact' || live === null) {
+    const before = this.smartAlarm();
+    if (before === null || rangForThisAlarm(before.live)) {
       this.smartWake.cancel();
       return;
     }
-    const mode = plan.mode;
+    const lastChance = before.live.wakeAt - LEAVE_TO_BAND_S;
+    const safetyNet = Math.max(nowSeconds() + CHECK_EVERY_S, windowStart(before.plan.mode, before.live.wakeAt, before.plan.windowMin));
+    if (safetyNet < lastChance) this.queueSmartCheck(safetyNet);
     try {
-      await this.sync();
+      this.quietSync = true;
+      try {
+        await this.sync();
+      } finally {
+        this.quietSync = false;
+      }
+      const smart = this.smartAlarm();
+      if (smart === null || rangForThisAlarm(smart.live)) {
+        this.smartWake.cancel();
+        return;
+      }
       const deviceId = this.deviceRow?.id;
       if (deviceId === undefined) return;
       const nowS = nowSeconds();
       const night = await readNightNow(this.requireApp().store, deviceId, nowS);
       const today = this.snapshot.days[this.snapshot.days.length - 1];
       const decision = smartWakeDecision({
-        mode,
-        wakeAt: live.wakeAt,
-        windowMin: plan.windowMin,
+        mode: smart.plan.mode,
+        wakeAt: smart.live.wakeAt,
+        windowMin: smart.plan.windowMin,
         nowS,
         recent: night.recent,
         awake: night.awake,
@@ -1112,24 +1133,34 @@ export class AppController {
         needS: today?.sleep.need.value ?? null,
       });
       if (decision.kind === 'check') this.queueSmartCheck(decision.at);
-      else if (decision.kind === 'ring') await this.ringSmartWake(live);
+      else if (decision.kind === 'band') this.smartWake.cancel();
+      else await this.ringSmartWake(smart.plan, smart.live);
     } catch (error) {
-      const retry = nowSeconds() + CHECK_EVERY_S;
-      if (retry < live.wakeAt - LEAVE_TO_BAND_S) this.queueSmartCheck(retry);
       this.patchAlarm({ problem: alarmProblem(error) });
     }
   };
 
-  private async ringSmartWake(live: ArmedAlarm): Promise<void> {
+  private async ringSmartWake(plan: AlarmPlan, live: ArmedAlarm): Promise<void> {
     await this.exclusive(async () => {
       const conn = await this.ensureConnection();
       const { store } = this.requireApp();
-      await ringAlarm(conn.session);
-      await cancelAlarm(conn.session);
-      const rang: ArmedAlarm = { ...live, rangEarlyAt: nowSeconds() };
+      const result = await ringAlarmUntilDone(conn.session, RING_WAIT_MS);
+      if (!result.played) throw new AppError('alarm.problem.notRung');
+      const rangAt = nowSeconds();
+      const rang: ArmedAlarm = { ...live, rangEarlyAt: rangAt };
       await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(rang));
       this.patchAlarm({ armed: rang, problem: null });
       this.smartWake.cancel();
+      const following = followingWakeAt(plan.minutes, live.wakeAt);
+      try {
+        const reading = await armAlarm(conn.session, following, nowSeconds());
+        const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds(), confirmed: true, rangEarlyAt: rangAt };
+        await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(next));
+        this.patchAlarm({ armed: next });
+        this.scheduleSmartWake();
+      } catch (error) {
+        this.patchAlarm({ problem: alarmProblem(error) });
+      }
     });
   }
 
@@ -1155,6 +1186,7 @@ export class AppController {
 
   private ecgAbort: AbortController | null = null;
   private startRun: Promise<void> | null = null;
+  private quietSync = false;
 
   private readonly ecgActionSet: EcgActions = {
     start: (wrist: Wrist) => this.startEcg(wrist),

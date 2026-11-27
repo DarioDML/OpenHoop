@@ -79,12 +79,7 @@ export default function HapticAlarmScreen() {
 
   const armed = confirmedAlarm(alarm.armed, nowS);
   const early = rangEarly(alarm.armed, nowS);
-  const status =
-    early !== null
-      ? t('alarm.status.rangEarly', { time: clockAt(early) })
-      : armed !== null
-        ? t('alarm.status.armed', { when: wakeLabel(t, language, armed.wakeAt, nowS) })
-        : t(alarm.plan.enabled ? 'alarm.status.pending' : 'alarm.status.off');
+  const status = armed !== null ? t('alarm.status.armed', { when: wakeLabel(t, language, armed.wakeAt, nowS) }) : t(alarm.plan.enabled ? 'alarm.status.pending' : 'alarm.status.off');
   const smartOk = alarm.smartAvailable;
   const startMin = draft.mode === 'goal' ? GOAL_WINDOW_S / 60 : draft.windowMin;
   const modeBody =
@@ -160,6 +155,11 @@ export default function HapticAlarmScreen() {
         <AppText variant="bodyStrong" testID="alarm-status-text">
           {status}
         </AppText>
+        {early !== null ? (
+          <AppText variant="label" muted testID="alarm-rang-early">
+            {t('alarm.status.rangEarly', { time: clockAt(early) })}
+          </AppText>
+        ) : null}
         {alarm.problem !== null ? (
           <AppText variant="label" color={colors.warning} testID="alarm-problem">
             {t(alarm.problem.key, alarm.problem.params)}

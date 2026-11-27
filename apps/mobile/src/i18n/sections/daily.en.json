@@ -221,6 +221,7 @@
   "alarm.problem.tooSoon": "That is less than a minute away. Choose a later time.",
   "alarm.problem.rejected": "The band refused the alarm ({status}).",
   "alarm.problem.notArmed": "The band did not confirm the alarm. Try again near the band.",
+  "alarm.problem.notRung": "The band did not play the alarm, so the set time stays on the band.",
   "sleepx.edit": "Edit sleep",
   "sleepx.editIntro": "Correct the times of a night or add a nap the band missed.",
   "sleepx.editRecalc": "Your times replace the detected ones. Sleep need, debt, Sleep score and Readiness are recomputed from that day on. The band readings stay stored, so you can restore the detected times at any time.",

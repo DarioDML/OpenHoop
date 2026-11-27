@@ -7,9 +7,13 @@ import { SMART_WAKE_TASK } from './src/lib/smartWakeNative';
 import { widgetTaskHandler } from './src/widgets/taskHandler';
 
 async function smartWakeTask(): Promise<void> {
-  const controller = appController();
-  await controller.start();
-  await controller.smartWakeCheck();
+  try {
+    const controller = appController();
+    await controller.start();
+    await controller.smartWakeCheck();
+  } catch {
+    return;
+  }
 }
 
 if (Platform.OS === 'android') {
