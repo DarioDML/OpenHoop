@@ -16,6 +16,7 @@ const LABELS: Readonly<Record<keyof typeof PARITY, TranslationKey>> = {
   heartRate: 'metric.heartRate',
   rr: 'metric.rr',
   steps: 'metric.steps',
+  wearTime: 'metric.wearTime',
   skinTemp: 'metric.skinTemp',
   spo2: 'metric.spo2',
   batteryPack: 'device.pack.charge',

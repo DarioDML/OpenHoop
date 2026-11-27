@@ -4,6 +4,7 @@ export const PARITY = {
   heartRate: 'A',
   rr: 'A',
   steps: 'A',
+  wearTime: 'A',
   skinTemp: 'A',
   spo2: 'A',
   batteryPack: 'A',
