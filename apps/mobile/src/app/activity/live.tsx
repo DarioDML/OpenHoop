@@ -1,4 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
 import { formatElapsed, loadTargetBand, parseActivityType } from '@/data/activityDerived';
@@ -25,9 +26,18 @@ export default function LiveActivityScreen() {
   const { days, notice } = useAppData();
   const { t, language, reason } = useT();
   const { colors } = useTheme();
-  const params = useLocalSearchParams<{ type?: string }>();
+  const params = useLocalSearchParams<{ type?: string; start?: string; live?: string }>();
   const type = parseActivityType(params.type);
-  const { session, save, running, send, begin, finish, ref, heartRate, hud } = useLiveRecording(type);
+  const { session, save, running, send, begin, finish, ref, heartRate, hud } = useLiveRecording(type, { adoptLive: params.live === '1' });
+  const beginRef = useRef(begin);
+  beginRef.current = begin;
+  const autoStarted = useRef(false);
+
+  useEffect(() => {
+    if (params.start !== '1' || autoStarted.current) return;
+    autoStarted.current = true;
+    void beginRef.current();
+  }, [params.start]);
   const zone = hud.zone;
   const zoneColor = zone !== null && zone > 0 ? colors.zones[zone - 1] : undefined;
   const band = loadTargetBand(days);

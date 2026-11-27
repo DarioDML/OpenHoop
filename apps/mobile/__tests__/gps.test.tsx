@@ -108,12 +108,13 @@ afterEach(() => {
 });
 
 describe('start screen', () => {
-  it('offers a start with a route', async () => {
-    mockParams = { type: 'cycling' };
+  it('offers a start with a route through the GPS switch', async () => {
+    mockParams = { type: 'yoga' };
     await render(withAppData(<StartActivityScreen />));
-    expect(screen.getByTestId('start-route')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('start-route-begin'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: { type: 'cycling' } });
+    expect(screen.getByTestId('start-gps').props.value).toBe(false);
+    await fireEvent(screen.getByTestId('start-gps'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('start-begin'));
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: expect.objectContaining({ type: 'yoga', start: '1' }) });
   });
 });
 

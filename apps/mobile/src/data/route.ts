@@ -45,6 +45,10 @@ export function usesPace(type: ActivityType): boolean {
   return FOOT_TYPES.has(type);
 }
 
+export function gpsByDefault(type: ActivityType): boolean {
+  return FOOT_TYPES.has(type) || type === 'cycling';
+}
+
 function validFix(fix: Fix): boolean {
   return (
     Number.isFinite(fix.tMs) &&

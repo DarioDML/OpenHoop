@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { formatElapsed, parseActivityType } from '@/data/activityDerived';
@@ -32,9 +32,9 @@ export default function GpsActivityScreen() {
   const { notice, userData } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
-  const params = useLocalSearchParams<{ type?: string }>();
+  const params = useLocalSearchParams<{ type?: string; start?: string; live?: string }>();
   const type = parseActivityType(params.type);
-  const recording = useLiveRecording(type);
+  const recording = useLiveRecording(type, { adoptLive: params.live === '1' });
   const gps = useRouteRecorder(type);
   const [starting, setStarting] = useState(false);
   const { session, save, running, hud, heartRate } = recording;
@@ -56,6 +56,15 @@ export default function GpsActivityScreen() {
       setStarting(false);
     }
   };
+
+  const beginRef = useRef(begin);
+  beginRef.current = begin;
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (params.start !== '1' || autoStarted.current) return;
+    autoStarted.current = true;
+    void beginRef.current();
+  }, [params.start]);
 
   const pause = (): void => {
     gps.pause();

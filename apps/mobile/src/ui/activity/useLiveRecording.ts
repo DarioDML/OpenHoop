@@ -16,13 +16,17 @@ export function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-export function useLiveRecording(type: ActivityType) {
+export interface LiveRecordingOptions {
+  adoptLive?: boolean;
+}
+
+export function useLiveRecording(type: ActivityType, options: LiveRecordingOptions = {}) {
   const { profile, days, startLive, stopLive, saveActivity, reportLiveLoad } = useAppData();
   const live = useLive();
   const [session, dispatch] = useReducer(liveReducer, IDLE_SESSION);
   const [now, setNow] = useState(nowSeconds);
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });
-  const startedLive = useRef(false);
+  const startedLive = useRef(options.adoptLive === true);
   const stopRef = useRef(stopLive);
   stopRef.current = stopLive;
   const sessionRef = useRef<LiveSession>(session);
