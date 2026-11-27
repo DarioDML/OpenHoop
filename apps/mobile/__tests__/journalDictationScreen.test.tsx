@@ -255,6 +255,72 @@ describe('note dictation', () => {
       expect(speechCalls.abort).toHaveBeenCalledTimes(1);
     });
 
+    it('ends the recognition when the note is saved, so later words never reach the next note', async () => {
+      await renderLog();
+      await fireEvent.changeText(await screen.findByTestId('note-input-text'), 'First note');
+      await tapDictate();
+      await act(async () => emitSpeech('start', null));
+      await fireEvent.press(screen.getByTestId('note-save'));
+      await waitFor(() => expect(speechCalls.abort).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.getByTestId('note-input-text').props.value).toBe(''));
+      await act(async () => emitSpeech('result', result('stray words')));
+      expect(screen.getByTestId('note-input-text').props.value).toBe('');
+      expect(await screen.findByTestId('note-dictate-start')).toBeTruthy();
+    });
+
+    it('does not abort a save that failed validation', async () => {
+      await renderLog();
+      await tapDictate();
+      await act(async () => emitSpeech('start', null));
+      await fireEvent.press(screen.getByTestId('note-save'));
+      expect(speechCalls.abort).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('note-dictate-stop')).toBeTruthy();
+    });
+
+    it('does not start listening when the screen is left while the permission dialog is open', async () => {
+      let release: () => void = () => undefined;
+      speech.permissionWait = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await renderLog();
+      await fireEvent.press(await screen.findByTestId('note-dictate-start'));
+      await screen.unmount();
+      await act(async () => release());
+      expect(speechCalls.start).not.toHaveBeenCalled();
+    });
+
+    it('tells the user when the language error persists although the pack is listed as installed', async () => {
+      await renderLog();
+      await tapDictate();
+      await act(async () => emitSpeech('error', { error: 'language-not-supported', message: 'unavailable' }));
+      expect(await screen.findByText(/reported an error/)).toBeTruthy();
+      expect(screen.getByTestId('note-dictate-start')).toBeTruthy();
+    });
+
+    it('gives up on a stop the recogniser never answers', async () => {
+      await renderLog();
+      await tapDictate();
+      await act(async () => emitSpeech('start', null));
+      jest.useFakeTimers();
+      try {
+        await fireEvent.press(screen.getByTestId('note-dictate-stop'));
+        await act(async () => jest.advanceTimersByTime(4100));
+      } finally {
+        jest.useRealTimers();
+      }
+      expect(speechCalls.abort).toHaveBeenCalledTimes(1);
+      expect(await screen.findByTestId('note-dictate-start')).toBeTruthy();
+    });
+
+    it('refuses to start when the on-device recogniser disappeared after the check', async () => {
+      await renderLog();
+      await screen.findByTestId('note-dictate-start');
+      speech.onDevice = false;
+      await fireEvent.press(screen.getByTestId('note-dictate-start'));
+      expect(await screen.findByText(/reported an error/)).toBeTruthy();
+      expect(speechCalls.start).not.toHaveBeenCalled();
+    });
+
     it('does not touch the recogniser on leaving when nothing is running', async () => {
       await renderLog();
       await screen.findByTestId('note-dictate-start');

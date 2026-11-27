@@ -35,6 +35,7 @@ export default function JournalLogScreen() {
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState('');
   const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [dictationSession, setDictationSession] = useState(0);
 
   const questions = useMemo<JournalQuestion[]>(() => {
     const active = activeQuestions(userData.journalQuestions);
@@ -63,7 +64,10 @@ export default function JournalLogScreen() {
     setInvalid([]);
   };
 
+  const endDictation = (): void => setDictationSession((session) => session + 1);
+
   const reset = (): void => {
+    endDictation();
     setDraft({ day: startDay(params.day, today), text: '', tags: [] });
     setEditingId(null);
     setInvalid([]);
@@ -75,6 +79,7 @@ export default function JournalLogScreen() {
       setInvalid(result.invalid);
       return;
     }
+    endDictation();
     setSaving(true);
     const saved = await saveJournalNote(editingId, result.value);
     setSaving(false);
@@ -82,6 +87,7 @@ export default function JournalLogScreen() {
   };
 
   const startEdit = (note: JournalNote): void => {
+    endDictation();
     setEditingId(note.id);
     setConfirmId(null);
     setInvalid([]);
@@ -134,7 +140,7 @@ export default function JournalLogScreen() {
           style={{ minHeight: 120, paddingTop: 14, paddingBottom: 14 }}
           testID="note-input-text"
         />
-        <NoteDictation onText={appendText} />
+        <NoteDictation onText={appendText} sessionKey={dictationSession} />
         <View style={{ gap: spacing.sm }}>
           <AppText variant="capSmall" muted>
             {t('journal.log.tags')}

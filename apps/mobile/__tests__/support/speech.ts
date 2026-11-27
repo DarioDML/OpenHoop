@@ -17,6 +17,7 @@ interface SpeechState {
   permission: Permission;
   downloadStatus: DownloadStatus | Error;
   failQuery: boolean;
+  permissionWait: Promise<void> | null;
 }
 
 const defaults = (): SpeechState => ({
@@ -26,6 +27,7 @@ const defaults = (): SpeechState => ({
   permission: { granted: true, canAskAgain: true },
   downloadStatus: 'download_success',
   failQuery: false,
+  permissionWait: null,
 });
 
 export const speech: SpeechState = defaults();
@@ -73,6 +75,7 @@ export const speechRecognitionMock = {
     },
     requestMicrophonePermissionsAsync: async (): Promise<Permission> => {
       speechCalls.requestMicrophone();
+      if (speech.permissionWait) await speech.permissionWait;
       return speech.permission;
     },
     androidTriggerOfflineModelDownload: async ({ locale }: { locale: string }): Promise<{ status: DownloadStatus; message: string }> => {

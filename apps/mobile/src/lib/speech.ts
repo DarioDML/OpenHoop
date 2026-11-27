@@ -8,12 +8,14 @@ export type MicrophonePermission = 'granted' | 'denied' | 'blocked';
 export type DownloadOutcome = 'finished' | 'started' | 'failed';
 export type DictationErrorKind = 'permission' | 'language' | 'quiet' | 'failed';
 
+function androidSupportsOnDevice(): boolean {
+  return Platform.OS === 'android' && typeof Platform.Version === 'number' && Platform.Version >= DICTATION_MIN_ANDROID_API;
+}
+
 export async function checkDictation(language: Language): Promise<DictationAvailability> {
   if (Platform.OS === 'ios') return { kind: 'unavailable', reason: 'ios' };
   if (Platform.OS !== 'android') return { kind: 'unavailable', reason: 'no-recogniser' };
-  if (typeof Platform.Version !== 'number' || Platform.Version < DICTATION_MIN_ANDROID_API) {
-    return { kind: 'unavailable', reason: 'android-version' };
-  }
+  if (!androidSupportsOnDevice()) return { kind: 'unavailable', reason: 'android-version' };
   try {
     if (!ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) return { kind: 'unavailable', reason: 'no-recogniser' };
     const { locales, installedLocales } = await ExpoSpeechRecognitionModule.getSupportedLocales({});
@@ -32,7 +34,8 @@ export async function requestMicrophone(): Promise<MicrophonePermission> {
   return response.canAskAgain ? 'denied' : 'blocked';
 }
 
-export function startDictation(locale: string): void {
+export function startDictation(locale: string): boolean {
+  if (!androidSupportsOnDevice() || !ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) return false;
   ExpoSpeechRecognitionModule.start({
     lang: locale,
     requiresOnDeviceRecognition: true,
@@ -42,6 +45,7 @@ export function startDictation(locale: string): void {
     maxAlternatives: 1,
     recordingOptions: { persist: false },
   });
+  return true;
 }
 
 export function stopDictation(): void {
