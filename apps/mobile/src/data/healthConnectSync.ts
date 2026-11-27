@@ -133,8 +133,8 @@ async function importBody(ctx: HcSyncContext, granted: ReadonlySet<string>): Pro
 }
 
 function localMidnight(ctx: HcSyncContext, unixS: number): number {
-  const offset = ctx.tzOffsetAt(unixS);
-  return Math.floor((unixS + offset) / DAY_S) * DAY_S - offset;
+  const dayStart = Math.floor((unixS + ctx.tzOffsetAt(unixS)) / DAY_S) * DAY_S;
+  return dayStart - ctx.tzOffsetAt(dayStart - ctx.tzOffsetAt(unixS));
 }
 
 interface StepsOutcome {

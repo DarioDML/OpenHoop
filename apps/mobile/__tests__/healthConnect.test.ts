@@ -591,6 +591,21 @@ describe('Health Connect sync', () => {
     expect(next.report.results.steps).toEqual({ status: 'ok', count: 1 });
   });
 
+  it('keeps every steps slice on a local midnight across a daylight saving change', async () => {
+    const state = defaultHealthConnectState();
+    state.import.steps = true;
+    const steady = fakeApi([{ accessType: 'read', recordType: 'Steps' }]);
+    await runHealthConnectSync(context(steady, state, { tzOffsetAt: () => 3_600 }));
+    const boundary = steady.stepReads[3]?.fromS;
+    if (boundary === undefined) throw new Error('no boundary');
+    for (const change of [boundary + 2 * 3_600, boundary - 3 * DAY_S]) {
+      const tzOffsetAt = (unixS: number): number => (unixS < change ? 3_600 : 7_200);
+      const api = fakeApi([{ accessType: 'read', recordType: 'Steps' }]);
+      await runHealthConnectSync(context(api, state, { tzOffsetAt }));
+      for (const read of api.stepReads) expect((read.fromS + tzOffsetAt(read.fromS)) % DAY_S).toBe(0);
+    }
+  });
+
   it('keeps the stored steps and the import mark when steps are revoked or cannot be read', async () => {
     const stored = [{ day: '2026-11-24', steps: 9_000, origins: [] }];
     const state = { ...defaultHealthConnectState(), lastStepsImportS: NOW_S - DAY_S, steps: stored };
