@@ -30,7 +30,6 @@
   "readinessScreen.delta.worse": "↓ {value} worse",
   "readinessScreen.levelNote": "A fitted model, not a measurement. The formula was fitted to the outputs of another product and may differ for you, so use it to follow your own trend. Measured gap to the reference: not measured yet.",
   "readinessTrends.avg": "avg {value}%",
-  "readinessTrends.per.day": "Per day",
   "readinessTrends.per.week": "Weekly average",
   "readinessTrends.per.month": "Monthly average",
   "readinessTrends.lastDays": "Last {days} days",

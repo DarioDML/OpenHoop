@@ -30,7 +30,6 @@
   "readinessScreen.delta.worse": "↓ {value} slechter",
   "readinessScreen.levelNote": "Een benaderend model, geen meting. De formule is afgestemd op de uitkomsten van een ander product en kan bij jou anders uitvallen. Gebruik ze dus om je eigen verloop te volgen. Gemeten afwijking tegenover de referentie: nog niet gemeten.",
   "readinessTrends.avg": "gem. {value}%",
-  "readinessTrends.per.day": "Per dag",
   "readinessTrends.per.week": "Weekgemiddelde",
   "readinessTrends.per.month": "Maandgemiddelde",
   "readinessTrends.lastDays": "Laatste {days} dagen",
