@@ -33,10 +33,11 @@ interface ActionTileProps {
   size?: 'large' | 'small';
   badge?: BadgeProps;
   disabled?: boolean;
+  accessibilityHint?: string;
   testID?: string;
 }
 
-export function ActionTile({ icon, iconColor, label, href, onPress, background, size = 'small', badge, disabled = false, testID }: ActionTileProps): ReactElement {
+export function ActionTile({ icon, iconColor, label, href, onPress, background, size = 'small', badge, disabled = false, accessibilityHint, testID }: ActionTileProps): ReactElement {
   const { colors } = useTheme();
   const large = size === 'large';
   const press = onPress ?? (href === undefined ? undefined : () => router.push(href));
@@ -45,6 +46,7 @@ export function ActionTile({ icon, iconColor, label, href, onPress, background, 
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled }}
       disabled={disabled || press === undefined}
       onPress={press}

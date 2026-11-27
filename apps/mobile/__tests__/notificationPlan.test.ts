@@ -4,6 +4,8 @@ import {
   DATA_AT_RISK_DAYS,
   DIGEST_HORIZON_DAYS,
   INBOX_LIMIT,
+  goalFacts,
+  planGoals,
   isQuiet,
   localDay,
   outOfQuiet,
@@ -19,9 +21,11 @@ import {
   type PlanInput,
 } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
+import { createFixtureDays } from '@/data/fixtureSource';
+import { defaultPlan, planWeek } from '@/data/weeklyPlan';
 
 const DAY_MS = 86_400_000;
-const PREFS: NotificationPrefs = { enabled: true, morningDigest: true, syncProblems: true, quietStart: '22:00', quietEnd: '07:00' };
+const PREFS: NotificationPrefs = { enabled: true, morningDigest: true, syncProblems: true, goals: true, quietStart: '22:00', quietEnd: '07:00' };
 
 function at(day: number, hour: number, minute = 0): Date {
   return new Date(2026, 10, day, hour, minute);
@@ -184,6 +188,60 @@ describe('planAlerts', () => {
   });
 });
 
+describe('weekly goal alerts', () => {
+  const sleepMet = { goal: 'sleep' as const, week: '2026-11-23', count: 4, target: 4, scoreMin: 80 };
+  const loadShort = { goal: 'load' as const, week: '2026-11-23', count: 2, target: 5, scoreMin: null };
+
+  it('sends one alert per goal and week once it is reached', () => {
+    const plan = planAlerts(input({ goals: [sleepMet, loadShort] }));
+    const goals = plan.filter((alert) => alert.kind === 'goal');
+    expect(goals).toEqual([{ kind: 'goal', id: 'goal:sleep:2026-11-23', at: at(25, 12).getTime(), ...sleepMet }]);
+    expect(planGoals(input({ goals: [sleepMet], sent: ['goal:sleep:2026-11-23'] }))).toEqual([]);
+    expect(planAlerts(input({ prefs: { ...PREFS, goals: false }, goals: [sleepMet] })).some((alert) => alert.kind === 'goal')).toBe(false);
+  });
+
+  it('waits for quiet hours to end and keeps a waiting goal alert', () => {
+    const night = at(25, 23);
+    const [alert] = planGoals(input({ now: night, goals: [sleepMet] }));
+    expect(alert?.at).toBe(at(26, 7).getTime());
+    const again = planAlerts(input({ now: night, pending: alert === undefined ? [] : [alert], goals: [sleepMet] }));
+    expect(again.filter((entry) => entry.kind === 'goal')).toHaveLength(1);
+  });
+
+  it('builds goal facts from the plan week, only for switched-on goals that are met', () => {
+    const now = new Date('2026-11-25T12:00:00Z');
+    const days = createFixtureDays(now);
+    const week = { days, sessions: [], activities: [], steps: [], today: '2026-11-25', nowS: Math.floor(now.getTime() / 1000), tzOffsetS: 0 };
+    expect(goalFacts(null, week)).toEqual([]);
+    const plan = { ...defaultPlan(null), goals: ['loadDays' as const, 'sleepScore' as const, 'steps' as const], loadDays: 1, sleepNights: 1, sleepScoreMin: 50, steps: 1000 };
+    const progress = planWeek(plan, week).goals;
+    const facts = goalFacts(plan, week);
+    const metGoals = progress.filter((g) => g.state === 'met' && g.goal !== 'steps').map((g) => (g.goal === 'loadDays' ? 'load' : 'sleep'));
+    expect(facts.map((fact) => fact.goal)).toEqual(metGoals);
+    expect(facts.every((fact) => fact.week === '2026-11-23')).toBe(true);
+    expect(facts.find((fact) => fact.goal === 'sleep')?.scoreMin ?? 50).toBe(50);
+    expect(goalFacts({ ...plan, goals: [] }, week)).toEqual([]);
+    expect(goalFacts({ ...plan, goals: ['strength'] }, week)).toEqual([]);
+    expect(alertText('en', { kind: 'goal', ...sleepMet })).toEqual({ title: 'Sleep goal reached', body: 'Weekly plan: 4 of 4 nights at 80%+.' });
+  });
+
+  it('sends no burst of goal alerts after an upgrade from saved settings without the switch', () => {
+    const upgraded = parseUserData(JSON.stringify({ notifications: { enabled: true, morningDigest: true, syncProblems: true, quietStart: '22:00', quietEnd: '07:00' } })).notifications;
+    expect(planAlerts(input({ prefs: upgraded, goals: [sleepMet] })).some((alert) => alert.kind === 'goal')).toBe(false);
+  });
+
+  it('stores and reads goal alerts back', () => {
+    const entry: InboxEntry = { kind: 'goal', id: 'goal:sleep:2026-11-23', at: at(25, 12).getTime(), ...sleepMet, read: false };
+    const state = parseNotificationState(serializeNotificationState({ pending: [], inbox: [entry], sent: ['goal:sleep:2026-11-23'] }));
+    expect(state.inbox).toEqual([entry]);
+    expect(state.sent).toEqual(['goal:sleep:2026-11-23']);
+    const broken = parseNotificationState(JSON.stringify({ inbox: [{ ...entry, id: 'goal:sleep:2026-11-30' }] }));
+    expect(broken.inbox).toEqual([]);
+    const noScore = parseNotificationState(JSON.stringify({ inbox: [{ ...entry, scoreMin: null }] }));
+    expect(noScore.inbox).toEqual([]);
+  });
+});
+
 describe('inbox', () => {
   const digest: Alert = { kind: 'digest', id: 'digest:2026-11-25', at: at(25, 7).getTime(), day: '2026-11-25', readiness: null, sleepScore: null, load: null };
   const later: Alert = { kind: 'digest', id: 'digest:2026-11-26', at: at(26, 7).getTime(), day: '2026-11-26', readiness: null, sleepScore: null, load: null };
@@ -251,6 +309,7 @@ describe('inbox', () => {
       enabled: false,
       morningDigest: false,
       syncProblems: true,
+      goals: false,
       quietStart: '22:00',
       quietEnd: '07:00',
     });

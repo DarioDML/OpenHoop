@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
@@ -26,7 +26,7 @@ import AppSettingsScreen from '@/app/settings/app';
 import { HomeHeader } from '@/ui/daily/HomeHeader';
 
 const NOW_MS = Date.now();
-const ON: NotificationPrefs = { enabled: true, morningDigest: true, syncProblems: true, quietStart: '22:00', quietEnd: '07:00' };
+const ON: NotificationPrefs = { enabled: true, morningDigest: true, syncProblems: true, goals: true, quietStart: '22:00', quietEnd: '07:00' };
 
 const INBOX: InboxEntry[] = [
   { kind: 'syncFailed', id: 'sync:2', at: NOW_MS - 3_600_000, read: false },
@@ -52,8 +52,10 @@ describe('Notification inbox', () => {
     expect(screen.getByTestId('unread-sync:2')).toBeTruthy();
     expect(screen.queryByTestId('unread-digest:2026-11-25')).toBeNull();
     expect(screen.queryByTestId('notifications-off')).toBeNull();
-    await waitFor(() => expect(markInboxRead).toHaveBeenCalled());
-    expect(refreshNotifications).toHaveBeenCalled();
+    await waitFor(() => expect(refreshNotifications).toHaveBeenCalled());
+    expect(markInboxRead).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('mark-all-read'));
+    expect(markInboxRead).toHaveBeenCalled();
 
     await fireEvent.press(screen.getByTestId('filter-insights'));
     expect(screen.queryByText('Sync failed')).toBeNull();
@@ -78,6 +80,57 @@ describe('Notification inbox', () => {
     expect(screen.queryByTestId('inbox-clear')).toBeNull();
     await fireEvent.press(screen.getByText('Aanzetten'));
     expect(mockPush).toHaveBeenCalledWith('/settings/app');
+  });
+});
+
+describe('Notification groups and goals', () => {
+  it('groups today and earlier, filters goals and opens the settings from the gear', async () => {
+    const today = new Date();
+    const morning = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 30).getTime();
+    const goal: InboxEntry = { kind: 'goal', id: 'goal:sleep:2026-11-23', at: morning - 3 * 86_400_000, goal: 'sleep', week: '2026-11-23', count: 4, target: 4, scoreMin: 80, read: true };
+    const fresh: InboxEntry = { kind: 'syncFailed', id: 'sync:9', at: morning, read: false };
+    await render(withAppData(<NotificationsScreen />, 'en', { ...granted(), inbox: [fresh, goal] }));
+    expect(within(screen.getByTestId('group-today')).getByText('Sync failed')).toBeTruthy();
+    expect(within(screen.getByTestId('group-earlier')).getByText('Sleep goal reached')).toBeTruthy();
+    expect(screen.getByTestId('mark-all-read')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('filter-goals'));
+    expect(screen.queryByText('Sync failed')).toBeNull();
+    expect(screen.getByText('Weekly plan: 4 of 4 nights at 80%+.')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('notifications-settings'));
+    expect(mockPush).toHaveBeenCalledWith('/settings/app');
+  });
+
+  it('keeps mark all read reachable when the chosen filter is empty', async () => {
+    const markInboxRead = jest.fn(async () => undefined);
+    await render(withAppData(<NotificationsScreen />, 'en', { ...granted(), inbox: INBOX, markInboxRead }));
+    await fireEvent.press(screen.getByTestId('filter-goals'));
+    expect(screen.getByTestId('inbox-empty')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('mark-all-read'));
+    expect(markInboxRead).toHaveBeenCalled();
+  });
+
+  it('marks one row read and opens what it is about', async () => {
+    const markInboxRead = jest.fn(async () => undefined);
+    await render(withAppData(<NotificationsScreen />, 'en', { ...granted(), inbox: INBOX, markInboxRead }));
+    await fireEvent.press(screen.getByTestId('inbox-sync:2'));
+    expect(markInboxRead).toHaveBeenCalledWith(['sync:2']);
+    expect(mockPush).toHaveBeenCalledWith('/settings/device');
+    markInboxRead.mockClear();
+    await fireEvent.press(screen.getByTestId('inbox-digest:2026-11-25'));
+    expect(markInboxRead).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/home/morning-brief');
+  });
+
+  it('hides mark all read when nothing is unread', async () => {
+    await render(withAppData(<NotificationsScreen />, 'en', { ...granted(), inbox: INBOX.map((entry) => ({ ...entry, read: true })) }));
+    expect(screen.queryByTestId('mark-all-read')).toBeNull();
+  });
+
+  it('turns weekly goal alerts off in the app settings', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<AppSettingsScreen />, 'en', { ...granted(), updateUserData }));
+    await fireEvent(screen.getByTestId('toggle-goals'), 'valueChange', false);
+    expect(updateUserData).toHaveBeenLastCalledWith({ notifications: { ...ON, goals: false } });
   });
 });
 

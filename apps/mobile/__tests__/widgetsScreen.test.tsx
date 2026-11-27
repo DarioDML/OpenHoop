@@ -53,7 +53,7 @@ describe('widgets screen on Android', () => {
 
   it('shows no numbers in the preview when values are off', async () => {
     await render(withAppData(<WidgetsScreen />, 'nl', { userData: { ...defaultUserData(), onboardingDone: true, widgetValues: false } }));
-    expect(screen.getAllByText('Waarden staan uit').length).toBe(2);
+    expect(screen.getAllByText('Waarden staan uit').length).toBe(6);
     expect(screen.queryByTestId('widget-preview-OpenHoopScores-readiness')).toBeNull();
   });
 
@@ -70,6 +70,26 @@ describe('widgets screen on Android', () => {
     await render(withAppData(<WidgetsScreen />));
     await fireEvent.press(screen.getByTestId('widget-pin-OpenHoopScores'));
     expect(screen.getByText(/Your launcher did not add the widget/)).toBeTruthy();
+  });
+});
+
+describe('widget gallery', () => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+  });
+
+  it('shows every Android style with an add button and the lock-screen styles as not available', async () => {
+    await render(withAppData(<WidgetsScreen />));
+    for (const name of ['OpenHoopReadiness', 'OpenHoopRings', 'OpenHoopDay', 'OpenHoopScores', 'OpenHoopOverview']) {
+      expect(screen.getByTestId(`widget-preview-${name}`)).toBeTruthy();
+      expect(screen.getByTestId(`widget-pin-${name}`)).toBeTruthy();
+    }
+    expect(screen.getByTestId('widget-preview-OpenHoopReadiness-readiness')).toBeTruthy();
+    expect(screen.getByTestId('widget-preview-OpenHoopDay-headline')).toBeTruthy();
+    expect(screen.getByTestId('widget-note-OpenHoopDay')).toHaveTextContent(/Material You/);
+    expect(screen.getByTestId('widgets-lock-not-available')).toHaveTextContent('Not available on Android');
+    await fireEvent.press(screen.getByTestId('widget-pin-OpenHoopReadiness'));
+    expect(mocked.requestPinWidget).toHaveBeenCalledWith({ widgetName: 'OpenHoopReadiness' });
   });
 });
 

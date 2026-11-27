@@ -87,7 +87,12 @@ export function HeroRing({
               <Num size={Math.round(size * 0.38)} color={colors.pink} maxFontSizeMultiplier={1}>
                 {formatNumber(building.left, 0, language)}
               </Num>
-              <AppText variant="capSmall" color={colors.pink} numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 9, lineHeight: 11, maxWidth: size * 0.62, textAlign: 'center' }}>
+              <AppText
+                variant="capSmall"
+                color={colors.pink}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={{ fontSize: 9, lineHeight: 11, maxWidth: size * 0.62, textAlign: 'center' }}>
                 {building.left === 1 ? t('readiness.nightsLeftOne') : t('readiness.nightsLeft')}
               </AppText>
             </View>
@@ -152,6 +157,27 @@ interface HeroProps {
   days: readonly DayRecord[];
   index: number;
   variant: HomeHero;
+  footnote?: string;
+}
+
+function Footnote({ text, tick }: { text: string | undefined; tick: boolean }) {
+  const { colors } = useTheme();
+  const { t } = useT();
+  if (!tick && text === undefined) return null;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+      {tick ? <View style={{ width: 10, height: 2, backgroundColor: colors.text, borderRadius: 1 }} /> : null}
+      <AppText variant="caption" muted style={{ textAlign: 'center', flexShrink: 1 }}>
+        {tick ? t('home.tickYesterday') : null}
+        {tick && text !== undefined ? ' · ' : null}
+        {text === undefined ? null : (
+          <AppText variant="caption" muted testID="synced-line">
+            {text}
+          </AppText>
+        )}
+      </AppText>
+    </View>
+  );
 }
 
 interface CompactStatProps {
@@ -230,7 +256,7 @@ function useHeroValues(days: readonly DayRecord[], index: number) {
   };
 }
 
-export function Hero({ days, index, variant }: HeroProps) {
+export function Hero({ days, index, variant, footnote }: HeroProps) {
   const { colors } = useTheme();
   const { t, language } = useT();
   const layout = useLayout();
@@ -242,47 +268,50 @@ export function Hero({ days, index, variant }: HeroProps) {
 
   if (variant === 'compact') {
     return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }} testID="hero-compact">
-        <HeroRing
-          testID="ring-readiness"
-          label={t('score.readiness')}
-          value={v.readiness}
-          max={100}
-          color={v.readinessTone}
-          percent
-          explain={v.readinessTarget}
-          building={v.building}
-          caption={v.bandLabel}
-          href="/recovery"
-          size={compactRingSize}
-        />
-        <View style={{ flex: 1, gap: spacing.md }}>
-          <CompactStat
-            label={t('metric.hrv')}
-            value={day.hrv.value === null ? null : formatNumber(day.hrv.value, 0, language)}
-            unit={t('unit.ms')}
-            href="/recovery/metric/hrv"
-            explain={v.hrvTarget}
-            testID="stat-hrv"
+      <View style={{ gap: spacing.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }} testID="hero-compact">
+          <HeroRing
+            testID="ring-readiness"
+            label={t('score.readiness')}
+            value={v.readiness}
+            max={100}
+            color={v.readinessTone}
+            percent
+            explain={v.readinessTarget}
+            building={v.building}
+            caption={v.bandLabel}
+            href="/recovery"
+            size={compactRingSize}
           />
-          <CompactStat
-            label={t('score.load')}
-            value={v.load.value === null ? null : formatNumber(v.load.value, 1, language)}
-            unit=""
-            href="/load"
-            explain={v.loadTarget}
-            caption={v.load.soFar ? t('load.soFar') : null}
-            testID="stat-load"
-          />
-          <CompactStat
-            label={t('score.sleep')}
-            value={day.sleep.score.value === null ? null : formatNumber(day.sleep.score.value, 0, language)}
-            unit="%"
-            href="/sleep"
-            explain={v.sleepTarget}
-            testID="stat-sleep"
-          />
+          <View style={{ flex: 1, gap: spacing.md }}>
+            <CompactStat
+              label={t('metric.hrv')}
+              value={day.hrv.value === null ? null : formatNumber(day.hrv.value, 0, language)}
+              unit={t('unit.ms')}
+              href="/recovery/metric/hrv"
+              explain={v.hrvTarget}
+              testID="stat-hrv"
+            />
+            <CompactStat
+              label={t('score.load')}
+              value={v.load.value === null ? null : formatNumber(v.load.value, 1, language)}
+              unit=""
+              href="/load"
+              explain={v.loadTarget}
+              caption={v.load.soFar ? t('load.soFar') : null}
+              testID="stat-load"
+            />
+            <CompactStat
+              label={t('score.sleep')}
+              value={day.sleep.score.value === null ? null : formatNumber(day.sleep.score.value, 0, language)}
+              unit="%"
+              href="/sleep"
+              explain={v.sleepTarget}
+              testID="stat-sleep"
+            />
+          </View>
         </View>
+        <Footnote text={footnote} tick={false} />
       </View>
     );
   }
@@ -331,12 +360,7 @@ export function Hero({ days, index, variant }: HeroProps) {
           size={ringSize}
         />
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <View style={{ width: 2, height: 12, backgroundColor: colors.text, borderRadius: 1 }} />
-        <AppText variant="caption" muted style={{ flex: 1 }}>
-          {t('home.tickYesterday')}
-        </AppText>
-      </View>
+      <Footnote text={footnote} tick />
     </View>
   );
 }

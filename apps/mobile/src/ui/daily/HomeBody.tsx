@@ -17,7 +17,7 @@ import { NoticeCard } from '@/ui/NoticeCard';
 import { SyncBanner } from '@/ui/SyncBanner';
 import { spacing } from '@/ui/theme';
 
-import { CapRow } from './bits';
+import { SectionTitle } from './bits';
 import { FirstWeekCard } from './FirstWeekCard';
 import { CoachPill, DashboardGrid, MorningBriefCard, MyDayCard, StressCard, TonightCard, VitalsCard, WeekCard } from './cards';
 
@@ -96,7 +96,7 @@ export function HomeBody({ days, index }: Props) {
     tonight: <TonightCard days={days} index={index} />,
     dashboard: (
       <>
-        <CapRow
+        <SectionTitle
           title={t('home.dashboard')}
           links={[
             { label: t('home.allMetrics'), onPress: () => router.push('/health/metrics'), testID: 'link-all-metrics' },

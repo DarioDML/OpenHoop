@@ -3,6 +3,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import type { ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
+import { defaultUserData } from '@/data/userData';
+import { defaultPlan } from '@/data/weeklyPlan';
 import type { StrengthActions } from '@/data/types';
 import { WeekCard } from '@/ui/daily/cards';
 
@@ -460,13 +462,30 @@ describe('home week card', () => {
   it('shows the Strength row with this week’s sessions', async () => {
     const days = createFixtureDays(FIXTURE_NOW);
     await render(withAppData(<WeekCard days={days} index={days.length - 1} />, 'en', app(data({ sessions: [DAY_1, DAY_2] }), actions())));
-    expect(screen.getByTestId('week-strength')).toHaveTextContent('1');
+    expect(screen.getByTestId('week-strength')).toHaveTextContent(/^1× · \d+ min$/);
     expect(screen.getByText('Strength')).toBeTruthy();
+    expect(screen.queryByTestId('week-strength-bar')).toBeNull();
+  });
+
+  it('shows strength minutes as a bar against the weekly goal and seals a met goal', async () => {
+    const days = createFixtureDays(FIXTURE_NOW);
+    const minutes = 50;
+    const withGoal = (goal: number): AppDataOverrides =>
+      app(data({ sessions: [DAY_1, DAY_2] }), actions(), {
+        userData: { ...defaultUserData(), onboardingDone: true, weeklyPlan: { ...defaultPlan(null), goals: ['strength'], strengthMinutes: goal } },
+      });
+    await render(withAppData(<WeekCard days={days} index={days.length - 1} />, 'en', withGoal(minutes + 30)));
+    expect(screen.getByTestId('week-strength')).toHaveTextContent(`${minutes}/${minutes + 30} min`);
+    expect(screen.queryByTestId('week-load')).toBeNull();
+    expect(screen.getByTestId('week-strength-bar')).toBeTruthy();
+    expect(screen.queryByTestId('week-strength-seal')).toBeNull();
+    await render(withAppData(<WeekCard days={days} index={days.length - 1} />, 'en', withGoal(Math.max(1, minutes))));
+    expect(screen.getByTestId('week-strength-seal')).toBeTruthy();
   });
 
   it('shows zero when there is no session this week', async () => {
     const days = createFixtureDays(FIXTURE_NOW);
     await render(withAppData(<WeekCard days={days} index={days.length - 1} />, 'en', app(data(), actions())));
-    expect(screen.getByTestId('week-strength')).toHaveTextContent('0');
+    expect(screen.getByTestId('week-strength')).toHaveTextContent('0× · 0 min');
   });
 });

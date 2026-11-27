@@ -139,6 +139,14 @@ export default function AppSettingsScreen() {
           disabled={off}
           testID="toggle-sync-problems"
         />
+        <ToggleRow
+          title={t('home.notif.goalsSetting')}
+          subtitle={t('home.notif.goalsSettingBody')}
+          value={prefs.goals}
+          onChange={(goals) => savePrefs({ goals })}
+          disabled={off}
+          testID="toggle-goals"
+        />
         <View style={{ paddingTop: spacing.sm, gap: spacing.md }}>
           <QuietField
             key={`start-${prefs.quietStart}`}

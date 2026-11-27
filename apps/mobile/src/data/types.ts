@@ -271,7 +271,7 @@ export interface AppData {
   setNotificationsEnabled(enabled: boolean): Promise<PermissionState>;
   refreshWidgets(): Promise<void>;
   refreshWidgetsAfterPin(): Promise<void>;
-  markInboxRead(): Promise<void>;
+  markInboxRead(ids?: readonly string[]): Promise<void>;
   clearInbox(): Promise<void>;
   refreshHealthConnect(): Promise<void>;
   setHealthConnectType(type: HcDataType, enabled: boolean): Promise<boolean>;

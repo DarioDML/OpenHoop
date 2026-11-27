@@ -40,6 +40,8 @@ jest.mock('expo-file-system', () => ({
 jest.mock('react-native-android-widget', () => ({
   FlexWidget: () => null,
   TextWidget: () => null,
+  OverlapWidget: () => null,
+  SvgWidget: () => null,
   getWidgetInfo: jest.fn(async () => []),
   requestWidgetUpdate: jest.fn(async () => undefined),
   requestPinWidget: jest.fn(async () => true),
@@ -64,23 +66,26 @@ const VALUES: WidgetValues = {
   load: { value: 12.4, reason: null },
   restingHr: { value: 52, reason: null },
   hrv: { value: 64, reason: null },
+  loadTarget: { low: 7.6, high: 15.6 },
 };
 
 interface Collected {
   texts: string[];
   clickActions: string[];
+  svgs: string[];
 }
 
-function collect(node: ReactNode, out: Collected = { texts: [], clickActions: [] }): Collected {
+function collect(node: ReactNode, out: Collected = { texts: [], clickActions: [], svgs: [] }): Collected {
   if (Array.isArray(node)) {
     for (const child of node) collect(child, out);
     return out;
   }
   if (!isValidElement(node)) return out;
-  const element = node as ReactElement<{ text?: string; clickAction?: string; children?: ReactNode }>;
+  const element = node as ReactElement<{ text?: string; clickAction?: string; svg?: string; children?: ReactNode }>;
   if (element.props.clickAction !== undefined) out.clickActions.push(element.props.clickAction);
   if (element.type === AndroidWidget.TextWidget && element.props.text !== undefined) out.texts.push(element.props.text);
-  if (element.type === AndroidWidget.FlexWidget || element.type === AndroidWidget.TextWidget) return collect(element.props.children, out);
+  if (element.type === AndroidWidget.SvgWidget && typeof element.props.svg === 'string') out.svgs.push(element.props.svg);
+  if (element.type === AndroidWidget.FlexWidget || element.type === AndroidWidget.TextWidget || element.type === AndroidWidget.OverlapWidget) return collect(element.props.children, out);
   if (typeof element.type === 'function') return collect((element.type as (props: object) => ReactNode)(element.props), out);
   return out;
 }
@@ -113,6 +118,30 @@ describe('widget rendering', () => {
     const [light] = both(renderWidget('OpenHoopScores', currentView(VALUES)));
     expect(light.texts).toContain('72%');
     expect(light.texts.some((text) => text.includes('bpm'))).toBe(false);
+  });
+});
+
+describe('new widget styles', () => {
+  const view = currentView(VALUES, new Date('2026-11-25T12:00:00Z'));
+
+  it('draws the small Readiness widget with its sync age', () => {
+    const [light, dark] = both(renderWidget('OpenHoopReadiness', view));
+    expect(light.texts).toEqual(dark.texts);
+    expect(light.texts).toEqual(expect.arrayContaining(['READINESS', '72%']));
+    expect(light.texts.some((text) => text.startsWith('Synced'))).toBe(true);
+    expect(light.clickActions).toEqual(['OPEN_APP']);
+  });
+
+  it('draws three rings, with no arc for a missing score', () => {
+    const [light] = both(renderWidget('OpenHoopRings', view));
+    expect(light.svgs).toHaveLength(3);
+    expect(light.texts).toEqual(expect.arrayContaining(['72%', '–', '12.4', 'SLEEP SCORE', 'READINESS', 'LOAD']));
+    expect(light.svgs.filter((svg) => svg.includes('stroke-dasharray'))).toHaveLength(2);
+  });
+
+  it('draws the day widget with the load target and HRV', () => {
+    const [light] = both(renderWidget('OpenHoopDay', view));
+    expect(light.texts).toEqual(expect.arrayContaining(['72', 'Ready for more', 'Load 12.4 of 7.6–15.6', 'HRV 64 ms']));
   });
 });
 
@@ -157,7 +186,7 @@ describe('android widget bridge', () => {
     expect(await androidWidgetBridge.placed()).toBe(1);
     await androidWidgetBridge.publish(VALUES);
     expect(readWidgetFile()).toEqual(VALUES);
-    expect(mocked.requestWidgetUpdate.mock.calls.map(([request]) => request.widgetName)).toEqual(['OpenHoopScores', 'OpenHoopOverview']);
+    expect(mocked.requestWidgetUpdate.mock.calls.map(([request]) => request.widgetName)).toEqual(['OpenHoopScores', 'OpenHoopOverview', 'OpenHoopReadiness', 'OpenHoopRings', 'OpenHoopDay']);
     await androidWidgetBridge.clear();
     expect(readWidgetFile()).toBeNull();
   });

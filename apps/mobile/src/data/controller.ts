@@ -143,7 +143,7 @@ import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, todayIsoDate, unixToIsoDate } from '@/lib/dates';
 import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
-import { digestFacts, planAlerts, reconcile, syncFailedAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
+import { digestFacts, goalFacts, localDay, planAlerts, reconcile, syncFailedAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 import { buildWidgetFile } from '@/lib/widgetSnapshot';
 import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
@@ -173,6 +173,8 @@ import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
 import { storageProblemOf, type StorageProblem } from './storageProblem';
 import { readinessNightsLeft } from './progress';
+import { loadTargetBand } from './activityDerived';
+import { planInputFor } from './planInput';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports } from './exportData';
 import { OPENHOOP_PACKAGE, nativeHealthConnect, type HealthConnectApi } from './healthConnectApi';
@@ -1400,7 +1402,7 @@ export class AppController {
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
         setNetworkPrefs(next.network);
         this.patch({ userData: next });
-        if (patch.notifications !== undefined) void this.refreshNotifications();
+        if (patch.notifications !== undefined || patch.weeklyPlan !== undefined) void this.refreshNotifications();
         if (patch.widgetValues !== undefined) void this.refreshWidgets();
         return true;
       } catch (error) {
@@ -1619,7 +1621,11 @@ export class AppController {
       logSet: (sessionId: number, input: StrengthSetInput) =>
         this.runStrength(async (driver) => (await addStrengthSet(driver, sessionId, input, nowSeconds())) !== null, false),
       removeSet: (id: number) => this.runStrength((driver) => deleteStrengthSet(driver, id), false),
-      finishSession: (id: number) => this.runStrength((driver) => finishStrengthSession(driver, id, nowSeconds()), false),
+      finishSession: async (id: number) => {
+        const done = await this.runStrength((driver) => finishStrengthSession(driver, id, nowSeconds()), false);
+        if (done) void this.refreshNotifications();
+        return done;
+      },
       removeSession: (id: number) => this.runStrength((driver) => deleteStrengthSession(driver, id), false),
     };
   }
@@ -1701,6 +1707,10 @@ export class AppController {
             pending: settled.pending,
             sent: settled.sent,
             factsFor: digestFacts(this.snapshot.days, now),
+            goals: goalFacts(
+              userData.weeklyPlan,
+              planInputFor(this.snapshot.days, this.snapshot.strength.sessions, this.snapshot.activities, this.snapshot.healthConnect.state.steps, localDay(now), now),
+            ),
             lastSyncAt: this.lastSyncAt === null ? null : this.lastSyncAt * 1000,
             watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
             fresh,
@@ -1729,7 +1739,16 @@ export class AppController {
         return;
       }
       const { days, userData, settings } = this.snapshot;
-      await this.widgets.publish(buildWidgetFile({ enabled: userData.widgetValues, day: days[days.length - 1], syncedAt: this.lastSyncAt, language: settings.language, readinessNightsLeft: readinessNightsLeft(days, days.length - 1) }));
+      await this.widgets.publish(
+        buildWidgetFile({
+          enabled: userData.widgetValues,
+          day: days[days.length - 1],
+          syncedAt: this.lastSyncAt,
+          language: settings.language,
+          readinessNightsLeft: readinessNightsLeft(days, days.length - 1),
+          loadTarget: loadTargetBand(days),
+        }),
+      );
     });
     this.widgetChain = run.catch(() => undefined);
     return this.widgetChain;
@@ -1755,12 +1774,13 @@ export class AppController {
     return permission;
   };
 
-  markInboxRead = (): Promise<void> =>
+  markInboxRead = (ids?: readonly string[]): Promise<void> =>
     this.notificationTask(async () => {
-      if (this.app === null || this.notificationState.inbox.every((entry) => entry.read)) return;
+      const marks = (entry: InboxEntry): boolean => ids === undefined || ids.includes(entry.id);
+      if (this.app === null || this.notificationState.inbox.every((entry) => entry.read || !marks(entry))) return;
       await this.saveNotificationState({
         ...this.notificationState,
-        inbox: this.notificationState.inbox.map((entry) => ({ ...entry, read: true })),
+        inbox: this.notificationState.inbox.map((entry) => (marks(entry) ? { ...entry, read: true } : entry)),
       });
     });
 

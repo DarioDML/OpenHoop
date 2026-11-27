@@ -1,8 +1,10 @@
 import type { DayRecord } from '@openhoop/core';
+import { LOAD_MAX, type StressLevel } from '@openhoop/analytics';
 import { router, type Href } from 'expo-router';
+import type { ReactNode } from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 
-import { dayEntries } from '@/data/activities';
+import { dayEntries, type ActivityEntry } from '@/data/activities';
 import { stepsForDay } from '@/data/activityDerived';
 import { activeCheckIns } from '@/coach/checkIns';
 import { useAppData } from '@/data/context';
@@ -12,6 +14,8 @@ import type { TermId } from '@/data/terms';
 import { caloriesForDay } from '@/data/energyDerived';
 import { stressForDay } from '@/data/stressDerived';
 import { formatHm, formatMinutes, mainPeriod, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import { planInputFor } from '@/data/planInput';
+import { defaultPlan, planWeek, type GoalProgress, type PlanGoal, type WeeklyPlan } from '@/data/weeklyPlan';
 import { deviceTzOffsetS } from '@/lib/dates';
 import { confirmedAlarm } from '@/data/alarm';
 import type { AlarmView } from '@/data/types';
@@ -21,19 +25,24 @@ import { formatClock, formatDuration, formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
+import { Button } from '@/ui/controls';
+import { CoachMark } from '@/ui/CoachAsk';
 import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
 import { MetricName } from '@/ui/explain/MetricName';
 import { Icon, type IconName } from '@/ui/Icon';
 import { useLayout } from '@/ui/layout';
+import { tile } from '@/ui/manage/tiles';
 import { MetricTile } from '@/ui/MetricTile';
+import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
+import { GoalDots } from '@/ui/plan/GoalDots';
 import { stressColor } from '@/ui/health/StressLevels';
-import { radius, spacing, useTheme } from '@/ui/theme';
+import { radius, spacing, useTheme, type ColorTokens } from '@/ui/theme';
 
 import { entryHref, entryTitle } from '@/ui/activity/entries';
 
-import { Divider, WeekDots, useRangeChip } from './bits';
+import { GoalSeal, IconTile, ProgressBar, SectionTitle, WeekDots, useRangeChip } from './bits';
 import { briefLines, tonightBedtime } from './briefText';
 import { METRIC_SPECS, TILE_LABEL, slugForTile } from './metrics';
 
@@ -42,42 +51,79 @@ interface DayProps {
   index: number;
 }
 
+interface TileCardProps extends DayProps {
+  big?: boolean;
+}
+
 function halfCard(compact: boolean): ViewStyle {
   return { flexGrow: 1, flexShrink: 1, flexBasis: compact ? '100%' : 160, minWidth: 140 };
 }
 
-export function VitalsCard({ days, index }: DayProps) {
+function TileLine({
+  icon,
+  title,
+  titleColor,
+  detail,
+  testID,
+  detailTestID,
+}: {
+  icon: ReactNode;
+  title: string;
+  titleColor?: string;
+  detail: string;
+  testID?: string;
+  detailTestID?: string;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      {icon}
+      <View style={{ flex: 1, gap: 2 }}>
+        <AppText variant="cap" color={titleColor} testID={testID}>
+          {title}
+        </AppText>
+        <AppText variant="label" muted numeric testID={detailTestID}>
+          {detail}
+        </AppText>
+      </View>
+    </View>
+  );
+}
+
+export function VitalsCard({ days, index, big = false }: TileCardProps) {
   const { t, reason } = useT();
   const { colors } = useTheme();
   const { compact } = useLayout();
   const summary = vitalsSummary(days, index);
   const allIn = summary.inRange === summary.measured;
+  const status = allIn ? t('home.vitalsAllIn') : t('home.vitalsOutside', { count: summary.outside.length });
+  const style = tile(colors, allIn ? 'check' : 'alert', allIn ? 'positive' : 'warning');
   return (
-    <Card href="/health/vitals" testID="card-vitals" accessibilityLabel={t('home.vitals')} style={[halfCard(compact), { gap: 8 }]}>
+    <Card href="/health/vitals" testID="card-vitals" accessibilityLabel={t('home.vitals')} style={[halfCard(compact), { gap: 12 }]}>
       <AppText variant="capSmall" muted>
         {t('home.vitals')} ›
       </AppText>
-      {summary.measured > 0 ? (
+      {summary.measured > 0 && big ? (
         <>
-          <AppText variant="bodyStrong" testID="vitals-count">
-            {t('home.vitalsWithin', { inRange: summary.inRange, measured: summary.measured })}
-          </AppText>
-          <Chip label={allIn ? t('home.vitalsAllIn') : t('home.vitalsOutside', { count: summary.outside.length })} tone={allIn ? 'positive' : 'warning'} />
+          <Num size={40} testID="vitals-count" accessibilityLabel={t('home.vitalsWithin', { inRange: summary.inRange, measured: summary.measured })}>
+            {`${summary.inRange}/${summary.measured}`}
+          </Num>
+          <Chip label={status} tone={allIn ? 'positive' : 'warning'} />
         </>
+      ) : summary.measured > 0 ? (
+        <TileLine
+          icon={<IconTile tile={style} />}
+          title={status}
+          titleColor={style.color}
+          detail={t('home.vitalsWithin', { inRange: summary.inRange, measured: summary.measured })}
+          detailTestID="vitals-count"
+        />
       ) : summary.calibrating ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <View style={{ width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="check" size={18} color={colors.textMuted} />
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <AppText variant="cap" testID="vitals-count">
-              {t('home.vitalsMeasured', { count: summary.withValue, total: summary.total })}
-            </AppText>
-            <AppText variant="label" muted>
-              {t('home.vitalsRangesFrom', { night: MIN_BASELINE_NIGHTS + 1 })}
-            </AppText>
-          </View>
-        </View>
+        <TileLine
+          icon={<IconTile tile={tile(colors, 'check')} />}
+          title={t('home.vitalsMeasured', { count: summary.withValue, total: summary.total })}
+          detail={t('home.vitalsRangesFrom', { night: MIN_BASELINE_NIGHTS + 1 })}
+          testID="vitals-count"
+        />
       ) : (
         <AppText variant="bodyStrong" muted>
           {reason('no-data')}
@@ -87,7 +133,13 @@ export function VitalsCard({ days, index }: DayProps) {
   );
 }
 
-export function StressCard({ days, index }: DayProps) {
+function stressSoft(colors: ColorTokens, level: StressLevel): string {
+  if (level === 'high') return colors.negativeSoft;
+  if (level === 'medium') return colors.warningSoft;
+  return colors.positiveSoft;
+}
+
+export function StressCard({ days, index, big = false }: TileCardProps) {
   const { t, language, reason } = useT();
   const { compact } = useLayout();
   const { colors } = useTheme();
@@ -101,29 +153,53 @@ export function StressCard({ days, index }: DayProps) {
     index,
     shown: { value: latest ? formatNumber(latest.score, 1, language) : null, unit: null, reason: view.reason },
   };
+  const score = latest ? formatNumber(latest.score, 1, language) : null;
   return (
-    <Card href="/health/stress" testID="card-stress" accessibilityLabel={t('home.stress')} style={[halfCard(compact), { gap: 8 }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+    <Card href="/health/stress" testID="card-stress" accessibilityLabel={t('home.stress')} style={[halfCard(compact), { gap: 12 }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginVertical: -15 }}>
         <MetricName target={target} label={t('home.stress')} testID="stress-tile-name" />
         <ParityBadge level={PARITY.stress} />
       </View>
-      {latest && day ? (
+      {latest && day && score !== null && big ? (
         <>
-          <AppText variant="bodyStrong" color={stressColor(colors, latest.level)} testID="stress-tile-level">
-            {t(`stress.level.${latest.level}`)} · {formatNumber(latest.score, 1, language)}
-          </AppText>
+          <Num size={40} testID="stress-tile-score">
+            {score}
+          </Num>
+          <Chip
+            label={t(`stress.level.${latest.level}`)}
+            tone={latest.level === 'low' ? 'positive' : latest.level === 'medium' ? 'warning' : 'negative'}
+            testID="stress-tile-level"
+          />
           <AppText variant="caption" muted numeric testID="stress-tile-time">
-            {t('stress.at', { time: formatClock(latest.t, day.tzOffsetS) })} · {t('stress.estimate')}
+            {`${t('stress.at', { time: formatClock(latest.t, day.tzOffsetS) })} · ${t('stress.estimate')}`}
           </AppText>
         </>
+      ) : latest && day && score !== null ? (
+        <TileLine
+          icon={
+            <IconTile tile={{ icon: 'pulse', color: stressColor(colors, latest.level), background: stressSoft(colors, latest.level) }}>
+              <Num size={17} color={stressColor(colors, latest.level)} testID="stress-tile-score" maxFontSizeMultiplier={1}>
+                {score}
+              </Num>
+            </IconTile>
+          }
+          title={t(`stress.level.${latest.level}`)}
+          titleColor={stressColor(colors, latest.level)}
+          detail={`${t('stress.at', { time: formatClock(latest.t, day.tzOffsetS) })} · ${t('stress.estimate')}`}
+          testID="stress-tile-level"
+          detailTestID="stress-tile-time"
+        />
       ) : building ? (
-        <Pressable accessibilityRole="button" testID="stress-tile-why" onPress={() => why(target)} style={{ minHeight: 44, gap: 2, justifyContent: 'center' }}>
-          <AppText variant="bodyStrong" muted testID="stress-tile-reason">
-            {t('stress.notYet')}
-          </AppText>
-          <AppText variant="caption" muted>
-            {t('stress.needsCalm')}
-          </AppText>
+        <Pressable accessibilityRole="button" testID="stress-tile-why" onPress={() => why(target)} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <IconTile tile={tile(colors, 'clock')} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText variant="cap" muted testID="stress-tile-reason">
+              {t('stress.notYet')}
+            </AppText>
+            <AppText variant="label" muted>
+              {t('stress.needsCalm')}
+            </AppText>
+          </View>
         </Pressable>
       ) : (
         <AppText variant="bodyStrong" muted testID="stress-tile-reason">
@@ -139,10 +215,16 @@ export function MorningBriefCard({ days, index }: DayProps) {
   const { colors } = useTheme();
   const lines = briefLines(t, language, days, index);
   return (
-    <Card href="/home/morning-brief" testID="card-brief" accessibilityLabel={t('home.brief')} style={{ gap: 8 }}>
-      <CardHeader title={t('home.brief')} chevron />
+    <Card href="/home/morning-brief" testID="card-brief" accessibilityLabel={t('home.brief')} style={{ gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Icon name="sun" color={colors.gold} size={22} />
+        <AppText variant="cardTitle" style={{ flex: 1 }}>
+          {t('home.brief')}
+        </AppText>
+        <Icon name="chevronRight" color={colors.textMuted} size={18} />
+      </View>
       {lines.length > 0 ? (
-        <AppText variant="body" soft numberOfLines={3}>
+        <AppText variant="lead" soft numberOfLines={3}>
           {lines.map((line) => line.text).join(' ')}
         </AppText>
       ) : (
@@ -150,7 +232,7 @@ export function MorningBriefCard({ days, index }: DayProps) {
           {t('home.briefEmpty')}
         </AppText>
       )}
-      <AppText variant="label" color={colors.link}>
+      <AppText variant="cap" color={colors.purple}>
         {t('home.readMore')} →
       </AppText>
     </Card>
@@ -171,14 +253,17 @@ export function CoachPill() {
       style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
-        gap: spacing.sm,
-        minHeight: 48,
-        paddingHorizontal: spacing.lg,
+        gap: spacing.md,
+        minHeight: 56,
+        paddingLeft: spacing.sm,
+        paddingRight: spacing.lg,
         borderRadius: radius.pill,
+        borderWidth: 1,
+        borderColor: colors.border,
         backgroundColor: colors.coach.surface,
         opacity: pressed ? 0.8 : 1,
       })}>
-      <Icon name="coach" color={colors.purple} size={18} />
+      <CoachMark />
       <AppText variant="body" muted style={{ flex: 1 }}>
         {t('home.askCoach')}
       </AppText>
@@ -189,12 +274,12 @@ export function CoachPill() {
 
 interface ActionButtonProps {
   label: string;
-  icon: IconName;
   href: Href;
+  filled: boolean;
   testID: string;
 }
 
-function ActionButton({ label, icon, href, testID }: ActionButtonProps) {
+function ActionButton({ label, href, filled, testID }: ActionButtonProps) {
   const { colors } = useTheme();
   return (
     <Pressable
@@ -204,22 +289,74 @@ function ActionButton({ label, icon, href, testID }: ActionButtonProps) {
       onPress={() => router.push(href)}
       style={({ pressed }) => ({
         flex: 1,
-        minHeight: 48,
-        flexDirection: 'row',
+        minHeight: 56,
+        paddingHorizontal: spacing.sm,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
         borderRadius: radius.pill,
-        borderWidth: 1,
-        borderColor: colors.borderStrong,
-        opacity: pressed ? 0.7 : 1,
+        borderWidth: 2,
+        borderColor: colors.primary,
+        backgroundColor: filled ? colors.primary : 'transparent',
+        opacity: pressed ? 0.8 : 1,
       })}>
-      <Icon name={icon} color={colors.text} size={16} strokeWidth={2} />
-      <AppText variant="label" style={{ fontWeight: '600' }}>
+      <AppText variant="cap" color={filled ? colors.primaryOn : colors.text} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontSize: 13 }}>
         {label}
       </AppText>
     </Pressable>
   );
+}
+
+interface DayRowProps {
+  icon: IconName;
+  iconColor: string;
+  tileColor: string;
+  value: string;
+  title: string;
+  span: string;
+  fraction: number | null;
+  barColor: string;
+  href: Href;
+  a11y: string;
+  testID?: string;
+}
+
+function DayRow({ icon, iconColor, tileColor, value, title, span, fraction, barColor, href, a11y, testID }: DayRowProps) {
+  const { colors } = useTheme();
+  return (
+    <Card href={href} testID={testID} accessibilityLabel={a11y} style={{ padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+      <View
+        style={{
+          width: 104,
+          height: 56,
+          borderRadius: radius.sm,
+          backgroundColor: tileColor,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: spacing.sm,
+        }}>
+        <Icon name={icon} color={iconColor} size={18} />
+        <Num size={26} adjustsFontSizeToFit maxFontSizeMultiplier={1.1} style={{ maxWidth: 66 }}>
+          {value}
+        </Num>
+      </View>
+      <View style={{ flex: 1, gap: 6, minWidth: 0 }}>
+        <AppText variant="cap" numberOfLines={1} style={{ fontSize: 13 }}>
+          {title}
+        </AppText>
+        <AppText variant="label" muted numeric numberOfLines={1}>
+          {span}
+        </AppText>
+        {fraction === null ? null : <ProgressBar fraction={fraction} color={barColor} height={2} />}
+      </View>
+      <Icon name="chevronRight" color={colors.textMuted} size={18} />
+    </Card>
+  );
+}
+
+function entryValue(entry: ActivityEntry, language: 'nl' | 'en'): string {
+  if (entry.metrics.load !== null) return formatNumber(entry.metrics.load, 1, language);
+  return formatHm(entry.metrics.activeS);
 }
 
 interface MyDayProps extends DayProps {
@@ -227,112 +364,214 @@ interface MyDayProps extends DayProps {
 }
 
 export function MyDayCard({ days, index, actions = true }: MyDayProps) {
-  const { t } = useT();
+  const { t, language } = useT();
   const { colors } = useTheme();
   const { activities } = useAppData();
   const day = days[index];
   if (!day) return null;
   const main = mainPeriod(day);
   const entries = dayEntries(days, day, activities);
+  const need = day.sleep.need.value;
   return (
-    <View style={{ gap: spacing.md }}>
-      <AppText variant="capLarge" muted>
-        {actions ? t('home.myDay') : t('home.thatDay')}
-      </AppText>
-      <Card testID="card-myday" style={{ gap: 0, paddingVertical: spacing.sm }}>
-        {main ? (
-          <Pressable
-            testID="row-last-sleep"
-            accessibilityRole="button"
-            accessibilityLabel={t('home.lastSleep')}
-            onPress={() => router.push(`/sleep/last-night?day=${day.day}`)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56 }}>
-            <Icon name="moon" color={colors.metric.sleep} size={20} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant="body" style={{ fontWeight: '500' }}>
-                {t('home.lastSleep')}
-              </AppText>
-              <AppText variant="caption" muted numeric>
-                {formatClock(main.onset, day.tzOffsetS)} – {formatClock(main.offset, day.tzOffsetS)}
-              </AppText>
-            </View>
-            <AppText variant="bodyStrong" numeric>
-              {formatDuration(t, main.asleepS)}
-            </AppText>
-            <Icon name="chevronRight" color={colors.textMuted} size={18} />
-          </Pressable>
-        ) : (
-          <View style={{ minHeight: 56, justifyContent: 'center' }}>
-            <AppText variant="body" muted>
-              {t('home.noSleepRow')}
-            </AppText>
-          </View>
-        )}
-        {entries.map((entry) => (
-          <View key={entry.key}>
-            <Divider />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={entryTitle(t, entry)}
-              onPress={() => router.push(entryHref(entry, day.day, entry.id === null ? day.workouts.findIndex((w) => w.start === entry.detectedStart) : null))}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56 }}>
-              <Icon name="flame" color={colors.metric.loadBright} size={20} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <AppText variant="body" style={{ fontWeight: '500' }}>
-                  {entryTitle(t, entry)}
-                </AppText>
-                <AppText variant="caption" muted numeric>
-                  {formatClock(entry.start, day.tzOffsetS)} – {formatClock(entry.end, day.tzOffsetS)}
-                </AppText>
-              </View>
-              <Icon name="chevronRight" color={colors.textMuted} size={18} />
-            </Pressable>
-          </View>
-        ))}
-      </Card>
+    <View style={{ gap: spacing.md }} testID="card-myday">
+      <SectionTitle title={actions ? t('home.myDay') : t('home.thatDay')} />
+      {main ? (
+        <DayRow
+          testID="row-last-sleep"
+          icon="moon"
+          iconColor={colors.purple}
+          tileColor={colors.purpleSoft}
+          value={formatHm(main.asleepS)}
+          title={t('home.lastSleep')}
+          span={`${formatClock(main.onset, day.tzOffsetS)} – ${formatClock(main.offset, day.tzOffsetS)}`}
+          fraction={need === null || need <= 0 ? null : main.asleepS / need}
+          barColor={colors.metric.sleep}
+          href={`/sleep/last-night?day=${day.day}`}
+          a11y={`${t('home.lastSleep')}, ${formatDuration(t, main.asleepS)}`}
+        />
+      ) : (
+        <Card style={{ minHeight: 56, justifyContent: 'center' }}>
+          <AppText variant="body" muted>
+            {t('home.noSleepRow')}
+          </AppText>
+        </Card>
+      )}
+      {entries.map((entry) => {
+        const title = entryTitle(t, entry);
+        return (
+          <DayRow
+            key={entry.key}
+            testID={`row-entry-${entry.key}`}
+            icon="run"
+            iconColor={colors.metric.loadBright}
+            tileColor={colors.accentSoft}
+            value={entryValue(entry, language)}
+            title={title}
+            span={`${formatClock(entry.start, day.tzOffsetS)} – ${formatClock(entry.end, day.tzOffsetS)}`}
+            fraction={entry.metrics.load === null ? null : entry.metrics.load / LOAD_MAX}
+            barColor={colors.metric.loadBright}
+            href={entryHref(entry, day.day, entry.id === null ? day.workouts.findIndex((w) => w.start === entry.detectedStart) : null)}
+            a11y={
+              entry.metrics.load === null
+                ? `${title}, ${formatDuration(t, entry.metrics.activeS)}`
+                : `${title}, ${t('activity.load.value', { value: entryValue(entry, language) })}`
+            }
+          />
+        );
+      })}
       {actions ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <ActionButton testID="btn-add-activity" label={t('home.addActivity')} icon="plus" href="/action-center" />
-          <ActionButton testID="btn-start-activity" label={t('home.startActivity')} icon="play" href="/activity/start" />
+        <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          <ActionButton testID="btn-add-activity" label={`+ ${t('home.addActivity')}`} href="/action-center" filled={false} />
+          <ActionButton testID="btn-start-activity" label={t('home.startActivity')} href="/activity/start" filled />
         </View>
       ) : null}
     </View>
   );
 }
 
+interface WeekRowProps {
+  label: string;
+  a11y: string;
+  children: ReactNode;
+  value: string;
+  met: boolean;
+  caption?: string;
+  testID: string;
+}
+
+function WeekRow({ label, a11y, children, value, met, caption, testID }: WeekRowProps) {
+  const { t } = useT();
+  const { colors } = useTheme();
+  return (
+    <View
+      accessible
+      accessibilityLabel={[`${a11y}: ${value}`, met ? t('home.week.goalMet') : null, caption ?? null].filter((part): part is string => part !== null).join(', ')}
+      style={{ gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 28 }}>
+        <AppText variant="cap" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ width: 84 }}>
+          {label}
+        </AppText>
+        <View style={{ flex: 1 }}>{children}</View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {met ? <GoalSeal label={t('home.week.goalMet')} testID={`${testID}-seal`} /> : null}
+          <AppText variant="label" numeric color={met ? colors.positive : colors.textMuted} testID={testID}>
+            {value}
+          </AppText>
+        </View>
+      </View>
+      {caption === undefined ? null : (
+        <AppText variant="caption" muted testID={`${testID}-caption`} style={{ paddingLeft: 84 + spacing.md }}>
+          {caption}
+        </AppText>
+      )}
+    </View>
+  );
+}
+
+const GOAL_TEST_ID: Readonly<Record<PlanGoal, string>> = { loadDays: 'week-load', sleepScore: 'week-sleep', strength: 'week-strength', steps: 'week-steps' };
+
+function GoalRow({ goal, plan }: { goal: GoalProgress; plan: WeeklyPlan }) {
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  const testID = GOAL_TEST_ID[goal.goal];
+  const met = goal.state === 'met';
+  const fmt = (value: number): string => formatNumber(Math.round(value), 0, language);
+  if (goal.goal === 'loadDays' || goal.goal === 'sleepScore') {
+    const sleep = goal.goal === 'sleepScore';
+    const color = sleep ? colors.purple : colors.metric.loadBright;
+    return (
+      <WeekRow
+        label={sleep ? t('home.week.sleep') : t('score.load')}
+        a11y={t(sleep ? 'plan.goal.sleepScore.title' : 'plan.goal.loadDays.title')}
+        value={t(sleep ? 'plan.count.nights' : 'plan.count.days', { done: goal.done, target: goal.target })}
+        caption={sleep ? t('home.week.sleepRule', { min: plan.sleepScoreMin }) : undefined}
+        met={met}
+        testID={testID}>
+        <GoalDots dots={goal.dots} color={color} label={t(sleep ? 'plan.goal.sleepScore.title' : 'plan.goal.loadDays.title')} testID={`${testID}-dots`} />
+      </WeekRow>
+    );
+  }
+  const strength = goal.goal === 'strength';
+  return (
+    <WeekRow
+      label={strength ? t('strength.week.label') : t('metric.steps')}
+      a11y={t(strength ? 'plan.goal.strength.title' : 'plan.goal.steps.title')}
+      value={
+        strength
+          ? t('plan.count.minutes', { done: goal.done, target: goal.target })
+          : t('plan.count.steps', { done: fmt(goal.measured === 0 ? 0 : goal.done / goal.measured), target: fmt(plan.steps) })
+      }
+      met={met}
+      testID={testID}>
+      <ProgressBar fraction={goal.target <= 0 ? 0 : goal.done / goal.target} color={colors.metric.loadBright} testID={`${testID}-bar`} />
+    </WeekRow>
+  );
+}
+
 export function WeekCard({ days, index }: DayProps) {
   const { t } = useT();
   const { colors } = useTheme();
-  const { userData, strength } = useAppData();
+  const { userData, strength, activities, healthConnect } = useAppData();
   const day = days[index];
   if (!day) return null;
-  const progress = weekProgress(days, day.day);
-  const strengthWeekStats = strengthWeek(strength.sessions, day.day);
   const plan = userData.weeklyPlan;
-  const row = (label: string, dots: ReadonlyArray<boolean | null>, count: number, target: number | null, color: string, testID: string) => (
-    <View key={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 36 }}>
-      <AppText variant="label" muted numberOfLines={2} style={{ width: 96 }}>
-        {label}
-      </AppText>
-      <View style={{ flex: 1 }}>
-        <WeekDots dots={dots} color={color} />
-      </View>
-      <AppText variant="bodyStrong" numeric testID={testID}>
-        {target === null ? `${count}` : `${count}/${target}`}
-      </AppText>
-    </View>
-  );
+  const input = planInputFor(days, strength.sessions, activities, healthConnect.state.steps, day.day, new Date());
+
+  if (plan !== null && plan.goals.length === 0) {
+    return (
+      <Card testID="card-week" style={{ gap: spacing.md }}>
+        <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
+        <AppText variant="body" muted>
+          {t('home.week.noGoals')}
+        </AppText>
+        <Button label={t('home.week.setUp')} variant="secondary" onPress={() => router.push('/plan/setup')} testID="week-set-up" />
+      </Card>
+    );
+  }
+
+  if (plan !== null) {
+    const week = planWeek(plan, input);
+    return (
+      <Card href="/plan" testID="card-week" accessibilityLabel={t('home.thisWeek')} style={{ gap: spacing.lg }}>
+        <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
+        {week.goals.map((goal) => (
+          <GoalRow key={goal.goal} goal={goal} plan={plan} />
+        ))}
+      </Card>
+    );
+  }
+
+  const progress = weekProgress(days, day.day);
+  const strengthDots = strengthWeek(strength.sessions, day.day);
+  const strengthMinutes = planWeek({ ...defaultPlan(userData.stepsGoal), goals: ['strength'] }, input).goals[0]?.done ?? 0;
   return (
-    <Card href="/plan" testID="card-week" accessibilityLabel={t('home.thisWeek')}>
+    <Card href="/plan" testID="card-week" accessibilityLabel={t('home.thisWeek')} style={{ gap: spacing.lg }}>
       <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
-      {row(t('home.weekActive'), progress.loadDots, progress.loadCount, plan?.loadDays ?? null, colors.metric.loadBright, 'week-load')}
-      {row(t('home.weekSleep'), progress.sleepDots, progress.sleepCount, plan?.sleepNights ?? null, colors.metric.sleep, 'week-sleep')}
-      {row(t('strength.week.label'), strengthWeekStats.dots, strengthWeekStats.count, null, colors.accent, 'week-strength')}
+      <WeekRow label={t('score.load')} a11y={t('home.weekActive')} value={t('home.week.daysCount', { count: progress.loadCount })} met={false} testID="week-load">
+        <WeekDots dots={progress.loadDots} color={colors.metric.loadBright} />
+      </WeekRow>
+      <WeekRow
+        label={t('home.week.sleep')}
+        a11y={t('home.weekSleep')}
+        value={t('home.week.nightsCount', { count: progress.sleepCount })}
+        caption={t('home.weekSleep')}
+        met={false}
+        testID="week-sleep">
+        <WeekDots dots={progress.sleepDots} color={colors.purple} />
+      </WeekRow>
+      <WeekRow
+        label={t('strength.week.label')}
+        a11y={t('strength.week.label')}
+        value={t('home.week.strengthNoGoal', { count: strengthDots.count, minutes: strengthMinutes })}
+        met={false}
+        testID="week-strength">
+        <WeekDots dots={strengthDots.dots} color={colors.metric.loadBright} />
+      </WeekRow>
     </Card>
   );
 }
 
-function alarmValue(alarm: AlarmView, nowS: number): { time: string | null; armed: boolean } {
+export function alarmValue(alarm: AlarmView, nowS: number): { time: string | null; armed: boolean } {
   const armed = confirmedAlarm(alarm.armed, nowS);
   if (armed !== null) return { time: formatClock(armed.wakeAt, deviceTzOffsetS(new Date(armed.wakeAt * 1000))), armed: true };
   return { time: alarm.plan.enabled ? formatMinutes(alarm.plan.minutes) : null, armed: false };
@@ -368,32 +607,64 @@ export function AlarmCard({ testID }: { testID: string }) {
 
 export function TonightCard({ days, index }: DayProps) {
   const { t } = useT();
+  const { colors } = useTheme();
+  const { alarm } = useAppData();
   const day = days[index];
   if (!day) return null;
   const bedtime = tonightBedtime(days, index);
   const need = day.sleep.need.value;
+  const value = alarmValue(alarm, Math.floor(Date.now() / 1000));
+  const parts = [need === null ? t('home.tonightNoNeed') : t('home.tonightNeed', { need: formatHm(need) })];
+  if (value.time !== null) parts.push(t('home.tonightAlarmMode', { mode: t(`alarm.mode.${alarm.plan.mode}`) }));
+  else if (bedtime) parts.push(t('home.tonightWake', { wake: bedtime.wake }));
   return (
-    <Card href="/sleep/planner" testID="card-tonight" accessibilityLabel={t('home.tonight')}>
+    <Card testID="card-tonight" style={{ gap: 14 }}>
       <CardHeader title={t('home.tonight')} action={`${t('home.planner')} ›`} href="/sleep/planner" />
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
-        <View style={{ flex: 1, gap: 4 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t('home.bedtime')}: ${bedtime ? bedtime.bed : t('home.tonightNoBed')}`}
+          onPress={() => router.push('/sleep/planner')}
+          style={{ flex: 1, gap: 6 }}
+          testID="tonight-planner">
           <AppText variant="capSmall" muted>
             {t('home.bedtime')}
           </AppText>
-          <AppText variant="value" numeric testID="tonight-bed">
-            {bedtime ? bedtime.bed : '–'}
-          </AppText>
-        </View>
-        <View style={{ flex: 1, gap: 4 }}>
+          {bedtime ? (
+            <Num size={32} testID="tonight-bed">
+              {bedtime.bed}
+            </Num>
+          ) : (
+            <AppText variant="bodyStrong" muted testID="tonight-bed">
+              {t('home.tonightNoBed')}
+            </AppText>
+          )}
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t('home.alarm')}: ${value.time ?? t('alarm.status.off')}`}
+          onPress={() => router.push('/sleep/alarm')}
+          style={{ flex: 1, gap: 6 }}
+          testID="tonight-alarm">
           <AppText variant="capSmall" muted>
             {t('home.alarm')}
           </AppText>
-          <AlarmSummary testID="tonight-alarm" />
-        </View>
+          {value.time === null ? (
+            <AppText variant="bodyStrong" muted testID="tonight-alarm-time">
+              {t('alarm.status.off')}
+            </AppText>
+          ) : (
+            <Num size={32} testID="tonight-alarm-time">
+              {value.time}
+            </Num>
+          )}
+          <AppText variant="caption" color={value.time !== null && !value.armed ? colors.warning : colors.textMuted} testID="tonight-alarm-state">
+            {value.time === null ? t('alarm.summary.off') : value.armed ? t('alarm.summary.armed') : t('alarm.summary.pending')}
+          </AppText>
+        </Pressable>
       </View>
-      <AppText variant="label" muted>
-        {need === null ? t('home.tonightNoNeed') : t('home.tonightNeed', { need: formatHm(need) })}
-        {bedtime ? ` · ${t('home.tonightWake', { wake: bedtime.wake })}` : ''}
+      <AppText variant="label" muted testID="tonight-note">
+        {parts.join(' · ')}
       </AppText>
     </Card>
   );
@@ -443,13 +714,7 @@ export function DashboardGrid({ days, index }: DayProps) {
               level={fromHc ? 'D' : PARITY.steps}
               explain={explainOf('steps')}
               href="/steps"
-              caption={
-                fromHc
-                  ? t('steps.fromHealthConnect')
-                  : userData.stepsGoal === null
-                    ? undefined
-                    : t('home.stepsGoal', { goal: userData.stepsGoal })
-              }
+              caption={fromHc ? t('steps.fromHealthConnect') : userData.stepsGoal === null ? undefined : t('home.stepsGoal', { goal: userData.stepsGoal })}
             />
           );
         }

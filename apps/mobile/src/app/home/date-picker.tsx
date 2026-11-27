@@ -1,36 +1,56 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { visibleReadiness } from '@/data/derived';
-import { formatMonthTitle, monthGrid, shiftMonth, weekdayInitials } from '@/data/dailyDerived';
+import { formatLongDay, formatMonthTitle, isDayString, monthGrid, shiftMonth, singleParam, weekdayInitials } from '@/data/dailyDerived';
 import { useT } from '@/i18n/useT';
+import { formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
-import { Page } from '@/ui/daily/bits';
-import { Card } from '@/ui/Card';
 import { Button } from '@/ui/controls';
+import { Icon } from '@/ui/Icon';
+import { SheetScreen } from '@/ui/SheetScreen';
 import { StateCard } from '@/ui/StateCard';
-import { readinessColor, spacing, useTheme } from '@/ui/theme';
+import { radius, readinessBand, readinessColor, spacing, useTheme } from '@/ui/theme';
 
 function monthOf(day: string): { year: number; month: number } {
   const [y, m] = day.split('-').map(Number);
   return { year: y ?? 1970, month: m ?? 1 };
 }
 
+function MonthButton({ direction, enabled, label, onPress }: { direction: 'prev' | 'next'; enabled: boolean; label: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      testID={`month-${direction}`}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !enabled }}
+      disabled={!enabled}
+      onPress={onPress}
+      style={{ width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
+      <Icon name={direction === 'prev' ? 'back' : 'chevronRight'} size={18} strokeWidth={2} color={enabled ? colors.text : colors.textFaint} />
+    </Pressable>
+  );
+}
+
 export default function DatePickerScreen() {
   const { days } = useAppData();
+  const params = useLocalSearchParams<{ day?: string | string[] }>();
   const { t, language } = useT();
   const { colors } = useTheme();
   const first = days[0];
   const last = days[days.length - 1];
-  const [shown, setShown] = useState(() => (last ? monthOf(last.day) : { year: 1970, month: 1 }));
+  const asked = singleParam(params.day);
+  const selected = isDayString(asked) && days.some((d) => d.day === asked) ? asked : (last?.day ?? null);
+  const [shown, setShown] = useState(() => (selected !== null ? monthOf(selected) : { year: 1970, month: 1 }));
 
   if (!first || !last) {
     return (
-      <Page title={t('home.pickDay')} testID="date-picker">
+      <SheetScreen title={t('home.pickDay')} testID="date-picker">
         <StateCard icon="calendar" tone="neutral" title={t('empty.title')} body={t('empty.body')} />
-      </Page>
+      </SheetScreen>
     );
   }
 
@@ -42,6 +62,11 @@ export default function DatePickerScreen() {
   const canNext = index(shown) < index(max);
   const weeks = monthGrid(shown.year, shown.month);
   const initials = weekdayInitials(language);
+  const legend = [
+    { band: 'high', label: t('home.pickLegendHigh'), color: colors.metric.readinessHigh },
+    { band: 'medium', label: t('readiness.medium'), color: colors.metric.readinessMid },
+    { band: 'low', label: t('readiness.low'), color: colors.metric.readinessLow },
+  ] as const;
 
   const pick = (day: string): void => {
     if (day === last.day) router.replace('/');
@@ -49,98 +74,91 @@ export default function DatePickerScreen() {
   };
 
   return (
-    <Page title={t('home.pickDay')} testID="date-picker" footer={<Button label={t('common.today')} variant="secondary" onPress={() => router.replace('/')} testID="picker-today" />}>
-      <Card style={{ gap: spacing.md }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable
-            testID="month-prev"
-            accessibilityRole="button"
-            accessibilityLabel={t('home.previousMonth')}
-            disabled={!canPrev}
-            onPress={() => setShown(shiftMonth(shown.year, shown.month, -1))}
-            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: canPrev ? 1 : 0.3 }}>
-            <AppText variant="title">‹</AppText>
-          </Pressable>
-          <AppText variant="cardTitle" testID="month-title" style={{ textTransform: 'capitalize' }}>
-            {formatMonthTitle(shown.year, shown.month, language)}
-          </AppText>
-          <Pressable
-            testID="month-next"
-            accessibilityRole="button"
-            accessibilityLabel={t('home.nextMonth')}
-            disabled={!canNext}
-            onPress={() => setShown(shiftMonth(shown.year, shown.month, 1))}
-            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: canNext ? 1 : 0.3 }}>
-            <AppText variant="title">›</AppText>
-          </Pressable>
-        </View>
-        <View style={{ flexDirection: 'row' }}>
+    <SheetScreen title={t('home.pickDay')} testID="date-picker">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <MonthButton direction="prev" enabled={canPrev} label={t('home.previousMonth')} onPress={() => setShown(shiftMonth(shown.year, shown.month, -1))} />
+        <AppText variant="cardTitle" testID="month-title" style={{ textTransform: 'capitalize' }}>
+          {formatMonthTitle(shown.year, shown.month, language)}
+        </AppText>
+        <MonthButton direction="next" enabled={canNext} label={t('home.nextMonth')} onPress={() => setShown(shiftMonth(shown.year, shown.month, 1))} />
+      </View>
+      <View style={{ gap: 4 }}>
+        <View style={{ flexDirection: 'row', gap: 4 }}>
           {initials.map((letter, i) => (
-            <AppText key={i} variant="capSmall" muted style={{ flex: 1, textAlign: 'center' }}>
+            <AppText key={i} variant="caption" muted style={{ flex: 1, textAlign: 'center', fontSize: 11 }}>
               {letter}
             </AppText>
           ))}
         </View>
         {weeks.map((week, w) => (
-          <View key={w} style={{ flexDirection: 'row' }}>
+          <View key={w} style={{ flexDirection: 'row', gap: 4 }}>
             {week.map((cell, c) => {
               if (cell.day === null) return <View key={c} style={{ flex: 1, height: 48 }} />;
               const record = byDay.get(cell.day);
               const dayNumber = Number(cell.day.slice(8));
               if (!record) {
                 return (
-                  <View key={c} style={{ flex: 1, height: 48, alignItems: 'center', justifyContent: 'center' }}>
-                    <AppText variant="body" color={colors.textFaint}>
+                  <View
+                    key={c}
+                    accessible
+                    accessibilityLabel={`${formatLongDay(cell.day, language)}, ${t('home.pickNoData')}`}
+                    style={{ flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                    <AppText variant="body" numeric color={colors.textFaint} style={{ fontSize: 14, fontWeight: '500' }}>
                       {dayNumber}
                     </AppText>
+                    <View style={{ height: 6 }} />
                   </View>
                 );
               }
               const shownReadiness = visibleReadiness(record).value;
               const tone = readinessColor(colors, shownReadiness);
-              const isLast = record.day === last.day;
+              const band = readinessBand(shownReadiness);
+              const isSelected = record.day === selected;
               return (
                 <Pressable
                   key={c}
                   testID={`cal-${record.day}`}
                   accessibilityRole="button"
-                  accessibilityLabel={record.day}
+                  accessibilityLabel={
+                    shownReadiness === null || band === null
+                      ? `${formatLongDay(record.day, language)}, ${t('home.pickNoReadiness')}`
+                      : `${formatLongDay(record.day, language)}, ${t('score.readiness')} ${formatNumber(shownReadiness, 0, language)}%, ${t(`readiness.${band}`)}`
+                  }
+                  accessibilityState={{ selected: isSelected }}
                   onPress={() => pick(record.day)}
-                  style={{ flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-                  <View
-                    style={{
-                      minWidth: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderWidth: isLast ? 2 : 0,
-                      borderColor: colors.text,
-                    }}>
-                    <AppText variant="body" style={{ fontWeight: '600' }}>
-                      {dayNumber}
-                    </AppText>
-                  </View>
+                  style={{
+                    flex: 1,
+                    height: 48,
+                    borderRadius: 12,
+                    backgroundColor: isSelected ? colors.primary : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 3,
+                  }}>
+                  <AppText variant="body" numeric color={isSelected ? colors.primaryOn : colors.text} style={{ fontSize: 14, fontWeight: '600' }}>
+                    {dayNumber}
+                  </AppText>
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: shownReadiness === null ? 'transparent' : tone }} />
                 </Pressable>
               );
             })}
           </View>
         ))}
-      </Card>
-      <View style={{ flexDirection: 'row', gap: spacing.lg, justifyContent: 'center' }}>
-        {([['high', colors.metric.readinessHigh], ['medium', colors.metric.readinessMid], ['low', colors.metric.readinessLow]] as const).map(([band, color]) => (
-          <View key={band} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.sm, columnGap: spacing.lg }} testID="picker-legend">
+        {legend.map((item) => (
+          <View key={item.band} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: item.color }} />
             <AppText variant="caption" muted>
-              {t(`readiness.${band}`)} · {t('score.readiness')}
+              {item.label}
             </AppText>
           </View>
         ))}
       </View>
-      <AppText variant="caption" muted style={{ textAlign: 'center' }}>
+      <AppText variant="caption" muted>
         {t('home.pickerHint')}
       </AppText>
-    </Page>
+      <Button label={t('common.today')} onPress={() => router.replace('/')} testID="picker-today" />
+    </SheetScreen>
   );
 }

@@ -1,68 +1,133 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
+import type { Language } from '@/data/types';
 import { useT } from '@/i18n/useT';
-import { formatAgo } from '@/lib/format';
-import type { AlertKind, InboxEntry } from '@/lib/notificationPlan';
+import { deviceTzOffsetS } from '@/lib/dates';
+import { formatClock } from '@/lib/format';
+import { localDay, type AlertKind, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Pill } from '@/ui/Chip';
-import { Button } from '@/ui/controls';
-import { Page } from '@/ui/daily/bits';
-import { Icon, type IconName } from '@/ui/Icon';
-import { ListGroup, ListRow } from '@/ui/ListGroup';
+import { Button, Segmented } from '@/ui/controls';
+import { IconTile, Page } from '@/ui/daily/bits';
+import { Icon } from '@/ui/Icon';
+import type { IconTileStyle } from '@/ui/ListGroup';
+import { tile } from '@/ui/manage/tiles';
 import { StateCard } from '@/ui/StateCard';
-import { radius, spacing, useTheme } from '@/ui/theme';
+import { spacing, useTheme, type ColorTokens } from '@/ui/theme';
+import { IconButton } from '@/ui/TopBar';
 
-const FILTERS = ['all', 'insights', 'device'] as const;
+const FILTERS = ['all', 'insights', 'device', 'goals'] as const;
 type Filter = (typeof FILTERS)[number];
 
 const FILTER_OF: Record<AlertKind, Exclude<Filter, 'all'>> = {
   digest: 'insights',
   syncFailed: 'device',
   dataAtRisk: 'device',
+  goal: 'goals',
 };
 
-const ICON_OF: Record<AlertKind, IconName> = {
-  digest: 'sparkle',
-  syncFailed: 'sync',
-  dataAtRisk: 'alert',
-};
+function tileOf(colors: ColorTokens, kind: AlertKind): IconTileStyle {
+  if (kind === 'digest') return tile(colors, 'sun', 'gold');
+  if (kind === 'syncFailed') return tile(colors, 'sync', 'warning');
+  if (kind === 'dataAtRisk') return tile(colors, 'alert', 'negative');
+  return tile(colors, 'check', 'positive');
+}
 
-function InboxRow({ entry, unread, nowS }: { entry: InboxEntry; unread: boolean; nowS: number }) {
+function stamp(at: number, today: boolean, language: Language): string {
+  const date = new Date(at);
+  if (today) return formatClock(Math.floor(at / 1000), deviceTzOffsetS(date));
+  return date.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function targetOf(kind: AlertKind): Href {
+  if (kind === 'digest') return '/home/morning-brief';
+  if (kind === 'goal') return '/plan';
+  return '/settings/device';
+}
+
+function InboxRow({ entry, today, first, onOpen }: { entry: InboxEntry; today: boolean; first: boolean; onOpen: (entry: InboxEntry) => void }) {
   const { t, language } = useT();
   const { colors } = useTheme();
   const text = alertText(language, entry);
-  const tint = entry.kind === 'digest' ? colors.purple : colors.warning;
   return (
-    <View testID={`inbox-${entry.id}`} style={{ flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.sm }}>
-      <View style={{ width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name={ICON_OF[entry.kind]} color={tint} size={18} />
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <AppText variant="bodyStrong" style={{ flex: 1 }}>
+    <Pressable
+      testID={`inbox-${entry.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={`${text.title}. ${text.body}${entry.read ? '' : `. ${t('home.notif.unread')}`}`}
+      onPress={() => onOpen(entry)}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        gap: spacing.lg,
+        paddingVertical: spacing.lg,
+        borderTopWidth: first ? 0 : 1,
+        borderTopColor: colors.border,
+        opacity: pressed ? 0.8 : 1,
+      })}>
+      <IconTile tile={tileOf(colors, entry.kind)} size={40} />
+      <View style={{ flex: 1, gap: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+          <AppText variant="cardTitle" style={{ flex: 1 }}>
             {text.title}
           </AppText>
-          {unread ? (
-            <View
-              testID={`unread-${entry.id}`}
-              accessible
-              accessibilityLabel={t('home.notif.unread')}
-              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.link }}
-            />
-          ) : null}
-          <AppText variant="caption" muted>
-            {formatAgo(t, nowS, Math.floor(entry.at / 1000))}
+          <AppText variant="label" muted numeric style={{ paddingTop: 2 }}>
+            {stamp(entry.at, today, language)}
           </AppText>
+          <View style={{ width: 10, paddingTop: 7, alignItems: 'flex-end' }}>
+            {entry.read ? null : (
+              <View
+                testID={`unread-${entry.id}`}
+                accessible
+                accessibilityLabel={t('home.notif.unread')}
+                style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.link }}
+              />
+            )}
+          </View>
         </View>
-        <AppText variant="label" muted>
+        <AppText variant="body" muted>
           {text.body}
         </AppText>
       </View>
+    </Pressable>
+  );
+}
+
+function Group({
+  title,
+  entries,
+  today,
+  action,
+  onOpen,
+  testID,
+}: {
+  title: string;
+  entries: readonly InboxEntry[];
+  today: boolean;
+  action?: { label: string; onPress: () => void };
+  onOpen: (entry: InboxEntry) => void;
+  testID: string;
+}) {
+  if (entries.length === 0) return null;
+  return (
+    <View testID={testID}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
+        <AppText variant="capLarge" muted accessibilityRole="header">
+          {title}
+        </AppText>
+        {action === undefined ? null : (
+          <Pressable testID="mark-all-read" accessibilityRole="button" onPress={action.onPress} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
+            <AppText variant="cap" muted>
+              {action.label}
+            </AppText>
+          </Pressable>
+        )}
+      </View>
+      {entries.map((entry, i) => (
+        <InboxRow key={entry.id} entry={entry} today={today} first={i === 0} onOpen={onOpen} />
+      ))}
     </View>
   );
 }
@@ -72,24 +137,35 @@ export default function NotificationsScreen() {
   const { colors } = useTheme();
   const { inbox, userData, notificationPermission, markInboxRead, clearInbox, refreshNotifications } = useAppData();
   const [filter, setFilter] = useState<Filter>('all');
-  const [unreadIds] = useState(() => new Set(inbox.filter((entry) => !entry.read).map((entry) => entry.id)));
   const prefs = userData.notifications;
   const enabled = prefs.enabled && notificationPermission === 'granted';
-  const nowS = Math.floor(Date.now() / 1000);
+  const todayKey = localDay(new Date());
 
   useEffect(() => {
-    void refreshNotifications().then(markInboxRead);
-  }, [refreshNotifications, markInboxRead]);
+    void refreshNotifications();
+  }, [refreshNotifications]);
 
   const shown = filter === 'all' ? inbox : inbox.filter((entry) => FILTER_OF[entry.kind] === filter);
+  const todays = shown.filter((entry) => localDay(new Date(entry.at)) === todayKey);
+  const earlier = shown.filter((entry) => localDay(new Date(entry.at)) !== todayKey);
+  const anyUnread = inbox.some((entry) => !entry.read);
+  const markAll = anyUnread ? { label: t('home.notif.markAllRead'), onPress: () => void markInboxRead() } : undefined;
+  const open = (entry: InboxEntry): void => {
+    if (!entry.read) void markInboxRead([entry.id]);
+    router.push(targetOf(entry.kind));
+  };
 
   return (
-    <Page title={t('home.notifications')} testID="notifications">
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        {FILTERS.map((option) => (
-          <Pill key={option} label={t(`home.notif.${option}`)} selected={filter === option} onPress={() => setFilter(option)} testID={`filter-${option}`} />
-        ))}
-      </View>
+    <Page
+      title={t('home.notifications')}
+      testID="notifications"
+      right={<IconButton icon="gear" label={t('home.notif.settingsA11y')} color={colors.text} onPress={() => router.push('/settings/app')} testID="notifications-settings" />}>
+      <Segmented<Filter>
+        testID="notification-filter"
+        value={filter}
+        onChange={setFilter}
+        options={FILTERS.map((option) => ({ value: option, label: t(`home.notif.${option}`), testID: `filter-${option}` }))}
+      />
 
       {!enabled ? (
         <StateCard
@@ -104,23 +180,33 @@ export default function NotificationsScreen() {
       ) : null}
 
       {shown.length === 0 ? (
-        <Card tone="outline" style={{ gap: 6 }} testID="inbox-empty">
-          <AppText variant="bodyStrong">{t('home.notif.emptyTitle')}</AppText>
-          <AppText variant="label" muted>
-            {t('home.notif.emptyBody')}
-          </AppText>
-        </Card>
+        <>
+          {markAll === undefined ? null : (
+            <View style={{ alignItems: 'flex-end' }}>
+              <Pressable testID="mark-all-read" accessibilityRole="button" onPress={markAll.onPress} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
+                <AppText variant="cap" muted>
+                  {markAll.label}
+                </AppText>
+              </Pressable>
+            </View>
+          )}
+          <Card tone="outline" style={{ gap: 6 }} testID="inbox-empty">
+            <AppText variant="bodyStrong">{t('home.notif.emptyTitle')}</AppText>
+            <AppText variant="label" muted>
+              {t('home.notif.emptyBody')}
+            </AppText>
+          </Card>
+        </>
       ) : (
-        <Card style={{ gap: 0 }} testID="inbox-list">
-          {shown.map((entry) => (
-            <InboxRow key={entry.id} entry={entry} unread={unreadIds.has(entry.id)} nowS={nowS} />
-          ))}
-        </Card>
+        <View testID="inbox-list" style={{ gap: spacing.sm }}>
+          <Group title={t('home.notif.today')} entries={todays} today action={markAll} onOpen={open} testID="group-today" />
+          <Group title={t('home.notif.earlier')} entries={earlier} today={false} action={todays.length === 0 ? markAll : undefined} onOpen={open} testID="group-earlier" />
+        </View>
       )}
 
-      <Card tone="outline" style={{ gap: 6 }}>
+      <Card style={{ gap: 6, backgroundColor: colors.surfaceAlt }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Icon name="moon" color={colors.textMuted} size={18} />
+          <Icon name="bell" color={colors.textMuted} size={16} />
           <AppText variant="bodyStrong">{t('home.notif.quietTitle')}</AppText>
         </View>
         <AppText variant="label" muted>
@@ -129,10 +215,6 @@ export default function NotificationsScreen() {
       </Card>
 
       {inbox.length > 0 ? <Button variant="secondary" label={t('home.notif.clear')} onPress={() => void clearInbox()} testID="inbox-clear" /> : null}
-
-      <ListGroup>
-        <ListRow title={t('home.notif.settings')} onPress={() => router.push('/settings/app')} />
-      </ListGroup>
     </Page>
   );
 }

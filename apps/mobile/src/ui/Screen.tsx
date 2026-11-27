@@ -52,6 +52,7 @@ interface Props {
   onRefresh?: () => void;
   footer?: ReactNode;
   testID?: string;
+  scrollEnabled?: boolean;
 }
 
 export function Screen({
@@ -66,6 +67,7 @@ export function Screen({
   onRefresh,
   footer,
   testID,
+  scrollEnabled = true,
 }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -121,6 +123,7 @@ export function Screen({
           keyboardDismissMode="on-drag"
           automaticallyAdjustKeyboardInsets
           testID="screen-scroll"
+          scrollEnabled={scrollEnabled}
           onScroll={onScroll}
           scrollEventThrottle={32}
           refreshControl={
