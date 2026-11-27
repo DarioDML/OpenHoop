@@ -199,6 +199,28 @@ export function longestRun(days: readonly DayRecord[], test: (day: DayRecord) =>
   return best;
 }
 
+/** Run of days meeting `test` that ends at the newest day; a newest day that has not met it yet does not break the run. */
+export function currentRun(days: readonly DayRecord[], test: (day: DayRecord) => boolean | null): number {
+  let run = 0;
+  let next: string | null = null;
+  for (let i = days.length - 1; i >= 0; i--) {
+    const d = days[i];
+    if (d === undefined) break;
+    if (next !== null && addDays(d.day, 1) !== next) break;
+    const ok = test(d);
+    if (ok !== true) {
+      if (i === days.length - 1) {
+        next = d.day;
+        continue;
+      }
+      break;
+    }
+    run++;
+    next = d.day;
+  }
+  return run;
+}
+
 export function longestStreak(days: readonly DayRecord[]): number {
   return longestRun(days, (d) => d.heartRate.avg !== null || d.sleep.asleepS !== null);
 }

@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { AppText } from './AppText';
 import { radius, useTheme, type ColorTokens } from './theme';
 
-export type ChipTone = 'positive' | 'warning' | 'negative' | 'info' | 'neutral' | 'purple' | 'pink';
+export type ChipTone = 'positive' | 'warning' | 'negative' | 'info' | 'neutral' | 'purple' | 'pink' | 'gold';
 
 function toneColors(colors: ColorTokens, tone: ChipTone): { fg: string; bg: string } {
   switch (tone) {
@@ -19,6 +19,8 @@ function toneColors(colors: ColorTokens, tone: ChipTone): { fg: string; bg: stri
       return { fg: colors.levelC, bg: colors.purpleSoft };
     case 'pink':
       return { fg: colors.pink, bg: colors.pinkSoft };
+    case 'gold':
+      return { fg: colors.gold, bg: colors.goldSoft };
     default:
       return { fg: colors.textMuted, bg: colors.surfaceAlt };
   }
