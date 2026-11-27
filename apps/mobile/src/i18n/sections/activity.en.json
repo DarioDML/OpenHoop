@@ -385,5 +385,20 @@
   "activity.details.hrNone": "No heart rate is stored for this time.",
   "activity.details.zonesHrr": "% HR reserve",
   "activity.details.zonesCustom": "bpm, your own zones",
-  "activity.details.zoneRowA11y": "Zone {zone}, {range}: {time}"
+  "activity.details.zoneRowA11y": "Zone {zone}, {range}: {time}",
+  "activity.share.format.story": "Story 9:16",
+  "activity.share.format.square": "Square",
+  "activity.share.format.transparent": "Transparent",
+  "activity.share.transparentNote": "A see-through image to lay over your own photo. A saved image keeps the see-through background; some apps add one when you share.",
+  "activity.share.field.hrChart": "HR chart",
+  "activity.share.field.zones": "Zones",
+  "activity.share.routeLabel": "Route of this activity",
+  "activity.share.routeHiddenAway": "Nothing is left of the route with {distance} around the start and the end hidden, so the image shows no route.",
+  "activity.share.mapOff": "No map background: map tiles need Network features and Maps under Privacy. The route line itself is drawn on the phone.",
+  "activity.share.hideEnds": "Hide start and end of route",
+  "activity.share.hideEndsBody": "Leaves out {distance} around where you started and stopped",
+  "activity.share.privacyRoute": "Only what you switch on is drawn on the image. The time of day is never added, and the route only when Route is on. The image is made on your phone; you choose the folder or app it goes to.",
+  "activity.share.save": "Save image",
+  "activity.share.saved": "The image is saved in the folder you picked.",
+  "activity.share.saveError": "The image could not be saved there. Pick another folder and try again."
 }

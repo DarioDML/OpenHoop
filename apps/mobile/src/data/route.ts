@@ -239,6 +239,27 @@ export function visibleRoute(points: readonly RoutePoint[], hideStartM: number, 
   return { points: kept, markers: markers.filter((m) => m.distanceM >= from && m.distanceM <= to), trimmed: true };
 }
 
+export function hideAroundEnds(points: readonly RoutePoint[], radiusM: number): RoutePoint[] {
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (radiusM <= 0 || first === undefined || last === undefined) return [...points];
+  const out: RoutePoint[] = [];
+  let segment = 0;
+  let gap = false;
+  let previous: number | null = null;
+  for (const p of points) {
+    if (haversineM(first, p) < radiusM || haversineM(last, p) < radiusM) {
+      gap = true;
+      continue;
+    }
+    if (out.length > 0 && (gap || p.segment !== previous)) segment++;
+    gap = false;
+    previous = p.segment;
+    out.push({ ...p, segment });
+  }
+  return out;
+}
+
 export interface Split {
   index: number;
   distanceM: number;

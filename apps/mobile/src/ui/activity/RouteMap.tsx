@@ -9,7 +9,7 @@ import type { NetworkPrefs } from '@/net/features';
 import { TILE_ATTRIBUTION, TILE_COPYRIGHT_URL, tileSources, type TileImageSource } from '@/net/tiles';
 
 import { AppText } from '../AppText';
-import { radius, useTheme } from '../theme';
+import { radius, useTheme, type ColorTokens } from '../theme';
 
 interface Props {
   points: readonly RoutePoint[];
@@ -19,6 +19,8 @@ interface Props {
   label: string;
   height?: number;
   rounded?: boolean;
+  palette?: ColorTokens;
+  bare?: boolean;
   testID?: string;
 }
 
@@ -41,14 +43,15 @@ function segments(points: readonly RoutePoint[], view: MapView): string[] {
   return out;
 }
 
-export function RouteMap({ points, markers, markerLabel, network, label, height = 220, rounded = true, testID }: Props) {
-  const { colors } = useTheme();
+export function RouteMap({ points, markers, markerLabel, network, label, height = 220, rounded = true, palette, bare = false, testID }: Props) {
+  const theme = useTheme();
+  const colors = palette ?? theme.colors;
   const [width, setWidth] = useState(0);
   const onLayout = (event: LayoutChangeEvent): void => setWidth(Math.round(event.nativeEvent.layout.width));
   const view = useMemo(() => (width > 0 ? fitView(points, width, height, PAD) : null), [points, width, height]);
   const lines = useMemo(() => (view === null ? [] : segments(points, view)), [points, view]);
   const tiles = useMemo(() => {
-    if (view === null || network === null) return [];
+    if (view === null || network === null || bare) return [];
     const refs = visibleTiles(view);
     const decision = tileSources(network, refs, Constants.expoConfig?.version ?? '0');
     if (!decision.allowed) return [];
@@ -58,7 +61,7 @@ export function RouteMap({ points, markers, markerLabel, network, label, height 
       top: ref.top,
       source: decision.sources[i],
     }));
-  }, [view, network]);
+  }, [view, network, bare]);
   const first = points[0];
   const last = points[points.length - 1];
 
@@ -69,7 +72,7 @@ export function RouteMap({ points, markers, markerLabel, network, label, height 
       accessible
       accessibilityRole="image"
       accessibilityLabel={label}
-      style={{ height, borderRadius: rounded ? radius.md : 0, overflow: 'hidden', backgroundColor: colors.surfaceAlt }}>
+      style={{ height, borderRadius: rounded ? radius.md : 0, overflow: 'hidden', backgroundColor: bare ? 'transparent' : colors.surfaceAlt }}>
       {tiles.map((tile) =>
         tile.source === undefined ? null : (
           <Image

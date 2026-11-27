@@ -385,5 +385,20 @@
   "activity.details.hrNone": "Voor deze tijd is geen hartslag bewaard.",
   "activity.details.zonesHrr": "% hartslagreserve",
   "activity.details.zonesCustom": "bpm, je eigen zones",
-  "activity.details.zoneRowA11y": "Zone {zone}, {range}: {time}"
+  "activity.details.zoneRowA11y": "Zone {zone}, {range}: {time}",
+  "activity.share.format.story": "Story 9:16",
+  "activity.share.format.square": "Vierkant",
+  "activity.share.format.transparent": "Transparant",
+  "activity.share.transparentNote": "Een doorzichtige afbeelding om over je eigen foto te leggen. Een bewaarde afbeelding houdt de doorzichtige achtergrond; sommige apps voegen er een toe als je deelt.",
+  "activity.share.field.hrChart": "Hartslaggrafiek",
+  "activity.share.field.zones": "Zones",
+  "activity.share.routeLabel": "Route van deze activiteit",
+  "activity.share.routeHiddenAway": "Met {distance} rond het begin en het einde verborgen blijft er niets van de route over, dus de afbeelding toont geen route.",
+  "activity.share.mapOff": "Geen kaartachtergrond: kaarttegels hebben Netwerkfuncties en Kaarten onder Privacy nodig. De routelijn zelf tekent je telefoon.",
+  "activity.share.hideEnds": "Verberg begin en einde van de route",
+  "activity.share.hideEndsBody": "Laat {distance} weg rond waar je begon en stopte",
+  "activity.share.privacyRoute": "Alleen wat je aanzet, komt op de afbeelding. Het tijdstip komt er nooit op, en de route alleen als Route aan staat. De afbeelding wordt op je telefoon gemaakt; jij kiest naar welke map of app ze gaat.",
+  "activity.share.save": "Bewaar afbeelding",
+  "activity.share.saved": "De afbeelding staat in de map die je koos.",
+  "activity.share.saveError": "De afbeelding kon daar niet bewaard worden. Kies een andere map en probeer opnieuw."
 }
