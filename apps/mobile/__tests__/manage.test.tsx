@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Linking } from 'react-native';
@@ -120,6 +120,41 @@ describe('Not built screens', () => {
   ])('%s shows the not built notice', async (_name, Screen, testID) => {
     await render(withAppData(<Screen />));
     expect(screen.getByTestId(testID)).toBeTruthy();
+  });
+});
+
+describe('Band status on the device screen', () => {
+  const band = {
+    wear: { phase: 'on' as const, since: NOW_S - 7_200 },
+    charging: { charging: false, at: NOW_S - 600 },
+    boot: { lastBootAt: NOW_S - 18_000, bootCount: 31, rebootReason: 0x1001, signalProcessingVersion: '12.0.6' },
+  };
+
+  it('shows the wear state, charging and band info with their times', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<DeviceSettingsScreen />, 'en', { device: { ...base.device, band } }));
+    expect(within(screen.getByTestId('band-status-wear')).getByText('On your wrist')).toBeTruthy();
+    expect(within(screen.getByTestId('band-status-wear-since')).getByText(/ago/)).toBeTruthy();
+    expect(within(screen.getByTestId('band-status-charging')).getByText('Not charging')).toBeTruthy();
+    expect(within(screen.getByTestId('band-info-signal')).getByText('12.0.6')).toBeTruthy();
+    expect(within(screen.getByTestId('band-info-restarts')).getByText('31')).toBeTruthy();
+    expect(within(screen.getByTestId('band-info-reason')).getByText('0x1001')).toBeTruthy();
+  });
+
+  it('says the band status is unknown for a band without these reports', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<DeviceSettingsScreen />, 'en', { device: { ...base.device, band: null } }));
+    expect(within(screen.getByTestId('band-status-wear')).getByText('Unknown')).toBeTruthy();
+    expect(within(screen.getByTestId('band-status-charging')).getByText('Unknown')).toBeTruthy();
+    expect(screen.queryByTestId('band-status-wear-since')).toBeNull();
+    expect(within(screen.getByTestId('band-info-restarts')).getByText('Unknown')).toBeTruthy();
+  });
+
+  it('shows the band status in Dutch', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<DeviceSettingsScreen />, 'nl', { device: { ...base.device, band } }));
+    expect(within(screen.getByTestId('band-status-wear')).getByText('Om je pols')).toBeTruthy();
+    expect(within(screen.getByTestId('band-status-charging')).getByText('Laadt niet op')).toBeTruthy();
   });
 });
 
@@ -322,6 +357,24 @@ describe('System states', () => {
     expect(pickDeviceState({ ...base, days: [] })).toBe('waitingForData');
     expect(pickDeviceState({ ...base, days: days.slice(0, 1) })).toBe('firstDay');
     expect(pickDeviceState({ ...base, device: { ...base.device, connection: 'syncing' } })).toBe('syncing');
+  });
+
+  it('shows Charging when the band was charging at a sync under 15 minutes ago, before low battery', () => {
+    const device = createFixtureDevice(FIXTURE_NOW);
+    const days = fixtureAppData().days;
+    const band = { wear: null, charging: { charging: true, at: NOW_S - 650 }, boot: { lastBootAt: null, bootCount: null, rebootReason: null, signalProcessingVersion: null } };
+    const charging = { ...device, connection: 'connected' as const, batteryPercent: 10, lastSyncAt: NOW_S - 600, band };
+    expect(pickDeviceState({ device: charging, days, syncProgress: null, nowS: NOW_S })).toBe('charging');
+    expect(pickDeviceState({ device: { ...charging, lastSyncAt: NOW_S - 901 }, days, syncProgress: null, nowS: NOW_S })).toBe('lowBattery');
+    expect(pickDeviceState({ device: { ...charging, band: { ...band, charging: { charging: false, at: NOW_S - 650 } } }, days, syncProgress: null, nowS: NOW_S })).toBe('lowBattery');
+  });
+
+  it('does not show Charging from an old charging report after a fresh but partial sync', () => {
+    const device = createFixtureDevice(FIXTURE_NOW);
+    const days = fixtureAppData().days;
+    const band = { wear: null, charging: { charging: true, at: NOW_S - 86_400 }, boot: { lastBootAt: null, bootCount: null, rebootReason: null, signalProcessingVersion: null } };
+    const stale = { ...device, connection: 'connected' as const, batteryPercent: 10, lastSyncAt: NOW_S - 60, band };
+    expect(pickDeviceState({ device: stale, days, syncProgress: null, nowS: NOW_S })).toBe('lowBattery');
   });
 });
 
