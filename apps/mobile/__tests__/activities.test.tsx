@@ -380,7 +380,8 @@ describe('activity details, edit and delete with undo', () => {
 
   it('lists own activities with their load on the Load screen', async () => {
     await render(withAppData(<LoadScreen />, 'en', { activities: [activity()] }));
-    expect(screen.getByTestId('entry-a:7')).toHaveTextContent(/Load 6\.2/);
+    expect(screen.getByTestId('entry-a:7-load')).toHaveTextContent('6.2');
+    expect(screen.getByTestId('entry-a:7').props.accessibilityLabel).toMatch(/Load 6\.2/);
   });
 });
 

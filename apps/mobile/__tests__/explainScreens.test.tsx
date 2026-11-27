@@ -73,7 +73,7 @@ describe('explain on screens', () => {
     await render(wrap(<LoadScreen />));
     const ring = within(screen.getByTestId('ring-load-detail'));
     expect(ring.getByText('4.6')).toBeTruthy();
-    expect(ring.getByText('So far')).toBeTruthy();
+    expect(ring.getByText('So far · of 21')).toBeTruthy();
     expect(screen.getByText('So far today · synced 10:21')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('load-about'));
     expect(within(screen.getByTestId('about-sheet')).getByText('How hard your heart worked')).toBeTruthy();

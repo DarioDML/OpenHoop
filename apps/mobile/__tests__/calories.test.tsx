@@ -81,7 +81,7 @@ describe('calories on the load deep dive', () => {
   it('shows total, resting and active energy with the method', async () => {
     const estimate = caloriesForDay(latest(), BODY, PROFILE).estimate;
     await render(withAppData(<LoadScreen />, 'en', { userData: BODY, profile: PROFILE }));
-    expect(screen.getByTestId('calories-total')).toHaveTextContent(kcal(estimate?.totalKcal));
+    expect(screen.getByTestId('calories-total')).toHaveTextContent(formatNumber(estimate?.totalKcal ?? Number.NaN, 0, 'en'));
     expect(screen.getByTestId('calories-resting')).toHaveTextContent(kcal(estimate?.restingKcal));
     expect(screen.getByTestId('calories-active')).toHaveTextContent(kcal(estimate?.activeKcal));
     expect(screen.getByTestId('calories-coverage')).toHaveTextContent(/covered 96%/);
