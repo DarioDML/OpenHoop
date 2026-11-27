@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
@@ -6,11 +6,12 @@ import { useT } from '@/i18n/useT';
 import { formatAgo } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { spacing } from '@/ui/theme';
 
 type Busy = 'test' | 'find' | 'stop' | 'hr-on' | 'hr-off' | null;
+
+const FIND_BUZZ_MS = 6_000;
 
 export function BandActionsCard() {
   const { t } = useT();
@@ -19,6 +20,12 @@ export function BandActionsCard() {
   const [findActive, setFindActive] = useState(false);
   const blocked = busy !== null || device.connection === 'syncing' || device.connection === 'connecting';
   const nowS = Math.floor(Date.now() / 1000);
+
+  useEffect(() => {
+    if (!findActive) return;
+    const timer = setTimeout(() => setFindActive(false), FIND_BUZZ_MS);
+    return () => clearTimeout(timer);
+  }, [findActive]);
 
   const run = async (label: Exclude<Busy, null>, task: () => Promise<boolean>): Promise<boolean> => {
     setBusy(label);
@@ -68,7 +75,6 @@ export function BandActionsCard() {
         <Button label={t('device.actions.hrOn')} variant="secondary" onPress={() => void run('hr-on', () => bandActions.setHeartRateBroadcast(true))} disabled={blocked} testID="hr-on" />
         <Button label={t('device.actions.hrOff')} variant="secondary" onPress={() => void run('hr-off', () => bandActions.setHeartRateBroadcast(false))} disabled={blocked} testID="hr-off" />
       </View>
-      <Chip label={t('bandConfig.unverified')} small testID="band-actions-unverified" />
     </Card>
   );
 }

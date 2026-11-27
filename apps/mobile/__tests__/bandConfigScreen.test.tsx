@@ -90,16 +90,16 @@ describe('BandConfigScreen', () => {
     expect(screen.getByText('5')).toBeTruthy();
   });
 
-  it('marks every field unverified and says the values are simulated for the demo band', async () => {
+  it('shows no unverified chips now that the read was checked on a band, and says the demo values are simulated', async () => {
     await render(withAppData(<BandConfigScreen />, 'en', appData(SNAPSHOT_JSON)));
-    expect(screen.getAllByText('Unverified')).toHaveLength(7);
+    expect(screen.queryByText('Unverified')).toBeNull();
     expect(screen.getByTestId('config-source').props.children).toBe('These values come from the simulated band, not from a real WHOOP.');
   });
 
-  it('says no band has been verified when the values came from a band', async () => {
+  it('says where the values came from when they were read from a band', async () => {
     const json = serializeSnapshot(buildSnapshot(NOW_S, 'band', [entry('enable_sig12', '2')], []));
     await render(withAppData(<BandConfigScreen />, 'en', appData(json)));
-    expect(screen.getByTestId('config-source').props.children).toMatch(/No band has been tested/);
+    expect(screen.getByTestId('config-source').props.children).toMatch(/read from your band/);
   });
 
   it('shows when the configuration was read', async () => {
@@ -178,6 +178,6 @@ describe('BandConfigScreen', () => {
     expect(screen.getByText('R22-pakketten, v4')).toBeTruthy();
     expect(screen.getByText('Aan')).toBeTruthy();
     expect(screen.getByText('Overige velden')).toBeTruthy();
-    expect(screen.getAllByText('Niet geverifieerd')).toHaveLength(7);
+    expect(screen.queryByText('Niet geverifieerd')).toBeNull();
   });
 });

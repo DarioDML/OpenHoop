@@ -3,6 +3,7 @@ import type { CommandGrant, ConfigWriteValue } from '@openhoop/protocol';
 import type { KeyKind } from './config';
 import { valueFromReply } from './config';
 import type { Session } from './session';
+import { CommandFailedError } from './session';
 
 export const TEST_BUZZ_LOOPS = 1;
 export const FIND_BAND_LOOPS = 6;
@@ -19,7 +20,11 @@ export async function buzz(session: Session, loops: number): Promise<void> {
 }
 
 export async function stopBuzz(session: Session): Promise<void> {
-  await session.send(Command.STOP_HAPTICS, stopHapticsBody(), WRITE);
+  try {
+    await session.send(Command.STOP_HAPTICS, stopHapticsBody(), WRITE);
+  } catch (error) {
+    if (!(error instanceof CommandFailedError)) throw error;
+  }
 }
 
 export async function setHeartRateProfile(session: Session, on: boolean): Promise<void> {

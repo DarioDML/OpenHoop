@@ -223,8 +223,8 @@ export interface ProvenanceFact {
 }
 
 export const PROVENANCE_FACTS: Readonly<Record<ProvenanceFact['id'], ProvenanceFact>> = {
-  enumeration: { id: 'enumeration', docRow: 'Feature flag and device config enumeration', verified: false },
-  valueShape: { id: 'valueShape', docRow: 'The shape of the reply when reading the value of a feature flag or a device config key', verified: false },
+  enumeration: { id: 'enumeration', docRow: 'Feature flag and device config enumeration', verified: true },
+  valueShape: { id: 'valueShape', docRow: 'The reply when reading a feature flag or device config value', verified: true },
 };
 
 export interface FieldRow {

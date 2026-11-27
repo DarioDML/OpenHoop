@@ -98,10 +98,10 @@ describe('describeFields', () => {
     expect(unknown.map((row) => row.entry.key)).toEqual(['mystery', 'enable_rfid']);
   });
 
-  it('marks every field unverified while no band has been tested', () => {
+  it('marks the read verified now that it was checked on a band', () => {
     const rows = [...describeFields('flag', SNAPSHOT.flags).known, ...describeFields('config', SNAPSHOT.config).known];
     expect(rows).toHaveLength(3);
-    expect(rows.every((row) => !row.verified)).toBe(true);
+    expect(rows.every((row) => row.verified)).toBe(true);
   });
 });
 
@@ -113,21 +113,13 @@ describe('provenance', () => {
     return index < 0 ? null : { line: lines[index] ?? '', index };
   };
 
-  it('keeps the enumeration fact unverified, as docs/provenance.md does', () => {
-    const row = rowFor(PROVENANCE_FACTS.enumeration.docRow);
-    expect(row).not.toBeNull();
-    expect(row?.index).toBeLessThan(guessesAt);
-    const cells = (row?.line ?? '').split('|').map((cell) => cell.trim());
-    expect(cells[cells.length - 2]).toBe('no');
-    expect(PROVENANCE_FACTS.enumeration.verified).toBe(false);
-  });
-
-  it('keeps the value format listed as a guess awaiting a band', () => {
-    const row = rowFor(PROVENANCE_FACTS.valueShape.docRow);
+  it.each(Object.values(PROVENANCE_FACTS))('marks $id verified only when docs/provenance.md does', (fact) => {
+    const row = rowFor(fact.docRow);
     expect(row).not.toBeNull();
     expect(guessesAt).toBeGreaterThan(0);
-    expect(row?.index).toBeGreaterThan(guessesAt);
-    expect(PROVENANCE_FACTS.valueShape.verified).toBe(false);
+    expect(row?.index).toBeLessThan(guessesAt);
+    const cells = (row?.line ?? '').split('|').map((cell) => cell.trim());
+    expect(cells[cells.length - 2]).toBe(fact.verified ? 'yes' : 'no');
   });
 });
 
