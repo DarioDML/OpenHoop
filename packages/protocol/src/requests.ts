@@ -166,7 +166,7 @@ export function isAlarmRejection(status: AlarmStatus | null): boolean {
   return status !== null && REJECTIONS.has(status);
 }
 
-export const HAPTICS_TERMINATION = ['expired', 'error', 'double-tap'] as const;
+export const HAPTICS_TERMINATION = ['expired', 'error', 'stopped'] as const;
 export type HapticsTermination = (typeof HAPTICS_TERMINATION)[number] | `code-${number}`;
 
 export function decodeHapticsTermination(payload: Uint8Array): HapticsTermination | null {

@@ -10,7 +10,6 @@ import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { formatClock, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { Callout, Page } from '@/ui/daily/bits';
 import { ToggleRow } from '@/ui/manage/rows';
@@ -127,12 +126,11 @@ export default function HapticAlarmScreen() {
         ) : null}
         {rang !== null ? (
           <AppText variant="label" muted testID="alarm-last">
-            {t(rang.endedBy === 'double-tap' ? 'alarm.lastTapped' : rang.endedBy === 'expired' ? 'alarm.lastExpired' : 'alarm.last', {
-              when: wakeLabel(t, language, rang.at, nowS),
+            {t(rang.endedBy === 'stopped' ? 'alarm.lastStopped' : rang.endedBy === 'expired' ? 'alarm.lastExpired' : 'alarm.last', {
+              when: wakeLabel(t, language, Math.round(rang.at / 60) * 60, nowS),
             })}
           </AppText>
         ) : null}
-        <Chip label={t('bandConfig.unverified')} small testID="alarm-unverified" />
       </Card>
 
       <Button label={ringing ? t('alarm.ringing') : t('alarm.test')} variant="secondary" onPress={() => void ring()} disabled={busy || ringing} testID="alarm-test" />

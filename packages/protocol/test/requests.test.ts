@@ -126,7 +126,7 @@ describe('alarm bodies', () => {
   });
 
   it('names how the haptics ended', () => {
-    expect(decodeHapticsTermination(fromHex('0102'))).toBe('double-tap');
+    expect(decodeHapticsTermination(fromHex('0102'))).toBe('stopped');
     expect(decodeHapticsTermination(fromHex('0100'))).toBe('expired');
     expect(decodeHapticsTermination(fromHex('0109'))).toBe('code-9');
     expect(decodeHapticsTermination(fromHex('01'))).toBeNull();

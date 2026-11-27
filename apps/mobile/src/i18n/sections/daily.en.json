@@ -187,7 +187,7 @@
   "alarm.tomorrow": "tomorrow at {time}",
   "alarm.onDay": "{day} at {time}",
   "alarm.last": "Last rang {when}",
-  "alarm.lastTapped": "Last rang {when}, stopped with a double tap",
+  "alarm.lastStopped": "Last rang {when}, stopped early with a double tap",
   "alarm.lastExpired": "Last rang {when}, until it stopped by itself",
   "alarm.test": "Test the alarm buzz",
   "alarm.ringing": "Buzzing…",

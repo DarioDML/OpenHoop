@@ -187,7 +187,7 @@
   "alarm.tomorrow": "morgen om {time}",
   "alarm.onDay": "{day} om {time}",
   "alarm.last": "Laatst afgegaan {when}",
-  "alarm.lastTapped": "Laatst afgegaan {when}, gestopt met dubbeltikken",
+  "alarm.lastStopped": "Laatst afgegaan {when}, vroeger gestopt met dubbeltikken",
   "alarm.lastExpired": "Laatst afgegaan {when}, tot het vanzelf stopte",
   "alarm.test": "Alarmtrilling testen",
   "alarm.ringing": "Trilt…",

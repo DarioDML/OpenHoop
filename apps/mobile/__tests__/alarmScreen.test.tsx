@@ -64,14 +64,14 @@ describe('Haptic alarm', () => {
           plan: PLAN,
           problem: { key: 'alarm.problem.rejected', params: { status: 'invalid-alarm-time' } },
           events: [
-            { t: rang + 20, kind: 'haptics-ended', endedBy: 'double-tap' },
+            { t: rang + 20, kind: 'haptics-ended', endedBy: 'stopped' },
             { t: rang, kind: 'fired', endedBy: null },
           ],
         }),
       }),
     );
     expect(screen.getByTestId('alarm-problem').props.children).toBe('The band refused the alarm (invalid-alarm-time).');
-    expect(screen.getByTestId('alarm-last').props.children).toMatch(/stopped with a double tap$/);
+    expect(screen.getByTestId('alarm-last').props.children).toMatch(/stopped early with a double tap$/);
   });
 
   it('does not count a haptics test as an alarm ring', async () => {

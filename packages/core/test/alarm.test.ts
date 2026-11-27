@@ -32,7 +32,7 @@ describe('recentAlarmEvents', () => {
     await event(T0 + 140, 9);
     const events = await recentAlarmEvents(store, deviceId);
     expect(events.map((e) => e.kind)).toEqual(['disabled', 'haptics-ended', 'fired', 'haptics-fired', 'set']);
-    expect(events[1]).toEqual({ t: T0 + 120, kind: 'haptics-ended', endedBy: 'double-tap' });
+    expect(events[1]).toEqual({ t: T0 + 120, kind: 'haptics-ended', endedBy: 'stopped' });
     expect(events.every((e) => e.kind === 'haptics-ended' || e.endedBy === null)).toBe(true);
   });
 
