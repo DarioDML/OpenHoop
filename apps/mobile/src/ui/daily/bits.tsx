@@ -129,15 +129,17 @@ interface PageProps {
   testID?: string;
   footer?: ReactNode;
   close?: boolean;
+  scrollEnabled?: boolean;
 }
 
 /** Tinted header with a top bar (and optional hero) over a sheet of cards. */
-export function Page({ title, tint = 'neutral', children, hero, right, testID, footer, close = false }: PageProps) {
+export function Page({ title, tint = 'neutral', children, hero, right, testID, footer, close = false, scrollEnabled }: PageProps) {
   return (
     <Screen
       testID={testID}
       tint={tint}
       footer={footer}
+      scrollEnabled={scrollEnabled}
       header={
         <>
           <TopBar title={title} right={right} close={close} />

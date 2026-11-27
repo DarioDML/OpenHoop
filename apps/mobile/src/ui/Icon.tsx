@@ -80,6 +80,8 @@ export const ICON_PATHS = {
   clipboard: 'M7 4h10a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM9 4V3h6v1M9 11h6M9 15h4',
   file: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
   download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+  grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
+  chevronUp: 'M5 15l7-7 7 7',
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

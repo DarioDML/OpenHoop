@@ -1,17 +1,17 @@
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { DASHBOARD_TILES, DEFAULT_DASHBOARD, HOME_SECTIONS, type DashboardTile, type HomeHero, type HomeSection } from '@/data/userData';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
-import { Card } from '@/ui/Card';
-import { Button, Segmented, Toggle } from '@/ui/controls';
-import { Divider, Page } from '@/ui/daily/bits';
+import { Button, Segmented } from '@/ui/controls';
+import { Page } from '@/ui/daily/bits';
 import { TILE_LABEL } from '@/ui/daily/metrics';
 import { CapHeader } from '@/ui/ListGroup';
-import { spacing } from '@/ui/theme';
+import { ReorderList } from '@/ui/ReorderList';
+import { spacing, useTheme } from '@/ui/theme';
 
 const SECTION_LABEL: Readonly<Record<HomeSection, TranslationKey>> = {
   summary: 'home.section.summary',
@@ -28,85 +28,13 @@ function sameList<T extends string>(a: readonly T[], b: readonly T[]): boolean {
   return a.length === b.length && a.every((item, i) => item === b[i]);
 }
 
-function moved<T extends string>(list: readonly T[], item: T, delta: -1 | 1): T[] | null {
-  const from = list.indexOf(item);
-  const to = from + delta;
-  if (from < 0 || to < 0 || to >= list.length) return null;
-  const next = [...list];
-  next.splice(from, 1);
-  next.splice(to, 0, item);
-  return next;
-}
-
-interface OrderListProps<T extends string> {
-  all: readonly T[];
-  shown: readonly T[];
-  label: (item: T) => string;
-  minimum: number;
-  onChange: (next: T[]) => void;
-  testPrefix: string;
-}
-
-function OrderList<T extends string>({ all, shown, label, minimum, onChange, testPrefix }: OrderListProps<T>) {
-  const { t } = useT();
-  const hidden = all.filter((item) => !shown.includes(item));
-  const arrow = (text: string, glyph: string, enabled: boolean, onPress: () => void, testID: string) => (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={text}
-      accessibilityState={{ disabled: !enabled }}
-      disabled={!enabled}
-      onPress={onPress}
-      style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: enabled ? 1 : 0.3 }}>
-      <AppText variant="title">{glyph}</AppText>
-    </Pressable>
-  );
-  const move = (item: T, delta: -1 | 1): void => {
-    const next = moved(shown, item, delta);
-    if (next) onChange(next);
-  };
-  return (
-    <Card style={{ gap: 0, paddingVertical: spacing.sm }}>
-      {shown.map((item, i) => (
-        <View key={item}>
-          {i > 0 ? <Divider /> : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, gap: spacing.sm }}>
-            <Toggle
-              value
-              onChange={() => onChange(shown.filter((x) => x !== item))}
-              label={label(item)}
-              disabled={shown.length <= minimum}
-              testID={`${testPrefix}toggle-${item}`}
-            />
-            <AppText variant="body" style={{ flex: 1 }}>
-              {label(item)}
-            </AppText>
-            {arrow(t('home.moveUp'), '↑', i > 0, () => move(item, -1), `${testPrefix}up-${item}`)}
-            {arrow(t('home.moveDown'), '↓', i < shown.length - 1, () => move(item, 1), `${testPrefix}down-${item}`)}
-          </View>
-        </View>
-      ))}
-      {hidden.map((item, i) => (
-        <View key={item}>
-          {shown.length > 0 || i > 0 ? <Divider /> : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, gap: spacing.sm }}>
-            <Toggle value={false} onChange={() => onChange([...shown, item])} label={label(item)} testID={`${testPrefix}toggle-${item}`} />
-            <AppText variant="body" muted style={{ flex: 1 }}>
-              {label(item)}
-            </AppText>
-          </View>
-        </View>
-      ))}
-    </Card>
-  );
-}
-
 export default function CustomizeScreen() {
   const { userData, updateUserData } = useAppData();
   const { t } = useT();
+  const { colors } = useTheme();
   const [openedTiles] = useState<DashboardTile[]>(() => [...userData.dashboardTiles]);
   const [openedSections] = useState<HomeSection[]>(() => [...userData.homeSections]);
+  const [dragging, setDragging] = useState(false);
   const tiles = userData.dashboardTiles;
   const sections = userData.homeSections;
 
@@ -137,7 +65,7 @@ export default function CustomizeScreen() {
   };
 
   return (
-    <Page title={t('home.customize')} testID="customize">
+    <Page title={t('home.customize')} testID="customize" scrollEnabled={!dragging}>
       <CapHeader title={t('home.heroStyle')} />
       <Segmented<HomeHero>
         testID="hero-style"
@@ -149,18 +77,18 @@ export default function CustomizeScreen() {
         ]}
       />
       <CapHeader title={t('home.sections')} />
-      <OrderList all={HOME_SECTIONS} shown={sections} label={(s) => t(SECTION_LABEL[s])} minimum={0} onChange={saveSections} testPrefix="section-" />
+      <ReorderList all={HOME_SECTIONS} shown={sections} label={(s) => t(SECTION_LABEL[s])} minimum={0} onChange={saveSections} onDragChange={setDragging} testPrefix="section-" />
       <AppText variant="caption" muted>
         {t('home.sectionsHint')}
       </AppText>
       <CapHeader title={t('home.dashboardMetrics')} />
-      <OrderList all={DASHBOARD_TILES} shown={tiles} label={(tile) => t(TILE_LABEL[tile])} minimum={1} onChange={saveTiles} testPrefix="" />
+      <ReorderList all={DASHBOARD_TILES} shown={tiles} label={(tile) => t(TILE_LABEL[tile])} minimum={1} onChange={saveTiles} onDragChange={setDragging} testPrefix="" />
       <AppText variant="caption" muted>
         {t('home.customizeHint')}
       </AppText>
       <View style={{ gap: spacing.sm }}>
         {canRestore ? <Button testID="restore-layout" variant="secondary" label={t('home.restoreLayout')} onPress={restore} /> : null}
-        <Button testID="reset-layout" variant="tertiary" label={t('home.resetLayout')} onPress={reset} />
+        <Button testID="reset-layout" variant="secondary" label={t('home.resetLayout')} onPress={reset} style={{ backgroundColor: colors.surfaceAlt, borderWidth: 0 }} />
       </View>
     </Page>
   );

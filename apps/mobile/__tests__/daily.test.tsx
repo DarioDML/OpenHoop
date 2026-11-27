@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
 import { addDays } from '@/data/derived';
 import { formatMinutes, goalMet, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, strengthWeekMinutes, vitalsSummary, weekProgress } from '@/data/dailyDerived';
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
+import { moveItem, reorderTarget, shiftFor } from '@/lib/reorder';
 import { parseUserData, serializeUserData } from '@/data/userData';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
@@ -105,6 +106,25 @@ describe('dailyDerived', () => {
     expect(kept.weeklyPlan).toEqual({ loadDays: 3, sleepNights: 4, strengthMinutes: 90 });
     const bad = parseUserData(JSON.stringify({ weeklyPlan: { loadDays: 3, sleepNights: 4, strengthMinutes: 9_999 } }));
     expect(bad.weeklyPlan).toEqual({ loadDays: 3, sleepNights: 4 });
+  });
+
+  it('works out where a dragged row lands and moves it there', () => {
+    const heights = [56, 56, 56, 56];
+    expect(reorderTarget(heights, 0, 20)).toBe(0);
+    expect(reorderTarget(heights, 0, 30)).toBe(1);
+    expect(reorderTarget(heights, 0, 130)).toBe(2);
+    expect(reorderTarget(heights, 0, 900)).toBe(3);
+    expect(reorderTarget(heights, 3, -60)).toBe(2);
+    expect(reorderTarget(heights, 3, -90)).toBe(1);
+    expect(reorderTarget(heights, 3, -900)).toBe(0);
+    expect(reorderTarget([56, 90, 56], 0, 50)).toBe(1);
+    expect(moveItem(['a', 'b', 'c', 'd'], 0, 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveItem(['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'b']);
+    expect(moveItem(['a', 'b'], 0, 5)).toEqual(['a', 'b']);
+    expect(shiftFor(1, 0, 2, 56)).toBe(-56);
+    expect(shiftFor(3, 0, 2, 56)).toBe(0);
+    expect(shiftFor(1, 3, 1, 56)).toBe(56);
+    expect(shiftFor(0, 0, 2, 56)).toBe(0);
   });
 
   it('only reports impacts with enough days in both groups', () => {
@@ -267,6 +287,31 @@ describe('Home sub-screens', () => {
     expect(updateUserData).toHaveBeenCalledWith(expect.objectContaining({ dashboardTiles: ['steps', 'hrv'] }));
     await fireEvent.press(screen.getByTestId('restore-layout'));
     expect(updateUserData).toHaveBeenCalledWith(expect.objectContaining({ dashboardTiles: ['spo2'] }));
+  });
+
+  it('reorders dashboard metrics by dragging the handle', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<CustomizeScreen />, 'en', { updateUserData, userData: { ...defaultUserData(), onboardingDone: true, dashboardTiles: ['hrv', 'restingHr', 'steps', 'respiratoryRate'] } }));
+    const handle = screen.getByTestId('handle-hrv', { includeHiddenElements: true });
+    const event = (y: number, at: number, fromY: number, fromAt: number) => ({
+      nativeEvent: { touches: [], changedTouches: [], pageX: 0, pageY: y, timestamp: at },
+      touchHistory: {
+        numberActiveTouches: 1,
+        indexOfSingleActiveTouch: 0,
+        mostRecentTimeStamp: at,
+        touchBank: [{ touchActive: true, startPageX: 0, startPageY: 0, startTimeStamp: 1, currentPageX: 0, currentPageY: y, currentTimeStamp: at, previousPageX: 0, previousPageY: fromY, previousTimeStamp: fromAt }],
+      },
+    });
+    await act(async () => {
+      handle.props.onResponderGrant(event(0, 1, 0, 1));
+      handle.props.onResponderMove(event(130, 2, 0, 1));
+    });
+    expect(screen.getByTestId('screen-scroll').props.scrollEnabled).toBe(false);
+    await act(async () => {
+      handle.props.onResponderRelease(event(130, 3, 130, 2));
+    });
+    expect(updateUserData).toHaveBeenCalledWith(expect.objectContaining({ dashboardTiles: ['restingHr', 'steps', 'hrv', 'respiratoryRate'] }));
+    expect(screen.getByTestId('screen-scroll').props.scrollEnabled).toBe(true);
   });
 
   it('builds the morning brief from real numbers', async () => {
