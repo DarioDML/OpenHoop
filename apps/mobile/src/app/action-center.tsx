@@ -1,4 +1,4 @@
-import { router, Stack, type Href } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
@@ -41,7 +41,6 @@ export default function ActionCenterScreen() {
 
   return (
     <Page title={t('home.actionCenter.title')} close testID="action-center">
-      <Stack.Screen options={{ presentation: 'modal' }} />
       <AppText variant="capLarge" muted>
         {t('home.quickActions')}
       </AppText>

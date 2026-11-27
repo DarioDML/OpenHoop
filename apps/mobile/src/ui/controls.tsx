@@ -220,3 +220,52 @@ export function CheckRow({ label, subtitle, badge, checked, onChange, testID }: 
     </Pressable>
   );
 }
+
+interface RadioRowProps {
+  label: string;
+  subtitle?: string;
+  selected: boolean;
+  onSelect: () => void;
+  accent?: string;
+  disabled?: boolean;
+  testID?: string;
+}
+
+export function RadioRow({ label, subtitle, selected, onSelect, accent, disabled = false, testID }: RadioRowProps) {
+  const { colors } = useTheme();
+  const ring = accent ?? colors.purple;
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="radio"
+      accessibilityState={{ selected, disabled }}
+      accessibilityLabel={subtitle ? `${label}, ${subtitle}` : label}
+      disabled={disabled}
+      onPress={onSelect}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        minHeight: 56,
+        paddingVertical: 14,
+        paddingHorizontal: spacing.lg,
+        borderRadius: radius.md,
+        borderWidth: 2,
+        borderColor: selected ? ring : 'transparent',
+        backgroundColor: colors.surface,
+        opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+      })}>
+      <View style={{ width: 20, height: 20, borderRadius: radius.pill, borderWidth: 2, borderColor: selected ? ring : colors.borderStrong, alignItems: 'center', justifyContent: 'center' }}>
+        {selected ? <View style={{ width: 10, height: 10, borderRadius: radius.pill, backgroundColor: ring }} /> : null}
+      </View>
+      <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+        <AppText variant="bodyStrong">{label}</AppText>
+        {subtitle ? (
+          <AppText variant="label" muted>
+            {subtitle}
+          </AppText>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}

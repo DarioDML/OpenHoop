@@ -1,8 +1,9 @@
-import type { DataSource, Language, Profile } from './types';
+import type { DataSource, Language, Profile, Units } from './types';
 
 export const SETTING_KEYS = {
   language: 'ui.language',
   dataSource: 'ui.dataSource',
+  units: 'ui.units',
   birthYear: 'profile.birthYear',
   maxHeartRate: 'profile.maxHeartRate',
   bandBleId: 'band.bleId',
@@ -15,6 +16,10 @@ export function parseLanguage(raw: string | null): Language | null {
 
 export function parseDataSource(raw: string | null): DataSource {
   return raw === 'band' ? 'band' : 'demo';
+}
+
+export function parseUnits(raw: string | null): Units {
+  return raw === 'imperial' ? 'imperial' : 'metric';
 }
 
 export function parseOptionalInteger(raw: string | null, min: number, max: number): number | null {

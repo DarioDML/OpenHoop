@@ -8,6 +8,7 @@ export function formatNumber(value: number, decimals: number, language: Language
 
 export function formatSigned(value: number, decimals: number, language: Language): string {
   const text = formatNumber(Math.abs(value), decimals, language);
+  if (Number(Math.abs(value).toFixed(decimals)) === 0) return text;
   if (value > 0) return `+${text}`;
   if (value < 0) return `−${text}`;
   return text;
