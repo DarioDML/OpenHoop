@@ -425,6 +425,7 @@ describe('store', () => {
   it('clearDerived removes derived rows but keeps samples and raw chunks', async () => {
     await store.replaceDay(dayRecord(device.id, '2026-11-25'));
     await store.driver.run('INSERT INTO baselines (device_id, name, value) VALUES (?, ?, ?)', [device.id, 'hrv', '{}']);
+    await store.replaceSleepStages(device.id, 0, 100, [{ t: 30, stage: 'deep' }]);
     await store.insertSamples([sample(device.id, 1_000)]);
     await store.commitChunk(
       { deviceId: device.id, endToken: null, frames: [new Uint8Array([1])], clockOffsetS: null, receivedAt: 1 },
@@ -432,9 +433,18 @@ describe('store', () => {
       { events: [], console: [], unknownFrames: 0, syncState: syncState(device.id) },
     );
     await store.clearDerived(device.id);
-    for (const t of ['daily_metrics', 'sleeps', 'workouts', 'baselines']) expect(await count(store, t)).toBe(0);
+    for (const t of ['daily_metrics', 'sleeps', 'workouts', 'baselines', 'sleep_stages']) expect(await count(store, t)).toBe(0);
     expect(await count(store, 'samples_1hz')).toBe(1);
     expect(await count(store, 'raw_chunks')).toBe(1);
+  });
+
+  it('replaces sleep stages only inside the given window', async () => {
+    await store.replaceSleepStages(device.id, 0, 100, [{ t: 0, stage: 'wake' }, { t: 30, stage: 'light' }, { t: 120, stage: 'rem' }]);
+    await store.replaceSleepStages(device.id, 100, 200, [{ t: 150, stage: 'deep' }]);
+    await store.replaceSleepStages(device.id, 0, 100, [{ t: 60, stage: 'rem' }]);
+    expect(await store.sleepStagesBetween(device.id, 0, 1_000)).toEqual([{ t: 60, stage: 'rem' }, { t: 150, stage: 'deep' }]);
+    await store.driver.run('INSERT INTO sleep_stages (device_id, t, stage) VALUES (?, ?, ?)', [device.id, 300, 'n3']);
+    expect(await store.sleepStagesBetween(device.id, 200, 1_000)).toEqual([]);
   });
 
   it('settings round trip', async () => {

@@ -462,6 +462,8 @@
   "hc.type.weightBody": "Toegevoegd aan je lichaamslog met de app waar het vandaan komt. Je eigen invoer wordt nooit overschreven.",
   "hc.type.bodyFat": "Vetpercentage",
   "hc.type.bodyFatBody": "Alleen bij een gewicht van dezelfde app en dag",
+  "hc.type.steps": "Stappen",
+  "hc.type.stepsBody": "Alleen voor dagen zonder stappen van de band. Een dag met stappen van de band houdt altijd de waarde van de band. Zet je dit uit, dan verwijdert OpenHoop de gekopieerde stappen.",
   "hc.window": "OpenHoop schrijft de laatste {days} dagen en vervangt alleen wat het zelf schreef. Data van andere apps wordt nooit gewijzigd.",
   "hc.denied": "Niet toegestaan in Health Connect",
   "hc.allow": "Toegang geven",

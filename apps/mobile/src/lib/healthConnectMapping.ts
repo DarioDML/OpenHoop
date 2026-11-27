@@ -21,7 +21,7 @@ import { unixToIsoDate } from './dates';
 export const HC_EXPORT_TYPES = ['heartRate', 'restingHeartRate', 'hrv', 'sleep', 'exercise', 'spo2', 'respiratoryRate', 'skinTemperature'] as const;
 export type HcExportType = (typeof HC_EXPORT_TYPES)[number];
 
-export const HC_IMPORT_TYPES = ['weight', 'bodyFat'] as const;
+export const HC_IMPORT_TYPES = ['weight', 'bodyFat', 'steps'] as const;
 export type HcImportType = (typeof HC_IMPORT_TYPES)[number];
 
 export type HcDataType = HcExportType | HcImportType;
@@ -41,6 +41,7 @@ export const HC_RECORD_TYPES: Readonly<Record<HcDataType, RecordType>> = {
   skinTemperature: 'SkinTemperature',
   weight: 'Weight',
   bodyFat: 'BodyFat',
+  steps: 'Steps',
 };
 
 export interface HcPreferences {
@@ -432,4 +433,61 @@ export function planBodyImport(
       };
     });
   return { entries, weightsRead: parsedWeights.length, bodyFatRead: parsedFats.length, bodyFatUnmatched: unmatched };
+}
+
+export interface HcStepsDay {
+  day: string;
+  steps: number;
+  origins: string[];
+}
+
+export const MAX_DAY_STEPS = 200_000;
+export const MAX_STEPS_DAYS = 3_660;
+const MAX_ORIGINS = 5;
+const LOCAL_DAY = /^(\d{4}-\d{2}-\d{2})T/;
+
+export function isStepsOrigin(value: unknown): value is string {
+  return typeof value === 'string' && value !== '' && value.length <= 200;
+}
+
+export function parseStepsBucket(value: unknown, ownPackage: string): HcStepsDay | null {
+  if (!isObject(value) || !isObject(value.result) || typeof value.startTime !== 'string') return null;
+  const day = LOCAL_DAY.exec(value.startTime)?.[1];
+  if (day === undefined) return null;
+  const count = finite(value.result.COUNT_TOTAL);
+  if (count === null || count < 1 || count > MAX_DAY_STEPS) return null;
+  const raw = Array.isArray(value.result.dataOrigins) ? value.result.dataOrigins : [];
+  const origins = [...new Set(raw.filter(isStepsOrigin))].filter((origin) => origin !== ownPackage).slice(0, MAX_ORIGINS).sort();
+  return { day, steps: Math.round(count), origins };
+}
+
+export function planStepsImport(buckets: readonly unknown[], ownPackage: string): HcStepsDay[] {
+  const byDay = new Map<string, HcStepsDay>();
+  for (const bucket of buckets) {
+    const parsed = parseStepsBucket(bucket, ownPackage);
+    if (parsed !== null) byDay.set(parsed.day, parsed);
+  }
+  return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
+}
+
+function sameStepsDay(a: HcStepsDay, b: HcStepsDay): boolean {
+  return a.steps === b.steps && a.origins.join(',') === b.origins.join(',');
+}
+
+export function mergeStepsImport(
+  stored: readonly HcStepsDay[],
+  fresh: readonly HcStepsDay[],
+  fromDay: string,
+): { days: HcStepsDay[]; changed: number } {
+  const kept = stored.filter((entry) => entry.day < fromDay);
+  const previous = new Map(stored.filter((entry) => entry.day >= fromDay).map((entry) => [entry.day, entry]));
+  let changed = 0;
+  for (const entry of fresh) {
+    const before = previous.get(entry.day);
+    if (before === undefined || !sameStepsDay(before, entry)) changed++;
+    previous.delete(entry.day);
+  }
+  changed += previous.size;
+  const days = [...kept, ...fresh.filter((entry) => entry.day >= fromDay)].sort((a, b) => a.day.localeCompare(b.day)).slice(-MAX_STEPS_DAYS);
+  return { days, changed };
 }

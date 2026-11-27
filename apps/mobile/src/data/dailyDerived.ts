@@ -54,6 +54,12 @@ export function vitalsSummary(days: readonly DayRecord[], index: number): Vitals
   return { measured, inRange, outside, calibrating: withValue > 0 && measured === 0 };
 }
 
+export function mainNightSpan(day: DayRecord): { onset: number; offset: number } | null {
+  const own = day.sleep.periods.filter((p) => !p.nap);
+  if (own.length === 0) return null;
+  return { onset: Math.min(...own.map((p) => p.onset)), offset: Math.max(...own.map((p) => p.offset)) };
+}
+
 export function mainPeriod(day: DayRecord): SleepPeriodRecord | null {
   let best: SleepPeriodRecord | null = null;
   for (const period of day.sleep.periods) {

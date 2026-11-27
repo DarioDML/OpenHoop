@@ -85,8 +85,8 @@ Every value carries a level that says how it relates to the vendor's equivalent.
 | A | SpO2, skin temperature, battery pack charge (experimental, as the band relays it from the pack) |
 | A/B | HRV, resting heart rate |
 | B | Respiratory rate, sleep periods, sleep need and debt, Sleep score, Readiness, Load, heart rate zones, the Load and zone split of an activity you add or record live |
-| C | Sleep consistency, automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training), jet lag plan (rule-based guidance), VO2 max (estimate), healthspan pillars, body age (fitness age and Phenotypic Age, two estimates), route distance, pace, speed and elevation gain from the phone GPS (estimates) |
-| D | Raw records, for example optical and motion data, and the ECG trace. Also the values you enter by hand or read from Health Connect (weight, body fat, lab results with the reference range you copied from your own report, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered, average cycle and period length, next-period estimate, pregnancy week). OpenHoop ships no reference ranges of its own |
+| C | Sleep consistency, sleep stages (estimate), automatic workouts, calories (estimate), coach check-ins (latest day against your own 30-day range), stress (estimate), muscular load and estimated 1RM (strength training), jet lag plan (rule-based guidance), VO2 max (estimate), healthspan pillars, body age (fitness age and Phenotypic Age, two estimates), route distance, pace, speed and elevation gain from the phone GPS (estimates) |
+| D | Raw records, for example optical and motion data, and the ECG trace. Also the values you enter by hand or read from Health Connect (weight, body fat, steps on days without band steps, lab results with the reference range you copied from your own report, periods, symptoms, due date) and the plain arithmetic on them (BMI, lean mass, change over a period, unit conversion, inside or outside the range you entered, average cycle and period length, next-period estimate, pregnancy week). OpenHoop ships no reference ranges of its own |
 
 When the data does not support a number, the app shows the reason instead of a number.
 
@@ -102,6 +102,41 @@ An activity started "with route" also records the phone's GPS position while it 
 ## Scores
 
 The scores are called Readiness (0 to 100), Load (0 to 21) and Sleep score (0 to 100). They are OpenHoop's own models. Their constants come from the open reference project `wearable5.0` and were fitted on one wearer, so they are not the vendor's scores and may differ for you. The constants live in a `Calibration` object so they can be refitted without changing code. The first three nights are labelled "calibrating".
+
+## Sleep stages
+
+Sleep stages are an estimate, OpenHoop's own method (level C). They are not the vendor's stages and not a sleep lab result. The classes are awake, light (N1 and N2), deep (N3) and REM, per 30-second epoch.
+
+The design follows Walch O, Huang Y, Forger D, Goldstein C, "Sleep stage prediction with raw acceleration and photoplethysmography heart rate data derived from a consumer wearable device", Sleep 2019;42(12):zsz180: heart rate and motion from the wrist plus time in the night. The model is fitted on their open dataset (Walch O, "Motion and heart rate from a wrist-worn wearable and labeled sleep from polysomnography", version 1.0.0, PhysioNet 2019, ODC-BY 1.0): 31 people, one night each, with an Apple Watch and a sleep lab recording (polysomnography). Only the fitted coefficients ship, in `packages/analytics/src/stagesModel.ts`. `packages/analytics/test/train_stages.py` downloads nothing and is not run in CI; pointed at a copy of the dataset it reproduces the coefficients, the numbers below and the test fixture.
+
+- **Per epoch**: the mean heart rate and the mean band motion value, each from at least 10 of the 30 seconds. Each night is referenced to itself: heart rate as (value − the night's median) ÷ (1.4826 × MAD), motion as ln(value ÷ the night's median + 0.1).
+- **Features** use only the current and earlier epochs: heart rate over 2.5, 10 and 30 minutes, its spread over 5 minutes, the change from one epoch to the next, the current epoch against the 30-minute mean, motion now and over 5, 20 and 60 minutes, the time since motion last exceeded twice the night's median, and the hours since sleep onset.
+- **Model**: a multinomial logistic regression (L2) gives the four probabilities. A four-state hidden Markov model with transition rates counted from the dataset smooths them. Its emission is the probability divided by the class share to the power 0.5; that power was chosen by cross-validation from 0.25, 0.5 and 0.75. A finished night is smoothed forward and backward.
+
+Validation: leave one person out, with the power chosen again inside each training fold (nested), over 24,497 scored epochs.
+
+| Lab \ OpenHoop | awake | light | deep | REM | agrees (recall) |
+| --- | --- | --- | --- | --- | --- |
+| awake | 332 | 649 | 34 | 218 | 27 % |
+| light | 276 | 10,000 | 1,852 | 2,078 | 70 % |
+| deep | 23 | 893 | 2,510 | 117 | 71 % |
+| REM | 132 | 2,429 | 216 | 2,738 | 50 % |
+| right when it says this (precision) | 44 % | 72 % | 54 % | 53 % | |
+
+- Overall 63.6 % of epochs agree, Cohen's kappa 0.39 (per person median 0.37, range 0.00 to 0.67). Always answering "light" would agree on 58.0 % with kappa 0, so most of the gain is in kappa, not in accuracy.
+- As awake, NREM and REM the same predictions agree on 74.8 %, kappa 0.37.
+- Light against deep: of the epochs that both the lab and OpenHoop call light or deep, 82 % agree, kappa 0.53. Deep sleep can be told apart from light sleep moderately, so it is shown, but it is the least certain stage on a night-by-night basis.
+- Totals are biased: deep sleep reads 1.30 times the lab's share, awake 0.62 times, light 0.98 and REM 0.93. Stages are only computed inside detected sleep, so most awake epochs are short awakenings, and the model misses most of them.
+
+Limits that matter for this band:
+
+- The motion value is not the same signal. The dataset has raw acceleration at about 50 Hz; for training, each second's motion is the mean distance of its samples from that second's mean vector (gravity and offset removed), the closest match to the band's `dynamic_accel_g` (stored as `motion_g`), whose exact filter is not known. Because motion only enters relative to the night's own median, a constant scale difference cancels out (tested), but a different filter, noise floor or sampling rate still changes the shape of the values. In the dataset the median during sleep was about 0.002 g.
+- The heart rate in the dataset is the watch's estimate every few seconds, interpolated to one second; the band reports every second.
+- The model has not been checked against a sleep lab on a WHOOP band, and the people in the dataset are few. Treat the stages as untested on this band.
+
+Where stages are computed: only for the main night, inside its sleep periods, and only from band readings. For a corrected night the stages follow your corrected times, still using only what the band measured. Naps and sleep you add by hand get no stages, because the model was fitted on whole nights and uses the hours since sleep onset. When fewer than 80 % of the night's epochs have enough heart rate and motion, the app shows the reason instead of stages. Stage totals do not replace "asleep", which stays the band's own sleep detection (level B), so the two can differ. The epochs are stored in the `sleep_stages` table and are part of the export (`sleep_stages.csv`); Health Connect gets no stages. After an update that adds or changes a derived value, the app recomputes every stored day once at the next start, so older nights get stages as well.
+
+For a night that is still going on (for example an alarm that waits for light sleep), the same model runs forward only on the epochs so far, so a stage never depends on later data. For the last epoch at 5-minute cut points it agreed on 63.1 %, kappa 0.34.
 
 ## Strength training
 
@@ -156,7 +191,8 @@ The health report is a PDF of the last 30 or 90 days that you can share with you
 - The database on the phone is encrypted. The key is kept in the device's secure storage.
 - When you pair a band you say since when you have worn it. Records from before that date are acknowledged to the band but never stored, so data from a previous owner is discarded.
 - Export gives you the whole database and one CSV file per table, including coach conversations, memory notes and the GPS points of your routes (`route_points.csv`), plus `notifications.json` with your notification settings and inbox, and `health-connect.json` with your Health Connect choices and the last sync result.
-- Journal notes you type are kept in the same encrypted database. They are not sent anywhere and they are part of the export.
+- Journal notes you type or dictate are kept in the same encrypted database. They are not sent anywhere and they are part of the export.
+- Dictating a journal note works on the phone only and only with the phone's own speech recogniser, which OpenHoop requires to run offline: Android 13 and later with an offline language pack for your app language (English or Dutch). It never falls back to an online service, so on a phone without that recogniser or language pack the Dictate button is replaced by a message and typing keeps working. The audio is never recorded to a file, stored or sent, only the text lands in the note field, and nothing is saved until you tap Save note. The microphone permission is asked for only when you tap Dictate. If the language pack is missing, the app can ask Android to download it on your tap: that download is done by Android's own speech service, not by OpenHoop, and OpenHoop's network gate is not involved. Dictation is off on iPhone for now, because iOS can silently use Apple's servers when a language has no on-device model and the speech library offers no per-language check.
 - Notifications are local only: they are scheduled on the phone, with no push service, no push token and no Firebase. The phone asks for permission only when you turn them on.
 - Cycle, symptom and pregnancy entries are sensitive. They stay in the encrypted database on the phone, are part of the export, and can be deleted one by one or all at once on the cycle screen. The next-period date is a plain average of your own logged cycles. It is not a fertility or ovulation prediction.
 - Import reads a data export file (ZIP or CSV) that you requested from the official app yourself, for interoperability. Nothing is fetched from the vendor and the file is read on the phone. Its values are stored in separate tables tagged `vendor-export`, shown as "from the official app's export", and never mixed with band data or OpenHoop's own scores. Removing them is one button.
@@ -164,11 +200,12 @@ The health report is a PDF of the last 30 or 90 days that you can share with you
 
 ## Health Connect
 
-On Android, OpenHoop can write heart rate (minute averages), resting heart rate, HRV (RMSSD), sleep sessions, exercise sessions, SpO2, respiratory rate and skin temperature to Health Connect, and read weight and body fat from it. Each type has its own switch, and OpenHoop asks Health Connect only for the permissions of the types you turn on. The app declares these Health Connect permissions and no others: write heart rate, resting heart rate, heart rate variability, sleep, exercise, oxygen saturation, respiratory rate and skin temperature; read weight and body fat.
+On Android, OpenHoop can write heart rate (minute averages), resting heart rate, HRV (RMSSD), sleep sessions, exercise sessions, SpO2, respiratory rate and skin temperature to Health Connect, and read weight, body fat and steps from it. Each type has its own switch, and OpenHoop asks Health Connect only for the permissions of the types you turn on. The app declares these Health Connect permissions and no others: write heart rate, resting heart rate, heart rate variability, sleep, exercise, oxygen saturation, respiratory rate and skin temperature; read weight, body fat and steps.
 
 - It writes only band data, never the simulated demo data, and only values the app also shows: a value the data cannot support is left out, not estimated. Sleep sessions have a start and an end but no stages.
 - Each sync replaces only the records OpenHoop wrote itself in the last 30 days, with stable record ids, so a re-sync or a sleep correction updates instead of duplicating. Data from other apps is never changed or deleted.
 - Weight and body fat from other apps go into the body log, labelled with the app they came from. They never overwrite or compete with your own entries: a day you entered by hand is skipped, an imported entry you edit becomes yours, and one you delete stays deleted.
+- Steps from Health Connect only fill days without band steps. A day with any steps from the band keeps the band value, so the two are never added up. OpenHoop reads Health Connect's daily total, which Health Connect already de-duplicates across apps, keeps one total per day with the apps that wrote it, and shows it as level D "from Health Connect" on the steps screen, the steps tile and the steps card on the Load screen. Trends, lifetime totals, the daily brief and the coach still use band steps only. It never writes steps. The daily totals are stored in `health-connect.json` in the export, and turning the steps switch off removes them from OpenHoop (Health Connect keeps its own).
 - Sync runs when you tap "Sync now", and after each band sync if you turn that on. To withdraw a permission or delete what OpenHoop wrote, use Health Connect itself.
 - Android home-screen widgets cannot open the encrypted database. While at least one OpenHoop widget is on the home screen, the app keeps a small unencrypted file in its private cache with only the numbers the widget shows (Readiness, Sleep score, Load, resting heart rate, HRV, or the reason a value is missing), the day, the sync time and the app language. There is no name and no raw data in it. Android also keeps the drawn widget images in the app's private storage. Turning "Show values on widgets" off replaces the file with one that holds no values; removing the last widget deletes the file and the images. Neither is included in Android backups.
 

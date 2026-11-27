@@ -1,17 +1,21 @@
 import type { BodyImportResult, DayRecord, ImportedBodyMeasurement } from '@openhoop/core';
 
+import { unixToIsoDate } from '@/lib/dates';
 import {
   HC_EXPORT_TYPES,
   HC_RECORD_TYPES,
   exportRecords,
   heartRateRecords,
   lastHeartRateHour,
+  mergeStepsImport,
   permissionFor,
   permissionKey,
   planBodyImport,
+  planStepsImport,
   type HcDataType,
   type HcExercise,
   type HcExportType,
+  type HcStepsDay,
   type HeartRateMinute,
 } from '@/lib/healthConnectMapping';
 
@@ -21,6 +25,7 @@ import type { HcSyncReport, HcTypeResult, HealthConnectState } from './healthCon
 export const EXPORT_WINDOW_DAYS = 30;
 export const FIRST_IMPORT_DAYS = 365;
 export const IMPORT_OVERLAP_DAYS = 30;
+export const STEPS_CHUNK_DAYS = 31;
 const DAY_S = 86_400;
 const HOUR_S = 3_600;
 
@@ -42,6 +47,8 @@ export interface HcSyncOutcome {
   report: HcSyncReport;
   heartRateCursorS: number | null;
   lastImportS: number | null;
+  lastStepsImportS: number | null;
+  steps: HcStepsDay[];
 }
 
 export function isGranted(granted: ReadonlySet<string>, type: HcDataType): boolean {
@@ -125,6 +132,41 @@ async function importBody(ctx: HcSyncContext, granted: ReadonlySet<string>): Pro
   return { results, done: !fatFailed };
 }
 
+function localMidnight(ctx: HcSyncContext, unixS: number): number {
+  const dayStart = Math.floor((unixS + ctx.tzOffsetAt(unixS)) / DAY_S) * DAY_S;
+  return dayStart - ctx.tzOffsetAt(dayStart - ctx.tzOffsetAt(unixS));
+}
+
+interface StepsOutcome {
+  result: HcTypeResult | null;
+  steps: HcStepsDay[];
+  lastStepsImportS: number | null;
+}
+
+async function importSteps(ctx: HcSyncContext, granted: ReadonlySet<string>): Promise<StepsOutcome> {
+  const { state } = ctx;
+  const unchanged = { steps: state.steps, lastStepsImportS: state.lastStepsImportS };
+  if (!state.import.steps) return { result: null, ...unchanged };
+  if (!isGranted(granted, 'steps')) return { result: { status: 'denied' }, ...unchanged };
+  const startS = state.lastStepsImportS === null ? ctx.nowS - FIRST_IMPORT_DAYS * DAY_S : state.lastStepsImportS - IMPORT_OVERLAP_DAYS * DAY_S;
+  const fromS = localMidnight(ctx, startS);
+  const buckets: unknown[] = [];
+  try {
+    let sliceFrom = fromS;
+    while (sliceFrom < ctx.nowS) {
+      const sliceTo = Math.min(localMidnight(ctx, sliceFrom + STEPS_CHUNK_DAYS * DAY_S + DAY_S / 2), ctx.nowS);
+      if (sliceTo <= sliceFrom) break;
+      buckets.push(...(await ctx.api.stepsByDay(sliceFrom, sliceTo)));
+      sliceFrom = sliceTo;
+    }
+  } catch {
+    return { result: { status: 'error', step: 'read' }, ...unchanged };
+  }
+  const fresh = planStepsImport(buckets, ctx.ownPackage);
+  const merged = mergeStepsImport(state.steps, fresh, unixToIsoDate(fromS, ctx.tzOffsetAt(fromS)));
+  return { result: { status: 'ok', count: merged.changed }, steps: merged.days, lastStepsImportS: ctx.nowS };
+}
+
 export async function runHealthConnectSync(ctx: HcSyncContext): Promise<HcSyncOutcome> {
   const granted = await ctx.api.grantedPermissions();
   const results: Partial<Record<HcDataType, HcTypeResult>> = {};
@@ -150,9 +192,13 @@ export async function runHealthConnectSync(ctx: HcSyncContext): Promise<HcSyncOu
   }
   const imported = await importBody(ctx, granted);
   Object.assign(results, imported.results);
+  const steps = await importSteps(ctx, granted);
+  if (steps.result !== null) results.steps = steps.result;
   return {
     report: { at: ctx.nowS, results },
     heartRateCursorS,
     lastImportS: imported.done ? ctx.nowS : ctx.state.lastImportS,
+    lastStepsImportS: steps.lastStepsImportS,
+    steps: steps.steps,
   };
 }

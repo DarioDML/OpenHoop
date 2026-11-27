@@ -12,6 +12,7 @@ jest.mock('react-native-health-connect', () => ({
   insertRecords: jest.fn(async () => []),
   deleteRecordsByTimeRange: jest.fn(async () => undefined),
   readRecords: jest.fn(async () => ({ records: [] })),
+  aggregateGroupByPeriod: jest.fn(async () => []),
   openHealthConnectSettings: jest.fn(),
 }));
 
@@ -81,6 +82,19 @@ describe('native Health Connect wrapper', () => {
     const records = await nativeHealthConnect.readAll('Weight', 0, 60);
     expect(records).toHaveLength(2);
     expect(mocked.readRecords).toHaveBeenLastCalledWith('Weight', expect.objectContaining({ pageToken: 'next' }));
+  });
+
+  it('reads steps as Health Connect daily totals and tolerates a non-list answer', async () => {
+    const day = { startTime: '2026-11-24T00:00', endTime: '2026-11-25T00:00', result: { COUNT_TOTAL: 10, dataOrigins: [] } };
+    mocked.aggregateGroupByPeriod.mockResolvedValueOnce([day] as Awaited<ReturnType<typeof HealthConnect.aggregateGroupByPeriod>>);
+    expect(await nativeHealthConnect.stepsByDay(0, 60)).toEqual([day]);
+    expect(mocked.aggregateGroupByPeriod).toHaveBeenCalledWith({
+      recordType: 'Steps',
+      timeRangeFilter: { operator: 'between', startTime: '1970-01-01T00:00:00.000Z', endTime: '1970-01-01T00:01:00.000Z' },
+      timeRangeSlicer: { period: 'DAYS', length: 1 },
+    });
+    mocked.aggregateGroupByPeriod.mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof HealthConnect.aggregateGroupByPeriod>>);
+    expect(await nativeHealthConnect.stepsByDay(0, 60)).toEqual([]);
   });
 
   it('opens the Play Store page for Health Connect, falling back to the web page', async () => {

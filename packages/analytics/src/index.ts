@@ -116,3 +116,5 @@ export type {
 } from './healthspan';
 export { PHENO_AGE, fitnessAge, fitnessAgeAt, fitnessAnchors, phenotypicAge } from './bodyAge';
 export type { FitnessAge, FitnessAgePoint, FitnessAnchor, PhenoAgeEstimate, PhenoAgeInputs, PhenoAgeReason, PhenoAgeResult } from './bodyAge';
+export { SLEEP_STAGES, STAGE_EPOCH_S, STAGE_MIN_COVERAGE, STAGE_VALIDATION, classifyRecentStages, classifyStages, stageTrace } from './stages';
+export type { RecentStageEpoch, SleepStage, StageEpoch, StageProbabilities, StageSpan, StageTotals, StageTrace, StagedNight } from './stages';
