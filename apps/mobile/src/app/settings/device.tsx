@@ -193,14 +193,22 @@ export default function DeviceSettingsScreen() {
                 {t('device.broadcastBody')}
               </AppText>
             </View>
-            <Toggle
-              label={t('device.broadcast')}
-              value={hr?.on ?? false}
-              disabled={blocked}
-              onChange={(on) => void run('hr', () => bandActions.setHeartRateBroadcast(on))}
-              testID="hr-toggle"
-            />
+            {hr === null ? null : (
+              <Toggle
+                label={t('device.broadcast')}
+                value={hr.on}
+                disabled={blocked}
+                onChange={(on) => void run('hr', () => bandActions.setHeartRateBroadcast(on))}
+                testID="hr-toggle"
+              />
+            )}
           </View>
+          {hr === null ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Button label={t('device.broadcastOn')} variant="soft" compact onPress={() => void run('hr', () => bandActions.setHeartRateBroadcast(true))} disabled={blocked} testID="hr-on" />
+              <Button label={t('device.broadcastOff')} variant="soft" compact onPress={() => void run('hr', () => bandActions.setHeartRateBroadcast(false))} disabled={blocked} testID="hr-off" />
+            </View>
+          ) : null}
           <AppText variant="caption" muted>
             {t('device.actions.hrBody')}
           </AppText>

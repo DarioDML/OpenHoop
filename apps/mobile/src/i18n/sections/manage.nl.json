@@ -150,7 +150,7 @@
   "device.pack.empty.title": "Nog geen melding van een batterijpack",
   "device.pack.empty.body": "De band meldt een pack alleen zolang die vastzit en de band oplaadt. Klik hem vast en synchroniseer. Tot dan wordt niets getoond of geschat.",
   "device.safety.title": "Veiligheidsslot",
-  "device.safety.howBody": "De knop gaat aan zodra de code getypt is. Deze versie van OpenHoop heeft geen code die een ontkoppel-, wis- of herstartcommando naar de band stuurt, dus bevestigen sluit dit venster en verandert niets.",
+  "device.safety.howBody": "De knop gaat pas aan als de code getypt is, zodat een gevaarlijk commando nooit met één tik vertrekt.",
   "appSettings.title": "App-instellingen",
   "appSettings.theme": "Thema",
   "appSettings.themeBody": "Systeem volgt de lichte of donkere stand van je telefoon.",
@@ -545,7 +545,7 @@
   "device.statusSection": "Status",
   "device.dangerTitle": "Gevarenzone",
   "device.unpair": "Band ontkoppelen",
-  "device.dangerNote": "Wissen, herstarten en de koppeling vergeten vragen dat je het serienummer typt om te bevestigen.",
+  "device.dangerNote": "OpenHoop kan een band nog niet wissen, herstarten of ontkoppelen. Als dat kan, vraagt elk ervan dat je de laatste tekens van het serienummer typt om te bevestigen.",
   "appSettings.units": "Eenheden",
   "appSettings.units.metric": "Metrisch",
   "appSettings.units.imperial": "Imperiaal",
@@ -718,7 +718,6 @@
   "device.safety.typeLabel": "Typ {code} om te bevestigen",
   "device.safety.serialHint": "De laatste vier tekens van het serienummer.",
   "device.safety.noSerialHint": "Het serienummer is nog niet bekend, dus typ het woord.",
-  "device.safety.unpair": "Band ontkoppelen",
   "import.title": "Importeren",
   "import.picked": "Gekozen uit Bestanden · {size} {unit}",
   "import.pickedMany": "{count} bestanden",
@@ -766,5 +765,9 @@
   "appSettings.provider.pluginBody": "Plug-ins voor partners en een eigen teamserver zijn niet gebouwd. OpenHoop heeft geen accounts en geen server, dus er kan nog niets gekoppeld worden.",
   "appSettings.provider.teamsNotBuilt": "Teams en klassementen vragen een eigen server, die nog niet gebouwd is.",
   "states.gallery.heading": "Eerlijk als er niets te tonen is",
-  "states.gallery.eyebrow": "Systeemstatussen"
+  "states.gallery.eyebrow": "Systeemstatussen",
+  "device.safety.nothingSent": "Deze versie van OpenHoop kan een band niet ontkoppelen, wissen of herstarten. De code typen toont hoe het slot zal werken; bevestigen verandert niets op de band.",
+  "device.safety.confirmNothing": "Bevestigen (stuurt nog niets)",
+  "device.broadcastOn": "Aanzetten",
+  "device.broadcastOff": "Uitzetten"
 }

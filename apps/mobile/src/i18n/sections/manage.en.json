@@ -150,7 +150,7 @@
   "device.pack.empty.title": "No battery pack report yet",
   "device.pack.empty.body": "The band reports a pack only while one is attached and charging it. Attach it, then sync. Until then nothing is shown or estimated.",
   "device.safety.title": "Safety lock",
-  "device.safety.howBody": "The button turns on once the code is typed. This version of OpenHoop has no code that sends an unpair, wipe or restart command to the band, so confirming closes this sheet and changes nothing.",
+  "device.safety.howBody": "The button turns on once the code is typed, so a dangerous command can never go out with one tap.",
   "appSettings.title": "App settings",
   "appSettings.theme": "Theme",
   "appSettings.themeBody": "System follows your phone's light or dark setting.",
@@ -545,7 +545,7 @@
   "device.statusSection": "Status",
   "device.dangerTitle": "Danger zone",
   "device.unpair": "Unpair band",
-  "device.dangerNote": "Wipe, reboot and forget-bond commands need typing the serial number to confirm.",
+  "device.dangerNote": "OpenHoop cannot wipe, restart or unpair a band yet. When it can, each of these will need the last characters of the serial number typed to confirm.",
   "appSettings.units": "Units",
   "appSettings.units.metric": "Metric",
   "appSettings.units.imperial": "Imperial",
@@ -718,7 +718,6 @@
   "device.safety.typeLabel": "Type {code} to confirm",
   "device.safety.serialHint": "The last four characters of the serial number.",
   "device.safety.noSerialHint": "The serial number is not known yet, so type the word instead.",
-  "device.safety.unpair": "Unpair band",
   "import.title": "Import",
   "import.picked": "Picked from Files · {size} {unit}",
   "import.pickedMany": "{count} files",
@@ -766,5 +765,9 @@
   "appSettings.provider.pluginBody": "Plug-ins for partners and a self-hosted teams server are not built. OpenHoop has no accounts and no server, so nothing can be plugged in yet.",
   "appSettings.provider.teamsNotBuilt": "Teams and leaderboards need a self-hosted server, which is not built yet.",
   "states.gallery.heading": "Honest when there's nothing to show",
-  "states.gallery.eyebrow": "System states"
+  "states.gallery.eyebrow": "System states",
+  "device.safety.nothingSent": "This version of OpenHoop cannot unpair, wipe or restart a band. Typing the code shows how the lock will work; confirming changes nothing on the band.",
+  "device.safety.confirmNothing": "Confirm (sends nothing yet)",
+  "device.broadcastOn": "Turn on",
+  "device.broadcastOff": "Turn off"
 }

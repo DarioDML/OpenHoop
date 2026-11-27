@@ -172,8 +172,12 @@ describe('Device settings', () => {
   });
 
   it('says the band does not report the broadcast setting before OpenHoop changed it', async () => {
-    await render(withAppData(<DeviceSettingsScreen />));
+    const setHeartRateBroadcast = jest.fn(async () => true);
+    await render(withAppData(<DeviceSettingsScreen />, 'en', { bandActions: { ...fixtureBandActions(), setHeartRateBroadcast } }));
     expect(screen.getByTestId('hr-broadcast-status').props.children).toMatch(/does not report/);
+    expect(screen.queryByTestId('hr-toggle')).toBeNull();
+    await fireEvent.press(screen.getByTestId('hr-off'));
+    expect(setHeartRateBroadcast).toHaveBeenCalledWith(false);
     expect(screen.getByTestId('motion-not-built')).toBeTruthy();
   });
 });
@@ -183,6 +187,8 @@ describe('Safety lock', () => {
     const base = fixtureAppData();
     await render(withAppData(<SafetyLockScreen />, 'en', { device: { ...base.device, serial: '5B01-77A7', backlogPages: 12 } }));
     expect(screen.getByText('Unpair this band?')).toBeTruthy();
+    expect(screen.getByTestId('safety-nothing-sent')).toBeTruthy();
+    expect(screen.getByText('Confirm (sends nothing yet)')).toBeTruthy();
     expect(screen.getByText('Type 77A7 to confirm')).toBeTruthy();
     expect(screen.getByTestId('safety-backlog')).toBeTruthy();
     expect(screen.getByTestId('danger-confirm').props.accessibilityState.disabled).toBe(true);
