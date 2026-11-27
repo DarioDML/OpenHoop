@@ -387,5 +387,13 @@
   "home.tonightAlarmMode": "Alarm mode: {mode}",
   "home.tonightNoBed": "Not planned yet",
   "home.plan.strengthMinutes": "Strength minutes",
-  "home.plan.strengthMinutesHint": "Minutes of strength training per week. 0 means no goal."
+  "home.plan.strengthMinutesHint": "Minutes of strength training per week. 0 means no goal.",
+  "home.action.plannerAlarm": "Sleep planner & alarm",
+  "home.ac.band": "Band {model}",
+  "home.ac.lastSync": "last sync {ago}",
+  "home.ac.neverSynced": "not synced yet",
+  "home.ac.storedLocally": "stored locally",
+  "home.ac.mg": "MG",
+  "home.ac.connected": "Band connected",
+  "home.ac.notConnected": "Band not connected"
 }

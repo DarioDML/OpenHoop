@@ -273,10 +273,21 @@ describe('Home sub-screens', () => {
 
   it('lists the quick actions and routes to them', async () => {
     await render(withAppData(<ActionCenterScreen />));
+    for (const id of ['start', 'add', 'strength', 'journal', 'planner', 'logSleep', 'breathing', 'ecg', 'symptoms', 'labs']) expect(screen.getByTestId(`action-${id}`)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('action-journal'));
     expect(mockPush).toHaveBeenCalledWith('/journal');
     await fireEvent.press(screen.getByTestId('action-start'));
     expect(mockPush).toHaveBeenCalledWith('/activity/start');
+    await fireEvent.press(screen.getByTestId('action-add'));
+    expect(mockPush).toHaveBeenCalledWith('/activity/add');
+  });
+
+  it('draws the quick actions as a sheet with an MG badge on ECG and the band status at the bottom', async () => {
+    await render(withAppData(<ActionCenterScreen />));
+    expect(screen.getByTestId('action-center-close')).toBeTruthy();
+    expect(within(screen.getByTestId('action-ecg')).getByText('MG')).toBeTruthy();
+    expect(screen.getByTestId('action-ecg').props.accessibilityHint).toBe('Needs MG hardware');
+    expect(screen.getByTestId('action-center-status')).toHaveTextContent(/stored locally$/);
   });
 });
 

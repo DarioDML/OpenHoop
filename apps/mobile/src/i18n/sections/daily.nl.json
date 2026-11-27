@@ -387,5 +387,13 @@
   "home.tonightAlarmMode": "Wekkermodus: {mode}",
   "home.tonightNoBed": "Nog niet gepland",
   "home.plan.strengthMinutes": "Krachtminuten",
-  "home.plan.strengthMinutesHint": "Minuten krachttraining per week. 0 betekent geen doel."
+  "home.plan.strengthMinutesHint": "Minuten krachttraining per week. 0 betekent geen doel.",
+  "home.action.plannerAlarm": "Slaapplanner & wekker",
+  "home.ac.band": "Band {model}",
+  "home.ac.lastSync": "laatste sync {ago}",
+  "home.ac.neverSynced": "nog niet gesynchroniseerd",
+  "home.ac.storedLocally": "lokaal opgeslagen",
+  "home.ac.mg": "MG",
+  "home.ac.connected": "Band verbonden",
+  "home.ac.notConnected": "Band niet verbonden"
 }
