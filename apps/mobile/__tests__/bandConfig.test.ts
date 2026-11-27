@@ -10,6 +10,9 @@ import {
   buildSnapshot,
   carryOver,
   changeFor,
+  configSnapshots,
+  officialProfileSummary,
+  officialValue,
   recordOriginal,
   describeFields,
   parseBandConfig,
@@ -188,5 +191,27 @@ describe('changes made from OpenHoop', () => {
       ['make_hrfm_visible', false],
     ]);
     expect(rows.unknown.every((row) => !row.writable)).toBe(true);
+  });
+});
+
+describe('official profile', () => {
+  it('counts writable known values that still have the value the band had before OpenHoop wrote', () => {
+    expect(officialProfileSummary(SNAPSHOT)).toEqual({ total: 3, matching: 3, differs: [] });
+    const changed = applyConfigWrite(SNAPSHOT, 'flag', 'make_hrfm_visible', '2', '1', 50);
+    const summary = officialProfileSummary(changed);
+    expect(summary.matching).toBe(2);
+    expect(summary.total).toBe(3);
+    expect(summary.differs.map((change) => change.key)).toEqual(['make_hrfm_visible']);
+    const entry = changed.flags.find((item) => item.key === 'make_hrfm_visible');
+    expect(entry === undefined ? null : officialValue(changed, 'flag', entry)).toBe('2');
+  });
+
+  it('lists the first read and one snapshot before each write, oldest first', () => {
+    const changed = applyConfigWrite(applyConfigWrite(SNAPSHOT, 'config', 'enable_rfid', '2', '1', 1_700_000_200), 'flag', 'make_hrfm_visible', '2', '1', 1_700_000_100);
+    expect(configSnapshots(changed).map((entry) => [entry.kind, entry.key, entry.at])).toEqual([
+      ['read', null, 1_700_000_000],
+      ['before-write', 'make_hrfm_visible', 1_700_000_100],
+      ['before-write', 'enable_rfid', 1_700_000_200],
+    ]);
   });
 });

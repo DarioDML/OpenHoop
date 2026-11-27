@@ -41,9 +41,10 @@ interface Props {
   onChange?: () => void;
   onRestore?: () => void;
   disabled?: boolean;
+  official?: boolean;
 }
 
-export function ConfigFieldRow({ row, original = null, onChange, onRestore, disabled = false }: Props) {
+export function ConfigFieldRow({ row, original = null, onChange, onRestore, disabled = false, official = false }: Props) {
   const { t } = useT();
   const label = labelFor(t, row);
   const { key } = row.entry;
@@ -64,6 +65,7 @@ export function ConfigFieldRow({ row, original = null, onChange, onRestore, disa
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm }}>
         {row.verified ? null : <Chip label={t('bandConfig.unverified')} small testID={`config-unverified-${key}`} />}
+        {official && original === null ? <Chip label={t('bandConfig.official')} tone="positive" small testID={`config-official-${key}`} /> : null}
         {original !== null ? (
           <Chip label={t('bandConfig.changedHere', { value: writableText(t, row, original) })} tone="warning" small testID={`config-changed-${key}`} />
         ) : null}

@@ -1,6 +1,5 @@
-import { router } from 'expo-router';
 import Constants from 'expo-constants';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { initialOf } from '@/data/userData';
@@ -10,7 +9,7 @@ import { Icon } from '@/ui/Icon';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
 import { tile } from '@/ui/manage/tiles';
 import { Screen } from '@/ui/Screen';
-import { radius, spacing, useTheme } from '@/ui/theme';
+import { radius, useTheme } from '@/ui/theme';
 import { TopBar } from '@/ui/TopBar';
 
 export default function MoreScreen() {
@@ -19,57 +18,50 @@ export default function MoreScreen() {
   const { userData, device } = useAppData();
   const initial = initialOf(userData.name);
   const version = Constants.expoConfig?.version ?? '0';
-  const deviceParts = [device.model, device.batteryPercent === null ? null : `${device.batteryPercent}${t('unit.percent')}`].filter(
+  const model = device.model === null ? null : t('more.deviceModel', { model: device.model });
+  const deviceParts = [model, device.batteryPercent === null ? null : `${device.batteryPercent}${t('unit.percent')}`].filter(
     (part): part is string => part !== null,
+  );
+  const avatar = (
+    <View style={{ width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.surface3, alignItems: 'center', justifyContent: 'center' }}>
+      {initial ? <AppText variant="bodyStrong">{initial}</AppText> : <Icon name="user" color={colors.textMuted} size={20} />}
+    </View>
   );
 
   return (
     <Screen header={<TopBar title={t('tabs.more')} back={false} />} tint="neutral" withTabBar testID="more">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('more.profile')}
-        onPress={() => router.push('/profile')}
-        testID="more-profile"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.lg, minHeight: 72 }}>
-        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-          {initial ? <AppText variant="cardTitle">{initial}</AppText> : <Icon name="user" color={colors.textMuted} size={22} />}
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <AppText variant="bodyStrong">{userData.name ?? t('more.noName')}</AppText>
-          <AppText variant="label" muted>
-            {t('more.profileBody')}
-          </AppText>
-        </View>
-        <Icon name="chevronRight" color={colors.textMuted} size={18} />
-      </Pressable>
+      <ListGroup>
+        <ListRow leading={avatar} title={userData.name ?? t('more.noName')} subtitle={t('more.profileBody')} href="/profile" testID="more-profile" />
+      </ListGroup>
 
       <CapHeader title={t('more.tools')} />
       <ListGroup>
         <ListRow icon={tile(colors, 'journal', 'purple')} title={t('more.journal')} href="/journal" />
-        <ListRow icon={tile(colors, 'moon', 'info')} title={t('more.sleepPlanner')} href="/sleep/planner" />
-        <ListRow icon={tile(colors, 'dumbbell', 'warning')} title={t('more.strength')} href="/strength" />
-        <ListRow icon={tile(colors, 'report', 'positive')} title={t('more.reports')} href="/plan/weekly-report" />
+        <ListRow icon={tile(colors, 'alarm', 'purple')} title={t('more.sleepPlanner')} href="/sleep/planner" />
+        <ListRow icon={tile(colors, 'dumbbell', 'load')} title={t('more.strength')} href="/strength" />
+        <ListRow icon={tile(colors, 'report', 'plain')} title={t('more.reports')} href="/plan/weekly-report" />
       </ListGroup>
 
       <CapHeader title={t('more.settings')} />
       <ListGroup>
         <ListRow
-          icon={tile(colors, 'band', 'info')}
+          icon={tile(colors, 'band', 'plain')}
           title={t('more.device')}
-          value={deviceParts.length > 0 ? deviceParts.join(' · ') : undefined}
+          subtitle={deviceParts.length > 0 ? deviceParts.join(' · ') : undefined}
           href="/settings/device"
           testID="more-device"
         />
-        <ListRow icon={tile(colors, 'settings', 'neutral')} title={t('appSettings.title')} href="/settings/app" testID="more-app" />
-        <ListRow icon={tile(colors, 'link', 'purple')} title={t('appSettings.integrations')} href="/settings/integrations" />
-        <ListRow icon={tile(colors, 'shield', 'positive')} title={t('privacy.title')} value={t('more.localOnly')} href="/settings/privacy" />
-        <ListRow icon={tile(colors, 'target', 'warning')} title={t('aboutx.accuracy.title')} subtitle={t('more.accuracyBody')} href="/settings/accuracy" />
+        <ListRow icon={tile(colors, 'settings', 'plain')} title={t('appSettings.title')} href="/settings/app" testID="more-app" />
+        <ListRow icon={tile(colors, 'link', 'plain')} title={t('appSettings.integrations')} href="/settings/integrations" testID="more-integrations" />
+        <ListRow icon={tile(colors, 'lock', 'positive')} title={t('privacy.title')} subtitle={t('more.localOnly')} href="/settings/privacy" testID="more-privacy" />
+        <ListRow icon={tile(colors, 'target', 'info')} title={t('more.accuracy')} subtitle={t('more.accuracyBody')} href="/settings/accuracy" testID="more-accuracy" />
       </ListGroup>
 
       <CapHeader title={t('more.about')} />
       <ListGroup>
-        <ListRow icon={tile(colors, 'info', 'neutral')} title={t('settings.about')} value={t('about.version', { version })} href="/settings/about" testID="more-about" />
-        <ListRow icon={tile(colors, 'gift', 'pink')} title={t('aboutx.support')} href="/settings/support" />
+        <ListRow icon={tile(colors, 'info', 'plain')} title={t('more.help')} subtitle={t('more.helpBody')} href="/settings/terms" testID="more-help" />
+        <ListRow icon={tile(colors, 'code', 'plain')} title={t('settings.about')} subtitle={t('more.aboutBody', { version })} href="/settings/about" testID="more-about" />
+        <ListRow icon={tile(colors, 'gift', 'gold')} title={t('aboutx.support')} href="/settings/support" testID="more-support" />
       </ListGroup>
     </Screen>
   );

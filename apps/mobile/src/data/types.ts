@@ -1,5 +1,6 @@
 import type { Interval, ZoneFloors } from '@openhoop/analytics';
 import type { Wrist } from '@openhoop/protocol';
+import type { StorageStats } from '@openhoop/core';
 import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, EcgSummary, StageEpochRow, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { StorageProblem } from '@/data/storageProblem';
@@ -10,6 +11,7 @@ import type { InboxEntry } from '@/lib/notificationPlan';
 import type { AlarmPlan, ArmedAlarm } from './alarm';
 import type { ConfigKind, WritableValue } from './bandConfig';
 import type { SaveOutcome } from './donation/files';
+import type { ExportContent } from './exportData';
 import type { HcAvailability } from './healthConnectApi';
 import type { HealthConnectState } from './healthConnectState';
 import type { HrBroadcastState } from './hrBroadcast';
@@ -36,6 +38,7 @@ export interface DeviceStatus {
   name: string | null;
   model: BandModel | null;
   firmware: string | null;
+  serial?: string | null;
   batteryPercent: number | null;
   lastSyncAt: number | null;
   backlogPages: number | null;
@@ -236,7 +239,10 @@ export interface AppData {
   ecgWrist: Wrist;
   ecgActions: EcgActions;
   stopLive(): Promise<void>;
-  exportData(): Promise<void>;
+  exportData(content?: ExportContent): Promise<void>;
+  storageStats(): Promise<StorageStats | null>;
+  chargeHistory(sinceS: number): Promise<number[]>;
+  deleteAllData(): Promise<boolean>;
   listDonationDays(): Promise<DonationDay[]>;
   buildDonation(days: readonly string[], onProgress: (progress: DonationProgress) => void, signal: AbortSignal): Promise<BuiltDonation>;
   saveDonation(built: BuiltDonation): Promise<SaveOutcome>;
@@ -258,7 +264,7 @@ export interface AppData {
   removeAllCycleData(): Promise<boolean>;
   saveJournalNote(id: number | null, input: JournalNoteInput): Promise<boolean>;
   removeJournalNote(id: number): Promise<boolean>;
-  importVendorFiles(files: SourceFile[], rejected: FileReport[]): Promise<VendorImportResult | null>;
+  importVendorFiles(files: SourceFile[], rejected: FileReport[], options?: { fromDay?: string | null }): Promise<VendorImportResult | null>;
   removeVendorData(): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
   sleepStagesBetween(fromS: number, toS: number): Promise<StageEpochRow[]>;

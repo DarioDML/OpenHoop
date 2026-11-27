@@ -1,6 +1,7 @@
 import type { VendorData } from '@openhoop/core';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { strToU8 } from 'fflate';
 import type { ReactNode } from 'react';
 
 import ImportExportScreen from '@/app/settings/import';
@@ -9,7 +10,7 @@ import type { VendorImportResult } from '@/data/vendorExport/summary';
 import { pickVendorFiles } from '@/data/vendorExport/pickFiles';
 import { allTranslations } from '@/i18n';
 
-import { withAppData } from './support/appData';
+import { fixtureAppData, withAppData } from './support/appData';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
@@ -25,6 +26,12 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@/data/vendorExport/pickFiles', () => ({ pickVendorFiles: jest.fn() }));
 
 const pick = jest.mocked(pickVendorFiles);
+
+const CYCLES_CSV = [
+  'Cycle start time,Cycle end time,Cycle timezone,Recovery score %,Resting heart rate (bpm),Heart rate variability (ms),Skin temp (celsius),Blood oxygen %,Day Strain,Sleep onset,Wake onset',
+  '2024-01-14 22:10:00,2024-01-15 22:05:00,UTC+01:00,62,51,74.5,33.4,96.5,11.3,2024-01-14 22:20:00,2024-01-15 06:30:00',
+  '2024-01-16 22:00:00,2024-01-17 22:00:00,UTC+01:00,70,50,70,33.4,96.5,10.1,,',
+].join('\n');
 
 const cycle = (startT: number, day: string, recoveryPct: number | null) => ({
   startT,
@@ -93,15 +100,22 @@ describe('import screen', () => {
     expect(screen.getByTestId('import-stored-empty')).toBeTruthy();
   });
 
-  it('picks files, imports them and shows imported, skipped and invalid counts', async () => {
-    const files = [{ name: 'x.csv', bytes: new Uint8Array([1]) }];
+  it('picks files, previews what was found, then imports and shows the counts', async () => {
+    const files = [{ name: 'physiological_cycles.csv', bytes: strToU8(CYCLES_CSV) }];
     const rejected = [{ name: 'big.zip', kind: null, rows: 0, invalid: 0, problem: 'too-large' as const }];
     pick.mockResolvedValue({ picked: true, files, rejected });
     const importVendorFiles = jest.fn(async () => outcome);
     await render(withAppData(<ImportExportScreen />, 'en', { importVendorFiles }));
     await fireEvent.press(screen.getByTestId('import-choose'));
+    await waitFor(() => expect(screen.getByTestId('import-file')).toBeTruthy());
+    expect(within(screen.getByTestId('import-file')).getByText('physiological_cycles.csv')).toBeTruthy();
+    expect(screen.getByTestId('found-cycles-value')).toHaveTextContent('2');
+    expect(screen.getByTestId('found-sleeps-value')).toHaveTextContent('0');
+    expect(within(screen.getByTestId('import-problems')).getByText('big.zip: is over 25 MB')).toBeTruthy();
+    expect(importVendorFiles).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('import-run'));
     await waitFor(() => expect(screen.getByTestId('import-result')).toBeTruthy());
-    expect(importVendorFiles).toHaveBeenCalledWith(files, rejected);
+    expect(importVendorFiles).toHaveBeenCalledWith(files, rejected, { fromDay: null });
     expect(screen.getByTestId('import-result-cycles').props.children).toBe('Cycles: 2 imported, 1 skipped, 3 invalid');
     expect(screen.getByTestId('import-result-journal')).toBeTruthy();
     expect(screen.queryByTestId('import-result-sleeps')).toBeNull();
@@ -120,27 +134,43 @@ describe('import screen', () => {
     expect(screen.getByTestId('import-choose').props.accessibilityState.disabled).toBeFalsy();
   });
 
-  it('says plainly when nothing could be imported', async () => {
-    pick.mockResolvedValue({ picked: true, files: [], rejected: [] });
-    const empty: VendorImportResult = {
-      counts: { ...outcome.counts, cycles: { imported: 0, skipped: 0, invalid: 0 }, journal: { imported: 0, skipped: 0, invalid: 0 } },
-      files: [{ name: 'a.csv', kind: null, rows: 0, invalid: 0, problem: 'unrecognised' }],
-    };
-    await render(withAppData(<ImportExportScreen />, 'en', { importVendorFiles: async () => empty }));
+  it('says plainly when nothing in the file can be imported and keeps the button off', async () => {
+    pick.mockResolvedValue({ picked: true, files: [{ name: 'a.csv', bytes: strToU8(['hello,world', '1,2'].join('\n')) }], rejected: [] });
+    const importVendorFiles = jest.fn(async () => outcome);
+    await render(withAppData(<ImportExportScreen />, 'en', { importVendorFiles }));
     await fireEvent.press(screen.getByTestId('import-choose'));
-    await waitFor(() => expect(screen.getByText('Nothing could be imported')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('import-nothing')).toBeTruthy());
+    expect(screen.getByTestId('import-run').props.accessibilityState.disabled).toBe(true);
   });
 
   it('calls a repeated import already up to date, not a failure', async () => {
-    pick.mockResolvedValue({ picked: true, files: [], rejected: [] });
+    pick.mockResolvedValue({ picked: true, files: [{ name: 'physiological_cycles.csv', bytes: strToU8(CYCLES_CSV) }], rejected: [] });
     const again: VendorImportResult = {
       counts: { ...outcome.counts, cycles: { imported: 0, skipped: 5, invalid: 0 }, journal: { imported: 0, skipped: 0, invalid: 0 } },
       files: [],
     };
     await render(withAppData(<ImportExportScreen />, 'en', { importVendorFiles: async () => again }));
     await fireEvent.press(screen.getByTestId('import-choose'));
+    await fireEvent.press(await screen.findByTestId('import-run'));
     await waitFor(() => expect(screen.getByText('Already up to date: these rows were imported before')).toBeTruthy());
     expect(screen.queryByText('Nothing could be imported')).toBeNull();
+  });
+
+  it('imports only days from the start of OpenHoop when history is switched off, and stores the choices', async () => {
+    pick.mockResolvedValue({ picked: true, files: [{ name: 'physiological_cycles.csv', bytes: strToU8(CYCLES_CSV) }], rejected: [] });
+    const importVendorFiles = jest.fn(async () => outcome);
+    const updateUserData = jest.fn(async () => true);
+    const base = fixtureAppData();
+    const userData = { ...base.userData, vendorUse: { accuracy: true, history: false } };
+    const settings = { ...base.settings, ownerSince: '2024-01-16' };
+    await render(withAppData(<ImportExportScreen />, 'en', { importVendorFiles, updateUserData, userData, settings }));
+    await fireEvent.press(screen.getByTestId('import-choose'));
+    expect(await screen.findByText('Only days from 2024-01-16 on are imported.')).toBeTruthy();
+    expect(screen.getByTestId('import-run')).toHaveTextContent('Import 1 days');
+    await fireEvent(screen.getByTestId('use-accuracy'), 'valueChange', false);
+    expect(updateUserData).toHaveBeenCalledWith({ vendorUse: { accuracy: false, history: false } });
+    await fireEvent.press(screen.getByTestId('import-run'));
+    await waitFor(() => expect(importVendorFiles).toHaveBeenCalledWith(expect.any(Array), [], { fromDay: '2024-01-16' }));
   });
 
   it('shows imported values labelled as the official app’s, apart from anything else', async () => {

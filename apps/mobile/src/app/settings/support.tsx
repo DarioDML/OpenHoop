@@ -1,20 +1,54 @@
 import { useState } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
-import { Card } from '@/ui/Card';
-import { Pill } from '@/ui/Chip';
 import { Button, Field, Segmented } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { openInAppBrowser } from '@/ui/manage/inAppBrowser';
 import { DONATION_AMOUNTS_USD, donationUrl, parseDonationAmount, REPO_URL, type DonationFrequency } from '@/ui/manage/links';
-import { SettingsPage } from '@/ui/manage/SettingsPage';
 import { tile } from '@/ui/manage/tiles';
-import { spacing, useTheme } from '@/ui/theme';
+import { Screen } from '@/ui/Screen';
+import { radius, spacing, useTheme } from '@/ui/theme';
+import { TopBar } from '@/ui/TopBar';
 
 type AmountChoice = (typeof DONATION_AMOUNTS_USD)[number] | 'other';
+
+interface AmountPillProps {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  testID: string;
+}
+
+function AmountPill({ label, selected, onPress, testID }: AmountPillProps) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        minHeight: 48,
+        paddingHorizontal: spacing.lg,
+        borderRadius: radius.pill,
+        borderWidth: 2,
+        borderColor: selected ? colors.gold : colors.borderStrong,
+        backgroundColor: selected ? colors.surface : 'transparent',
+        opacity: pressed ? 0.8 : 1,
+      })}>
+      {selected ? <Icon name="check" color={colors.gold} size={16} strokeWidth={2} /> : null}
+      <AppText variant="bodyStrong" color={selected ? colors.text : colors.textMuted} style={{ fontSize: 17 }}>
+        {label}
+      </AppText>
+    </Pressable>
+  );
+}
 
 export default function SupportScreen() {
   const { t } = useT();
@@ -42,19 +76,26 @@ export default function SupportScreen() {
     setOpening(false);
   };
 
-  return (
-    <SettingsPage title={t('aboutx.support')} tint="neutral" testID="support">
-      <Card style={{ gap: spacing.sm }}>
-        <Icon name="gift" color={colors.gold} size={32} />
-        <AppText variant="h1">{t('aboutx.support.free')}</AppText>
-        <AppText variant="body" muted>
+  const header = (
+    <>
+      <TopBar title={t('aboutx.support')} />
+      <View style={{ gap: spacing.md }} testID="support-hero">
+        <Icon name="gift" color={colors.gold} size={44} />
+        <AppText variant="h1" accessibilityRole="header" style={{ fontSize: 34, lineHeight: 40 }}>
+          {t('aboutx.support.free')}
+        </AppText>
+        <AppText variant="lead" soft>
           {t('aboutx.support.freeBody')}
         </AppText>
-      </Card>
+      </View>
+    </>
+  );
 
+  return (
+    <Screen header={header} tint="community" testID="support">
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {DONATION_AMOUNTS_USD.map((value) => (
-          <Pill
+          <AmountPill
             key={value}
             label={t('aboutx.support.amount', { amount: value })}
             selected={choice === value}
@@ -62,7 +103,7 @@ export default function SupportScreen() {
             testID={`donate-amount-${value}`}
           />
         ))}
-        <Pill label={t('aboutx.support.other')} selected={choice === 'other'} onPress={() => setChoice('other')} testID="donate-amount-other" />
+        <AmountPill label={t('aboutx.support.other')} selected={choice === 'other'} onPress={() => setChoice('other')} testID="donate-amount-other" />
       </View>
       {choice === 'other' ? (
         <Field
@@ -101,27 +142,27 @@ export default function SupportScreen() {
 
       <ListGroup>
         <ListRow
-          icon={tile(colors, 'export', 'purple')}
+          icon={tile(colors, 'export', 'gold')}
           title={t('aboutx.donateData.row')}
           subtitle={t('aboutx.donateData.rowBody')}
           href="/settings/donate-data"
           testID="support-donate-data"
         />
         <ListRow
-          icon={tile(colors, 'code', 'positive')}
+          icon={tile(colors, 'code', 'plain')}
           title={t('aboutx.support.contribute')}
           subtitle={t('aboutx.support.contributeBody')}
           onPress={() => void Linking.openURL(`${REPO_URL}/issues`)}
           testID="support-issues"
         />
         <ListRow
-          icon={tile(colors, 'link', 'info')}
+          icon={tile(colors, 'link', 'plain')}
           title={t('aboutx.source')}
           subtitle={REPO_URL}
           onPress={() => void Linking.openURL(REPO_URL)}
           testID="support-repo"
         />
       </ListGroup>
-    </SettingsPage>
+    </Screen>
   );
 }

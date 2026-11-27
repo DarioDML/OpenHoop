@@ -173,6 +173,50 @@ describe('BandConfigScreen', () => {
     expect(restoreConfig).toHaveBeenCalledWith('config', 'enable_rfid');
   });
 
+  it('counts the values that match the official profile and marks each one', async () => {
+    const changed = applyConfigWrite(parsedSnapshot(), 'flag', 'make_hrfm_visible', '2', '1', NOW_S - 60);
+    await render(withAppData(<BandConfigScreen />, 'en', appData(serializeSnapshot(changed))));
+    expect(screen.getByTestId('config-summary').props.children).toBe('2 of 3 values match the official profile');
+    expect(screen.getByTestId('config-official-enable_r22_v4_packets')).toBeTruthy();
+    expect(screen.queryByTestId('config-official-make_hrfm_visible')).toBeNull();
+    expect(screen.getByTestId('config-changed-make_hrfm_visible')).toBeTruthy();
+    expect(screen.getByTestId('snapshot-read')).toBeTruthy();
+    expect(screen.getByTestId('snapshot-make_hrfm_visible')).toBeTruthy();
+  });
+
+  it('writes the official profile back, one key at a time, after the word is typed', async () => {
+    const restoreConfig = jest.fn(async () => true);
+    const bandActions = { ...fixtureBandActions(), restoreConfig };
+    const changed = applyConfigWrite(applyConfigWrite(parsedSnapshot(), 'flag', 'make_hrfm_visible', '2', '1', NOW_S - 60), 'config', 'enable_rfid', '2', '1', NOW_S - 30);
+    await render(withAppData(<BandConfigScreen />, 'en', appData(serializeSnapshot(changed), { bandActions })));
+    await fireEvent.press(screen.getByTestId('write-official'));
+    expect(screen.getByText(/make_hrfm_visible, enable_rfid/)).toBeTruthy();
+    expect(restoreConfig).not.toHaveBeenCalled();
+    await fireEvent.changeText(screen.getByTestId('danger-input'), 'CHANGE');
+    await fireEvent.press(screen.getByTestId('danger-confirm'));
+    await waitFor(() => expect(restoreConfig).toHaveBeenCalledTimes(2));
+    expect(restoreConfig).toHaveBeenNthCalledWith(1, 'flag', 'make_hrfm_visible');
+    expect(restoreConfig).toHaveBeenNthCalledWith(2, 'config', 'enable_rfid');
+  });
+
+  it('puts one value back from its snapshot only after confirming', async () => {
+    const restoreConfig = jest.fn(async () => true);
+    const bandActions = { ...fixtureBandActions(), restoreConfig };
+    const changed = applyConfigWrite(parsedSnapshot(), 'config', 'enable_rfid', '2', '1', NOW_S - 30);
+    await render(withAppData(<BandConfigScreen />, 'en', appData(serializeSnapshot(changed), { bandActions })));
+    await fireEvent.press(screen.getByTestId('snapshot-enable_rfid'));
+    expect(restoreConfig).not.toHaveBeenCalled();
+    await fireEvent.changeText(screen.getByTestId('danger-input'), 'CHANGE');
+    await fireEvent.press(screen.getByTestId('danger-confirm'));
+    await waitFor(() => expect(restoreConfig).toHaveBeenCalledWith('config', 'enable_rfid'));
+  });
+
+  it('keeps Write official profile off when nothing differs', async () => {
+    await render(withAppData(<BandConfigScreen />, 'en', appData(SNAPSHOT_JSON)));
+    expect(screen.getByTestId('write-official').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('write-official-none')).toBeTruthy();
+  });
+
   it('renders in Dutch', async () => {
     await render(withAppData(<BandConfigScreen />, 'nl', appData(SNAPSHOT_JSON)));
     expect(screen.getByText('R22-pakketten, v4')).toBeTruthy();

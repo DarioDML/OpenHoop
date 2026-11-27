@@ -98,6 +98,9 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     ecgActions: fixtureEcgActions(),
     stopLive: noop,
     exportData: noop,
+    storageStats: async () => null,
+    chargeHistory: async () => [],
+    deleteAllData: async () => true,
     listDonationDays: async () => [],
     buildDonation: async () => {
       throw new Error('buildDonation is not stubbed in this test');

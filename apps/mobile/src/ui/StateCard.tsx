@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { AppText } from './AppText';
 import { Button } from './controls';
 import { Icon, type IconName } from './Icon';
+import { GradientFill } from './Screen';
 import { radius, spacing, useTheme } from './theme';
 
 export type StateTone = 'warning' | 'info' | 'negative' | 'positive' | 'pink' | 'neutral' | 'purple';
@@ -15,10 +16,11 @@ interface Props {
   actionLabel?: string;
   onAction?: () => void;
   framed?: boolean;
+  variant?: 'card' | 'board';
   testID?: string;
 }
 
-export function StateCard({ icon, tone, title, body, actionLabel, onAction, framed = true, testID }: Props) {
+export function StateCard({ icon, tone, title, body, actionLabel, onAction, framed = true, variant = 'card', testID }: Props) {
   const { colors } = useTheme();
   const palette: Record<StateTone, { fg: string; bg: string }> = {
     warning: { fg: colors.warning, bg: colors.warningSoft },
@@ -30,6 +32,25 @@ export function StateCard({ icon, tone, title, body, actionLabel, onAction, fram
     neutral: { fg: colors.textMuted, bg: colors.surfaceAlt },
   };
   const { fg, bg } = palette[tone];
+  if (variant === 'board') {
+    return (
+      <View
+        testID={testID}
+        style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', minHeight: 260, padding: spacing.lg, alignItems: 'center', justifyContent: 'center', gap: spacing.md }}>
+        <GradientFill id={`state-${(testID ?? icon).replace(/[^a-zA-Z0-9-]/g, '')}`} from={colors.backgroundTop} to={colors.background} />
+        <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name={icon} color={fg} size={28} />
+        </View>
+        <AppText variant="bodyStrong" style={{ textAlign: 'center', fontSize: 16 }}>
+          {title}
+        </AppText>
+        <AppText variant="label" muted style={{ textAlign: 'center' }}>
+          {body}
+        </AppText>
+        {actionLabel && onAction ? <Button label={actionLabel} onPress={onAction} compact style={{ alignSelf: 'stretch' }} /> : null}
+      </View>
+    );
+  }
   return (
     <View
       testID={testID}

@@ -29,6 +29,8 @@ const FILTER_OF: Record<AlertKind, Exclude<Filter, 'all'>> = {
   dataAtRisk: 'device',
   goal: 'goals',
   windDown: 'insights',
+  stepsGoal: 'goals',
+  coachCheckin: 'insights',
 };
 
 function tileOf(colors: ColorTokens, kind: AlertKind): IconTileStyle {
@@ -36,6 +38,7 @@ function tileOf(colors: ColorTokens, kind: AlertKind): IconTileStyle {
   if (kind === 'syncFailed') return tile(colors, 'sync', 'warning');
   if (kind === 'dataAtRisk') return tile(colors, 'alert', 'negative');
   if (kind === 'windDown') return tile(colors, 'moon', 'purple');
+  if (kind === 'coachCheckin') return tile(colors, 'coach', 'purple');
   return tile(colors, 'check', 'positive');
 }
 

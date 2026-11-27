@@ -2,7 +2,9 @@ import { type CoachPrefs, defaultCoachPrefs, parseCoachPrefs } from '@/coach/pre
 import { isRecord, type Json } from '@/lib/json';
 import { defaultNetworkPrefs, type NetworkPrefs, parseNetworkPrefs } from '@/net/features';
 import { parseIsoDate } from '@/lib/dates';
+import { THEME_PREFERENCES, type ThemePreference } from '@/lib/themePreference';
 import { isValidTimeZone } from '@/lib/timeZones';
+import { defaultAutoSharePrefs, parseAutoSharePrefs, type AutoSharePrefs } from '@/strava/autoShare';
 
 import { defaultLoadBuzzPrefs, type LoadBuzzPrefs, parseLoadBuzzPrefs } from './loadBuzz';
 import { parseWeeklyPlan, type WeeklyPlan } from './weeklyPlan';
@@ -24,12 +26,23 @@ export type Goal = (typeof GOALS)[number];
 
 export const SLEEP_GOALS = ['plan', 'peak', 'getBy'] as const;
 export type SleepGoal = (typeof SLEEP_GOALS)[number];
+export const RAW_RETENTION_DAYS = [7, 30] as const;
+export type RawRetentionDays = (typeof RAW_RETENTION_DAYS)[number];
+
+export interface VendorUse {
+  accuracy: boolean;
+  history: boolean;
+}
+
+export const WEAR_LOCATIONS = ['wrist', 'bicep', 'torso', 'waist', 'calf'] as const;
+export type WearLocation = (typeof WEAR_LOCATIONS)[number];
 
 export interface NotificationPrefs {
   enabled: boolean;
   morningDigest: boolean;
   syncProblems: boolean;
   goals: boolean;
+  coachCheckins?: boolean;
   quietStart: string;
   quietEnd: string;
 }
@@ -76,6 +89,11 @@ export interface UserData {
   widgetValues: boolean;
   hideRouteEnds: boolean;
   loadBuzz: LoadBuzzPrefs;
+  wearLocation: WearLocation | null;
+  theme: ThemePreference;
+  stravaAutoShare: AutoSharePrefs;
+  rawRetentionDays: RawRetentionDays | null;
+  vendorUse: VendorUse;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -94,7 +112,7 @@ export function defaultUserData(): UserData {
     previousDashboardTiles: null,
     homeSections: [...HOME_SECTIONS],
     previousHomeSections: null,
-    notifications: { enabled: false, morningDigest: true, syncProblems: true, goals: true, quietStart: '22:00', quietEnd: '07:00' },
+    notifications: { enabled: false, morningDigest: true, syncProblems: true, goals: true, coachCheckins: false, quietStart: '22:00', quietEnd: '07:00' },
     journalQuestions: null,
     journal: {},
     weeklyPlan: null,
@@ -107,6 +125,11 @@ export function defaultUserData(): UserData {
     widgetValues: true,
     hideRouteEnds: true,
     loadBuzz: defaultLoadBuzzPrefs(),
+    wearLocation: null,
+    theme: 'system',
+    stravaAutoShare: defaultAutoSharePrefs(),
+    rawRetentionDays: null,
+    vendorUse: { accuracy: true, history: true },
   };
 }
 
@@ -231,6 +254,7 @@ export function parseUserData(raw: string | null): UserData {
       morningDigest: typeof notifications.morningDigest === 'boolean' ? notifications.morningDigest : base.notifications.morningDigest,
       syncProblems: typeof notifications.syncProblems === 'boolean' ? notifications.syncProblems : base.notifications.syncProblems,
       goals: notifications.goals === true,
+      coachCheckins: notifications.coachCheckins === true,
       quietStart: clockOr(notifications.quietStart, base.notifications.quietStart),
       quietEnd: clockOr(notifications.quietEnd, base.notifications.quietEnd),
     },
@@ -246,6 +270,14 @@ export function parseUserData(raw: string | null): UserData {
     widgetValues: parsed.widgetValues !== false,
     hideRouteEnds: typeof parsed.hideRouteEnds === 'boolean' ? parsed.hideRouteEnds : base.hideRouteEnds,
     loadBuzz: parseLoadBuzzPrefs(parsed.loadBuzz),
+    wearLocation: oneOf(parsed.wearLocation, WEAR_LOCATIONS),
+    theme: oneOf(parsed.theme, THEME_PREFERENCES) ?? base.theme,
+    stravaAutoShare: parseAutoSharePrefs(parsed.stravaAutoShare),
+    rawRetentionDays: RAW_RETENTION_DAYS.find((days) => days === parsed.rawRetentionDays) ?? null,
+    vendorUse: {
+      accuracy: !isRecord(parsed.vendorUse) || parsed.vendorUse.accuracy !== false,
+      history: !isRecord(parsed.vendorUse) || parsed.vendorUse.history !== false,
+    },
   };
 }
 

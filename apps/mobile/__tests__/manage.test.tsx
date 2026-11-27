@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Linking } from 'react-native';
+import { Alert, Linking } from 'react-native';
 
 import { createFixtureDevice } from '@/data/fixtureSource';
 import { pickDeviceState } from '@/ui/manage/deviceState';
+import { serialCode } from '@/ui/manage/safetyCode';
 import { donationUrl, parseDonationAmount } from '@/ui/manage/links';
 import { checkMeasure, checkProfile, defaultMaxHr } from '@/ui/manage/validation';
 import { PARITY } from '@/ui/parity';
@@ -73,6 +74,14 @@ describe('More', () => {
     expect(screen.getByText('A')).toBeTruthy();
   });
 
+  it('opens Help on the terms page and shows the version under About', async () => {
+    await render(withAppData(<MoreScreen />));
+    expect(screen.getByText('v1.2.3 · open source')).toBeTruthy();
+    expect(screen.getByText('Profile, level and streaks')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('more-help'));
+    expect(router.push).toHaveBeenCalledWith('/settings/terms');
+  });
+
   it('shows no device value when nothing is known', async () => {
     const base = fixtureAppData();
     await render(withAppData(<MoreScreen />, 'en', { device: { ...base.device, model: null, batteryPercent: null } }));
@@ -122,8 +131,44 @@ describe('Device settings', () => {
       }),
     );
     expect(screen.getByTestId('hr-broadcast-status').props.children).toBe('Last set here: Off, 2 min ago');
-    await fireEvent.press(screen.getByTestId('hr-on'));
+    expect(screen.getByTestId('hr-toggle').props.value).toBe(false);
+    await fireEvent(screen.getByTestId('hr-toggle'), 'valueChange', true);
     expect(setHeartRateBroadcast).toHaveBeenCalledWith(true);
+  });
+
+  it('shows the serial and firmware in the hero, battery as a tile and battery health honestly', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<DeviceSettingsScreen />, 'en', { device: { ...base.device, serial: '4A01-77A7' } }));
+    expect(screen.getByText(`SN 4A01-77A7 · FW ${base.device.firmware ?? ''}`)).toBeTruthy();
+    expect(screen.getByTestId('device-battery-value')).toHaveTextContent(`${base.device.batteryPercent ?? ''}%`);
+    expect(within(screen.getByTestId('device-battery-health')).getByText('Not reported')).toBeTruthy();
+    expect(screen.getByText('Not read from the band yet')).toBeTruthy();
+  });
+
+  it('stores the wear location picked in the sheet', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<DeviceSettingsScreen />, 'en', { updateUserData }));
+    expect(within(screen.getByTestId('wear-row')).getByText('Not set')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('wear-row'));
+    await fireEvent.press(screen.getByTestId('wear-bicep'));
+    expect(updateUserData).toHaveBeenCalledWith({ wearLocation: 'bicep' });
+  });
+
+  it('counts the flags that still match the official profile', async () => {
+    const base = fixtureAppData();
+    const snapshot = JSON.stringify({
+      version: 1,
+      readAt: NOW_S - 600,
+      source: 'band',
+      flags: [
+        { key: 'enable_r22_packets', valueText: '1', valueHex: null },
+        { key: 'make_hrfm_visible', valueText: '2', valueHex: null },
+      ],
+      config: [],
+      changes: [{ kind: 'flag', key: 'make_hrfm_visible', original: '1', at: NOW_S - 300 }],
+    });
+    await render(withAppData(<DeviceSettingsScreen />, 'en', { device: { ...base.device, configSnapshot: snapshot } }));
+    expect(screen.getByText('1 of 2 match the official profile')).toBeTruthy();
   });
 
   it('says the band does not report the broadcast setting before OpenHoop changed it', async () => {
@@ -134,13 +179,33 @@ describe('Device settings', () => {
 });
 
 describe('Safety lock', () => {
-  it('keeps confirm disabled until the command is typed', async () => {
+  it('asks for the last four serial characters before the button turns on', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<SafetyLockScreen />, 'en', { device: { ...base.device, serial: '5B01-77A7', backlogPages: 12 } }));
+    expect(screen.getByText('Unpair this band?')).toBeTruthy();
+    expect(screen.getByText('Type 77A7 to confirm')).toBeTruthy();
+    expect(screen.getByTestId('safety-backlog')).toBeTruthy();
+    expect(screen.getByTestId('danger-confirm').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('danger-input'), '77A');
+    expect(screen.getByTestId('danger-confirm').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('danger-input'), '77a7');
+    expect(screen.getByTestId('danger-confirm').props.accessibilityState.disabled).toBe(false);
+    await fireEvent.press(screen.getByTestId('danger-confirm'));
+    expect(router.back).toHaveBeenCalled();
+  });
+
+  it('falls back to the word when the serial number is not known', async () => {
     await render(withAppData(<SafetyLockScreen />));
-    await fireEvent.press(screen.getByTestId('safety-entry'));
-    const confirm = screen.getByTestId('danger-confirm');
-    expect(confirm.props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByText('Type ERASE to confirm')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('danger-input'), 'ERASE');
     expect(screen.getByTestId('danger-confirm').props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('takes the code from the end of the serial number', () => {
+    expect(serialCode('5B01-77A7')).toBe('77A7');
+    expect(serialCode('ab12')).toBe('AB12');
+    expect(serialCode('12')).toBeNull();
+    expect(serialCode(null)).toBeNull();
   });
 });
 
@@ -160,6 +225,22 @@ describe('Not built screens', () => {
     expect(screen.queryByTestId('not-built-integrations')).toBeNull();
     await fireEvent.press(screen.getByTestId(testID));
     expect(router.push).toHaveBeenCalledWith('/settings/strava');
+  });
+});
+
+describe('Connect a provider', () => {
+  it('lists the partner providers honestly and explains that plug-ins are not built', async () => {
+    await render(withAppData(<ConnectProviderScreen />));
+    expect(within(screen.getByTestId('provider-hero')).getByText('These need a partner')).toBeTruthy();
+    expect(screen.getAllByText('No provider yet')).toHaveLength(3);
+    await fireEvent.press(screen.getByTestId('provider-add-plugin'));
+    expect(screen.getByTestId('provider-plugin-not-built')).toBeTruthy();
+  });
+
+  it('says teams need a server that is not built', async () => {
+    await render(withAppData(<ConnectProviderScreen />));
+    await fireEvent.press(screen.getByTestId('provider-teams'));
+    expect(screen.getByTestId('provider-teams-not-built')).toBeTruthy();
   });
 });
 
@@ -233,6 +314,24 @@ describe('Battery pack', () => {
     expect(screen.queryByText('64.7 %')).toBeNull();
   });
 
+  it('shows the pack charge in the ring, charges per week and honest tiles', async () => {
+    const base = fixtureAppData();
+    const chargeHistory = jest.fn(async () => [NOW_S - 2 * 86_400, NOW_S - 9 * 86_400]);
+    await render(withAppData(<BatteryPackScreen />, 'en', { device: { ...base.device, batteryPack: report }, chargeHistory }));
+    expect(screen.getByTestId('pack-hero-value')).toHaveTextContent('65%');
+    expect(within(screen.getByTestId('pack-cycles-tile')).getByText('Not reported')).toBeTruthy();
+    expect(await screen.findByTestId('pack-charges-bars')).toBeTruthy();
+    expect(chargeHistory).toHaveBeenCalled();
+    expect(screen.getByText("Counted from the band's own charging events.")).toBeTruthy();
+  });
+
+  it('says when no charging was recorded and shows no pack charge without a report', async () => {
+    await render(withAppData(<BatteryPackScreen />));
+    expect(await screen.findByText('No charging was recorded in the last 30 days.')).toBeTruthy();
+    expect(within(screen.getByTestId('pack-charge-tile')).getByText('No report yet')).toBeTruthy();
+    expect(screen.getByTestId('pack-hero-status')).toHaveTextContent('Charging state not reported');
+  });
+
   it('writes the charge the Dutch way', async () => {
     const base = fixtureAppData();
     await render(withAppData(<BatteryPackScreen />, 'nl', { device: { ...base.device, batteryPack: report } }));
@@ -248,14 +347,102 @@ describe('App settings', () => {
     await fireEvent.press(screen.getByText('Nederlands'));
     expect(updateSettings).toHaveBeenCalledWith({ language: 'nl' });
   });
+
+  it('switches units and theme', async () => {
+    const updateSettings = jest.fn(async () => undefined);
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<AppSettingsScreen />, 'en', { updateSettings, updateUserData }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Imperial' }));
+    expect(updateSettings).toHaveBeenCalledWith({ units: 'imperial' });
+    expect(screen.getByRole('tab', { name: 'System', selected: true })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Light' }));
+    expect(updateUserData).toHaveBeenCalledWith({ theme: 'light' });
+  });
+
+  it('applies a notification preset and saves the new switches', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const base = fixtureAppData();
+    const notifications = { ...base.userData.notifications, enabled: true };
+    await render(
+      withAppData(<AppSettingsScreen />, 'en', { updateUserData, notificationPermission: 'granted', userData: { ...base.userData, notifications } }),
+    );
+    expect(screen.getByRole('tab', { name: 'Standard', selected: true })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Everything' }));
+    expect(updateUserData).toHaveBeenLastCalledWith({ notifications: { ...notifications, morningDigest: true, syncProblems: true, goals: true, coachCheckins: true } });
+    await fireEvent(screen.getByTestId('toggle-goals'), 'valueChange', false);
+    expect(updateUserData).toHaveBeenLastCalledWith({ notifications: { ...notifications, goals: false } });
+    expect(screen.getByText('Turn on the coach under Data & privacy first')).toBeTruthy();
+  });
+
+  it('says when there is no earlier home layout', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<AppSettingsScreen />, 'en', { updateUserData }));
+    expect(screen.getByText('There is no earlier layout to go back to')).toBeTruthy();
+    expect(screen.getByText('Classic · default')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('restore-layout'));
+    expect(updateUserData).not.toHaveBeenCalled();
+  });
+
+  it('restores the previous home layout', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const base = fixtureAppData();
+    const userData = { ...base.userData, dashboardTiles: ['steps' as const], previousDashboardTiles: base.userData.dashboardTiles };
+    await render(withAppData(<AppSettingsScreen />, 'en', { updateUserData, userData }));
+    expect(screen.getByText('Classic · customised')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('restore-layout'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ dashboardTiles: base.userData.dashboardTiles, previousDashboardTiles: ['steps'] }));
+    expect(await screen.findByText('The previous layout is back')).toBeTruthy();
+  });
 });
 
 describe('Data and privacy', () => {
-  it('exports on request', async () => {
+  it('exports on request, as everything or one format', async () => {
     const exportData = jest.fn(async () => undefined);
     await render(withAppData(<PrivacyScreen />, 'en', { exportData }));
     await fireEvent.press(screen.getByTestId('export-button'));
-    await waitFor(() => expect(exportData).toHaveBeenCalled());
+    await waitFor(() => expect(exportData).toHaveBeenCalledWith('all'));
+    await fireEvent.press(screen.getByTestId('export-csv'));
+    await waitFor(() => expect(exportData).toHaveBeenLastCalledWith('csv'));
+    await fireEvent.press(screen.getByTestId('export-database'));
+    await waitFor(() => expect(exportData).toHaveBeenLastCalledWith('database'));
+  });
+
+  it('shows the database size and raw record count, and says when they are not read', async () => {
+    const storageStats = jest.fn(async () => ({ databaseBytes: 1_400_000_000, rawChunks: 30, rawFrames: 412_345, oldestRawAt: 1 }));
+    await render(withAppData(<PrivacyScreen />, 'en', { storageStats }));
+    expect(await screen.findByTestId('privacy-database-value')).toHaveTextContent('1.4 GB');
+    expect(screen.getByTestId('privacy-raw-value')).toHaveTextContent('412k');
+    expect(screen.getByText('All raw kept')).toBeTruthy();
+  });
+
+  it('asks before keeping less raw data and saves the retention', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => buttons?.[1]?.onPress?.());
+    await render(withAppData(<PrivacyScreen />, 'en', { updateUserData }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Raw 30 d' }));
+    expect(alert).toHaveBeenCalledWith('Remove older raw records?', expect.stringContaining('30 days'), expect.anything());
+    expect(updateUserData).toHaveBeenCalledWith({ rawRetentionDays: 30 });
+    alert.mockRestore();
+  });
+
+  it('says encrypted backup is not built and switches local-only mode', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<PrivacyScreen />, 'en', { updateUserData }));
+    expect(screen.getByTestId('backup-not-built')).toBeTruthy();
+    expect(screen.getByText('Local only')).toBeTruthy();
+    await fireEvent(screen.getByTestId('local-only-toggle'), 'valueChange', false);
+    expect(updateUserData).toHaveBeenCalledWith({ network: expect.objectContaining({ enabled: true }) });
+  });
+
+  it('deletes all data only after the word is typed, then starts onboarding', async () => {
+    const deleteAllData = jest.fn(async () => true);
+    await render(withAppData(<PrivacyScreen />, 'en', { deleteAllData }));
+    await fireEvent.press(screen.getByTestId('delete-all'));
+    expect(screen.getByTestId('danger-confirm').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('danger-input'), 'DELETE');
+    await fireEvent.press(screen.getByTestId('danger-confirm'));
+    await waitFor(() => expect(deleteAllData).toHaveBeenCalled());
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/onboarding'));
   });
 
   it('rejects an invalid owner-since date and saves an earlier one without a prompt', async () => {
@@ -275,7 +462,11 @@ describe('Data and privacy', () => {
 describe('About, accuracy and support', () => {
   it('shows the app version from the config', async () => {
     await render(withAppData(<AboutScreen />));
-    expect(screen.getByText('Version 1.2.3')).toBeTruthy();
+    expect(screen.getByTestId('about-version')).toHaveTextContent(/^(Version 1\.2\.3|v1\.2\.3 · build \d+)$/);
+    expect(screen.getByTestId('about-contributors')).toBeTruthy();
+    expect(screen.getByText('Not affiliated with WHOOP')).toBeTruthy();
+    expect(screen.getByTestId('about-terms')).toBeTruthy();
+    expect(screen.getByTestId('about-developer')).toBeTruthy();
     expect(screen.getAllByText(/not a medical device/i).length).toBeGreaterThan(0);
   });
 
@@ -284,6 +475,37 @@ describe('About, accuracy and support', () => {
     for (const key of Object.keys(PARITY)) expect(screen.getByTestId(`accuracy-${key}`)).toBeTruthy();
     expect(screen.getAllByText('Not measured yet').length).toBeGreaterThanOrEqual(Object.keys(PARITY).length);
     expect(screen.queryByText(/±/)).toBeNull();
+  });
+
+  it('shows measured differences with their target once official values are imported', async () => {
+    const base = fixtureAppData();
+    const days = base.days.filter((day) => day.readiness.value !== null);
+    const cycles = days.slice(0, 5).map((day) => ({
+      startT: day.start,
+      endT: day.end,
+      tzOffsetS: day.tzOffsetS,
+      day: day.day,
+      recoveryPct: (day.readiness.value ?? 0) + 2,
+      restingHr: null,
+      hrvMs: null,
+      skinTempC: null,
+      spo2Pct: null,
+      respiratoryRate: null,
+      dayStrain: null,
+    }));
+    await render(withAppData(<AccuracyScreen />, 'en', { vendorData: { cycles, sleeps: [], workouts: [], journal: [] } }));
+    expect(screen.getByTestId('accuracy-summary')).toHaveTextContent('1 of 1 metrics within target');
+    expect(screen.getByTestId('accuracy-result-readiness-value')).toHaveTextContent('±2.0 pts');
+    expect(screen.getByTestId('accuracy-result-readiness-target')).toHaveTextContent('✓ target 5');
+    expect(within(screen.getByTestId('accuracy-result-hrv')).getByText('Not measured yet')).toBeTruthy();
+    expect(within(screen.getByTestId('accuracy-readiness')).getByText('Measured')).toBeTruthy();
+  });
+
+  it('says nothing is measured on your data before an import', async () => {
+    await render(withAppData(<AccuracyScreen />));
+    expect(screen.getByTestId('accuracy-summary')).toHaveTextContent('Not measured on your data yet');
+    await fireEvent.press(screen.getByTestId('accuracy-import'));
+    expect(router.push).toHaveBeenCalledWith('/settings/import');
   });
 
   it('builds GitHub Sponsors checkout links', () => {
@@ -383,6 +605,8 @@ describe('System states', () => {
       expect(screen.getByTestId(`state-example-${id}`)).toBeTruthy();
     }
     expect(screen.getAllByText('Example')).toHaveLength(11);
+    expect(screen.getByText("Honest when there's nothing to show")).toBeTruthy();
+    expect(screen.getByTestId('states-board')).toBeTruthy();
   });
 
   it('picks the right device state', () => {

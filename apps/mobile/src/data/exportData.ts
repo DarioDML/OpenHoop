@@ -80,6 +80,13 @@ async function writePlaintextCopy(app: AppStore, target: File): Promise<boolean>
   }
 }
 
+export type ExportContent = 'all' | 'csv' | 'json' | 'database';
+
+export interface ExportOptions {
+  content?: ExportContent;
+  jsonFor?: (store: Store, table: ExportTable) => Promise<string>;
+}
+
 export interface ExportSummary {
   databaseIncluded: boolean;
   tables: number;
@@ -89,26 +96,42 @@ export async function exportAll(
   app: AppStore,
   csvFor: (store: Store, table: ExportTable) => Promise<string>,
   extraFiles: Readonly<Record<string, string>> = {},
+  options: ExportOptions = {},
 ): Promise<ExportSummary> {
+  const content = options.content ?? 'all';
   if (!(await isAvailableAsync())) throw new AppError('error.shareUnavailable');
   removeLeftoverExports();
   const folder = new Directory(Paths.cache, exportFolderName(new Date()));
   folder.create({ intermediates: true, overwrite: true });
   try {
     const archive: Zippable = {};
-    for (const table of EXPORT_TABLES) {
-      archive[`${table}.csv`] = [strToU8(await csvFor(app.store, table)), { level: 1 }];
+    if (content === 'all' || content === 'csv') {
+      for (const table of EXPORT_TABLES) {
+        archive[`${table}.csv`] = [strToU8(await csvFor(app.store, table)), { level: 1 }];
+      }
     }
-    for (const [name, text] of Object.entries(extraFiles)) {
-      archive[name] = [strToU8(text), { level: 1 }];
+    const jsonFor = options.jsonFor;
+    if (content === 'json' && jsonFor !== undefined) {
+      for (const table of EXPORT_TABLES) {
+        archive[`${table}.json`] = [strToU8(await jsonFor(app.store, table)), { level: 1 }];
+      }
+    }
+    if (content !== 'database') {
+      for (const [name, text] of Object.entries(extraFiles)) {
+        archive[name] = [strToU8(text), { level: 1 }];
+      }
     }
 
-    const plaintext = new File(folder, PLAINTEXT_NAME);
-    const databaseIncluded = await writePlaintextCopy(app, plaintext);
-    if (databaseIncluded) {
-      archive[PLAINTEXT_NAME] = [await plaintext.bytes(), { level: 0 }];
-      plaintext.delete();
+    let databaseIncluded = false;
+    if (content === 'all' || content === 'database') {
+      const plaintext = new File(folder, PLAINTEXT_NAME);
+      databaseIncluded = await writePlaintextCopy(app, plaintext);
+      if (databaseIncluded) {
+        archive[PLAINTEXT_NAME] = [await plaintext.bytes(), { level: 0 }];
+        plaintext.delete();
+      }
     }
+    if (content === 'database' && !databaseIncluded) throw new AppError('error.exportDatabase');
 
     const zip = new File(folder, ZIP_NAME);
     await zip.write(zipSync(archive));

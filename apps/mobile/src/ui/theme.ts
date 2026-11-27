@@ -1,4 +1,7 @@
+import { useSyncExternalStore } from 'react';
 import { useColorScheme, type TextStyle } from 'react-native';
+
+import { getThemePreference, isDarkScheme, subscribeThemePreference } from '@/lib/themePreference';
 
 export interface ColorTokens {
   background: string;
@@ -255,7 +258,8 @@ export interface Theme {
 
 export function useTheme(): Theme {
   const scheme = useColorScheme();
-  const dark = scheme !== 'light';
+  const preference = useSyncExternalStore(subscribeThemePreference, getThemePreference, getThemePreference);
+  const dark = isDarkScheme(preference, scheme);
   return { dark, colors: dark ? darkColors : lightColors };
 }
 

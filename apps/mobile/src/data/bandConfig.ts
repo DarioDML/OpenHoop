@@ -252,3 +252,32 @@ export function describeFields(kind: ConfigKind, entries: readonly ConfigEntry[]
   }
   return { known, unknown };
 }
+
+export interface OfficialProfileSummary {
+  total: number;
+  matching: number;
+  differs: ConfigChange[];
+}
+
+export function officialValue(snapshot: BandConfigSnapshot, kind: ConfigKind, entry: ConfigEntry): string | null {
+  return changeFor(snapshot, kind, entry.key)?.original ?? entry.valueText;
+}
+
+export function officialProfileSummary(snapshot: BandConfigSnapshot): OfficialProfileSummary {
+  const known = [...describeFields('flag', snapshot.flags).known, ...describeFields('config', snapshot.config).known].filter((row) => row.writable);
+  const differs = snapshot.changes.filter((change) => known.some((row) => row.kind === change.kind && row.entry.key === change.key && row.entry.valueText !== change.original));
+  return { total: known.length, matching: known.length - differs.length, differs };
+}
+
+export interface ConfigSnapshotEntry {
+  id: string;
+  at: number;
+  kind: 'read' | 'before-write';
+  key: string | null;
+  change: ConfigChange | null;
+}
+
+export function configSnapshots(snapshot: BandConfigSnapshot): ConfigSnapshotEntry[] {
+  const before: ConfigSnapshotEntry[] = snapshot.changes.map((change) => ({ id: `${change.kind}-${change.key}`, at: change.at, kind: 'before-write', key: change.key, change }));
+  return [{ id: 'read', at: snapshot.readAt, kind: 'read' as const, key: null, change: null }, ...before].sort((a, b) => a.at - b.at);
+}
