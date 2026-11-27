@@ -1,7 +1,10 @@
 import type { DayRecord } from '@openhoop/core';
 
-import { addDays, visibleReadiness } from '@/data/derived';
-import type { NotificationPrefs } from '@/data/userData';
+import type { StrengthSession } from '@openhoop/core';
+
+import { strengthWeekMinutes, weekProgress } from '@/data/dailyDerived';
+import { addDays, visibleReadiness, weekStart } from '@/data/derived';
+import type { NotificationPrefs, WeeklyPlan } from '@/data/userData';
 
 export const DIGEST_CLOCK = '07:00';
 export const DATA_AT_RISK_DAYS = 2;
@@ -31,10 +34,33 @@ export function digestFacts(days: readonly DayRecord[], now: Date): (day: string
   };
 }
 
+export const GOAL_KINDS = ['load', 'sleep', 'strength'] as const;
+export type GoalKind = (typeof GOAL_KINDS)[number];
+
+export interface GoalFact {
+  goal: GoalKind;
+  week: string;
+  count: number;
+  target: number;
+}
+
+export function goalFacts(days: readonly DayRecord[], plan: WeeklyPlan | null, sessions: readonly StrengthSession[], today: string): GoalFact[] {
+  if (plan === null) return [];
+  const week = weekStart(today);
+  const progress = weekProgress(days, today);
+  const facts: GoalFact[] = [
+    { goal: 'load', week, count: progress.loadCount, target: plan.loadDays },
+    { goal: 'sleep', week, count: progress.sleepCount, target: plan.sleepNights },
+  ];
+  if (plan.strengthMinutes !== undefined) facts.push({ goal: 'strength', week, count: strengthWeekMinutes(sessions, today).minutes, target: plan.strengthMinutes });
+  return facts.filter((fact) => fact.target > 0);
+}
+
 export type AlertPayload =
   | ({ kind: 'digest'; day: string } & DigestFacts)
   | { kind: 'syncFailed' }
-  | { kind: 'dataAtRisk'; days: number };
+  | { kind: 'dataAtRisk'; days: number }
+  | ({ kind: 'goal' } & GoalFact);
 
 export type AlertKind = AlertPayload['kind'];
 export type Alert = AlertPayload & { id: string; at: number };
@@ -49,6 +75,7 @@ export interface PlanInput {
   lastSyncAt: number | null;
   watchBand: boolean;
   fresh?: readonly Alert[];
+  goals?: readonly GoalFact[];
 }
 
 function pad(n: number): string {
@@ -125,12 +152,28 @@ export function syncFailedAlert(now: Date, prefs: NotificationPrefs, recentIds: 
   return { kind: 'syncFailed', id: `sync:${now.getTime()}`, at: outOfQuiet(now, prefs).getTime() };
 }
 
+export function goalAlertId(fact: Pick<GoalFact, 'goal' | 'week'>): string {
+  return `goal:${fact.goal}:${fact.week}`;
+}
+
+export function planGoals(input: Pick<PlanInput, 'now' | 'prefs' | 'sent' | 'pending' | 'goals'>): Alert[] {
+  const known = new Set([...input.sent, ...input.pending.map((alert) => alert.id)]);
+  const at = outOfQuiet(input.now, input.prefs).getTime();
+  return (input.goals ?? [])
+    .filter((fact) => fact.target > 0 && fact.count >= fact.target && !known.has(goalAlertId(fact)))
+    .map((fact) => ({ kind: 'goal', id: goalAlertId(fact), at, ...fact }));
+}
+
+function wanted(alert: Alert, prefs: NotificationPrefs): boolean {
+  if (alert.kind === 'digest') return prefs.morningDigest;
+  if (alert.kind === 'goal') return prefs.goals;
+  return prefs.syncProblems;
+}
+
 export function planAlerts(input: PlanInput): Alert[] {
   const { prefs, now } = input;
   if (!prefs.enabled) return [];
-  const planned: Alert[] = input.pending.filter(
-    (alert) => alert.at <= now.getTime() && (alert.kind === 'digest' ? prefs.morningDigest : prefs.syncProblems),
-  );
+  const planned: Alert[] = input.pending.filter((alert) => (alert.at <= now.getTime() || alert.kind === 'goal') && wanted(alert, prefs));
   if (prefs.syncProblems) {
     for (const alert of input.pending) {
       if (alert.kind === 'syncFailed' && alert.at > now.getTime()) planned.push(alert);
@@ -140,6 +183,7 @@ export function planAlerts(input: PlanInput): Alert[] {
     if (risk !== null) planned.push(risk);
   }
   if (prefs.morningDigest) planned.push(...planDigests(input));
+  if (prefs.goals) planned.push(...planGoals(input));
   const seen = new Set<string>();
   return planned
     .filter((alert) => {

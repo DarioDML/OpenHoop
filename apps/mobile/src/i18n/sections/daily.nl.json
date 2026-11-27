@@ -461,5 +461,18 @@
   "evening.b.highStress": "Een stressvolle dag",
   "evening.b.water": "Water",
   "evening.b.outdoors": "Tijd buiten",
-  "home.askAboutDay": "Vraag naar {day}"
+  "home.askAboutDay": "Vraag naar {day}",
+  "notif.goal.load.title": "Belastingsdoel gehaald",
+  "notif.goal.load.body": "Weekplan: {count} van {target} belastingsdagen.",
+  "notif.goal.sleep.title": "Slaapdoel gehaald",
+  "notif.goal.sleep.body": "Weekplan: slaap {count}/{target}.",
+  "notif.goal.strength.title": "Krachtdoel gehaald",
+  "notif.goal.strength.body": "Weekplan: {count} van {target} krachtminuten.",
+  "home.notif.goals": "Doelen",
+  "home.notif.today": "Vandaag",
+  "home.notif.earlier": "Eerder",
+  "home.notif.markAllRead": "Alles gelezen",
+  "home.notif.settingsA11y": "Meldingsinstellingen",
+  "home.notif.goalsSetting": "Weekdoelen",
+  "home.notif.goalsSettingBody": "Als je een doel uit je weekplan haalt"
 }

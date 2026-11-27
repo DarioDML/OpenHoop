@@ -461,5 +461,18 @@
   "evening.b.highStress": "A stressful day",
   "evening.b.water": "Water",
   "evening.b.outdoors": "Time outdoors",
-  "home.askAboutDay": "Ask about {day}"
+  "home.askAboutDay": "Ask about {day}",
+  "notif.goal.load.title": "Load goal reached",
+  "notif.goal.load.body": "Weekly plan: {count} of {target} load days.",
+  "notif.goal.sleep.title": "Sleep goal reached",
+  "notif.goal.sleep.body": "Weekly plan: sleep {count}/{target}.",
+  "notif.goal.strength.title": "Strength goal reached",
+  "notif.goal.strength.body": "Weekly plan: {count} of {target} strength minutes.",
+  "home.notif.goals": "Goals",
+  "home.notif.today": "Today",
+  "home.notif.earlier": "Earlier",
+  "home.notif.markAllRead": "Mark all read",
+  "home.notif.settingsA11y": "Notification settings",
+  "home.notif.goalsSetting": "Weekly goals",
+  "home.notif.goalsSettingBody": "When you reach a goal from your weekly plan"
 }

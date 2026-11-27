@@ -25,6 +25,7 @@ export interface NotificationPrefs {
   enabled: boolean;
   morningDigest: boolean;
   syncProblems: boolean;
+  goals: boolean;
   quietStart: string;
   quietEnd: string;
 }
@@ -85,7 +86,7 @@ export function defaultUserData(): UserData {
     previousDashboardTiles: null,
     homeSections: [...HOME_SECTIONS],
     previousHomeSections: null,
-    notifications: { enabled: false, morningDigest: true, syncProblems: true, quietStart: '22:00', quietEnd: '07:00' },
+    notifications: { enabled: false, morningDigest: true, syncProblems: true, goals: true, quietStart: '22:00', quietEnd: '07:00' },
     journalQuestions: null,
     journal: {},
     weeklyPlan: null,
@@ -210,6 +211,7 @@ export function parseUserData(raw: string | null): UserData {
       enabled: notifications.enabled === true,
       morningDigest: typeof notifications.morningDigest === 'boolean' ? notifications.morningDigest : base.notifications.morningDigest,
       syncProblems: typeof notifications.syncProblems === 'boolean' ? notifications.syncProblems : base.notifications.syncProblems,
+      goals: typeof notifications.goals === 'boolean' ? notifications.goals : base.notifications.goals,
       quietStart: clockOr(notifications.quietStart, base.notifications.quietStart),
       quietEnd: clockOr(notifications.quietEnd, base.notifications.quietEnd),
     },

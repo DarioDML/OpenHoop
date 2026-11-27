@@ -13,6 +13,12 @@ export function alertText(language: Language, alert: AlertPayload): AlertText {
   if (alert.kind === 'syncFailed') {
     return { title: translate(language, 'notif.syncFailed.title'), body: translate(language, 'notif.syncFailed.body') };
   }
+  if (alert.kind === 'goal') {
+    return {
+      title: translate(language, `notif.goal.${alert.goal}.title`),
+      body: translate(language, `notif.goal.${alert.goal}.body`, { count: alert.count, target: alert.target }),
+    };
+  }
   if (alert.kind === 'dataAtRisk') {
     return { title: translate(language, 'notif.dataAtRisk.title'), body: translate(language, 'notif.dataAtRisk.body', { days: alert.days }) };
   }

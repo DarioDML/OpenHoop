@@ -1,4 +1,4 @@
-import { INBOX_LIMIT, SENT_LIMIT, type Alert, type NotificationLedger } from '@/lib/notificationPlan';
+import { GOAL_KINDS, INBOX_LIMIT, SENT_LIMIT, goalAlertId, type Alert, type NotificationLedger } from '@/lib/notificationPlan';
 
 export const NOTIFICATION_STATE_KEY = 'notifications.state';
 const MAX_PENDING = 20;
@@ -12,7 +12,7 @@ function isRecord(value: Json | undefined): value is { [key: string]: Json } {
 }
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
-const ALERT_ID = /^(digest:\d{4}-\d{2}-\d{2}|risk:\d{1,15}|sync:\d{1,15})$/;
+const ALERT_ID = /^(digest:\d{4}-\d{2}-\d{2}|risk:\d{1,15}|sync:\d{1,15}|goal:(load|sleep|strength):\d{4}-\d{2}-\d{2})$/;
 
 function score(value: Json | undefined, max: number): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max ? value : null;
@@ -28,6 +28,14 @@ function parseAlert(value: Json | undefined): Alert | null {
     return { kind, id, at, day: value.day, readiness: score(value.readiness, 100), sleepScore: score(value.sleepScore, 100), load: score(value.load, 21) };
   }
   if (kind === 'syncFailed' && id.startsWith('sync:')) return { kind, id, at };
+  if (kind === 'goal') {
+    const goal = GOAL_KINDS.find((candidate) => candidate === value.goal);
+    const { week, count, target } = value;
+    if (goal === undefined || typeof week !== 'string' || !ISO_DAY.test(week) || id !== goalAlertId({ goal, week })) return null;
+    if (typeof count !== 'number' || !Number.isInteger(count) || count < 0 || count > 10_000) return null;
+    if (typeof target !== 'number' || !Number.isInteger(target) || target <= 0 || target > 10_000) return null;
+    return { kind, id, at, goal, week, count, target };
+  }
   if (kind === 'dataAtRisk' && id.startsWith('risk:')) {
     const days = typeof value.days === 'number' && Number.isInteger(value.days) && value.days > 0 && value.days <= 3650 ? value.days : null;
     return days === null ? null : { kind, id, at, days };

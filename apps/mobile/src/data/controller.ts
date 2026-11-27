@@ -143,7 +143,7 @@ import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, todayIsoDate, unixToIsoDate } from '@/lib/dates';
 import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
-import { digestFacts, planAlerts, reconcile, syncFailedAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
+import { digestFacts, goalFacts, localDay, planAlerts, reconcile, syncFailedAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 import { buildWidgetFile } from '@/lib/widgetSnapshot';
 import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
@@ -1701,6 +1701,7 @@ export class AppController {
             pending: settled.pending,
             sent: settled.sent,
             factsFor: digestFacts(this.snapshot.days, now),
+            goals: goalFacts(this.snapshot.days, userData.weeklyPlan, this.snapshot.strength.sessions, localDay(now)),
             lastSyncAt: this.lastSyncAt === null ? null : this.lastSyncAt * 1000,
             watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
             fresh,
