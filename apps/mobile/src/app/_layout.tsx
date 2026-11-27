@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import { CoachProvider } from '@/coach/CoachProvider';
 import { LiveProvider } from '@/data/LiveProvider';
 import { expoNotifier } from '@/data/notifier';
+import { StravaProvider } from '@/strava/StravaProvider';
 import { useAppFonts } from '@/ui/fonts';
 import { darkColors, useTheme } from '@/ui/theme';
 
@@ -41,7 +42,9 @@ export default function RootLayout() {
     <LiveProvider>
       {fontsReady ? (
         <CoachProvider>
-          <RootStack />
+          <StravaProvider>
+            <RootStack />
+          </StravaProvider>
         </CoachProvider>
       ) : (
         <View style={{ flex: 1, backgroundColor: darkColors.background }} />

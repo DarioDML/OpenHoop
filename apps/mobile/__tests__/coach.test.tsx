@@ -32,7 +32,7 @@ import PrivacyScreen from '@/app/settings/privacy';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const latest = days[days.length - 1];
-const NETWORK_ON = { enabled: true, features: { coach: true, maps: false, labs: false } };
+const NETWORK_ON = { enabled: true, features: { coach: true, maps: false, labs: false, strava: false } };
 
 function userData(network = NETWORK_ON, coach = defaultCoachPrefs()) {
   return { ...fixtureAppData().userData, network, coach };
@@ -270,14 +270,14 @@ describe('privacy network settings', () => {
     expect(screen.getByTestId('network-feature-labs').props.value).toBe(false);
     expect(screen.getByText('Read lab reports with Claude')).toBeTruthy();
     fireEvent(screen.getByTestId('network-global-toggle'), 'valueChange', true);
-    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: false, maps: false, labs: false } } });
+    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: false, maps: false, labs: false, strava: false } } });
   });
 
   it('switches the coach feature on once network features are on', async () => {
     const updateUserData = jest.fn(async () => true);
     const { controller } = makeController();
-    await render(withCoach(<PrivacyScreen />, controller, { updateUserData, userData: userData({ enabled: true, features: { coach: false, maps: false, labs: false } }) }));
+    await render(withCoach(<PrivacyScreen />, controller, { updateUserData, userData: userData({ enabled: true, features: { coach: false, maps: false, labs: false, strava: false } }) }));
     fireEvent(screen.getByTestId('network-feature-coach'), 'valueChange', true);
-    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: true, maps: false, labs: false } } });
+    expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: true, maps: false, labs: false, strava: false } } });
   });
 });

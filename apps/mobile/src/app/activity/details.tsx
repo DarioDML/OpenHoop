@@ -18,6 +18,7 @@ import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
 import { Screen } from '@/ui/Screen';
 import { Section } from '@/ui/Section';
+import { StravaUploadCard } from '@/ui/strava/StravaUploadCard';
 import { IconButton, TopBar } from '@/ui/TopBar';
 import { displayedZones, ZoneBar } from '@/ui/ZoneBar';
 
@@ -128,6 +129,7 @@ export default function ActivityDetailsScreen() {
         </AppText>
       </Card>
       <RouteSection activityId={entry.id} activeS={m.activeS} type={entry.type} />
+      <StravaUploadCard entry={entry} title={entryTitle(t, entry)} tzOffsetS={tzOffsetS} />
       <Button label={t('activity.details.edit')} variant="secondary" onPress={() => router.push({ pathname: '/activity/edit', params: query })} testID="detail-edit" />
       <Button label={t('activity.delete')} variant="danger" disabled={deleting} onPress={() => void remove()} testID="detail-delete" />
     </Screen>

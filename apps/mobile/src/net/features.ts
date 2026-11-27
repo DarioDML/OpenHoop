@@ -1,12 +1,13 @@
 import { isRecord, type Json } from '@/lib/json';
 
-export const NETWORK_FEATURES = ['coach', 'maps', 'labs'] as const;
+export const NETWORK_FEATURES = ['coach', 'maps', 'labs', 'strava'] as const;
 export type NetworkFeature = (typeof NETWORK_FEATURES)[number];
 
 export const FEATURE_HOSTS: Readonly<Record<NetworkFeature, readonly string[]>> = {
   coach: ['api.anthropic.com'],
   maps: ['tile.openstreetmap.org'],
   labs: ['api.anthropic.com'],
+  strava: ['www.strava.com'],
 };
 
 export interface NetworkPrefs {
@@ -15,7 +16,7 @@ export interface NetworkPrefs {
 }
 
 function allFeatures(value: (feature: NetworkFeature) => boolean): Record<NetworkFeature, boolean> {
-  const out: Record<NetworkFeature, boolean> = { coach: false, maps: false, labs: false };
+  const out: Record<NetworkFeature, boolean> = { coach: false, maps: false, labs: false, strava: false };
   for (const feature of NETWORK_FEATURES) out[feature] = value(feature);
   return out;
 }

@@ -55,7 +55,7 @@ import PrivacyScreen from '@/app/settings/privacy';
 const LAT = 51.05;
 const LON = 3.72;
 const M_PER_DEG = 111_195;
-const MAPS_ON: NetworkPrefs = { enabled: true, features: { coach: false, maps: true, labs: false } };
+const MAPS_ON: NetworkPrefs = { enabled: true, features: { coach: false, maps: true, labs: false, strava: false } };
 
 function location(tMs: number, northM: number, accuracy = 5): LocationObject {
   return {

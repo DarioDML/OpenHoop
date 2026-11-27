@@ -42,13 +42,15 @@ afterEach(() => {
 });
 
 describe('Integrations (M4) with Health Connect', () => {
-  it('starts with every type off, nothing to sync, and the other providers honestly not built', async () => {
+  it('starts with every type off, nothing to sync, Strava off and the partner providers explained', async () => {
     await render(withAppData(<IntegrationsScreen />, 'en', { settings: bandSettings() }));
     expect(within(screen.getByTestId('hc-status')).getByText('Off')).toBeTruthy();
     expect(screen.getByTestId('hc-toggle-sleep').props.value).toBe(false);
     expect(screen.getByTestId('hc-sync').props.accessibilityState.disabled).toBe(true);
     expect(screen.getByText('Not synced yet')).toBeTruthy();
-    expect(screen.getByTestId('not-built-integrations')).toBeTruthy();
+    expect(within(screen.getByTestId('strava-status')).getByText('Off')).toBeTruthy();
+    expect(screen.getByTestId('integrations-others')).toBeTruthy();
+    expect(screen.queryByTestId('not-built-integrations')).toBeNull();
     expect(screen.queryByTestId('hc-demo-note')).toBeNull();
   });
 

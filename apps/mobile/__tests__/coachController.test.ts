@@ -17,7 +17,7 @@ function context(overrides: Partial<SendContext> = {}): SendContext {
     today,
     language: 'en',
     prefs: defaultCoachPrefs(),
-    network: { enabled: true, features: { coach: true, maps: false, labs: false } },
+    network: { enabled: true, features: { coach: true, maps: false, labs: false, strava: false } },
     ...overrides,
   };
 }
@@ -81,8 +81,8 @@ describe('coach controller', () => {
 
   it('sends nothing and stores nothing while the network is off', async () => {
     const { controller, send, repo } = makeController();
-    expect(await controller.send('Hi', context({ network: { enabled: false, features: { coach: true, maps: false, labs: false } } }))).toBe(false);
-    expect(await controller.send('Hi', context({ network: { enabled: true, features: { coach: false, maps: false, labs: false } } }))).toBe(false);
+    expect(await controller.send('Hi', context({ network: { enabled: false, features: { coach: true, maps: false, labs: false, strava: false } } }))).toBe(false);
+    expect(await controller.send('Hi', context({ network: { enabled: true, features: { coach: false, maps: false, labs: false, strava: false } } }))).toBe(false);
     expect(send).not.toHaveBeenCalled();
     expect(repo.written).toEqual([]);
     expect(controller.getState().error).toBe('network-off');
