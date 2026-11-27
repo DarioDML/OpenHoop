@@ -30,6 +30,9 @@ interface Props {
   color?: string;
   unit?: string;
   sublabel?: string;
+  numberSize?: number;
+  unitSize?: number;
+  sublabelSize?: number;
   tickValue?: number | null;
   building?: BuildingRing | null;
   onExplain?: () => void;
@@ -50,6 +53,9 @@ export function ScoreRing({
   color,
   unit,
   sublabel,
+  numberSize,
+  unitSize,
+  sublabelSize = 9,
   tickValue = null,
   building = null,
   onExplain,
@@ -83,11 +89,11 @@ export function ScoreRing({
         </View>
       ) : value !== null ? (
         <View style={{ alignItems: 'center', gap: 2 }}>
-          <Num size={Math.round(size * 0.38)} color={numberColor} unit={unit} unitSize={Math.round(size * 0.17)}>
+          <Num size={numberSize ?? Math.round(size * 0.38)} color={numberColor} unit={unit} unitSize={unitSize ?? Math.round(size * 0.17)}>
             {formatNumber(value, decimals, language)}
           </Num>
           {sublabel ? (
-            <AppText variant="capSmall" color={numberColor} style={{ fontSize: 9, lineHeight: 11 }}>
+            <AppText variant="capSmall" color={numberColor} style={{ fontSize: sublabelSize, lineHeight: Math.round(sublabelSize * 1.25) }}>
               {sublabel}
             </AppText>
           ) : null}

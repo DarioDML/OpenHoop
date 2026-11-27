@@ -77,8 +77,6 @@
   "readiness.points": "{value} points",
   "readiness.howTitle": "How it is computed",
   "readiness.howBody": "Readiness compares your night with your own normal. Three signals count: your HRV (above your average is favourable), your sleep (the sleep score) and your resting heart rate (below your average is favourable). Each signal adds or costs points. Together they give a number from 0 to 100.",
-  "readiness.modelTitle": "A fitted model, not a measurement",
-  "readiness.modelBody": "The formula was fitted to the outputs of another product and may differ for you. Use the score to follow your own trend, not as a medical judgement.",
   "load.scale": "Scale from 0 to 21",
   "load.zones": "Time per heart rate zone",
   "load.zonesTotal": "Total {time}",

@@ -71,6 +71,14 @@ export function temperatureUnit(units: Units): string {
   return units === 'imperial' ? '°F' : '°C';
 }
 
+export function temperatureIn(celsius: number, units: Units): number {
+  return units === 'imperial' ? (celsius * 9) / 5 + 32 : celsius;
+}
+
+export function temperatureDeltaIn(deltaCelsius: number, units: Units): number {
+  return units === 'imperial' ? (deltaCelsius * 9) / 5 : deltaCelsius;
+}
+
 export function formatTemperature(celsius: number, units: Units, language: Language, decimals = 1): Measure {
   const value = units === 'imperial' ? (celsius * 9) / 5 + 32 : celsius;
   return { value: formatNumber(value, decimals, language), unit: temperatureUnit(units) };
