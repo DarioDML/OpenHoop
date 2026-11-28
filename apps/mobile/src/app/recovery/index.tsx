@@ -1,11 +1,12 @@
 import type { DayRecord, Derived } from '@openhoop/core';
-import { router, type Href } from 'expo-router';
+import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { loadTargetBand } from '@/data/activityDerived';
 import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { useAppData } from '@/data/context';
 import { sliceEndingAt } from '@/data/dailyDerived';
+import { pastDayOf, useDayIndex, withDay } from '@/ui/daily/useDayParam';
 import { baselineAt, shownLoad, visibleReadiness, type MetricKey } from '@/data/derived';
 import { buildingProgress, remaining } from '@/data/progress';
 import { contributorDelta, loadAimRange, readinessVerdict, type ContributorDelta, type ContributorId } from '@/data/readinessDerived';
@@ -39,7 +40,7 @@ interface ContributorSpec {
   key: MetricKey;
   decimals: number;
   unit: TranslationKey | null;
-  href: Href;
+  href: string;
   pick: (day: DayRecord) => Derived;
 }
 
@@ -59,7 +60,8 @@ export default function ReadinessScreen() {
   const { colors } = useTheme();
   const units = useUnits();
   const explain = useExplain();
-  const index = days.length - 1;
+  const index = useDayIndex(days);
+  const pastDay = pastDayOf(days, index);
   const day = days[index];
   if (!day) return <NoDataPage title={t('screen.readiness')} body={t('empty.body')} />;
 
@@ -103,7 +105,7 @@ export default function ReadinessScreen() {
       value: shown,
       unit,
       chip,
-      href: spec.href,
+      href: withDay(spec.href, pastDay),
       explain: { term: spec.term, index, shown: { value: shown, unit: unit ?? null, reason: derived.reason } },
     };
   });
@@ -118,7 +120,7 @@ export default function ReadinessScreen() {
     value: deviationShown?.value ?? null,
     unit: deviationShown?.unit,
     chip: tempChip,
-    href: '/recovery/metric/temp',
+    href: withDay('/recovery/metric/temp', pastDay),
     explain: { term: 'skinTempChange', index, shown: { value: deviationShown?.value ?? null, unit: deviationShown?.unit ?? null, reason: deviation.reason } },
   });
 

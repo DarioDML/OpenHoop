@@ -333,6 +333,17 @@ describe('Home', () => {
 });
 
 describe('Past day', () => {
+  it('opens the ring screens for the day being viewed', async () => {
+    mockParams = { day: previous?.day };
+    await render(withAppData(<PastDayScreen />));
+    await fireEvent.press(screen.getByTestId('ring-sleep'));
+    expect(mockPush).toHaveBeenCalledWith(`/sleep?day=${previous?.day}`);
+    await fireEvent.press(screen.getByTestId('ring-readiness'));
+    expect(mockPush).toHaveBeenCalledWith(`/recovery?day=${previous?.day}`);
+    await fireEvent.press(screen.getByTestId('ring-load'));
+    expect(mockPush).toHaveBeenCalledWith(`/load?day=${previous?.day}`);
+  });
+
   it('renders a recorded day and offers a way back', async () => {
     mockParams = { day: previous?.day };
     await render(withAppData(<PastDayScreen />));

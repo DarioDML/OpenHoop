@@ -49,6 +49,16 @@ describe('Readiness screen', () => {
     expect(screen.getByTestId('readiness-verdict')).toHaveTextContent(/Train, but keep it moderate\.$/);
   });
 
+  it('shows the day passed in the link instead of today', async () => {
+    const past = days.map((d, i) => (i === days.length - 2 ? { ...d, readiness: { ...d.readiness, value: 84, reason: null }, readinessCalibrating: false } : i === days.length - 1 ? { ...d, readiness: { ...d.readiness, value: 52, reason: null }, readinessCalibrating: false } : d));
+    const day = past[past.length - 2]?.day;
+    mockParams = { day };
+    await render(withAppData(<ReadinessScreen />, 'en', { days: past }));
+    expect(screen.getByTestId('readiness-verdict')).toHaveTextContent('Your body has recovered well. A good day to push.');
+    await fireEvent.press(screen.getByTestId('row-hrv'));
+    expect(mockPush).toHaveBeenCalledWith(`/recovery/metric/hrv?day=${day}`);
+  });
+
   it('praises a high score', async () => {
     await render(withAppData(<ReadinessScreen />, 'en', { days: scoredDays(84) }));
     expect(screen.getByTestId('readiness-verdict')).toHaveTextContent('Your body has recovered well. A good day to push.');

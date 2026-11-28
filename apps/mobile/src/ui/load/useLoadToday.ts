@@ -29,11 +29,11 @@ export interface LoadToday {
   nowS: number;
 }
 
-export function useLoadToday(): LoadToday | null {
+export function useLoadToday(dayIndex?: number): LoadToday | null {
   const { days, profile, userData, cycle } = useAppData();
   const live = useLive();
   const nowS = useExplain().nowS();
-  const index = days.length - 1;
+  const index = dayIndex ?? days.length - 1;
   const day = days[index];
   if (day === undefined) return null;
   const isToday = day.day === unixToIsoDate(nowS, deviceTzOffsetS(new Date(nowS * 1000)));
