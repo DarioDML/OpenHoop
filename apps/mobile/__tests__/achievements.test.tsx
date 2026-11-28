@@ -1,5 +1,6 @@
 import type { DayRecord } from '@openhoop/core';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { achievements, levelOf, lifetimeStats, longestRun, longestStreak, type Achievement } from '@/data/activityDerived';
 import { createFixtureDays } from '@/data/fixtureSource';
@@ -85,5 +86,16 @@ describe('achievements screen', () => {
     expect(locked.length).toBeGreaterThan(0);
     for (const a of locked) expect(screen.getByTestId(`ach-${a.id}-progress`)).toBeTruthy();
     expect(screen.getAllByText('Locked').length).toBeGreaterThan(locked.length - 1);
+  });
+
+  it('reserves the locked pill slot in every cell so progress lines align', async () => {
+    await render(withAppData(<AchievementsScreen />));
+    const list = achievements(days);
+    expect(list.some((a) => a.unlocked)).toBe(true);
+    for (const a of list) {
+      const slot = screen.getByTestId(`ach-${a.id}-pill`, { includeHiddenElements: true });
+      expect(StyleSheet.flatten(slot.props.style).opacity).toBe(a.unlocked ? 0 : 1);
+      expect(slot.props.accessibilityElementsHidden).toBe(a.unlocked);
+    }
   });
 });
