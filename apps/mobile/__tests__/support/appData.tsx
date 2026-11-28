@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { AppDataContext, LiveDataContext } from '@/data/context';
 import { createFixtureDays, createFixtureDevice, createFixtureSettings } from '@/data/fixtureSource';
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
-import type { AlarmActions, AppData, BandActions, EcgActions, Language, LiveData, LiveDataStore, StrengthActions } from '@/data/types';
+import type { AlarmActions, AppData, BandActions, EcgActions, Language, LiveData, LiveDataStore, RawStreamActions, StrengthActions } from '@/data/types';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { defaultUserData } from '@/data/userData';
 
@@ -48,6 +48,10 @@ export function fixtureEcgActions(): EcgActions {
   return { start: async () => 1, stop: () => undefined, samples: async () => [], remove: async () => true, setSymptoms: async () => true };
 }
 
+export function fixtureRawStreams(): RawStreamActions {
+  return { start: async () => true, stop: async () => undefined, setBandRecording: async () => true, imuSeconds: () => [], opticalSeconds: () => [] };
+}
+
 export type AppDataOverrides = Partial<AppData & LiveData>;
 
 export function fixtureLiveData(overrides: AppDataOverrides = {}): LiveData {
@@ -56,6 +60,7 @@ export function fixtureLiveData(overrides: AppDataOverrides = {}): LiveData {
     syncProgress: overrides.syncProgress ?? null,
     pendingDelete: overrides.pendingDelete ?? null,
     ecgLive: overrides.ecgLive ?? { active: false, elapsedMs: 0, samples: 0, tail: [], quality: null },
+    rawLive: overrides.rawLive ?? { owners: { developer: [], workout: [] }, imu: null, optical: null },
   };
 }
 
@@ -64,7 +69,7 @@ export function staticLiveStore(data: LiveData): LiveDataStore {
 }
 
 export function fixtureAppData(language: Language = 'en', overrides: AppDataOverrides = {}): AppData {
-  const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ecgLive: _ecgLive, ...appOverrides } = overrides;
+  const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ecgLive: _ecgLive, rawLive: _rawLive, ...appOverrides } = overrides;
   const noop = async (): Promise<void> => undefined;
   return {
     ready: true,
@@ -98,6 +103,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     ecgRecordings: [],
     ecgWrist: 'left',
     ecgActions: fixtureEcgActions(),
+    rawStreams: fixtureRawStreams(),
     stopLive: noop,
     exportData: noop,
     storageStats: async () => null,

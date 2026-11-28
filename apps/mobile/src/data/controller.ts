@@ -143,6 +143,8 @@ import {
   type DonationDay,
   type DonationProgress,
 } from '@openhoop/core';
+import { RawStreamError, insertSignals } from '@openhoop/core';
+import type { StreamKind } from '@openhoop/core';
 import { spo2Windows } from '@openhoop/analytics';
 import type { Profile as AnalyticsProfile } from '@openhoop/analytics';
 import { commandName, formatFirmware, type Wrist } from '@openhoop/protocol';
@@ -151,7 +153,7 @@ import Constants from 'expo-constants';
 import { getRandomBytes } from 'expo-crypto';
 import { Directory } from 'expo-file-system';
 import { getLocales } from 'expo-localization';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { dayEntries, DELETE_UNDO_MS } from './activities';
 import { BleManagerTransport } from '@/ble/bleManagerTransport';
@@ -235,6 +237,10 @@ import { buzzIfConnected } from './bandBuzz';
 import { LoadBuzzRunner } from './loadBuzzRunner';
 import { loadTargetsHidden } from './pregnancyPrefs';
 import { changesAppData } from './liveData';
+import { IDLE_RAW_LIVE } from './rawLive';
+import type { RawLiveState } from './rawLive';
+import { RawStreamManager, StreamBusyError } from './rawStreamManager';
+import type { StreamOwner } from './rawStreamPolicy';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, storeProfile } from './settingsCodec';
 import { analyticsProfileOf, emptyProfile, mergeProfile } from './profile';
 import { createDonationWorkspace, filePartSink, removeLeftoverDonations, saveDonationParts, sharePartFile, type SaveOutcome } from './donation/files';
@@ -243,6 +249,7 @@ import type {
   AlarmActions,
   AlarmSaveOutcome,
   EcgActions,
+  RawStreamActions,
   EcgLiveState,
   AlarmView,
   AppData,
@@ -320,6 +327,7 @@ export interface Snapshot {
   ecgRecordings: EcgSummary[];
   ecgWrist: Wrist;
   ecgLive: EcgLiveState;
+  rawLive: RawLiveState;
 }
 
 interface Connection {
@@ -351,6 +359,14 @@ const ECG_PROGRESS_MS = 200;
 const RING_WAIT_MS = 40_000;
 
 const ECG_WRIST_KEY = 'ecg.wrist';
+
+const STREAM_CAP_CHECK_MS = 1_000;
+
+function streamProblem(error: unknown): unknown {
+  if (error instanceof StreamBusyError) return new AppError('error.streamsBusy');
+  if (error instanceof RawStreamError) return new AppError('error.streamRefused');
+  return error;
+}
 
 function ecgCleanupKey(deviceId: number): string {
   return `ecg.cleanup.${deviceId}`;
@@ -487,6 +503,7 @@ export class AppController {
       ecgRecordings: [],
       ecgWrist: 'left',
       ecgLive: IDLE_ECG,
+      rawLive: IDLE_RAW_LIVE,
     };
   }
 
@@ -568,6 +585,12 @@ export class AppController {
   private async startOnce(): Promise<void> {
     if (this.started) return;
     this.started = true;
+    AppState.addEventListener('change', (state) => {
+      if (state !== 'active') void this.streams.background();
+    });
+    setInterval(() => {
+      if (this.streams.active().length > 0) void this.streams.checkCaps();
+    }, STREAM_CAP_CHECK_MS);
     try {
       removeLeftoverExports();
       removeLeftoverReports();
@@ -778,6 +801,7 @@ export class AppController {
   private async dropConnection(): Promise<void> {
     const conn = this.conn;
     this.conn = null;
+    this.streams.detach();
     if (conn === null) return;
     try {
       await conn.session.close();
@@ -801,7 +825,10 @@ export class AppController {
       const info = await readDeviceInformation(transport);
       const logged = loggedTransport(transport);
       const session = new Session(logged, { now: () => Date.now() });
-      session.onPacket((packet, raw) => packetLog.record('rx', describePacket(packet), raw));
+      session.onPacket((packet, raw) => {
+        packetLog.record('rx', describePacket(packet), raw);
+        this.streams.onPacket(session, packet);
+      });
       const hello = await session.open();
       const row = await store.upsertDevice({
         bleId,
@@ -827,6 +854,7 @@ export class AppController {
       if ((await store.getSetting(ecgCleanupKey(row.id))) === '1' && (await stopEcg(session))) {
         await store.setSetting(ecgCleanupKey(row.id), '');
       }
+      await this.streams.attach(conn);
       this.battery = await session.battery().catch(() => hello.batteryPercent);
       this.setConnection('connected');
       return conn;
@@ -883,6 +911,10 @@ export class AppController {
 
   sync = (): Promise<void> => {
     if (this.syncRun !== null) return this.syncRun;
+    if (this.streams.hasOwner('developer')) {
+      this.fail(new AppError('error.syncStreamsOn'));
+      return Promise.resolve();
+    }
     const run = this.exclusive(() => this.runSync()).then(
       () => {
         if (this.snapshot.healthConnect.state.afterBandSync && this.snapshot.settings.dataSource === 'band') void this.syncHealthConnect();
@@ -1311,6 +1343,29 @@ export class AppController {
   };
 
   private ecgAbort: AbortController | null = null;
+  private readonly streams = new RawStreamManager({
+    exclusive: (task) => this.exclusive(task),
+    current: () => this.conn,
+    connect: () => this.ensureConnection(),
+    getSetting: (key) => this.requireApp().store.getSetting(key),
+    setSetting: (key, value) => this.requireApp().store.setSetting(key, value),
+    busy: () => ({ ecg: this.ecgAbort !== null, syncing: this.syncRun !== null }),
+    storeImu: (deviceId, second) => {
+      const row = { deviceId, t: Math.floor(second.t), rateHz: second.rateHz, accel: second.accel, gyro: second.gyro };
+      void insertSignals(this.requireApp().store.driver, { imu: [row], optical: [] }, null).catch((error: unknown) => this.fail(error));
+    },
+    publish: (state) => this.patch({ rawLive: state }),
+    report: (error) => this.fail(streamProblem(error)),
+    now: () => Date.now(),
+  });
+
+  private readonly rawStreamSet: RawStreamActions = {
+    start: (owner: StreamOwner, kinds: readonly StreamKind[]) => this.streams.start(owner, kinds),
+    stop: (owner: StreamOwner) => this.streams.stop(owner),
+    setBandRecording: (on: boolean) => this.streams.setBandRecording(on),
+    imuSeconds: () => this.streams.imuSeconds(),
+    opticalSeconds: () => this.streams.opticalSeconds(),
+  };
   private startRun: Promise<void> | null = null;
   private quietSync = false;
 
@@ -1340,6 +1395,10 @@ export class AppController {
   private async startEcg(wrist: Wrist): Promise<number | null> {
     if (this.syncRun !== null || this.liveAbort !== null || this.ecgAbort !== null) {
       this.fail(new AppError('error.bandBusy'));
+      return null;
+    }
+    if (this.streams.active().length > 0) {
+      this.fail(new AppError('error.ecgStreamsOn'));
       return null;
     }
     const abort = new AbortController();
@@ -2358,6 +2417,7 @@ export class AppController {
   deleteAllData = async (): Promise<boolean> => {
     const app = this.requireApp();
     await this.stopLiveInternal();
+    await this.streams.releaseAll();
     try {
       await this.exclusive(async () => {
         const conn = this.conn;
@@ -2437,7 +2497,7 @@ export class AppController {
   };
 
   private appData(): AppData {
-    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ecgLive: _ecgLive, ...snapshot } = this.snapshot;
+    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ecgLive: _ecgLive, rawLive: _rawLive, ...snapshot } = this.snapshot;
     return {
       ...snapshot,
       sleepEditLimits: { napMaxS: MANUAL_NAP_MAX_S, sleepMaxS: EDITED_SLEEP_MAX_S },
@@ -2450,6 +2510,7 @@ export class AppController {
       bandActions: this.bandActionSet,
       alarmActions: this.alarmActionSet,
       ecgActions: this.ecgActionSet,
+      rawStreams: this.rawStreamSet,
       stopLive: this.stopLive,
       exportData: this.exportData,
       storageStats: this.storageStats,

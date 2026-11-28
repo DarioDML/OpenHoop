@@ -31,7 +31,7 @@ import BiomarkerScreen from '@/app/health/biomarker';
 import CycleScreen from '@/app/health/cycle';
 import EcgResultScreen from '@/app/health/ecg-result';
 
-const RECORDING: EcgSummary = { id: 4, deviceId: 1, t: 1_795_700_000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left', symptoms: [] };
+const RECORDING: EcgSummary = { id: 4, deviceId: 1, t: 1_795_700_000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left', symptoms: [], movementG: null };
 
 function lab(id: number, patch: Partial<LabResult> = {}): LabResult {
   return { id, biomarker: 'ldl', unit: 'mg/dL', value: 84, day: '2026-09-09', refLow: null, refHigh: 115, note: null, createdAt: id, ...patch };

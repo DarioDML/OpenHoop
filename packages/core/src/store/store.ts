@@ -1,6 +1,8 @@
 import { SLEEP_STAGES } from '@openhoop/analytics';
 import type { SleepStage } from '@openhoop/analytics';
 import { ChunkIntegrityError, decodeChunk, encodeChunk } from './chunkCodec';
+import { insertSignals } from '../signals';
+import { bulkInsert } from './bulk';
 import { migrate } from './migrations';
 import type {
   ConsoleRow,
@@ -18,7 +20,6 @@ import type {
   SyncStateRow,
 } from './types';
 
-const MAX_PARAMS_PER_STATEMENT = 8000;
 
 type DeviceDb = {
   id: number;
@@ -185,26 +186,6 @@ function toSleepEdit(row: SleepEditDb): SleepEditRow {
   };
 }
 
-async function bulkInsert(
-  driver: SqlDriver,
-  head: string,
-  columnCount: number,
-  rows: SqlValue[][],
-  tail = '',
-): Promise<number> {
-  const rowsPerStatement = Math.max(1, Math.floor(MAX_PARAMS_PER_STATEMENT / columnCount));
-  const placeholder = `(${new Array<string>(columnCount).fill('?').join(', ')})`;
-  let changes = 0;
-  for (let start = 0; start < rows.length; start += rowsPerStatement) {
-    const batch = rows.slice(start, start + rowsPerStatement);
-    const params: SqlValue[] = [];
-    for (const row of batch) for (const value of row) params.push(value);
-    const sql = `${head} VALUES ${new Array<string>(batch.length).fill(placeholder).join(', ')}${tail}`;
-    changes += (await driver.run(sql, params)).changes;
-  }
-  return changes;
-}
-
 async function insertSamplesRaw(driver: SqlDriver, samples: SampleRow[], chunkId: number | null | undefined): Promise<number> {
   const rows = samples.map((s) => sampleParams(s, chunkId === undefined ? s.chunkId : chunkId));
   return bulkInsert(driver, `INSERT OR IGNORE INTO samples_1hz (${SAMPLE_COLUMNS})`, 11, rows);
@@ -351,6 +332,7 @@ export function bindStore(driver: SqlDriver): Store {
           extras.events.map((e: EventRow) => [e.deviceId, e.t, e.event, e.name, e.payloadHex, chunkId]),
         );
         await insertPackEventsRaw(tx, extras.packEvents ?? [], chunkId);
+        if (extras.signals !== undefined) await insertSignals(tx, extras.signals, chunkId);
         await bulkInsert(
           tx,
           'INSERT OR IGNORE INTO console_log (device_id, t, sequence, text, chunk_id)',

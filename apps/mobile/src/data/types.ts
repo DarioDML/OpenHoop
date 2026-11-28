@@ -1,6 +1,6 @@
 import type { Interval, ZoneFloors } from '@openhoop/analytics';
 import type { Wrist } from '@openhoop/protocol';
-import type { StorageStats } from '@openhoop/core';
+import type { LiveImuSecond, LiveOpticalSecond, StorageStats, StreamKind } from '@openhoop/core';
 import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, EcgSummary, StageEpochRow, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CuffReading, CuffReadingInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, EcgSymptom, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { StorageProblem } from '@/data/storageProblem';
@@ -10,6 +10,8 @@ import type { InboxEntry } from '@/lib/notificationPlan';
 
 import type { AlarmPlan, ArmedAlarm } from './alarm';
 import type { ConfigKind, WritableValue } from './bandConfig';
+import type { RawLiveState } from './rawLive';
+import type { StreamOwner } from './rawStreamPolicy';
 import type { SaveOutcome } from './donation/files';
 import type { ExportContent } from './exportData';
 import type { HcAvailability } from './healthConnectApi';
@@ -199,11 +201,20 @@ export interface EcgActions {
   setSymptoms(id: number, symptoms: readonly EcgSymptom[]): Promise<boolean>;
 }
 
+export interface RawStreamActions {
+  start(owner: StreamOwner, kinds: readonly StreamKind[]): Promise<boolean>;
+  stop(owner: StreamOwner): Promise<void>;
+  setBandRecording(on: boolean): Promise<boolean>;
+  imuSeconds(): readonly LiveImuSecond[];
+  opticalSeconds(): readonly LiveOpticalSecond[];
+}
+
 export interface LiveData {
   live: LiveState;
   syncProgress: SyncProgressView | null;
   pendingDelete: PendingDelete | null;
   ecgLive: EcgLiveState;
+  rawLive: RawLiveState;
 }
 
 export interface LiveDataStore {
@@ -250,6 +261,7 @@ export interface AppData {
   ecgRecordings: EcgSummary[];
   ecgWrist: Wrist;
   ecgActions: EcgActions;
+  rawStreams: RawStreamActions;
   stopLive(): Promise<void>;
   exportData(content?: ExportContent): Promise<void>;
   storageStats(): Promise<StorageStats | null>;

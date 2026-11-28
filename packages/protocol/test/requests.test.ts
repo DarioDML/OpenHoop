@@ -13,6 +13,9 @@ import {
   isAlarmRejection,
   labradorGenerationBody,
   labradorSwitchBody,
+  rawSessionBody,
+  rawStopBody,
+  streamSwitchBody,
   wristBody,
   buildCommand,
   commandClass,
@@ -152,6 +155,34 @@ describe('ECG reading bodies', () => {
 
   it('needs a write grant for every ECG command', () => {
     for (const command of [Command.SELECT_WRIST, Command.TOGGLE_LABRADOR_FILTERED, Command.TOGGLE_LABRADOR_RAW_SAVE, Command.TOGGLE_LABRADOR_DATA_GENERATION]) {
+      expect(commandClass(command)).toBe('write');
+    }
+  });
+});
+
+describe('raw stream requests', () => {
+  it('switches a live stream with [01][on]', () => {
+    expect([...streamSwitchBody(true)]).toEqual([1, 1]);
+    expect([...streamSwitchBody(false)]).toEqual([1, 0]);
+  });
+
+  it('starts an on-band raw session with revision 2 and a duration in ms', () => {
+    expect([...rawSessionBody(30_000)]).toEqual([2, 0x30, 0x75, 0, 0]);
+    expect([...rawSessionBody(10_800_000)]).toEqual([2, 0x80, 0xcb, 0xa4, 0x00]);
+  });
+
+  it('refuses a duration outside 1 ms to one day', () => {
+    expect(() => rawSessionBody(0)).toThrow(RangeError);
+    expect(() => rawSessionBody(86_400_001)).toThrow(RangeError);
+    expect(() => rawSessionBody(1.5)).toThrow(RangeError);
+  });
+
+  it('stops an on-band raw session with [01]', () => {
+    expect([...rawStopBody()]).toEqual([1]);
+  });
+
+  it('keeps the stream commands in the write class and never builds the persistent toggles', () => {
+    for (const command of [Command.START_RAW_DATA, Command.STOP_RAW_DATA, Command.TOGGLE_IMU_MODE, Command.TOGGLE_OPTICAL_MODE]) {
       expect(commandClass(command)).toBe('write');
     }
   });

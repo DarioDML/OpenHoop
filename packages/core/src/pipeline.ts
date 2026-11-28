@@ -37,6 +37,7 @@ import type { Calibration, Night, Outcome, Profile, ReadinessNight, Sample, Slee
 import { FrameError, decodeFrame } from '@openhoop/protocol';
 import type { Packet } from '@openhoop/protocol';
 import { packEventFromPacket, sampleFromPacket } from './mapping';
+import { emptySignals, insertSignals, mergeSignals, signalRangeOf, signalsFromPacket } from './signals';
 import { applySleepEdits, editsTouching, measuredNight } from './sleepEdits';
 import type { MergedSleepPeriod } from './sleepEdits';
 import { loadWearChanges, phaseAt, wornSeconds } from './wear';
@@ -687,7 +688,10 @@ export async function recomputeDays(store: Store, opts: RecomputeOptions): Promi
   }
 }
 
-export async function rebuildFromRaw(store: Store, deviceId: number): Promise<{ chunks: number; samples: number }> {
+export async function rebuildFromRaw(
+  store: Store,
+  deviceId: number,
+): Promise<{ chunks: number; samples: number; signalRange: { from: number; to: number } | null }> {
   return store.driver.transaction(async (tx) => {
     const inner = bindStore(tx);
     const device = await inner.getDevice(deviceId);
@@ -695,24 +699,32 @@ export async function rebuildFromRaw(store: Store, deviceId: number): Promise<{ 
     const chunkIds = await inner.listChunkIds(deviceId);
     // History whose raw chunk was pruned has no chunk_id and cannot be rebuilt, so only chunk-backed rows are replaced.
     await tx.run("DELETE FROM samples_1hz WHERE device_id = ? AND source = 'history' AND chunk_id IS NOT NULL", [deviceId]);
+    await tx.run('DELETE FROM imu_blocks WHERE device_id = ? AND chunk_id IS NOT NULL', [deviceId]);
+    await tx.run('DELETE FROM optical_bursts WHERE device_id = ? AND chunk_id IS NOT NULL', [deviceId]);
     await inner.clearDerived(deviceId);
     let samples = 0;
+    let signalRange: { from: number; to: number } | null = null;
     for (const chunkId of chunkIds) {
       const rows: SampleRow[] = [];
       const packRows: PackEventRow[] = [];
+      const signals = emptySignals();
       for (const frame of await inner.readChunkFrames(chunkId)) {
         const packet = tryDecode(frame);
         if (packet === null) continue;
         const pack = packEventFromPacket(deviceId, packet);
         if (pack !== null && (ownerSince === null || pack.t >= ownerSince)) packRows.push(pack);
+        if (packet.kind === 'record' && (ownerSince === null || packet.unixS >= ownerSince)) mergeSignals(signals, signalsFromPacket(deviceId, packet));
         const row = sampleFromPacket(deviceId, packet, chunkId);
         if (row === null || (ownerSince !== null && row.t < ownerSince)) continue;
         rows.push({ ...row, source: 'history' });
       }
       samples += await inner.insertSamples(rows);
       await inner.insertPackEvents(packRows, chunkId);
+      await insertSignals(tx, signals, chunkId);
+      const range = signalRangeOf(signals);
+      if (range !== null) signalRange = signalRange === null ? range : { from: Math.min(signalRange.from, range.from), to: Math.max(signalRange.to, range.to) };
     }
-    return { chunks: chunkIds.length, samples };
+    return { chunks: chunkIds.length, samples, signalRange };
   });
 }
 

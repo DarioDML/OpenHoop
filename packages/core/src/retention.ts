@@ -1,15 +1,17 @@
 import { newestFrameTime } from './pipeline';
+import { pruneSignalsBefore } from './signals';
 import { ChunkIntegrityError, decodeChunk } from './store/chunkCodec';
 import type { SqlDriver, SqlValue, Store } from './store/types';
 
 export interface RawPruneResult {
   chunks: number;
   frames: number;
+  signals: number;
 }
 
 const CHUNK_REFERENCES = ['samples_1hz', 'events', 'battery_pack_events', 'console_log', 'optical_bursts', 'imu_blocks'] as const;
 
-// Only the band's raw bytes are removed. Readings and events decoded from a pruned chunk stay, without a link to it.
+// The band's raw bytes and the optical and motion signals before t are removed. Readings and events decoded from a pruned chunk stay, without a link to it.
 export function pruneRawBefore(store: Store, deviceId: number, t: number): Promise<RawPruneResult> {
   return store.driver.transaction(async (tx) => {
     const retained = new Set(
@@ -44,7 +46,8 @@ export function pruneRawBefore(store: Store, deviceId: number, t: number): Promi
       chunks += (await tx.run('DELETE FROM raw_chunks WHERE id = ?', [id])).changes;
       frames += row.frame_count;
     }
-    return { chunks, frames };
+    const signals = await pruneSignalsBefore(tx, deviceId, t);
+    return { chunks, frames, signals };
   });
 }
 

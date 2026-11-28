@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { encodeBiometric, toHex } from '@openhoop/protocol';
+import { encodeBiometric, encodeImu, toHex } from '@openhoop/protocol';
 import {
   ChunkIntegrityError,
   DAY_RECORD_VERSION,
   DAY_RECORD_VERSION_KEY,
   SAMPLE_DECODER_VERSION,
   SAMPLE_DECODER_VERSION_KEY,
+  imuBetween,
   openStore,
   rebuildStaleSamples,
   recomputeStaleDays,
@@ -179,8 +180,26 @@ describe('SAMPLE_DECODER_VERSION', () => {
     ];
     const decoded = JSON.stringify(frames.map((frame) => decodeRow(1, frame)));
     expect({ version: SAMPLE_DECODER_VERSION, digest: toHex(sha256(new TextEncoder().encode(decoded))) }).toEqual({
-      version: 2,
+      version: 3,
       digest: 'f13fb44a73830f563164425c6dcc4f06779d58dd6c035ff2764553970c5b0c73',
     });
+  });
+});
+
+describe('decoder version 3', () => {
+  it('decodes motion records stored by an older decoder', async () => {
+    expect(SAMPLE_DECODER_VERSION).toBeGreaterThanOrEqual(3);
+    const store = await openStore(openStrictDriver());
+    const id = (await store.upsertDevice(DEVICE)).id;
+    const still: [number[], number[], number[]] = [new Array<number>(100).fill(0), new Array<number>(100).fill(0), new Array<number>(100).fill(4096)];
+    await store.commitChunk(
+      { deviceId: id, endToken: null, frames: [encodeImu({ recordIndex: 1, unixS: 1_795_878_769, accel: still, gyro: still })], clockOffsetS: 0, receivedAt: 1 },
+      [],
+      { events: [], console: [], unknownFrames: 0, syncState: syncState(id) },
+    );
+    await store.setSetting(SAMPLE_DECODER_VERSION_KEY, '2');
+    expect(await rebuildStaleSamples(store, () => Promise.resolve())).toEqual([id]);
+    expect((await imuBetween(store.driver, id, 0, 2_000_000_000)).map((s) => s.t)).toEqual([1_795_878_769]);
+    await store.driver.close();
   });
 });

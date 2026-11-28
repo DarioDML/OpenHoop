@@ -2,7 +2,7 @@ import { concat } from './bytes';
 import type { FirmwareVersion } from './firmware';
 import { wrapFrame } from './framing';
 import type { PackInfo } from './batteryPack';
-import type { Biometric } from './records';
+import type { Biometric, OpticalBlock } from './records';
 import { BAND_STATES } from './records';
 import type { FieldIndex } from './schema';
 import { schema, spec, writeValue } from './schema';
@@ -36,6 +36,10 @@ class FrameBody {
 
   i16(frameOffset: number, value: number): void {
     this.view.setInt16(frameOffset - FRAME_BODY_OFFSET, value, true);
+  }
+
+  i32(frameOffset: number, value: number): void {
+    this.view.setInt32(frameOffset - FRAME_BODY_OFFSET, value, true);
   }
 
   bytesAt(frameOffset: number, data: Uint8Array): void {
@@ -260,5 +264,81 @@ export function encodeEcgFiltered(i: { recordIndex: number; unixS: number; subse
   body.put(status, 'state_bits', ECG_STATE_BITS);
   body.put(status, 'sample_count', i.samples.length);
   i.samples.forEach((s, k) => body.i16(schema.ecgFiltered.sampleOffset + 2 * k, s));
+  return body.frame();
+}
+
+const RAW_HEADER_VERSION_OFFSET = 21;
+const RAW_HEADER_VERSION = 4;
+
+type Axes = [number[], number[], number[]];
+
+export function encodeImu(i: {
+  recordIndex: number;
+  unixS: number;
+  subsec?: number;
+  packetType?: 43 | 47;
+  rateHz?: number;
+  accel: Axes;
+  gyro: Axes;
+}): Uint8Array {
+  const na = i.accel[0].length;
+  const ng = i.gyro[0].length;
+  const cap = schema.imu.capacity;
+  if (na > cap || ng > cap || i.accel.some((a) => a.length !== na) || i.gyro.some((g) => g.length !== ng)) {
+    throw new RangeError(`each axis needs the same count, at most ${cap}`);
+  }
+  const body = recordBody(schema.imu.length, 21, 0, i);
+  body.put(schema.recordHeader, 'subsec', i.subsec ?? 0);
+  body.at(RAW_HEADER_VERSION_OFFSET, RAW_HEADER_VERSION);
+  body.at(schema.imu.rateOffset, i.rateHz ?? 100);
+  body.bytesAt(schema.imu.accelCountOffset, u16le(na));
+  body.bytesAt(schema.imu.gyroCountOffset, u16le(ng));
+  i.accel.forEach((axis, a) => axis.forEach((v, k) => body.i16((schema.imu.accelOffsets[a] ?? 0) + 2 * k, v)));
+  i.gyro.forEach((axis, a) => axis.forEach((v, k) => body.i16((schema.imu.gyroOffsets[a] ?? 0) + 2 * k, v)));
+  return body.frame();
+}
+
+export type OpticalBlockInput = Omit<OpticalBlock, 'count'>;
+
+export function encodeOptical(i: { recordIndex: number; unixS: number; subsec?: number; packetType?: 43 | 47; blocks: OpticalBlockInput[] }): Uint8Array {
+  const f = schema.optical.blockFields;
+  const max = spec(f, 'count').max ?? 0;
+  const bases = schema.optical.blockBases;
+  if (i.blocks.length > bases.length) throw new RangeError(`at most ${bases.length} optical blocks`);
+  for (const b of i.blocks) {
+    if (b.slotA.length > max || b.slotB.length !== b.slotA.length) throw new RangeError(`each optical block holds at most ${max} samples per slot, equal in both slots`);
+  }
+  const body = recordBody(schema.optical.length, 20, 0, i);
+  body.put(schema.recordHeader, 'subsec', i.subsec ?? 0);
+  body.at(RAW_HEADER_VERSION_OFFSET, RAW_HEADER_VERSION);
+  body.bytesAt(schema.optical.rateOffset, u16le(Math.max(0, ...i.blocks.map((b) => b.slotA.length))));
+  i.blocks.forEach((b, n) => {
+    const base = bases[n] ?? 0;
+    body.put(f, 'count', b.slotA.length, base);
+    body.put(f, 'source_a', b.sourceA, base);
+    body.put(f, 'drive_a', b.driveA, base);
+    body.put(f, 'source_b', b.sourceB, base);
+    body.put(f, 'drive_b', b.driveB, base);
+    body.put(f, 'detector_a', b.detectorA, base);
+    body.put(f, 'range_a', b.rangeA, base);
+    body.put(f, 'offset_a', b.offsetA, base);
+    body.put(f, 'detector_b', b.detectorB, base);
+    body.put(f, 'range_b', b.rangeB, base);
+    body.put(f, 'offset_b', b.offsetB, base);
+    b.slotA.forEach((v, k) => body.i32(base + schema.optical.slotARel + 4 * k, v));
+    b.slotB.forEach((v, k) => body.i32(base + schema.optical.slotBRel + 4 * k, v));
+  });
+  return body.frame();
+}
+
+export function encodeCompactOptical(i: { recordIndex: number; unixS: number; packetType?: 43 | 47; burstCounter?: number; samples: number[] }): Uint8Array {
+  const c = schema.compactOptical;
+  if (i.samples.length !== c.deltaCount + 1) throw new RangeError(`a compact optical record holds ${c.deltaCount + 1} samples`);
+  const body = recordBody(c.length, 26, 0, i);
+  const [base = 0] = i.samples;
+  body.put(c.fields, 'burst_counter', i.burstCounter ?? 0);
+  body.put(c.fields, 'base', base);
+  for (let k = 1; k < i.samples.length; k++) body.i16(c.deltaOffset + 2 * (k - 1), (i.samples[k] ?? 0) - (i.samples[k - 1] ?? 0));
+  body.put(c.fields, 'on_wrist_raw', 1);
   return body.frame();
 }

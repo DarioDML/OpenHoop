@@ -149,7 +149,7 @@ describe('health report screen', () => {
   });
 
   it('summarises the period with stats and the ECG count', async () => {
-    const ecgRecordings = [{ id: 7, deviceId: 1, t: Math.floor(FIXTURE_NOW.getTime() / 1000) - 86_400, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left' as const, symptoms: [] }];
+    const ecgRecordings = [{ id: 7, deviceId: 1, t: Math.floor(FIXTURE_NOW.getTime() / 1000) - 86_400, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left' as const, symptoms: [], movementG: null }];
     await render(withAppData(<ReportScreen />, 'en', { ecgRecordings }));
     expect(screen.queryByTestId('report-section-ecg')).toBeNull();
     await fireEvent.press(screen.getByTestId('report-toggle-ecg'));

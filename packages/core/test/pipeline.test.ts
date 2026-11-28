@@ -715,7 +715,7 @@ describe('pipeline', () => {
       expect(await storedDays()).toEqual([]);
 
       const rebuilt = await rebuildFromRaw(store, deviceId);
-      expect(rebuilt).toEqual({ chunks: 12, samples: archived });
+      expect(rebuilt).toEqual({ chunks: 12, samples: archived, signalRange: null });
       expect(archived).toBe(rows.length - 1);
       expect(await store.sampleRange(deviceId)).toEqual(countBefore);
 
@@ -740,9 +740,9 @@ describe('pipeline', () => {
       await recompute(rows);
       expect(await storedDays()).toHaveLength(1);
 
-      expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 1, samples: 600 });
+      expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 1, samples: 600, signalRange: null });
       expect(await storedDays()).toEqual([]);
-      expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 1, samples: 600 });
+      expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 1, samples: 600, signalRange: null });
       expect(await store.sampleRange(deviceId)).toMatchObject({ count: rows.length });
     });
 
@@ -755,7 +755,7 @@ describe('pipeline', () => {
         { events: [], console: [], unknownFrames: 0, syncState: syncState(deviceId) },
       );
       await store.upsertDevice({ ...DEVICE, ownerSince: (rows[4] as SampleRow).t });
-      expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 1, samples: 6 });
+      expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 1, samples: 6, signalRange: null });
     });
   });
 
@@ -840,7 +840,7 @@ describe('pipeline', () => {
       expect(await store.listChunkIds(deviceId)).toEqual([ids[1], ids[2]]);
       expect(await store.sampleRange(deviceId)).toEqual({ first: cut, last: (rows[29] as SampleRow).t, count: 15 });
       expect(await storedDays()).toEqual([]);
-      expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 2, samples: 15 });
+      expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 2, samples: 15, signalRange: null });
     });
   });
 });

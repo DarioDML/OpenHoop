@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   GATT,
   encodeBiometric,
+  encodeCompactOptical,
   encodeConsole,
   encodeEvent,
+  encodeImu,
   encodeMetadata,
   encodePackSocPayload,
   encodeUnknownRecord,
@@ -15,7 +17,9 @@ import {
   MAX_LONE_HISTORY_ENDS,
   OwnerSinceRequiredError,
   Session,
+  imuBetween,
   openStore,
+  opticalBetween,
   probeLock,
   syncHistory,
 } from '../src/index';
@@ -216,6 +220,7 @@ describe('syncHistory', () => {
       discardedBeforeOwner: 0,
       unknownFrames: 0,
       stoppedBy: 'complete',
+      signalRange: null,
     });
     expect(log).toEqual([
       'commit',
@@ -289,6 +294,53 @@ describe('syncHistory', () => {
     const frames = await store.readChunkFrames(chunkId ?? -1);
     expect(frames.map(toHex)).toContain(toHex(unknown));
     expect((await store.samplesBetween(deviceId, T0, T0 + 10)).map((s) => s.t)).toEqual([T0 + 1]);
+  });
+
+  it('stores R21 and R26 seconds with their chunk id', async () => {
+    const still: [number[], number[], number[]] = [new Array<number>(100).fill(0), new Array<number>(100).fill(0), new Array<number>(100).fill(4096)];
+    const samples = Array.from({ length: 25 }, (_, i) => 207_400 + i);
+    const chunk = [
+      encodeMetadata({ meta: 'HISTORY_START', unixS: T0 }),
+      encodeImu({ recordIndex: 1, unixS: T0 + 1, accel: still, gyro: still }),
+      encodeImu({ recordIndex: 2, unixS: T0 + 2, accel: still, gyro: still }),
+      encodeCompactOptical({ recordIndex: 3, unixS: T0 + 3, samples }),
+      encodeCompactOptical({ recordIndex: 4, unixS: T0 + 4, samples }),
+      encodeCompactOptical({ recordIndex: 5, unixS: T0 + 5, samples }),
+      encodeMetadata({ meta: 'HISTORY_END', unixS: T0 + 6, endToken: token(0) }),
+    ];
+    const { session } = await band({ chunks: [chunk], complete: historyComplete(T0 + 7) });
+    const result = await syncHistory(session, store, { deviceId });
+    expect(result.unknownFrames).toBe(0);
+    expect(result.signalRange).toEqual({ from: T0 + 1, to: T0 + 5 });
+    expect((await imuBetween(store.driver, deviceId, T0, T0 + 10)).map((s) => s.t)).toEqual([T0 + 1, T0 + 2]);
+    expect((await opticalBetween(store.driver, deviceId, T0, T0 + 10)).map((s) => [s.t, s.layout])).toEqual([
+      [T0 + 3, 26],
+      [T0 + 4, 26],
+      [T0 + 5, 26],
+    ]);
+    const [chunkId] = await store.listChunkIds(deviceId);
+    const linked = await store.driver.all<{ n: number }>('SELECT COUNT(*) AS n FROM imu_blocks WHERE chunk_id = ?', [chunkId ?? -1]);
+    expect(linked[0]?.n).toBe(2);
+  });
+
+  it('ignores live motion records that arrive during a sync', async () => {
+    const still: [number[], number[], number[]] = [new Array<number>(100).fill(0), new Array<number>(100).fill(0), new Array<number>(100).fill(4096)];
+    const chunk = [
+      encodeMetadata({ meta: 'HISTORY_START', unixS: T0 }),
+      encodeBiometric({ recordIndex: 1, unixS: T0 + 1, heartRate: 61 }),
+      encodeImu({ recordIndex: 2, unixS: T0 + 2, packetType: 43, accel: still, gyro: still }),
+      encodeMetadata({ meta: 'HISTORY_END', unixS: T0 + 4, endToken: token(0) }),
+    ];
+    const { session } = await band({ chunks: [chunk], complete: historyComplete(T0 + 5) });
+    const result = await syncHistory(session, store, { deviceId });
+    expect(result.signalRange).toBeNull();
+    expect(result.frames).toBe(3);
+    expect(await imuBetween(store.driver, deviceId, T0, T0 + 10)).toEqual([]);
+  });
+
+  it('reports no signal range when a sync brings no optical or motion records', async () => {
+    const { session } = await band({ chunks: [biometricChunk(0, { firstT: T0, count: 3 })], complete: historyComplete(T0 + 10) });
+    expect((await syncHistory(session, store, { deviceId })).signalRange).toBeNull();
   });
 
   it('discards records before ownerSince and still acknowledges', async () => {
