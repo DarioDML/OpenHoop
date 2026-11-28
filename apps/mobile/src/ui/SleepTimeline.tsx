@@ -110,13 +110,16 @@ export function SleepTimeline({ periods, tzOffsetS }: Props) {
                 </AppText>
               </View>
               {inBedLonger ? (
-                <View testID={`sleep-timeline-in-bed-${i}`} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.sm, rowGap: 2 }}>
+                <View testID={`sleep-timeline-in-bed-${i}`} style={{ flexDirection: 'row', alignItems: 'center', columnGap: spacing.sm }}>
                   <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: base, opacity: BED_OPACITY }} />
-                  <AppText variant="body" style={{ flexGrow: 1, flexShrink: 1, minWidth: 96 }}>
+                  <AppText variant="body" numberOfLines={1} style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
                     {t('metric.inBed')}
                   </AppText>
-                  <AppText variant="bodyStrong" numeric>
+                  <AppText variant="bodyStrong" numeric numberOfLines={1} style={{ flexShrink: 0 }}>
                     {formatClock(bedStart(p), tzOffsetS)}–{formatClock(bedEnd(p), tzOffsetS)}
+                  </AppText>
+                  <AppText variant="label" muted numeric numberOfLines={1} style={{ flexShrink: 0 }}>
+                    {formatDuration(t, p.inBedS)}
                   </AppText>
                 </View>
               ) : null}
