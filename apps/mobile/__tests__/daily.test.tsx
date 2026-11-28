@@ -253,7 +253,15 @@ describe('Home', () => {
     expect(screen.getByTestId('week-sleep')).toHaveTextContent(/^(1 night|(\d*[02-9]|\d{2,}) nights)$/);
     expect(screen.getByText('Nights at sleep need')).toBeTruthy();
     expect(screen.getByTestId('week-strength')).toHaveTextContent(/× · \d+ min$/);
-    expect(screen.getByTestId('week-strength-trail')).toHaveStyle({ flexShrink: 0 });
+  });
+
+  it('moves a long week count below the dots instead of crushing them', async () => {
+    await render(withAppData(<HomeScreen />));
+    expect(within(screen.getByTestId('week-strength-row')).getByTestId('week-strength-trail')).toBeTruthy();
+    await fireEvent(screen.getByTestId('week-strength-row'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 296, height: 28 } } });
+    await fireEvent(screen.getByTestId('week-strength-trail'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 130, height: 20 } } });
+    expect(within(screen.getByTestId('week-strength-row')).queryByTestId('week-strength-trail')).toBeNull();
+    expect(screen.getByTestId('week-strength')).toHaveTextContent(/× · \d+ min$/);
   });
 
   it('says the alarm is off on the Tonight card when none is set', async () => {

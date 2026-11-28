@@ -50,13 +50,12 @@ interface DailyBlocksProps {
 function DailyBlocks({ week, start, loads, readiness, fmt }: DailyBlocksProps) {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const dayLabel = (i: number, primary: boolean): string => {
+  const dayLabel = (i: number): string => {
     const date = addDays(start, i);
     const base = `${formatWeekday(date, language, 'long')} ${formatShortDay(date, language)}`;
     if (week[i] === null) return `${base}: ${t('loadx.week.noData')}`;
     const loadValue = loads[i] ?? null;
     const readinessValue = readiness[i] ?? null;
-    if (!primary) return t('loadWeek.loadA11y', { day: base, load: loadValue === null ? t('loadWeek.noValue') : fmt(loadValue) });
     return t('loadWeek.dayA11y', {
       day: base,
       readiness: readinessValue === null ? t('loadWeek.noValue') : fmt(readinessValue, 0),
@@ -84,7 +83,7 @@ function DailyBlocks({ week, start, loads, readiness, fmt }: DailyBlocksProps) {
   const cell = (i: number, primary: boolean, children: ReactNode) => {
     const style = { flex: 1, minWidth: 0 } as const;
     const testID = primary ? `week-day-${i}` : `week-day-load-${i}`;
-    const a11y = { accessible: true, accessibilityLabel: dayLabel(i, primary) };
+    const a11y = primary ? { accessible: true, accessibilityLabel: dayLabel(i) } : { accessible: false, importantForAccessibility: 'no-hide-descendants' as const };
     if (week[i] === null) {
       return (
         <View key={i} testID={testID} {...a11y} style={[style, { opacity: 0.8 }]}>
@@ -97,7 +96,7 @@ function DailyBlocks({ week, start, loads, readiness, fmt }: DailyBlocksProps) {
         key={i}
         testID={testID}
         {...a11y}
-        accessibilityRole="button"
+        accessibilityRole={primary ? 'button' : undefined}
         onPress={() => open(i)}
         style={({ pressed }) => [style, { opacity: pressed ? 0.7 : 1 }]}>
         {children}
@@ -118,7 +117,6 @@ function DailyBlocks({ week, start, loads, readiness, fmt }: DailyBlocksProps) {
           return cell(i, true, block(value, value === null ? colors.surfaceAlt : readinessColor(colors, value), colors.primaryOn, `week-readiness-${i}`, `week-readiness-text-${i}`, value === null ? '' : fmt(value, 0)));
         })}
       </View>
-      <View style={{ height: spacing.xs }} />
       {rowLabel(t('score.load'), 'week-row-load')}
       <View style={{ flexDirection: 'row', gap: 6 }}>
         {week.map((_, i) => {
@@ -126,7 +124,7 @@ function DailyBlocks({ week, start, loads, readiness, fmt }: DailyBlocksProps) {
           return cell(i, false, block(value, colors.tint.load, undefined, `week-load-block-${i}`, `week-load-${i}`, value === null ? '' : fmt(value)));
         })}
       </View>
-      <View style={{ flexDirection: 'row', gap: 6 }} accessible={false} importantForAccessibility="no-hide-descendants">
+      <View style={{ flexDirection: 'row', gap: 6 }} accessible={false} importantForAccessibility="no-hide-descendants" testID="week-day-letters">
         {week.map((_, i) => (
           <AppText key={i} variant="caption" muted style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
             {weekdayShort(addDays(start, i), language)}

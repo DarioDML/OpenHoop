@@ -1,4 +1,4 @@
-import { COMPACT_GUTTER, GUTTER, breaksMidWord, fitArt, fitFontSize, fitsSideBySide, heroRingSize, layoutFor } from '@/ui/layout';
+import { COMPACT_GUTTER, GUTTER, breaksMidWord, fitArt, fitFontSize, fitsSideBySide, heroRingSize, layoutFor, trailFitsInline } from '@/ui/layout';
 
 describe('layoutFor', () => {
   it('keeps the roomy layout on a wide phone at normal text size', () => {
@@ -114,5 +114,20 @@ describe('fitsSideBySide', () => {
   it('needs more room as the text grows', () => {
     expect(fitsSideBySide(layoutFor(480, 900, 1), 16, 176)).toBe(true);
     expect(fitsSideBySide(layoutFor(480, 900, 1.3), 16, 176)).toBe(false);
+  });
+});
+
+describe('trailFitsInline', () => {
+  it('keeps the trail inline until the row is measured', () => {
+    expect(trailFitsInline(null, 108, 90, 87)).toBe(true);
+    expect(trailFitsInline(300, 108, null, 87)).toBe(true);
+  });
+
+  it('keeps a short count beside the dots', () => {
+    expect(trailFitsInline(296, 108, 60, 87)).toBe(true);
+  });
+
+  it('drops a long count below once the dots would get less than their minimum', () => {
+    expect(trailFitsInline(296, 108, 120, 87)).toBe(false);
   });
 });

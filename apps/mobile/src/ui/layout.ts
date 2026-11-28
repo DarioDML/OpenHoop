@@ -38,7 +38,12 @@ export function fitsSideBySide(layout: Layout, inset: number, minEach: number, c
   return available / count >= minEach * layout.fontScale;
 }
 
-const WORD_CHAR =/[\p{L}\p{N}]/u;
+export function trailFitsInline(rowWidth: number | null, fixed: number, trailWidth: number | null, minMiddle: number): boolean {
+  if (rowWidth === null || trailWidth === null) return true;
+  return rowWidth - fixed - trailWidth >= minMiddle;
+}
+
+const WORD_CHAR = /[\p{L}\p{N}]/u;
 
 export function breaksMidWord(text: string, lines: readonly string[]): boolean {
   const source = text.toLowerCase();

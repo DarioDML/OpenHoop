@@ -318,7 +318,7 @@ describe('Weekly overview', () => {
     expect(screen.getByTestId('week-chart')).toBeTruthy();
     week.forEach((d, i) => {
       const load = d?.load.value ?? null;
-      expect(screen.getByTestId(`week-load-${i}`)).toHaveTextContent(load === null ? '·' : load.toFixed(1));
+      expect(screen.getByTestId(`week-load-${i}`, { includeHiddenElements: true })).toHaveTextContent(load === null ? '·' : load.toFixed(1));
       const readiness = d === null ? null : visibleReadiness(d).value;
       expect(screen.getByTestId(`week-readiness-${i}`)).toHaveTextContent(readiness === null ? '·' : String(Math.round(readiness)));
     });
@@ -327,6 +327,10 @@ describe('Weekly overview', () => {
     expect(screen.getByTestId('week-legend')).toHaveTextContent('Readiness %Load');
     expect(screen.getByTestId('week-row-readiness')).toHaveTextContent('Readiness %');
     expect(screen.getByTestId('week-row-load')).toHaveTextContent('Load');
+    expect(screen.queryByTestId('week-day-load-0')).toBeNull();
+    expect(screen.getByTestId('week-day-load-0', { includeHiddenElements: true })).toBeTruthy();
+    const firstDay = week[0] ?? null;
+    if (firstDay !== null) expect(screen.getByTestId('week-day-0').props.accessibilityLabel).toMatch(/readiness .*, load /);
     week.forEach((d, i) => {
       const date = addDays(start, i);
       if (d === null && date > lastDay().day) expect(screen.getByTestId(`week-gap-${date}`)).toHaveTextContent(/: still to come$/);
