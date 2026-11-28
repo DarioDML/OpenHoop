@@ -518,7 +518,27 @@ CREATE TABLE cuff_readings (
 CREATE INDEX cuff_readings_t ON cuff_readings (t, id);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16, V17];
+const V18 = `
+ALTER TABLE optical_bursts ADD COLUMN layout INTEGER NOT NULL DEFAULT 20 CHECK (layout IN (20, 26));
+DELETE FROM imu_blocks WHERE id NOT IN (SELECT MIN(id) FROM imu_blocks GROUP BY device_id, t);
+DELETE FROM optical_bursts WHERE id NOT IN (SELECT MIN(id) FROM optical_bursts GROUP BY device_id, t, layout);
+CREATE UNIQUE INDEX imu_blocks_second ON imu_blocks (device_id, t);
+CREATE UNIQUE INDEX optical_bursts_second ON optical_bursts (device_id, t, layout);
+CREATE TABLE strength_set_motion (
+  set_id INTEGER PRIMARY KEY REFERENCES strength_sets(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('readable', 'unreadable', 'unmatched', 'none')),
+  reps_detected INTEGER CHECK (reps_detected IS NULL OR reps_detected BETWEEN 0 AND 200),
+  tut_s REAL CHECK (tut_s IS NULL OR tut_s >= 0),
+  tempo_s REAL CHECK (tempo_s IS NULL OR tempo_s > 0),
+  velocity_loss REAL,
+  coverage REAL NOT NULL CHECK (coverage BETWEEN 0 AND 1),
+  factor REAL NOT NULL CHECK (factor BETWEEN 0.7 AND 1.3),
+  algo TEXT NOT NULL
+);
+ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL OR movement_g >= 0);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16, V17, V18];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
