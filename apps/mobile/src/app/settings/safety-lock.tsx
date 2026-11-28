@@ -28,20 +28,14 @@ export default function SafetyLockScreen() {
 
   return (
     <SheetScreen title={t('device.safety.title')} testID="safety-lock">
-      <View testID="safety-nothing-sent" style={{ flexDirection: 'row', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.warningSoft }}>
-        <Icon name="info" color={colors.warning} size={18} />
-        <AppText variant="label" style={{ flex: 1 }}>
-          {t('device.safety.nothingSent')}
-        </AppText>
-      </View>
-      <View style={{ alignItems: 'center', gap: spacing.md }}>
-        <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: colors.negativeSoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="lock" color={colors.negative} size={28} />
+      <View style={{ alignItems: 'center', gap: spacing.sm }}>
+        <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.negativeSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="lock" color={colors.negative} size={24} />
         </View>
         <AppText variant="title" accessibilityRole="header" style={{ textAlign: 'center' }}>
           {t('device.safety.question')}
         </AppText>
-        <AppText variant="lead" muted style={{ textAlign: 'center' }}>
+        <AppText variant="body" muted style={{ textAlign: 'center' }}>
           {t('device.safety.sheetBody')}
         </AppText>
         {device.backlogPages !== null && device.backlogPages > 0 ? (
@@ -65,6 +59,12 @@ export default function SafetyLockScreen() {
       <View style={{ gap: spacing.sm }}>
         <Button label={t('device.safety.confirmNothing')} variant="outlineDanger" disabled={!matches} onPress={confirm} testID="danger-confirm" />
         <Button label={t('common.cancel')} onPress={goBack} testID="safety-cancel" />
+      </View>
+      <View testID="safety-nothing-sent" style={{ flexDirection: 'row', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.warningSoft }}>
+        <Icon name="info" color={colors.warning} size={18} />
+        <AppText variant="caption" style={{ flex: 1 }}>
+          {t('device.safety.nothingSent')}
+        </AppText>
       </View>
       <AppText variant="caption" muted>
         {t('device.safety.howBody')}

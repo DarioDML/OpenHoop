@@ -23,6 +23,8 @@ function TileBadge({ label, color, background }: BadgeProps): ReactElement {
   );
 }
 
+export const ACTION_LABEL_MAX_SCALE = 1.2;
+
 interface ActionTileProps {
   icon: IconName;
   iconColor: string;
@@ -52,19 +54,20 @@ export function ActionTile({ icon, iconColor, label, href, onPress, background, 
       onPress={press}
       style={({ pressed }) => ({
         flex: 1,
-        minHeight: large ? 112 : 100,
+        minWidth: 0,
+        minHeight: large ? 96 : 84,
         borderRadius: radius.md,
         backgroundColor: background ?? colors.surfaceAlt,
-        paddingVertical: large ? spacing.lg : 14,
-        paddingHorizontal: large ? spacing.lg : spacing.md,
+        paddingVertical: large ? 14 : spacing.md,
+        paddingHorizontal: large ? 14 : 10,
         justifyContent: 'space-between',
         gap: spacing.sm,
         opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
       })}>
-      <Icon name={icon} color={iconColor} size={large ? 28 : 26} />
-      <AppText variant={large ? 'bodyStrong' : 'label'} style={{ fontWeight: '600' }}>
+      <Icon name={icon} color={iconColor} size={large ? 24 : 22} />
+      <WordFitText variant={large ? 'bodyStrong' : 'label'} numberOfLines={2} maxFontSizeMultiplier={ACTION_LABEL_MAX_SCALE} style={{ fontWeight: '600' }} testID={testID === undefined ? undefined : `${testID}-label`}>
         {label}
-      </AppText>
+      </WordFitText>
       {badge === undefined ? null : <TileBadge {...badge} />}
     </Pressable>
   );
