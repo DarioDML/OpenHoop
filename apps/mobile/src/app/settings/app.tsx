@@ -8,7 +8,7 @@ import type { NotificationPrefs } from '@/data/userData';
 import { DATA_AT_RISK_DAYS, clockMinutes } from '@/lib/notificationPlan';
 import type { ThemePreference } from '@/lib/themePreference';
 import { useT } from '@/i18n/useT';
-import { featureEnabled } from '@/net/features';
+import { coachActive } from '@/coach/prefs';
 import { AppText } from '@/ui/AppText';
 import { Button, Field, Segmented } from '@/ui/controls';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
@@ -65,7 +65,7 @@ export default function AppSettingsScreen() {
   const notifications = useNotificationSwitch();
   const off = !notifications.enabled;
   const preset = presetOf(prefs);
-  const coachReady = featureEnabled(userData.network, 'coach');
+  const coachReady = coachActive(userData.coach, userData.network);
   const restorePatch = previousLayoutPatch(userData);
   const hero = t(userData.homeHero === 'compact' ? 'appSettings.hero.compact' : 'appSettings.hero.classic');
   const savePrefs = (patch: Partial<NotificationPrefs>): void => {
