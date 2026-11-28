@@ -40,12 +40,11 @@ interface Text {
 
 export function bodyAgeCaption(headline: BodyAgeHeadline, { t, language }: Text): string {
   if (headline.kind === 'none') return t(`health.hub.tile.bodyAgeWhy.${headline.reason}`);
-  const source = t(`health.bodyAge.sourceShort.${headline.source}`);
   const diff = yearsDifference(headline);
-  if (diff === null) return source;
+  if (diff === null) return t(`health.bodyAge.sourceShort.${headline.source}`);
   const years = formatNumber(Math.abs(diff), 1, language);
-  if (Number(years.replace(',', '.')) === 0) return t('health.bodyAge.same');
-  return diff > 0 ? t('health.bodyAge.younger', { years }) : t('health.bodyAge.older', { years });
+  const gap = Number(years.replace(',', '.')) === 0 ? t('health.hub.tile.bodyAgeSame') : diff > 0 ? t('health.hub.tile.bodyAgeYounger', { years }) : t('health.hub.tile.bodyAgeOlder', { years });
+  return `${t(`health.hub.tile.bodyAgeSource.${headline.source}`)} · ${gap}`;
 }
 
 export function bodyAgeMissing(headline: BodyAgeHeadline, t: TFunction): string {

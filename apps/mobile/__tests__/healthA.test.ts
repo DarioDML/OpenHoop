@@ -277,7 +277,7 @@ describe('contributor and hub wording', () => {
   });
 
   it('keeps the hub body age caption to one short line', () => {
-    expect(bodyAgeCaption({ kind: 'age', source: 'pheno', age: 40, ownAge: 43.2, day: null }, { t, language: 'en' })).toBe('3.2 years younger');
+    expect(bodyAgeCaption({ kind: 'age', source: 'pheno', age: 40, ownAge: 43.2, day: null }, { t, language: 'en' })).toBe('Labs · 3.2 yrs younger');
     expect(bodyAgeCaption({ kind: 'age', source: 'fitness', age: 40, ownAge: null, day: null }, { t, language: 'en' })).toBe('Fitness');
     expect(bodyAgeCaption({ kind: 'none', reason: 'no-vo2' }, { t, language: 'en' })).toBe('Needs VO₂ max');
   });
