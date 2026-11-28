@@ -13,6 +13,7 @@ import {
   signalStrength,
 } from '@/data/onboarding';
 import { defaultUserData, GOALS, parseUserData, serializeUserData } from '@/data/userData';
+import { parseBirthFields } from '@/data/profile';
 import { isValidIsoDate } from '@/lib/format';
 import { locationAccess } from '@/ui/manage/locationSwitch';
 
@@ -181,5 +182,25 @@ describe('worn-since date', () => {
     expect(isValidIsoDate('2026-11-29', justAfterMidnight)).toBe(false);
     expect(isValidIsoDate('2026-02-30', justAfterMidnight)).toBe(false);
     expect(isValidIsoDate('2014-12-31', justAfterMidnight)).toBe(false);
+  });
+});
+
+describe('birth date fields', () => {
+  const today = '2026-11-28';
+
+  it('accepts a full date, a year alone, or nothing', () => {
+    expect(parseBirthFields('14', '03', '2003', today)).toEqual({ ok: true, birthYear: 2003, birthDate: '2003-03-14' });
+    expect(parseBirthFields('', '', '1990', today)).toEqual({ ok: true, birthYear: 1990, birthDate: null });
+    expect(parseBirthFields(' ', '', '', today)).toEqual({ ok: true, birthYear: null, birthDate: null });
+  });
+
+  it('rejects a partial date, a date that does not exist, the future and odd text', () => {
+    expect(parseBirthFields('14', '', '2003', today)).toEqual({ ok: false });
+    expect(parseBirthFields('', '03', '2003', today)).toEqual({ ok: false });
+    expect(parseBirthFields('14', '03', '', today)).toEqual({ ok: false });
+    expect(parseBirthFields('31', '02', '2000', today)).toEqual({ ok: false });
+    expect(parseBirthFields('29', '11', '2026', today)).toEqual({ ok: false });
+    expect(parseBirthFields('', '', '1899', today)).toEqual({ ok: false });
+    expect(parseBirthFields('1a', '03', '2003', today)).toEqual({ ok: false });
   });
 });
