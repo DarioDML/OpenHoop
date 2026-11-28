@@ -7,6 +7,7 @@ import { wearStreak } from '@/data/derived';
 import { bodyAgeSummary, SLEEP_STREAK_MIN, streaks, type BodyAgeSummary } from '@/data/profileSummary';
 import type { Language } from '@/data/types';
 import { initialOf } from '@/data/userData';
+import { countKey } from '@/i18n';
 import type { TFunction } from '@/i18n/useT';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
@@ -164,7 +165,7 @@ export default function ProfileScreen() {
         />
       </StatGrid>
       <AppText variant="caption" muted>
-        {stats.daysTracked === 1 ? t('profile.lifetimeNoteOne') : t('profile.lifetimeNote', { days: stats.daysTracked })}
+        {t(countKey(stats.daysTracked, 'profile.lifetimeNoteOne', 'profile.lifetimeNote'), { days: stats.daysTracked })}
       </AppText>
 
       <ListGroup>

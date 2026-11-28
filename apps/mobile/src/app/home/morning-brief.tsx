@@ -1,6 +1,7 @@
 import { useAppData } from '@/data/context';
 import { visibleReadiness } from '@/data/derived';
 import { readinessNightsLeft } from '@/data/progress';
+import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -31,7 +32,7 @@ export default function MorningBriefScreen() {
       id: 'readiness',
       label: t('score.readiness'),
       value: shownReadiness === null ? null : formatNumber(shownReadiness, 0, language),
-      missing: nightsLeft === null ? undefined : nightsLeft === 1 ? t('why.status.nightsOne') : t('why.status.nights', { count: nightsLeft }),
+      missing: nightsLeft === null ? undefined : t(countKey(nightsLeft, 'why.status.nightsOne', 'why.status.nights'), { count: nightsLeft }),
       unit: '%',
       tone: band === 'high' ? 'positive' : band === null ? 'neutral' : 'warning',
       explain: { term: 'readiness', index, shown: { value: null, unit: null, reason: visible.reason } },

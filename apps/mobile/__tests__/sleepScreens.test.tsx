@@ -162,6 +162,15 @@ describe('Sleep need', () => {
     expect(screen.getByTestId('need-level')).toBeTruthy();
   });
 
+  it('says the need waits for a recorded night when there is no sleep', async () => {
+    const noSleep = days.map((d, i) => (i === days.length - 1 ? { ...d, sleep: { ...d.sleep, need: { ...d.sleep.need, value: null, reason: 'no-sleep' } } } : d));
+    await render(withAppData(<SleepNeedScreen />, 'en', { days: noSleep }));
+    expect(screen.getByTestId('need-reason')).toHaveTextContent('Known after a recorded night');
+    await render(withAppData(<SleepScreen />, 'en', { days: noSleep }));
+    expect(screen.getByTestId('needed')).toHaveTextContent(/Known after a recorded night/);
+    expect(screen.queryByText(/Needed.*No sleep recorded/)).toBeNull();
+  });
+
   it('opens the explanation from the info button and says why a need is missing', async () => {
     await render(withAppData(<SleepNeedScreen />, 'en', { days: days.slice(0, 1) }));
     expect(screen.getByTestId('need-no-breakdown')).toHaveTextContent('Needs more nights first');
@@ -208,6 +217,11 @@ describe('Haptic alarm', () => {
     await fireEvent.press(screen.getByText('30 min'));
     await fireEvent.press(screen.getByTestId('alarm-save'));
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ mode: 'window', windowMin: 30 })));
+  });
+
+  it('sizes the seven repeat days to share the row instead of a fixed width', async () => {
+    await render(withAppData(<HapticAlarmScreen />, 'en', { alarm: alarm() }));
+    for (const day of [0, 1, 2, 3, 4, 5, 6]) expect(screen.getByTestId(`alarm-day-${day}`)).toHaveStyle({ flex: 1, maxWidth: 44, aspectRatio: 1 });
   });
 
   it('saves the repeat days and keeps at least one on', async () => {

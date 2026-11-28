@@ -1,7 +1,7 @@
 import type { DayRecord } from '@openhoop/core';
 import { LOAD_MAX, type StressLevel } from '@openhoop/analytics';
 import { router, type Href } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 
 import { dayEntries, type ActivityEntry } from '@/data/activities';
@@ -20,6 +20,7 @@ import { deviceTzOffsetS } from '@/lib/dates';
 import { confirmedAlarm } from '@/data/alarm';
 import type { AlarmView } from '@/data/types';
 import { strengthWeek } from '@/data/strength';
+import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatNumber, todayIso } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -30,19 +31,19 @@ import { CoachMark } from '@/ui/CoachAsk';
 import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
 import { MetricName } from '@/ui/explain/MetricName';
 import { Icon, type IconName } from '@/ui/Icon';
-import { useLayout } from '@/ui/layout';
+import { trailFitsInline, useLayout } from '@/ui/layout';
 import { tile } from '@/ui/manage/tiles';
 import { MetricTile } from '@/ui/MetricTile';
 import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
-import { GoalDots } from '@/ui/plan/GoalDots';
+import { GoalDots, goalDotsWidth } from '@/ui/plan/GoalDots';
 import { stressColor } from '@/ui/health/StressLevels';
 import { radius, spacing, useTheme, type ColorTokens } from '@/ui/theme';
 
 import { entryHref, entryTitle } from '@/ui/activity/entries';
 
-import { GoalSeal, IconTile, ProgressBar, SectionTitle, WeekDots, useRangeChip } from './bits';
+import { GoalSeal, IconTile, ProgressBar, SectionTitle, WeekDots, useRangeChip, weekDotsMinWidth } from './bits';
 import { briefLines, tonightBedtime } from './briefText';
 import { METRIC_SPECS, TILE_LABEL, slugForTile } from './metrics';
 
@@ -436,31 +437,48 @@ interface WeekRowProps {
   value: string;
   met: boolean;
   caption?: string;
+  minMiddle?: number;
   testID: string;
 }
 
-function WeekRow({ label, a11y, children, value, met, caption, testID }: WeekRowProps) {
+const WEEK_LABEL_DP = 84;
+const BAR_MIN_DP = 48;
+
+function WeekRow({ label, a11y, children, value, met, caption, minMiddle = weekDotsMinWidth(7), testID }: WeekRowProps) {
   const { t } = useT();
   const { colors } = useTheme();
+  const [rowWidth, setRowWidth] = useState<number | null>(null);
+  const [trailWidth, setTrailWidth] = useState<number | null>(null);
+  const inline = trailFitsInline(rowWidth, WEEK_LABEL_DP + spacing.md * 2, trailWidth, minMiddle);
+  const trail = (
+    <View
+      onLayout={(event) => setTrailWidth(event.nativeEvent.layout.width)}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0, alignSelf: inline ? undefined : 'flex-start', marginLeft: inline ? 0 : WEEK_LABEL_DP + spacing.md }}
+      testID={`${testID}-trail`}>
+      {met ? <GoalSeal label={t('home.week.goalMet')} testID={`${testID}-seal`} /> : null}
+      <AppText variant="label" numeric color={met ? colors.positive : colors.textMuted} testID={testID}>
+        {value}
+      </AppText>
+    </View>
+  );
   return (
     <View
       accessible
       accessibilityLabel={[`${a11y}: ${value}`, met ? t('home.week.goalMet') : null, caption ?? null].filter((part): part is string => part !== null).join(', ')}
       style={{ gap: 4 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 28 }}>
-        <AppText variant="cap" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ width: 84 }}>
+      <View
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 28 }}
+        onLayout={(event) => setRowWidth(event.nativeEvent.layout.width)}
+        testID={`${testID}-row`}>
+        <AppText variant="cap" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ width: WEEK_LABEL_DP }}>
           {label}
         </AppText>
-        <View style={{ flex: 1 }}>{children}</View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {met ? <GoalSeal label={t('home.week.goalMet')} testID={`${testID}-seal`} /> : null}
-          <AppText variant="label" numeric color={met ? colors.positive : colors.textMuted} testID={testID}>
-            {value}
-          </AppText>
-        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
+        {inline ? trail : null}
       </View>
+      {inline ? null : trail}
       {caption === undefined ? null : (
-        <AppText variant="caption" muted testID={`${testID}-caption`} style={{ paddingLeft: 84 + spacing.md }}>
+        <AppText variant="caption" muted testID={`${testID}-caption`} style={{ paddingLeft: WEEK_LABEL_DP + spacing.md }}>
           {caption}
         </AppText>
       )}
@@ -486,6 +504,7 @@ function GoalRow({ goal, plan }: { goal: GoalProgress; plan: WeeklyPlan }) {
         value={t(sleep ? 'plan.count.nights' : 'plan.count.days', { done: goal.done, target: goal.target })}
         caption={sleep ? t('home.week.sleepRule', { min: plan.sleepScoreMin }) : undefined}
         met={met}
+        minMiddle={goalDotsWidth(goal.dots.length)}
         testID={testID}>
         <GoalDots dots={goal.dots} color={color} label={t(sleep ? 'plan.goal.sleepScore.title' : 'plan.goal.loadDays.title')} testID={`${testID}-dots`} />
       </WeekRow>
@@ -502,6 +521,7 @@ function GoalRow({ goal, plan }: { goal: GoalProgress; plan: WeeklyPlan }) {
           : t('plan.count.steps', { done: fmt(goal.measured === 0 ? 0 : goal.done / goal.measured), target: fmt(plan.steps) })
       }
       met={met}
+      minMiddle={BAR_MIN_DP}
       testID={testID}>
       <ProgressBar fraction={goal.target <= 0 ? 0 : goal.done / goal.target} color={colors.metric.loadBright} testID={`${testID}-bar`} />
     </WeekRow>
@@ -547,13 +567,13 @@ export function WeekCard({ days, index }: DayProps) {
   return (
     <Card href="/plan" testID="card-week" accessibilityLabel={t('home.thisWeek')} style={{ gap: spacing.lg }}>
       <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
-      <WeekRow label={t('score.load')} a11y={t('home.weekActive')} value={t('home.week.daysCount', { count: progress.loadCount })} met={false} testID="week-load">
+      <WeekRow label={t('score.load')} a11y={t('home.weekActive')} value={t(countKey(progress.loadCount, 'home.week.daysCountOne', 'home.week.daysCount'), { count: progress.loadCount })} met={false} testID="week-load">
         <WeekDots dots={progress.loadDots} color={colors.metric.loadBright} />
       </WeekRow>
       <WeekRow
         label={t('home.week.sleep')}
         a11y={t('home.weekSleep')}
-        value={t('home.week.nightsCount', { count: progress.sleepCount })}
+        value={t(countKey(progress.sleepCount, 'home.week.nightsCountOne', 'home.week.nightsCount'), { count: progress.sleepCount })}
         caption={t('home.weekSleep')}
         met={false}
         testID="week-sleep">

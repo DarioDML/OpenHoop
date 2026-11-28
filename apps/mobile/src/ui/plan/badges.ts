@@ -1,5 +1,6 @@
 import { HIGH_LOAD_MIN, HIGH_READINESS_MIN, STEPS_BADGE_MIN, type Achievement, type AchievementGroup } from '@/data/activityDerived';
 import type { Language } from '@/data/types';
+import { countKey } from '@/i18n';
 import type { TFunction } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 import type { IconName } from '@/ui/Icon';
@@ -28,8 +29,7 @@ export function badgeName(t: TFunction, a: Achievement, language: Language): str
 }
 
 export function badgeDescription(t: TFunction, a: Achievement, language: Language): string {
-  const params = { count: a.target, ...thresholds(language) };
-  return a.target === 1 ? t(`profile.achOne.${a.group}`, params) : t(`profile.ach.${a.group}`, params);
+  return t(countKey(a.target, `profile.ach.${a.group}One`, `profile.ach.${a.group}`), { count: a.target, ...thresholds(language) });
 }
 
 export function badgePoints(t: TFunction, a: Achievement): string {

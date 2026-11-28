@@ -253,11 +253,20 @@ describe('report comparison rows', () => {
 
   it('shows units without repeating the row title and a readable peak date', async () => {
     await render(withAppData(<WeeklyReportScreen />));
-    expect(screen.getByTestId('report-row-hrv-value')).toHaveTextContent(/^\d+ ms$/);
-    expect(screen.getByTestId('report-row-restingHr-value')).toHaveTextContent(/^\d+ bpm$/);
-    expect(screen.getByTestId('report-row-sleep-value')).toHaveTextContent(/^\d+ h( \d+ min)?$|^\d+ min$/);
-    expect(within(screen.getByTestId('report-row-load')).queryByText(/Load:/)).toBeNull();
+    const hidden = { includeHiddenElements: true };
+    expect(screen.getByTestId('report-row-hrv-value', hidden)).toHaveTextContent(/^\d+ ms$/);
+    expect(screen.getByTestId('report-row-restingHr-value', hidden)).toHaveTextContent(/^\d+ bpm$/);
+    expect(screen.getByTestId('report-row-sleep-value', hidden)).toHaveTextContent(/^\d+ h( \d+ min)?$|^\d+ min$/);
+    expect(within(screen.getByTestId('report-row-load')).queryByText(/Load:/, hidden)).toBeNull();
     expect(screen.queryByText(/\d{4}-\d{2}-\d{2}/)).toBeNull();
+  });
+
+  it('reads each comparison row as one sentence with value, earlier value and trend', async () => {
+    await render(withAppData(<WeeklyReportScreen />));
+    const row = screen.getByTestId('report-row-hrv');
+    expect(row.props.accessible).toBe(true);
+    expect(row.props.accessibilityLabel).toMatch(/^HRV: \d+ ms(, before \d+ ms, (higher|lower|about the same))?\.$/);
+    expect(screen.queryByTestId('report-row-hrv-value')).toBeNull();
   });
 
   it('keeps the empty balance note inside the plot, clear of the axis', async () => {

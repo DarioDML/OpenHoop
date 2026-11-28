@@ -161,6 +161,9 @@
   "profile.ach.steps10k": "{count} days with {steps} steps or more",
   "profile.ach.highLoad": "{count} days with a load of {load} or more",
   "profile.ach.readyStreak": "{count} days in a row with a readiness of {readiness} or more",
+  "profile.ach.steps10kOne": "1 day with {steps} steps or more",
+  "profile.ach.highLoadOne": "1 day with a load of {load} or more",
+  "profile.ach.readyStreakOne": "1 day with a readiness of {readiness} or more",
   "profile.badge.streak.one": "1 day of data",
   "profile.badge.streak.other": "{count}-day streak",
   "profile.badge.nights.one": "First night",
@@ -221,11 +224,7 @@
   "plan.report.tooFewOne": "There is only 1 day of data in this period. A report needs at least {needed}.",
   "plan.month.load.headlineOne": "1 load day in {total} days.",
   "profile.lifetimeNoteOne": "Counted over 1 day of data on this phone.",
-  "profile.achOne.streak": "1 day of data",
-  "profile.achOne.nights": "1 night of sleep recorded",
-  "profile.achOne.workouts": "1 workout recorded",
-  "profile.achOne.steps10k": "1 day with {steps} steps or more",
-  "profile.achOne.highLoad": "1 day with a load of {load} or more",
-  "profile.achOne.readyStreak": "1 day with a readiness of {readiness} or more",
-  "plan.report.before": "Before: {value}"
+  "plan.report.before": "Before: {value}",
+  "plan.report.rowA11y": "{label}: {value}, before {before}, {trend}.",
+  "plan.report.rowA11yNoPrev": "{label}: {value}."
 }

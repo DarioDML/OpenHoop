@@ -19,19 +19,25 @@ interface StatTileProps {
   label: string;
   value: string;
   unit?: string;
+  unitBelow?: boolean;
   testID?: string;
 }
 
-export function StatTile({ label, value, unit, testID }: StatTileProps) {
+export function StatTile({ label, value, unit, unitBelow = false, testID }: StatTileProps) {
   const { colors } = useTheme();
   return (
     <View style={{ flex: 1, minWidth: 96, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 4 }} testID={testID}>
       <AppText variant="capSmall" muted>
         {label}
       </AppText>
-      <Num size={30} unit={unit} unitSize={13} unitColor={colors.textMuted}>
+      <Num size={30} unit={unitBelow ? undefined : unit} unitSize={13} unitColor={colors.textMuted}>
         {value}
       </Num>
+      {unitBelow && unit ? (
+        <AppText variant="caption" muted numberOfLines={1} testID={testID ? `${testID}-unit` : undefined}>
+          {unit}
+        </AppText>
+      ) : null}
     </View>
   );
 }

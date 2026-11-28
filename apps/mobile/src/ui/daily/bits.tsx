@@ -212,16 +212,25 @@ interface DotsProps {
   color: string;
 }
 
+export const WEEK_DOT_MIN = 9;
+export const WEEK_DOT_GAP = 4;
+
+export function weekDotsMinWidth(count: number): number {
+  return count * WEEK_DOT_MIN + Math.max(0, count - 1) * WEEK_DOT_GAP;
+}
+
 export function WeekDots({ dots, color }: DotsProps) {
   const { colors } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', gap: 6 }}>
+    <View style={{ flexDirection: 'row', gap: WEEK_DOT_GAP }}>
       {dots.map((on, i) => (
         <View
           key={i}
           style={{
-            width: 14,
-            height: 14,
+            flex: 1,
+            minWidth: WEEK_DOT_MIN,
+            maxWidth: 14,
+            aspectRatio: 1,
             borderRadius: radius.pill,
             backgroundColor: on === true ? color : 'transparent',
             borderWidth: on === true ? 0 : 1.5,

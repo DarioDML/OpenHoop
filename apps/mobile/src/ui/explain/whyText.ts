@@ -5,7 +5,7 @@ import type { MissingExplanation } from '@/data/explainMissing';
 import { remaining, type BuildingTerm, type Progress } from '@/data/progress';
 import { TERMS } from '@/data/terms';
 import type { Language } from '@/data/types';
-import { reasonText } from '@/i18n';
+import { countKey, reasonText } from '@/i18n';
 import type { TFunction } from '@/i18n/useT';
 import { formatAgo, formatClock, formatDuration } from '@/lib/format';
 import type { IconName } from '@/ui/Icon';
@@ -176,7 +176,7 @@ export function whyText(t: TFunction, language: Language, expl: MissingExplanati
 
 function nightsStatus(t: TFunction, progress: Progress): string {
   const left = remaining(progress);
-  if (progress.unit === 'nights') return left === 1 ? t('why.status.nightsOne') : t('why.status.nights', { count: left });
+  if (progress.unit === 'nights') return t(countKey(left, 'why.status.nightsOne', 'why.status.nights'), { count: left });
   return left === 1 ? t('why.status.calmDaysOne') : t('why.status.calmDays', { count: left });
 }
 

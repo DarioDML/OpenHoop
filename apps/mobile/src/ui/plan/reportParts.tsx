@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { MIN_REPORT_DAYS, trendOf, type PeriodStats, type Trend } from '@/data/activityDerived';
 import { formatLongDay } from '@/data/dailyDerived';
 import type { Language } from '@/data/types';
-import type { TranslationKey } from '@/i18n';
+import { countKey, type TranslationKey } from '@/i18n';
 import { useT, type TFunction } from '@/i18n/useT';
 import { formatDuration, formatNumber } from '@/lib/format';
 
@@ -15,7 +15,7 @@ import { Section } from '../Section';
 import { spacing } from '../theme';
 
 export function tooFewText(t: TFunction, count: number): string {
-  return count === 1 ? t('plan.report.tooFewOne', { needed: MIN_REPORT_DAYS }) : t('plan.report.tooFew', { count, needed: MIN_REPORT_DAYS });
+  return t(countKey(count, 'plan.report.tooFewOne', 'plan.report.tooFew'), { count, needed: MIN_REPORT_DAYS });
 }
 
 export type RowId = 'readiness' | 'load' | 'sleep' | 'hrv' | 'restingHr';
@@ -69,25 +69,33 @@ export function ChangeRows({ current, previous, comparable, previousCount, only,
         {rows.map((row) => {
           if (row.current === null) return null;
           const trend = row.previous !== null && comparable ? trendOf(row.current, row.previous) : null;
+          const label = t(row.label);
+          const value = changeValueText(t, language, row.id, row.current);
+          const before = trend !== null && row.previous !== null ? changeValueText(t, language, row.id, row.previous) : null;
+          const sentence = before !== null && trend !== null ? t('plan.report.rowA11y', { label, value, before, trend: t(TREND_KEY[trend]) }) : t('plan.report.rowA11yNoPrev', { label, value });
           return (
-            <Card key={row.id} testID={`report-row-${row.id}`} style={{ gap: 6 }}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: spacing.md, rowGap: 2 }}>
-                <AppText variant="bodyStrong" style={{ flexShrink: 1 }}>
-                  {t(row.label)}
-                </AppText>
-                <AppText variant="bodyStrong" numeric testID={`report-row-${row.id}-value`}>
-                  {changeValueText(t, language, row.id, row.current)}
-                </AppText>
+            <View key={row.id} accessible accessibilityLabel={sentence} testID={`report-row-${row.id}`}>
+              <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                <Card style={{ gap: 6 }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: spacing.md, rowGap: 2 }}>
+                    <AppText variant="bodyStrong" style={{ flexShrink: 1 }}>
+                      {label}
+                    </AppText>
+                    <AppText variant="bodyStrong" numeric testID={`report-row-${row.id}-value`}>
+                      {value}
+                    </AppText>
+                  </View>
+                  {before !== null && trend !== null ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+                      <AppText variant="label" muted numeric style={{ flexShrink: 1 }} testID={`report-row-${row.id}-before`}>
+                        {t('plan.report.before', { value: before })}
+                      </AppText>
+                      <Chip tone="neutral" label={t(TREND_KEY[trend])} />
+                    </View>
+                  ) : null}
+                </Card>
               </View>
-              {trend !== null && row.previous !== null ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-                  <AppText variant="label" muted numeric style={{ flexShrink: 1 }} testID={`report-row-${row.id}-before`}>
-                    {t('plan.report.before', { value: changeValueText(t, language, row.id, row.previous) })}
-                  </AppText>
-                  <Chip tone="neutral" label={t(TREND_KEY[trend])} />
-                </View>
-              ) : null}
-            </Card>
+            </View>
           );
         })}
       </View>

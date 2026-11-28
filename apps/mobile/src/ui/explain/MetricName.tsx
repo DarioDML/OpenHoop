@@ -14,10 +14,12 @@ interface Props {
   label?: string;
   variant?: TypeVariant;
   muted?: boolean;
+  icon?: boolean;
+  numberOfLines?: number;
   testID?: string;
 }
 
-export function MetricName({ target, label, variant = 'capSmall', muted = true, testID }: Props): ReactElement {
+export function MetricName({ target, label, variant = 'capSmall', muted = true, icon = true, numberOfLines = 2, testID }: Props): ReactElement {
   const { t } = useT();
   const { colors } = useTheme();
   const explain = useExplain();
@@ -29,10 +31,10 @@ export function MetricName({ target, label, variant = 'capSmall', muted = true, 
       onPress={() => explain.about(target)}
       testID={testID}
       style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-      <WordFitText variant={variant} muted={muted} numberOfLines={2} style={{ flexShrink: 1 }}>
+      <WordFitText variant={variant} muted={muted} numberOfLines={numberOfLines} style={{ flexShrink: 1 }}>
         {name}
       </WordFitText>
-      <Icon name="info" size={15} color={colors.textMuted} />
+      {icon ? <Icon name="info" size={15} color={colors.textMuted} /> : null}
     </Pressable>
   );
 }

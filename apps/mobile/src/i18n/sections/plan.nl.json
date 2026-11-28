@@ -161,6 +161,9 @@
   "profile.ach.steps10k": "{count} dagen met {steps} stappen of meer",
   "profile.ach.highLoad": "{count} dagen met een belasting van {load} of meer",
   "profile.ach.readyStreak": "{count} dagen op rij met een paraatheid van {readiness} of meer",
+  "profile.ach.steps10kOne": "1 dag met {steps} stappen of meer",
+  "profile.ach.highLoadOne": "1 dag met een belasting van {load} of meer",
+  "profile.ach.readyStreakOne": "1 dag met een paraatheid van {readiness} of meer",
   "profile.badge.streak.one": "1 dag met data",
   "profile.badge.streak.other": "{count} dagen op rij",
   "profile.badge.nights.one": "Eerste nacht",
@@ -221,11 +224,7 @@
   "plan.report.tooFewOne": "Er is in deze periode maar 1 dag data. Voor een rapport zijn er minstens {needed} nodig.",
   "plan.month.load.headlineOne": "1 belastingsdag op {total} dagen.",
   "profile.lifetimeNoteOne": "Geteld over 1 dag data op deze telefoon.",
-  "profile.achOne.streak": "1 dag met data",
-  "profile.achOne.nights": "1 nacht slaap vastgelegd",
-  "profile.achOne.workouts": "1 workout vastgelegd",
-  "profile.achOne.steps10k": "1 dag met {steps} stappen of meer",
-  "profile.achOne.highLoad": "1 dag met een belasting van {load} of meer",
-  "profile.achOne.readyStreak": "1 dag met een paraatheid van {readiness} of meer",
-  "plan.report.before": "Daarvoor: {value}"
+  "plan.report.before": "Daarvoor: {value}",
+  "plan.report.rowA11y": "{label}: {value}, daarvoor {before}, {trend}.",
+  "plan.report.rowA11yNoPrev": "{label}: {value}."
 }

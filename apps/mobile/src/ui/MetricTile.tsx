@@ -17,7 +17,9 @@ import { Icon } from './Icon';
 import { useLayout } from './layout';
 import { Num } from './Num';
 import { ParityBadge } from './ParityBadge';
-import { spacing, useTheme } from './theme';
+import { maxFontScale, spacing, typeScale, useTheme } from './theme';
+
+const LABEL_LINES = 2;
 
 interface Props {
   label: string;
@@ -55,29 +57,45 @@ export function MissingValue({ target, testID }: MissingValueProps): ReactElemen
   );
 }
 
+export function labelBlockHeight(fontScale: number, lines = LABEL_LINES): number {
+  const scale = Number.isFinite(fontScale) && fontScale > 0 ? Math.min(fontScale, maxFontScale.capSmall) : 1;
+  return Math.ceil(typeScale.capSmall.lineHeight * scale) * lines;
+}
+
 export function MetricTile({ label, value, level, unit, reason = null, decimals = 0, format, caption, chip, href, explain, size = 44, style, testID }: Props) {
   const { language, reason: reasonLabel } = useT();
   const { colors } = useTheme();
-  const { compact } = useLayout();
+  const { compact, fontScale } = useLayout();
+  const explainer = useExplain();
   const hasValue = value !== null;
   const shownValue = hasValue ? (format ? format(value) : formatNumber(value, decimals, language)) : null;
   const target: ExplainTarget | null = explain ? { term: explain.term, index: explain.index, shown: { value: shownValue, unit: unit ?? null, reason } } : null;
   return (
-    <Card href={href} style={[{ gap: 10 }, style]} testID={testID} accessibilityLabel={label}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-        {target ? (
-          <MetricName target={target} label={label} testID={testID ? `${testID}-name` : undefined} />
-        ) : (
-          <View style={{ flexShrink: 1 }}>
-            <WordFitText variant="capSmall" muted numberOfLines={2}>
-              {href ? `${label} ›` : label}
-            </WordFitText>
-          </View>
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          {compact ? null : <ParityBadge level={level} />}
-          {target && href ? <Icon name="chevronRight" size={14} color={colors.textMuted} /> : null}
+    <Card href={href} style={[{ gap: 6 }, style]} testID={testID} accessibilityLabel={label}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, minHeight: 24 }} testID={testID ? `${testID}-icons` : undefined}>
+        <ParityBadge level={level} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          {target ? (
+            <Pressable
+              accessible={false}
+              importantForAccessibility="no"
+              hitSlop={12}
+              onPress={() => explainer.about(target)}
+              testID={testID ? `${testID}-info` : undefined}>
+              <Icon name="info" size={15} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
+          {href ? <Icon name="chevronRight" size={14} color={colors.textMuted} /> : null}
         </View>
+      </View>
+      <View style={{ minHeight: labelBlockHeight(fontScale), justifyContent: 'center' }} testID={testID ? `${testID}-label` : undefined}>
+        {target ? (
+          <MetricName target={target} label={label} icon={false} testID={testID ? `${testID}-name` : undefined} />
+        ) : (
+          <WordFitText variant="capSmall" muted numberOfLines={LABEL_LINES}>
+            {label}
+          </WordFitText>
+        )}
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <View style={{ flexShrink: 1 }}>
@@ -101,14 +119,7 @@ export function MetricTile({ label, value, level, unit, reason = null, decimals 
           )}
         </View>
       </View>
-      {compact ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }} testID={testID ? `${testID}-status` : undefined}>
-          <View style={{ flexShrink: 1 }}>{chip && hasValue ? <Chip label={chip.label} tone={chip.tone} /> : null}</View>
-          <ParityBadge level={level} />
-        </View>
-      ) : chip && hasValue ? (
-        <Chip label={chip.label} tone={chip.tone} />
-      ) : null}
+      {chip && hasValue ? <Chip label={chip.label} tone={chip.tone} /> : null}
       {caption ? (
         <AppText variant="caption" muted>
           {caption}

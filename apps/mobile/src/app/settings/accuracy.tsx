@@ -6,7 +6,7 @@ import { Share, View } from 'react-native';
 import { MIN_PAIRS, STAGES_KAPPA_TARGET, compareWithOfficial, summarise, type AccuracyMetric, type MetricComparison } from '@/data/accuracy';
 import { useAppData } from '@/data/context';
 import type { Language, Units } from '@/data/types';
-import type { TranslationKey } from '@/i18n';
+import { countKey, type TranslationKey } from '@/i18n';
 import { useT, type TFunction } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 import { temperatureUnit, useUnits } from '@/lib/units';
@@ -157,7 +157,7 @@ export default function AccuracyScreen() {
   const measured = new Set<string>([...comparisons.filter((comparison) => comparison.meanAbsError !== null).map((comparison) => comparison.metric), 'stages']);
   const stagesKappa = formatNumber(STAGE_VALIDATION.kappa, 2, language);
   const stagesPass = STAGE_VALIDATION.kappa >= STAGES_KAPPA_TARGET;
-  const vsOfficial = (pairs: number): string => (pairs === 1 ? t('aboutx.accuracy.vsOfficialOne') : t('aboutx.accuracy.vsOfficial', { count: pairs }));
+  const vsOfficial = (pairs: number): string => t(countKey(pairs, 'aboutx.accuracy.vsOfficialOne', 'aboutx.accuracy.vsOfficial'), { count: pairs });
   const title =
     summary.withTarget > 0
       ? t('aboutx.accuracy.summary', { passing: summary.passing, total: summary.withTarget })
@@ -184,7 +184,7 @@ export default function AccuracyScreen() {
       <TopBar title={t('aboutx.accuracy.title')} right={<IconButton icon="share" label={t('aboutx.accuracy.share')} onPress={share} color={colors.text} testID="accuracy-share" />} />
       <View style={{ gap: spacing.sm }} testID="accuracy-hero">
         <AppText variant="capLarge" soft>
-          {summary.nights === 0 ? t('aboutx.accuracy.eyebrowNone') : summary.nights === 1 ? t('aboutx.accuracy.eyebrowOne') : t('aboutx.accuracy.eyebrow', { nights: summary.nights })}
+          {summary.nights === 0 ? t('aboutx.accuracy.eyebrowNone') : t(countKey(summary.nights, 'aboutx.accuracy.eyebrowOne', 'aboutx.accuracy.eyebrow'), { nights: summary.nights })}
         </AppText>
         <AppText variant="h1" accessibilityRole="header" testID="accuracy-summary">
           {title}

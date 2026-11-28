@@ -7,6 +7,7 @@ import { pickVendorFiles } from '@/data/vendorExport/pickFiles';
 import { previewCounts, totalBytes, vendorFrom } from '@/data/vendorExport/preview';
 import { parseVendorSources, type SourceFile } from '@/data/vendorExport/sources';
 import type { VendorImportResult } from '@/data/vendorExport/summary';
+import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { BigStatRow, BigStatTile } from '@/ui/BigStat';
@@ -182,7 +183,7 @@ export default function ImportExportScreen() {
       {picked !== null && preview !== null ? (
         <View style={{ gap: spacing.sm }}>
           <Button
-            label={busy ? t('import.importing') : preview.days === 1 ? t('import.importOneDay') : t('import.importDays', { count: preview.days })}
+            label={busy ? t('import.importing') : t(countKey(preview.days, 'import.importDaysOne', 'import.importDays'), { count: preview.days })}
             icon="import"
             onPress={() => void runImport()}
             disabled={busy || preview.days === 0}

@@ -9,6 +9,7 @@ import { findQuestion } from '@/data/journalQuestions';
 import { averageConsistency, averageSleepScore, bestDay, deltaOf, monthFocus, monthHeadline, type Delta, type MonthFocus, type MonthHeadline } from '@/data/periodReport';
 import type { Language } from '@/data/types';
 import type { UserData } from '@/data/userData';
+import { countKey } from '@/i18n';
 import type { TFunction } from '@/i18n/useT';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
@@ -119,7 +120,7 @@ export function MonthlyReport({ testID }: { testID: string }): ReactElement {
     headlineText(t, monthHeadline(days, MONTH)),
     cur.readiness === null ? t('plan.month.readiness.none') : t('plan.month.readiness.headline', { value: fmt(cur.readiness) }),
     cur.sleepH === null ? t('plan.month.sleep.none') : t('plan.month.sleep.headline', { time: formatHm(cur.sleepH * 3600) }),
-    cur.loadDays === 1 ? t('plan.month.load.headlineOne', { total: current.length }) : t('plan.month.load.headline', { count: cur.loadDays, total: current.length }),
+    t(countKey(cur.loadDays, 'plan.month.load.headlineOne', 'plan.month.load.headline'), { count: cur.loadDays, total: current.length }),
     t('plan.month.compare.headline'),
   ];
   const headline = headlines[page] ?? headlines[0] ?? '';

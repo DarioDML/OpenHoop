@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { LOAD_DAY_MIN, mergeSteps } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { defaultPlan, planAdvice, planWeek, type GoalProgress, type GoalState, type WeeklyPlan } from '@/data/weeklyPlan';
-import type { TranslationKey } from '@/i18n';
+import { countKey, type TranslationKey } from '@/i18n';
 import type { TFunction } from '@/i18n/useT';
 import { useT } from '@/i18n/useT';
 import { deviceTzOffsetS } from '@/lib/dates';
@@ -135,7 +135,7 @@ export default function PlanScreen() {
               icon="info"
               tone="info"
               title={t('plan.notice.sleepTitle')}
-              body={plan.sleepNights === 1 ? t('plan.notice.sleepBodyOne', { min: plan.sleepScoreMin }) : t('plan.notice.sleepBody', { min: plan.sleepScoreMin, count: plan.sleepNights })}
+              body={t(countKey(plan.sleepNights, 'plan.notice.sleepBodyOne', 'plan.notice.sleepBody'), { min: plan.sleepScoreMin, count: plan.sleepNights })}
               actionLabel={t('plan.notice.dismiss')}
               onAction={() => void updateUserData({ weeklyPlan: { ...plan, sleepScoreNotice: false } })}
               testID="plan-sleep-notice"

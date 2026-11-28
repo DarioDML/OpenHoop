@@ -20,7 +20,7 @@ import {
 } from '@/data/jetLag';
 import { MAX_PRE_ADJUST_DAYS, type SavedJetLagPlan } from '@/data/userData';
 import { useT } from '@/i18n/useT';
-import type { TranslationKey } from '@/i18n';
+import { countKey, type TranslationKey } from '@/i18n';
 import { COMMON_TIME_ZONES, deviceTimeZone, type ZonedClock } from '@/lib/timeZones';
 import { AppText } from '@/ui/AppText';
 import { Card, CardHeader } from '@/ui/Card';
@@ -286,7 +286,7 @@ export default function JetLagScreen() {
   };
 
   const anchorNote =
-    history === null ? t('jetlag.anchorNoHistory') : form.anchorSource === 'sleep-data' ? t('jetlag.anchorHistory', { nights: history.nights }) : t('jetlag.anchorEntered');
+    history === null ? t('jetlag.anchorNoHistory') : form.anchorSource === 'sleep-data' ? t(countKey(history.nights, 'jetlag.anchorHistoryOne', 'jetlag.anchorHistory'), { nights: history.nights }) : t('jetlag.anchorEntered');
 
   const row = (label: string, value: string, testID: string, tone: 'default' | 'seek' | 'avoid' = 'default') => (
     <View style={{ gap: 2 }}>

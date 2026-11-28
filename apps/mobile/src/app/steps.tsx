@@ -4,7 +4,7 @@ import { View } from 'react-native';
 
 import { mergeSteps, stepsStats, type StepsDay } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
-import { compactThousands, hourlyStepBars, type HourBar } from '@/data/loadDerived';
+import { compactThousands, HOUR_TICK, hourAxis, hourlyStepBars, type HourBar } from '@/data/loadDerived';
 import { useT } from '@/i18n/useT';
 import { formatNumber, formatShortDay } from '@/lib/format';
 import { NoDataScreen, StatRow, StatTile } from '@/ui/activity/parts';
@@ -40,21 +40,23 @@ function HealthConnectSource({ entry }: { entry: StepsDay }) {
 
 function HourChart({ bars }: { bars: readonly HourBar[] }) {
   const { t, language } = useT();
-  const every = Math.max(2, Math.ceil(bars.length / 6));
+  const slots = hourAxis(bars);
   return (
     <>
       <ValueBars
         testID="steps-by-hour"
         fill
+        gap={slots.length > 12 ? 2 : 4}
         showValues={false}
         height={110}
         barWidth={24}
-        bars={bars.map((bar, i) => ({
-          key: String(bar.t),
-          value: bar.steps,
-          label: i % every === 0 ? String(bar.hour) : '',
-          a11yLabel: t('stepsScreen.hourA11y', { hour: bar.hour }),
-          display: bar.steps === null ? undefined : formatNumber(bar.steps, 0, language),
+        bars={slots.map((slot) => ({
+          key: slot.key,
+          value: slot.steps,
+          blank: slot.blank,
+          label: slot.hour % HOUR_TICK === 0 ? String(slot.hour) : '',
+          a11yLabel: t('stepsScreen.hourA11y', { hour: slot.hour }),
+          display: slot.steps === null ? undefined : formatNumber(slot.steps, 0, language),
         }))}
       />
       {bars.some((bar) => bar.steps === null) ? (

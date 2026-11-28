@@ -6,6 +6,7 @@ import { useAppData } from '@/data/context';
 import { formatHm, formatMinutes, typicalWake } from '@/data/dailyDerived';
 import { GET_BY_FRACTION, WIND_DOWN_LEAD_MIN, effectiveGoal, planScoreOf, tonightPlan, windDownAt } from '@/data/sleepDerived';
 import { SLEEP_GOALS, type SleepGoal } from '@/data/userData';
+import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatDuration } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -161,7 +162,7 @@ export default function SleepPlannerScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
               <Icon name="info" color={colors.textMuted} size={16} />
               <AppText variant="label" muted style={{ flex: 1 }} testID="plan-basis">
-                {t('sleepx.plannerBasis', {
+                {t(countKey(plan.nights, 'sleepx.plannerBasisOne', 'sleepx.plannerBasis'), {
                   target: tonight === null ? '' : formatDuration(t, tonight.targetS),
                   awake: formatDuration(t, plan.awakeInBedS),
                   nights: plan.nights,
