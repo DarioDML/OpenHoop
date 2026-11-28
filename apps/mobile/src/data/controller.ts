@@ -210,6 +210,7 @@ import {
 import { runHealthConnectSync } from './healthConnectSync';
 import { switchHealthConnectTypes } from './healthConnectSwitch';
 import { removeLeftoverReports } from './reportFiles';
+import { removeLeftoverCuffFiles } from './cuffShare';
 import { removeLeftoverEcgFiles } from './ecgShare';
 import {
   NOTIFICATION_STATE_KEY,
@@ -566,6 +567,7 @@ export class AppController {
       removeLeftoverExports();
       removeLeftoverReports();
       removeLeftoverEcgFiles();
+      removeLeftoverCuffFiles();
       removeLeftoverDonations();
     } catch {
       // a leftover export or report is removed again before the next one

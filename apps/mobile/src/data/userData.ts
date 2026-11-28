@@ -98,6 +98,7 @@ export interface UserData {
   rawRetentionDays: RawRetentionDays | null;
   vendorUse: VendorUse;
   officialAppMode: OfficialAppMode | null;
+  cuffLog: boolean;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -135,6 +136,7 @@ export function defaultUserData(): UserData {
     rawRetentionDays: null,
     vendorUse: { accuracy: true, history: true },
     officialAppMode: null,
+    cuffLog: false,
   };
 }
 
@@ -284,6 +286,7 @@ export function parseUserData(raw: string | null): UserData {
       history: !isRecord(parsed.vendorUse) || parsed.vendorUse.history !== false,
     },
     officialAppMode: oneOf(parsed.officialAppMode, OFFICIAL_APP_MODES),
+    cuffLog: parsed.cuffLog === true,
   };
 }
 
