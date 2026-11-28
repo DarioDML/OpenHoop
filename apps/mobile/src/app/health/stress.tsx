@@ -2,7 +2,7 @@ import { useState, type ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { STRESS_HOURS, hourTicks, latestStressDayIndex, recentStressWindows, stressForDay, stressHours, stressTimeline, type StressHour } from '@/data/stressDerived';
+import { STRESS_HOURS, hourTicks, latestStressDayIndex, recentStress, stressForDay, stressHours, stressTimeline, type StressHour } from '@/data/stressDerived';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatNumber, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -27,12 +27,12 @@ const SCALE_MAX = 3;
 const BAR_AREA = 150;
 const TICK_WIDTH = 64;
 
-function HourBars({ hours, tzOffsetS }: { hours: readonly StressHour[]; tzOffsetS: number }): ReactElement {
+function HourBars({ hours }: { hours: readonly StressHour[] }): ReactElement {
   const { t, language } = useT();
   const { colors } = useTheme();
   const label = hours
     .filter((h) => h.score !== null)
-    .map((h) => `${formatClock(h.start, tzOffsetS)} ${formatNumber(h.score ?? 0, 1, language)}`)
+    .map((h) => `${formatClock(h.start, h.tzOffsetS)} ${formatNumber(h.score ?? 0, 1, language)}`)
     .join(', ');
   return (
     <View accessible accessibilityLabel={label === '' ? t('stress.noWindows') : label} testID="stress-hours" style={{ gap: 6 }}>
@@ -67,7 +67,7 @@ function HourBars({ hours, tzOffsetS }: { hours: readonly StressHour[]; tzOffset
                 ...(first ? { left: 0 } : last ? { right: 0 } : { left: `${center}%`, marginLeft: -TICK_WIDTH / 2 }),
               }}>
               <AppText variant="caption" muted numeric numberOfLines={1} style={{ textAlign: first ? 'left' : last ? 'right' : 'center' }} testID={`stress-tick-${i}`}>
-                {formatClock(hour.start, tzOffsetS)}
+                {formatClock(hour.start, hour.tzOffsetS)}
               </AppText>
             </View>
           );
@@ -87,7 +87,8 @@ export default function StressScreen() {
   const day = days[index];
   const view = stressForDay(day);
   const timeline = day ? stressTimeline(view.windows, day.start, day.end) : [];
-  const hours = day && view.latest ? stressHours(recentStressWindows(days, index), view.latest.t, day.tzOffsetS) : [];
+  const recent = recentStress(days, index);
+  const hours = day && view.latest ? stressHours(recent.windows, view.latest.t, day.tzOffsetS, STRESS_HOURS, recent.spans) : [];
   const hasPrev = index > 0;
   const hasNext = index < days.length - 1;
   const gaugeSize = Math.min(300, width - gutter * 2 - 40);
@@ -171,7 +172,7 @@ export default function StressScreen() {
                 {t('health.stress.scale')}
               </AppText>
             </View>
-            <HourBars hours={hours} tzOffsetS={day.tzOffsetS} />
+            <HourBars hours={hours} />
           </Card>
           <Card testID="stress-levels">
             <AppText variant="capLarge" muted>

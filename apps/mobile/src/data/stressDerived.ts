@@ -68,13 +68,37 @@ const HOUR_S = 3600;
 
 export interface StressHour {
   start: number;
+  tzOffsetS: number;
   score: number | null;
   level: StressLevel | null;
 }
 
-export function recentStressWindows(days: readonly DayRecord[], index: number): StressWindow[] {
-  const previous = index > 0 ? stressForDay(days[index - 1]).windows : [];
-  return [...previous, ...stressForDay(days[index]).windows];
+export interface StressSpan {
+  start: number;
+  tzOffsetS: number;
+}
+
+export interface RecentStress {
+  windows: StressWindow[];
+  spans: StressSpan[];
+}
+
+export function mergeStressWindows(...lists: ReadonlyArray<readonly StressWindow[]>): StressWindow[] {
+  const byTime = new Map<number, StressWindow>();
+  for (const list of lists) for (const window of list) byTime.set(window.t, window);
+  return [...byTime.values()].sort((a, b) => a.t - b.t);
+}
+
+export function recentStress(days: readonly DayRecord[], index: number): RecentStress {
+  const picked = [index > 0 ? days[index - 1] : undefined, days[index]].filter((day): day is DayRecord => day !== undefined);
+  return {
+    windows: mergeStressWindows(...picked.map((day) => stressForDay(day).windows)),
+    spans: picked.map((day) => ({ start: day.start, tzOffsetS: day.tzOffsetS })),
+  };
+}
+
+function offsetAt(t: number, spans: readonly StressSpan[], fallback: number): number {
+  return spans.reduce<StressSpan | null>((found, span) => (span.start <= t && (found === null || span.start >= found.start) ? span : found), null)?.tzOffsetS ?? fallback;
 }
 
 export function hourTicks(count: number, step = 4): number[] {
@@ -86,13 +110,14 @@ export function hourTicks(count: number, step = 4): number[] {
   return ticks;
 }
 
-export function stressHours(windows: readonly StressWindow[], endS: number, tzOffsetS: number, hours = STRESS_HOURS): StressHour[] {
+export function stressHours(windows: readonly StressWindow[], endS: number, tzOffsetS: number, hours = STRESS_HOURS, spans: readonly StressSpan[] = []): StressHour[] {
   const lastStart = Math.floor((endS + tzOffsetS) / HOUR_S) * HOUR_S - tzOffsetS;
   return Array.from({ length: hours }, (_, i) => {
     const start = lastStart - (hours - 1 - i) * HOUR_S;
+    const offset = offsetAt(start, spans, tzOffsetS);
     const scores = windows.flatMap((w) => (w.score !== null && w.t >= start && w.t < start + HOUR_S ? [w.score] : []));
-    if (scores.length === 0) return { start, score: null, level: null };
+    if (scores.length === 0) return { start, tzOffsetS: offset, score: null, level: null };
     const score = scores.reduce((sum, s) => sum + s, 0) / scores.length;
-    return { start, score, level: stressLevel(score) };
+    return { start, tzOffsetS: offset, score, level: stressLevel(score) };
   });
 }
