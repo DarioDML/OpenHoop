@@ -1,6 +1,8 @@
 import type { StrengthData, StrengthSession, StrengthSet, StrengthTemplate } from '@openhoop/core';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import type { ReactNode } from 'react';
+import { captureRef } from 'react-native-view-shot';
 
 import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { defaultUserData } from '@/data/userData';
@@ -39,6 +41,34 @@ jest.mock('@/coach/keyStore', () => ({
 jest.mock('@/net', () => ({
   netFetch: (...args: Parameters<GatedFetch>) => mockNetFetch(...args),
 }));
+
+jest.mock('react-native-view-shot', () => ({ captureRef: jest.fn() }));
+
+jest.mock('expo-sharing', () => ({ isAvailableAsync: jest.fn(), shareAsync: jest.fn() }));
+
+jest.mock('expo-file-system', () => {
+  class MockDirectory {
+    uri: string;
+    constructor(...parts: Array<string | MockDirectory>) {
+      this.uri = parts.map((p) => (typeof p === 'string' ? p : p.uri)).join('/');
+    }
+    get exists(): boolean {
+      return false;
+    }
+    create(): void {}
+    delete(): void {}
+  }
+  class MockFile {
+    uri: string;
+    constructor(folder: MockDirectory, name: string) {
+      this.uri = `${folder.uri}/${name}`;
+    }
+    async write(): Promise<void> {
+      await Promise.resolve();
+    }
+  }
+  return { Directory: MockDirectory, File: MockFile, Paths: { cache: new MockDirectory('cache') } };
+});
 
 import StrengthBuilderScreen from '@/app/strength/builder';
 import StrengthExerciseScreen from '@/app/strength/exercise';
@@ -652,7 +682,7 @@ describe('workout summary', () => {
     expect(within(screen.getByTestId('summary-sets')).getByText(/4/)).toBeTruthy();
     expect(within(screen.getByTestId('summary-reps')).getByText(/28/)).toBeTruthy();
     expect(within(screen.getByTestId('summary-volume')).getByText(/1195/)).toBeTruthy();
-    expect(within(screen.getByTestId('summary-duration')).getByText(/50 min/)).toBeTruthy();
+    expect(within(screen.getByTestId('summary-duration')).getByText('50:00')).toBeTruthy();
     expect(screen.getByTestId('summary-exercise-lib:bench_press')).toBeTruthy();
     expect(screen.getByTestId('summary-record-lib:bench_press')).toBeTruthy();
     expect(screen.queryByTestId('summary-record-lib:back_squat')).toBeNull();
@@ -660,6 +690,52 @@ describe('workout summary', () => {
     expect(within(chest).getByText('2 sets · 695 kg')).toBeTruthy();
     expect(within(screen.getByTestId('summary-load-rows-core')).getByText('1 sets · 0 kg')).toBeTruthy();
     expect(screen.getByText(/not a measure of physiological strain/)).toBeTruthy();
+  });
+
+  it('lists the records set in this workout', async () => {
+    mockParams = { id: '2' };
+    await render(withAppData(<StrengthSummaryScreen />, 'en', app(data({ sessions: [DAY_1, DAY_2] }), actions())));
+    expect(screen.getByTestId('summary-pr-heaviest-lib:bench_press')).toHaveTextContent('Bench press 90 kg × 3');
+    expect(screen.queryByTestId('summary-pr-volume-lib:bench_press')).toBeNull();
+    expect(screen.queryByTestId('summary-records-none')).toBeNull();
+  });
+
+  it('says so when there is no new record', async () => {
+    mockParams = { id: '2' };
+    await render(withAppData(<StrengthSummaryScreen />, 'en', app(data({ sessions: [DAY_2] }), actions())));
+    expect(screen.getByTestId('summary-records-none')).toHaveTextContent('No new records this time.');
+  });
+
+  it('shades the trained muscles on the body figure from the session volume', async () => {
+    mockParams = { id: '2' };
+    await render(withAppData(<StrengthSummaryScreen />, 'en', app(data({ sessions: [DAY_2] }), actions())));
+    expect(screen.getByLabelText('Muscle map. Most volume on: Chest, Quadriceps, Core.')).toBeTruthy();
+    expect(screen.getByTestId('summary-figure-front-chest-0').props.fillOpacity).toBe(1);
+    expect(screen.getByTestId('summary-figure-front-quads-6').props.fillOpacity).toBeCloseTo(0.24 + 0.76 * (500 / 695), 5);
+    expect(screen.getByTestId('summary-figure-front-core-1').props.fillOpacity).toBeCloseTo(0.24 + 0.76 * 0.15, 5);
+    expect(screen.getByTestId('summary-figure-back-back-0').props.fillOpacity).toBe(1);
+    expect(screen.getByText('Not trained')).toBeTruthy();
+  });
+
+  it('shows the workout Load from its heart rate, or why there is none', async () => {
+    mockParams = { id: '2' };
+    const heartRateBetween = jest.fn(async (fromS: number, toS: number, bucketS?: number) => (bucketS === 1 ? steadyHeartRate(fromS, toS) : []));
+    const view = await render(withAppData(<StrengthSummaryScreen />, 'en', app(data({ sessions: [DAY_2] }), actions(), { heartRateBetween })));
+    await waitFor(() => expect(screen.getByTestId('summary-load-value')).toHaveTextContent(/^\d+\.\d$/));
+    await view.rerender(withAppData(<StrengthSummaryScreen />, 'en', app(data({ sessions: [DAY_2] }), actions())));
+    await waitFor(() => expect(screen.getByTestId('summary-load-missing')).toHaveTextContent('no Load: no heart rate recorded'));
+  });
+
+  it('shares the summary as an image through the existing share path', async () => {
+    mockParams = { id: '2' };
+    jest.mocked(isAvailableAsync).mockResolvedValue(true);
+    jest.mocked(captureRef).mockResolvedValue('aGk=');
+    jest.mocked(shareAsync).mockResolvedValue();
+    await render(withAppData(<StrengthSummaryScreen />, 'en', app(data({ sessions: [DAY_1, DAY_2] }), actions())));
+    await fireEvent.press(screen.getByTestId('summary-share'));
+    expect(screen.getByText('Push 2 · new records: 1')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('summary-share-sheet-send'));
+    await waitFor(() => expect(shareAsync).toHaveBeenCalledWith(expect.stringContaining('openhoop-strength.png'), expect.objectContaining({ mimeType: 'image/png' })));
   });
 
   it('shows heart-rate stats from the samples in the session window', async () => {

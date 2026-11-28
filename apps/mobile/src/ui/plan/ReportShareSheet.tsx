@@ -26,9 +26,11 @@ interface Props {
   stats: readonly ShareStat[];
   fileName: string;
   testID: string;
+  sheetTitle?: string;
+  sheetSubtitle?: string;
 }
 
-export function ReportShareSheet({ visible, onClose, title, range, headline, stats, fileName, testID }: Props): ReactElement {
+export function ReportShareSheet({ visible, onClose, title, range, headline, stats, fileName, testID, sheetTitle, sheetSubtitle }: Props): ReactElement {
   const { t } = useT();
   const { colors } = useTheme();
   const card = useRef<CardHandle>(null);
@@ -51,8 +53,8 @@ export function ReportShareSheet({ visible, onClose, title, range, headline, sta
     <Sheet
       visible={visible}
       onClose={onClose}
-      title={t('plan.share.title')}
-      subtitle={t('plan.share.subtitle')}
+      title={sheetTitle ?? t('plan.share.title')}
+      subtitle={sheetSubtitle ?? t('plan.share.subtitle')}
       testID={testID}
       footer={<Button label={sharing ? t('plan.share.sharing') : t('plan.share.action')} icon="share" onPress={() => void share()} disabled={sharing} testID={`${testID}-send`} />}>
       <View ref={card} collapsable={false} style={{ backgroundColor: colors.sheet, borderRadius: radius.md, padding: spacing.lg, gap: spacing.md, borderWidth: 1, borderColor: colors.border }}>

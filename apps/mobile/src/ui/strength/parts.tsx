@@ -289,7 +289,7 @@ export function MuscleLoadRows({ rows, testID }: LoadProps) {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md }}>
             <AppText variant="bodyStrong">{labels.muscleName(row.muscle)}</AppText>
             <AppText variant="label" muted numeric>
-              {t('strength.summary.loadRow', { sets: row.sets, volume: labels.kg(row.volumeKg) })}
+              {t('strength.summary.loadRow', { sets: row.sets, volume: labels.volumeText(row.volumeKg) })}
             </AppText>
           </View>
           <ProgressBar fraction={top > 0 ? row.volumeKg / top : 0} label={labels.muscleName(row.muscle)} />
