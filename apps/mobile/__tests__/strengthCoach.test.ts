@@ -78,6 +78,20 @@ describe('reading the coach’s workout', () => {
     if (result.ok) expect(result.items).toHaveLength(30);
   });
 
+  it('survives hostile replies', () => {
+    const text = '{"name":' + JSON.stringify('Push\u0007\u0000A') + ',"exercises":[' +
+      '{"exercise":"lib:bench_press","sets":1e999,"reps":8,"weightKg":70},' +
+      '{"exercise":"lib:deadlift","sets":3,"reps":8,"weightKg":1e999},' +
+      '{"exercise":"lib:back_squat","sets":3,"reps":8,"weightKg":"NaN"},' +
+      '{"exercise":"lib:pull_up","sets":"Infinity","reps":8,"weightKg":0},' +
+      '{"exercise":"lib:crunch","sets":3,"reps":-0,"weightKg":0},' +
+      '{"exercise":"lib:leg_press","sets":3,"reps":10,"weightKg":120}]}';
+    const result = readWorkoutReply(text, REFS);
+    expect(result).toMatchObject({ ok: true, name: 'Push A', dropped: 5 });
+    if (result.ok) expect(result.items.map((item) => item.exerciseKey)).toEqual(['lib:leg_press']);
+    expect(readWorkoutReply(JSON.stringify({ name: '\u0001\u0002', exercises: [] }), REFS)).toEqual({ ok: true, name: null, items: [], dropped: 0 });
+  });
+
   it('refuses anything that is not the expected shape', () => {
     expect(readWorkoutReply('not json', REFS)).toEqual({ ok: false, error: 'invalid-response' });
     expect(readWorkoutReply(reply({ name: 'A' }), REFS)).toEqual({ ok: false, error: 'invalid-response' });

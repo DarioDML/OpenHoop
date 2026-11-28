@@ -90,6 +90,7 @@ export default function StrengthBuilderScreen() {
   const [problems, setProblems] = useState<RowProblems>({});
   const [formError, setFormError] = useState<'name' | 'items' | 'targets' | 'tooMany' | null>(null);
   const [saving, setSaving] = useState(false);
+  const savingNow = useRef(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [description, setDescription] = useState('');
   const [coachPhase, setCoachPhase] = useState<CoachPhase>({ step: 'idle' });
@@ -169,7 +170,7 @@ export default function StrengthBuilderScreen() {
     const found: RowProblems = {};
     const items: PlannedExercise[] = [];
     rows.forEach((row, index) => {
-      const result = validateTargetDraft(row.draft, labels.units);
+      const result = validateTargetDraft(row.draft, labels.units, row.base.weightKg);
       if (!result.ok) found[index] = result.invalid;
       else items.push({ ...row.base, ...result.value });
     });
@@ -183,22 +184,24 @@ export default function StrengthBuilderScreen() {
   };
 
   const save = async (start: boolean): Promise<void> => {
+    if (savingNow.current) return;
     const input = collect();
     if (input === null) return;
+    savingNow.current = true;
     setSaving(true);
-    const savedId = await strengthActions.saveTemplate(templateId, input);
-    if (savedId === null) {
+    try {
+      const savedId = await strengthActions.saveTemplate(templateId, input);
+      if (savedId === null) return;
+      if (start) {
+        const sessionId = await strengthActions.startSession(savedId, input.name, input.items);
+        if (sessionId !== null) router.replace('/strength/live');
+        return;
+      }
+      goBack();
+    } finally {
+      savingNow.current = false;
       setSaving(false);
-      return;
     }
-    if (start) {
-      const sessionId = await strengthActions.startSession(savedId, input.name, input.items);
-      setSaving(false);
-      if (sessionId !== null) router.replace('/strength/live');
-      return;
-    }
-    setSaving(false);
-    goBack();
   };
 
   const remove = async (): Promise<void> => {
@@ -285,7 +288,7 @@ export default function StrengthBuilderScreen() {
     const bad = problems[index] ?? [];
     const label = labels.nameOf(row.base.exerciseKey, row.base.exerciseName);
     const open = expanded.has(row.localId) || bad.length > 0;
-    const checked = validateTargetDraft(row.draft, labels.units);
+    const checked = validateTargetDraft(row.draft, labels.units, row.base.weightKg);
     const summary = checked.ok ? labels.setSummary(checked.value.sets, checked.value.reps, checked.value.weightKg) : t('strength.builder.checkRow');
     const fields = [
       { key: 'sets' as const, label: t('strength.builder.sets'), decimal: false },
@@ -362,7 +365,7 @@ export default function StrengthBuilderScreen() {
       title={title}
       testID="strength-builder"
       scrollEnabled={!dragging}
-      right={<IconButton icon="check" label={t('strength.builder.save')} color={colors.text} onPress={() => void save(false)} testID="builder-save-icon" />}>
+      right={<IconButton icon="check" label={t('strength.builder.save')} color={colors.text} onPress={() => void save(false)} disabled={saving} testID="builder-save-icon" />}>
       {coachNetwork && coachKey ? (
         <View style={{ gap: spacing.sm }} testID="builder-coach">
           <View style={{ justifyContent: 'center' }}>
@@ -463,7 +466,7 @@ export default function StrengthBuilderScreen() {
         <DragList items={rows} keyOf={(row) => `${row.localId}`} renderRow={renderRow} onMove={move} onDragChange={setDragging} testPrefix="builder-" />
       )}
       <AppText variant="caption" muted>
-        {`${targetHint} ${t('strength.builder.dragHint')}`}
+        {`${t('strength.builder.intro')} ${targetHint} ${t('strength.builder.dragHint')}`}
       </AppText>
       {picking ? (
         <ExercisePicker exclude={rows.map((row) => row.base.exerciseKey)} onPick={add} onClose={() => setPicking(false)} />

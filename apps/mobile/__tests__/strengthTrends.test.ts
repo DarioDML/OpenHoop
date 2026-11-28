@@ -2,6 +2,8 @@ import type { StrengthSession } from '@openhoop/core';
 
 import {
   monthStart,
+  periodBuckets,
+  periodMuscles,
   parseTrendRange,
   periodBounds,
   periodTotals,
@@ -82,6 +84,34 @@ describe('period totals', () => {
       previousVolumeKg: 500,
     });
     expect(periodBounds('6m', TODAY)).toMatchObject({ elapsedDays: 178, previousStart: '2025-12-01', previousEnd: '2026-05-27' });
+  });
+});
+
+describe('period buckets', () => {
+  it('splits every range into the same spans as the minute bars', () => {
+    expect(periodBuckets('1w', SESSIONS, TODAY).map((bucket) => [bucket.start, bucket.sessions, bucket.future])).toEqual([
+      ['2026-11-23', 1, false],
+      ['2026-11-24', 0, false],
+      ['2026-11-25', 1, false],
+      ['2026-11-26', 0, true],
+      ['2026-11-27', 0, true],
+      ['2026-11-28', 0, true],
+      ['2026-11-29', 0, true],
+    ]);
+    expect(periodBuckets('1m', SESSIONS, TODAY).map((bucket) => bucket.volumeKg)).toEqual([1000, 2000, 0, 4000]);
+    expect(periodBuckets('6m', SESSIONS, TODAY).map((bucket) => [bucket.start, bucket.sessions])).toEqual([
+      ['2026-06-01', 0],
+      ['2026-07-01', 0],
+      ['2026-08-01', 0],
+      ['2026-09-01', 0],
+      ['2026-10-01', 1],
+      ['2026-11-01', 4],
+    ]);
+  });
+
+  it('adds up muscle volume over the same period as the tiles', () => {
+    expect(periodMuscles('1w', SESSIONS, TODAY)).toEqual([{ muscle: 'chest', sets: 2, volumeKg: 4000, share: 1 }]);
+    expect(periodMuscles('6m', SESSIONS, TODAY)[0]).toMatchObject({ sets: 5, volumeKg: 7500 });
   });
 });
 

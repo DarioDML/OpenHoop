@@ -21,7 +21,7 @@ import { radius, spacing, useTheme } from '@/ui/theme';
 const RECENT = 5;
 const SAVED = 3;
 
-type PresetNotice = { kind: 'added'; names: string[] } | { kind: 'failed' } | null;
+type PresetNotice = { kind: 'added'; names: string[]; existing: string[] } | { kind: 'existing'; names: string[] } | { kind: 'failed' } | null;
 
 export default function StrengthHomeScreen() {
   const { t } = useT();
@@ -52,17 +52,19 @@ export default function StrengthHomeScreen() {
     setAdding(preset);
     setNotice(null);
     try {
-      const inputs = presetTemplates(
+      const plan = presetTemplates(
         preset,
         (id) => t(`strength.preset.template.${id}`),
         labels.libraryName,
         strength.templates.map((template) => template.name),
       );
       const names: string[] = [];
-      for (const input of inputs) {
+      for (const input of plan.create) {
         if ((await strengthActions.saveTemplate(null, input)) !== null) names.push(input.name);
       }
-      setNotice(names.length === inputs.length ? { kind: 'added', names } : { kind: 'failed' });
+      if (names.length < plan.create.length) setNotice({ kind: 'failed' });
+      else if (names.length === 0) setNotice({ kind: 'existing', names: plan.existing });
+      else setNotice({ kind: 'added', names, existing: plan.existing });
     } finally {
       busy.current = false;
       setAdding(null);
@@ -178,8 +180,12 @@ export default function StrengthHomeScreen() {
         {notice === null
           ? t('strength.preset.hint')
           : notice.kind === 'added'
-            ? t('strength.preset.added', { names: notice.names.join(', ') })
-            : t('strength.preset.failed')}
+            ? [t('strength.preset.added', { names: notice.names.join(', ') }), notice.existing.length > 0 ? t('strength.preset.alreadySaved', { names: notice.existing.join(', ') }) : null]
+                .filter((part): part is string => part !== null)
+                .join(' ')
+            : notice.kind === 'existing'
+              ? t('strength.preset.existing', { names: notice.names.join(', ') })
+              : t('strength.preset.failed')}
       </AppText>
 
       <CapHeader title={t('strength.home.recent')} action={!showAll && finished.length > RECENT ? t('strength.home.seeAll') : undefined} onAction={() => setShowAll(true)} />

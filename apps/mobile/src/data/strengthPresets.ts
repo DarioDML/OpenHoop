@@ -1,6 +1,6 @@
 import type { PlannedExercise, StrengthTemplateInput } from '@openhoop/core';
 
-import { LIBRARY, LIBRARY_PREFIX, STRENGTH_LIMITS, type LibraryId } from './strength';
+import { LIBRARY, LIBRARY_PREFIX, type LibraryId } from './strength';
 
 export const PRESET_IDS = ['fullBody', 'upperLower', 'fiveByFive', 'kettlebell'] as const;
 export type PresetId = (typeof PRESET_IDS)[number];
@@ -76,14 +76,9 @@ export function presetItems(id: PresetTemplateId, libraryName: (id: LibraryId) =
   }));
 }
 
-export function uniqueTemplateName(base: string, taken: readonly string[]): string {
-  const lower = new Set(taken.map((name) => name.trim().toLowerCase()));
-  if (!lower.has(base.toLowerCase())) return base;
-  for (let n = 2; n < 100; n++) {
-    const candidate = `${base} ${n}`;
-    if (candidate.length <= STRENGTH_LIMITS.templateNameLength.max && !lower.has(candidate.toLowerCase())) return candidate;
-  }
-  return base;
+export interface PresetPlan {
+  create: StrengthTemplateInput[];
+  existing: string[];
 }
 
 export function presetTemplates(
@@ -91,11 +86,14 @@ export function presetTemplates(
   name: (id: PresetTemplateId) => string,
   libraryName: (id: LibraryId) => string,
   taken: readonly string[],
-): StrengthTemplateInput[] {
-  const names = [...taken];
-  return PRESETS[preset].map((id) => {
-    const unique = uniqueTemplateName(name(id), names);
-    names.push(unique);
-    return { name: unique, items: presetItems(id, libraryName) };
-  });
+): PresetPlan {
+  const owned = new Map(taken.map((existing) => [existing.trim().toLowerCase(), existing]));
+  const plan: PresetPlan = { create: [], existing: [] };
+  for (const id of PRESETS[preset]) {
+    const base = name(id);
+    const found = owned.get(base.toLowerCase());
+    if (found !== undefined) plan.existing.push(found);
+    else plan.create.push({ name: base, items: presetItems(id, libraryName) });
+  }
+  return plan;
 }

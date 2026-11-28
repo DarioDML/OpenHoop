@@ -18,7 +18,7 @@ import {
   validateSetDraft,
   validateTargetDraft,
 } from '@/data/strength';
-import { PRESETS, PRESET_IDS, presetItems, presetTemplates, uniqueTemplateName } from '@/data/strengthPresets';
+import { PRESETS, PRESET_IDS, presetItems, presetTemplates } from '@/data/strengthPresets';
 
 let nextSetId = 1;
 
@@ -141,10 +141,10 @@ describe('helpers', () => {
   });
 
   it('formats volume in kg, tonnes or pounds', () => {
-    expect(formatVolume(7840, 'metric', 'en')).toEqual({ value: '7840', unit: 'kg' });
-    expect(formatVolume(86_400, 'metric', 'nl')).toEqual({ value: '86,4', unit: 't' });
-    expect(formatVolume(1000, 'imperial', 'en')).toEqual({ value: '2205', unit: 'lb' });
-    expect(formatVolume(10_000, 'imperial', 'en')).toEqual({ value: '22.0', unit: 'k lb' });
+    expect(formatVolume(7840, 'metric', 'en')).toEqual({ value: '7840', scale: 'one' });
+    expect(formatVolume(86_400, 'metric', 'nl')).toEqual({ value: '86,4', scale: 'thousand' });
+    expect(formatVolume(1000, 'imperial', 'en')).toEqual({ value: '2205', scale: 'one' });
+    expect(formatVolume(10_000, 'imperial', 'en')).toEqual({ value: '22.0', scale: 'thousand' });
   });
 
   it('steps a draft value within limits', () => {
@@ -152,6 +152,23 @@ describe('helpers', () => {
     expect(stepDraftValue('1', -1, { min: 1, max: 100 }, 0)).toBe('1');
     expect(stepDraftValue('62,5', 2.5, { min: 0, max: 1000 }, 2)).toBe('65');
     expect(stepDraftValue('', 2.5, { min: 0, max: 1000 }, 2)).toBe('2.5');
+  });
+});
+
+describe('weights that are not touched', () => {
+  it('save exactly as stored in kilograms', () => {
+    const item = { exerciseKey: BENCH, exerciseName: 'Bench', muscle: 'chest' as const, sets: 3, reps: 5, weightKg: 102.058 };
+    const draft = targetDraftOf(item);
+    expect(draft.weight).toBe('102.06');
+    expect(validateTargetDraft(draft, 'metric', item.weightKg)).toEqual({ ok: true, value: { sets: 3, reps: 5, weightKg: 102.058 } });
+    expect(validateSetDraft(suggestSet(item, []), 'metric', item.weightKg)).toEqual({ ok: true, value: { reps: 5, weightKg: 102.058, rpe: null } });
+  });
+
+  it('save exactly as stored in pounds too, and parse a changed value', () => {
+    const item = { exerciseKey: BENCH, exerciseName: 'Bench', muscle: 'chest' as const, sets: 3, reps: 5, weightKg: 61.235 };
+    expect(validateTargetDraft(targetDraftOf(item, 'imperial'), 'imperial', item.weightKg)).toEqual({ ok: true, value: { sets: 3, reps: 5, weightKg: 61.235 } });
+    expect(validateTargetDraft({ sets: '3', reps: '5', weight: '102.06' }, 'metric', 102.058)).toEqual({ ok: true, value: { sets: 3, reps: 5, weightKg: 102.058 } });
+    expect(validateTargetDraft({ sets: '3', reps: '5', weight: '102.1' }, 'metric', 102.058)).toEqual({ ok: true, value: { sets: 3, reps: 5, weightKg: 102.1 } });
   });
 });
 
@@ -187,10 +204,11 @@ describe('preset templates', () => {
     }
   });
 
-  it('creates both halves of a split and avoids taken names', () => {
-    const created = presetTemplates('upperLower', name, lib, ['n:upper']);
-    expect(created.map((template) => template.name)).toEqual(['N:upper 2', 'N:lower']);
-    expect(uniqueTemplateName('Push', ['Push', 'push 2'])).toBe('Push 3');
+  it('creates the missing halves of a split and reuses templates already saved', () => {
+    const plan = presetTemplates('upperLower', name, lib, ['n:upper']);
+    expect(plan.create.map((template) => template.name)).toEqual(['N:lower']);
+    expect(plan.existing).toEqual(['n:upper']);
+    expect(presetTemplates('kettlebell', name, lib, [])).toMatchObject({ create: [{ name: 'N:kettlebell' }], existing: [] });
   });
 });
 

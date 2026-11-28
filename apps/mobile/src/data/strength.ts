@@ -11,7 +11,7 @@ import type {
 import { activityMetrics, type HrPoint, type LoadReference } from '@openhoop/analytics';
 
 import { formatNumber } from '@/lib/format';
-import { weightIn, weightToKg, weightUnit, type Measure } from '@/lib/units';
+import { weightIn, weightToKg } from '@/lib/units';
 
 import { addDays, weekStart } from './derived';
 import type { HeartRatePoint, Language, Units } from './types';
@@ -163,11 +163,16 @@ export interface SetValues {
 
 export type SetValidation = { ok: true; value: SetValues } | { ok: false; invalid: SetField[] };
 
-export function validateSetDraft(draft: SetDraft, units: Units = 'metric'): SetValidation {
+function weightOf(text: string, units: Units, storedKg: number | undefined): number | null {
+  if (storedKg !== undefined && text.trim() === weightInputText(storedKg, units)) return storedKg;
+  return parseWeight(text, units);
+}
+
+export function validateSetDraft(draft: SetDraft, units: Units = 'metric', storedKg?: number): SetValidation {
   const invalid: SetField[] = [];
   const reps = parseInteger(draft.reps, STRENGTH_LIMITS.reps);
   if (reps === null) invalid.push('reps');
-  const weightKg = parseWeight(draft.weight, units);
+  const weightKg = weightOf(draft.weight, units, storedKg);
   if (weightKg === null) invalid.push('weight');
   let rpe: number | null = null;
   if (draft.rpe.trim() !== '') {
@@ -194,13 +199,13 @@ export interface TargetValues {
 
 export type TargetValidation = { ok: true; value: TargetValues } | { ok: false; invalid: TargetField[] };
 
-export function validateTargetDraft(draft: TargetDraft, units: Units = 'metric'): TargetValidation {
+export function validateTargetDraft(draft: TargetDraft, units: Units = 'metric', storedKg?: number): TargetValidation {
   const invalid: TargetField[] = [];
   const sets = parseInteger(draft.sets, STRENGTH_LIMITS.sets);
   if (sets === null) invalid.push('sets');
   const reps = parseInteger(draft.reps, STRENGTH_LIMITS.reps);
   if (reps === null) invalid.push('reps');
-  const weightKg = parseWeight(draft.weight, units);
+  const weightKg = weightOf(draft.weight, units, storedKg);
   if (weightKg === null) invalid.push('weight');
   if (invalid.length > 0 || sets === null || reps === null || weightKg === null) return { ok: false, invalid };
   return { ok: true, value: { sets, reps, weightKg } };
@@ -362,15 +367,7 @@ function bestOneRepMax(sets: readonly StrengthSet[]): number | null {
 }
 
 export function newRecords(session: StrengthSession, all: readonly StrengthSession[]): string[] {
-  const earlier = finishedSessions(all).filter((other) => other.id !== session.id && other.startedAt < session.startedAt);
-  const keys: string[] = [];
-  for (const volume of exerciseVolumes(session.sets)) {
-    const now = bestOneRepMax(session.sets.filter((set) => set.exerciseKey === volume.exerciseKey));
-    if (now === null) continue;
-    const before = bestOneRepMax(earlier.flatMap((other) => other.sets.filter((set) => set.exerciseKey === volume.exerciseKey)));
-    if (before !== null && now > before) keys.push(volume.exerciseKey);
-  }
-  return keys;
+  return [...new Set(sessionRecords(session, all).map((record) => record.exerciseKey))];
 }
 
 export interface ExerciseEntry {
@@ -464,6 +461,11 @@ export function strengthWeek(sessions: readonly StrengthSession[], anyDayInWeek:
   const end = addDays(start, 6);
   const inWeek = finishedSessions(sessions).filter((session) => session.day >= start && session.day <= end);
   return { dots: days.map((day) => inWeek.some((session) => session.day === day)), count: inWeek.length };
+}
+
+export function suggestedWeightKg(exercise: Pick<SessionExercise, 'exerciseKey' | 'weightKg'>, sets: readonly StrengthSet[]): number {
+  const last = [...sets].reverse().find((set) => set.exerciseKey === exercise.exerciseKey);
+  return (last ?? exercise).weightKg;
 }
 
 export function suggestSet(exercise: Pick<SessionExercise, 'exerciseKey' | 'reps' | 'weightKg'>, sets: readonly StrengthSet[], units: Units = 'metric'): SetDraft {
@@ -660,9 +662,14 @@ export function percentChange(current: number, previous: number): number | null 
 
 const BIG_VOLUME = 10_000;
 
-export function formatVolume(kg: number, units: Units, language: Language): Measure {
+export interface VolumeMeasure {
+  value: string;
+  scale: 'one' | 'thousand';
+}
+
+export function formatVolume(kg: number, units: Units, language: Language): VolumeMeasure {
   const value = weightIn(kg, units);
-  if (value < BIG_VOLUME) return { value: formatNumber(value, 0, language), unit: weightUnit(units) };
+  if (value < BIG_VOLUME) return { value: formatNumber(value, 0, language), scale: 'one' };
   const thousands = value / 1000;
-  return { value: formatNumber(thousands, thousands < 100 ? 1 : 0, language), unit: units === 'imperial' ? 'k lb' : 't' };
+  return { value: formatNumber(thousands, thousands < 100 ? 1 : 0, language), scale: 'thousand' };
 }

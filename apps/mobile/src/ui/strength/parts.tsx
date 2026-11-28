@@ -10,7 +10,7 @@ import type { TranslationKey } from '@/i18n';
 import { useT, type TFunction } from '@/i18n/useT';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { formatNumber } from '@/lib/format';
-import { useUnits, weightIn, weightUnit } from '@/lib/units';
+import { useUnits, weightIn, weightUnit, type Measure } from '@/lib/units';
 import { ProgressBar } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
@@ -57,6 +57,7 @@ export interface StrengthLabels {
   weight: (kg: number) => string;
   weightText: (kg: number) => string;
   volumeText: (kg: number) => string;
+  volume: (kg: number) => Measure;
   setSummary: (sets: number, reps: number, kg: number) => string;
   day: (day: string) => string;
 }
@@ -71,6 +72,11 @@ export function useStrengthLabels(): StrengthLabels {
     return formatNumber(value, Number.isInteger(value) ? 0 : Number.isInteger(value * 10) ? 1 : 2, language);
   };
   const weightText = (kg: number): string => `${weight(kg)} ${unit}`;
+  const volume = (kg: number): Measure => {
+    const measure = formatVolume(kg, units, language);
+    const big = units === 'imperial' ? t('strength.unit.thousandPounds') : t('strength.unit.tonnes');
+    return { value: measure.value, unit: measure.scale === 'thousand' ? big : unit };
+  };
   return {
     units,
     unit,
@@ -82,9 +88,10 @@ export function useStrengthLabels(): StrengthLabels {
     weight,
     weightText,
     volumeText: (kg) => {
-      const measure = formatVolume(kg, units, language);
+      const measure = volume(kg);
       return `${measure.value} ${measure.unit}`;
     },
+    volume,
     setSummary: (sets, reps, kg) => (kg > 0 ? t('strength.common.setSummary', { sets, reps, weight: weightText(kg) }) : t('strength.common.setSummaryBody', { sets, reps })),
     day: (day) => formatSessionDay(day, language),
   };

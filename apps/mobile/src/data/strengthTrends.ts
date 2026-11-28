@@ -1,12 +1,11 @@
 import type { StrengthSession } from '@openhoop/core';
 
 import { addDays, weekStart } from './derived';
-import { durationS, finishedSessions, sessionTotals } from './strength';
+import { durationS, finishedSessions, muscleLoad, sessionTotals, type MuscleLoad } from './strength';
 import { planWeek, strengthIntervals, strengthMinutesBetween, type PlanInput, type WeeklyPlan } from './weeklyPlan';
 
 export const TREND_RANGES = ['1w', '1m', '6m'] as const;
 export type TrendRange = (typeof TREND_RANGES)[number];
-export const RANGE_WEEKS: Readonly<Record<TrendRange, number>> = { '1w': 1, '1m': 4, '6m': 26 };
 
 export function parseTrendRange(value: string): TrendRange {
   return TREND_RANGES.find((range) => range === value) ?? '1m';
@@ -75,6 +74,41 @@ export function strengthMinuteBars(range: TrendRange, input: MinutesInput): Minu
     const window = { start: dayStartUnix(span.start, input.tzOffsetS), end: dayStartUnix(addDays(span.end, 1), input.tzOffsetS) };
     return { ...span, key: span.start, current, minutes: future ? null : strengthMinutesBetween(intervals, window) };
   });
+}
+
+export interface PeriodBucket {
+  key: string;
+  start: string;
+  end: string;
+  kind: MinuteBar['kind'];
+  sessions: number;
+  volumeKg: number;
+  current: boolean;
+  future: boolean;
+}
+
+export function periodBuckets(range: TrendRange, sessions: readonly StrengthSession[], today: string): PeriodBucket[] {
+  const finished = finishedSessions(sessions);
+  return spans(range, today).map((span) => {
+    const inSpan = finished.filter((session) => session.day >= span.start && session.day <= span.end);
+    return {
+      ...span,
+      key: span.start,
+      sessions: inSpan.length,
+      volumeKg: sessionTotals(inSpan.flatMap((session) => session.sets)).volumeKg,
+      current: span.start <= today && span.end >= today,
+      future: span.start > today,
+    };
+  });
+}
+
+export function periodMuscles(range: TrendRange, sessions: readonly StrengthSession[], today: string): MuscleLoad[] {
+  const { start, end } = periodBounds(range, today);
+  return muscleLoad(
+    finishedSessions(sessions)
+      .filter((session) => session.day >= start && session.day <= end)
+      .flatMap((session) => session.sets),
+  );
 }
 
 export interface PeriodTotals {

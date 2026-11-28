@@ -10,7 +10,6 @@ import {
   exerciseVolumes,
   finishedSessions,
   formatClockTimer,
-  formatVolume,
   heartRateStats,
   muscleIntensity,
   muscleLoad,
@@ -37,14 +36,14 @@ import { ReportShareSheet } from '@/ui/plan/ReportShareSheet';
 import { Section } from '@/ui/Section';
 import { MuscleFigure } from '@/ui/strength/MuscleFigure';
 import { MuscleLoadRows, StrengthPage, loadReasonKey, useStrengthLabels } from '@/ui/strength/parts';
-import { useLoadReference } from '@/ui/strength/useSessionLoads';
+import { referenceKey, useLoadReference } from '@/ui/strength/useSessionLoads';
 import { IconButton, goBack } from '@/ui/TopBar';
 import { spacing, useTheme } from '@/ui/theme';
 
 const HR_BUCKET_S = 10;
 
 export default function StrengthSummaryScreen() {
-  const { t, language } = useT();
+  const { t } = useT();
   const { colors } = useTheme();
   const { strength, strengthActions, heartRateBetween, days } = useAppData();
   const labels = useStrengthLabels();
@@ -64,7 +63,7 @@ export default function StrengthSummaryScreen() {
   const startedAt = session?.startedAt ?? 0;
   const endedAt = session?.endedAt ?? 0;
   const reference = referenceAt(startedAt);
-  const referenceKey = `${reference.rest}:${reference.max}:${(reference.zoneFloors ?? []).join(',')}`;
+  const refKey = referenceKey(reference);
   const latestReference = useRef(reference);
   latestReference.current = reference;
 
@@ -90,7 +89,7 @@ export default function StrengthSummaryScreen() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, startedAt, endedAt, heartRateBetween, referenceKey]);
+  }, [sessionId, startedAt, endedAt, heartRateBetween, refKey]);
 
   if (session === null) {
     return (
@@ -111,7 +110,7 @@ export default function StrengthSummaryScreen() {
   const records = sessionRecords(session, strength.sessions);
   const muscles = muscleLoad(session.sets);
   const intensity = muscleIntensity(muscles);
-  const volume = formatVolume(totals.volumeKg, labels.units, language);
+  const volume = labels.volume(totals.volumeKg);
   const time = formatClockTimer(durationS(session, 0));
   const loadValue = load === undefined || load.value === null ? null : labels.num(load.value, 1);
   const dayIndex = Math.max(0, days.findIndex((day) => day.day === session.day));

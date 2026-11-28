@@ -27,7 +27,7 @@ export function NumberStepper({ value, onChangeText, onStep, label, lessLabel, m
       accessibilityLabel={direction < 0 ? lessLabel : moreLabel}
       accessibilityState={{ disabled }}
       disabled={disabled}
-      hitSlop={6}
+      hitSlop={8}
       onPress={() => onStep(direction)}
       testID={`${testID}-${direction < 0 ? 'less' : 'more'}`}
       style={({ pressed }) => ({

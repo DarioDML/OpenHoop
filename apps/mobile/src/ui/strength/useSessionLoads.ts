@@ -11,38 +11,55 @@ export function useLoadReference(): (atS: number) => LoadReference {
   return (atS) => loadReference(days, analyticsProfileOf(profile), atS, new Date(atS * 1000).getFullYear());
 }
 
+export function referenceKey(ref: LoadReference): string {
+  return `${ref.rest}:${ref.max}:${(ref.zoneFloors ?? []).join('/')}`;
+}
+
+interface Wanted {
+  id: number;
+  start: number;
+  end: number;
+  key: string;
+  ref: LoadReference;
+}
+
 export function useSessionLoads(sessions: readonly StrengthSession[]): ReadonlyMap<number, SessionLoad> {
   const { heartRateBetween } = useAppData();
   const referenceAt = useLoadReference();
   const [loads, setLoads] = useState<ReadonlyMap<number, SessionLoad>>(new Map());
-  const wanted = sessions.filter((session) => session.endedAt !== null).map((session) => ({ id: session.id, start: session.startedAt, end: session.endedAt ?? session.startedAt }));
-  const key = wanted
-    .map((entry) => {
-      const ref = referenceAt(entry.start);
-      return `${entry.id}:${entry.start}:${entry.end}:${ref.rest}:${ref.max}:${(ref.zoneFloors ?? []).join('/')}`;
-    })
-    .join(',');
-  const refFor = useRef(referenceAt);
-  refFor.current = referenceAt;
+  const cache = useRef(new Map<string, SessionLoad>());
+  const wanted: Wanted[] = sessions
+    .filter((session) => session.endedAt !== null)
+    .map((session) => {
+      const end = session.endedAt ?? session.startedAt;
+      const ref = referenceAt(session.startedAt);
+      return { id: session.id, start: session.startedAt, end, ref, key: `${session.id}:${session.startedAt}:${end}:${referenceKey(ref)}` };
+    });
+  const key = wanted.map((entry) => entry.key).join(',');
   const list = useRef(wanted);
   list.current = wanted;
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const next = new Map<number, SessionLoad>();
-      for (const entry of list.current) {
+      const entries = list.current;
+      for (const entry of entries) {
+        if (cache.current.has(entry.key)) continue;
         const points = await heartRateBetween(entry.start, entry.end, LOAD_BUCKET_S);
         if (cancelled) return;
-        next.set(entry.id, sessionLoad(points, { start: entry.start, end: entry.end }, refFor.current(entry.start)));
-        setLoads(new Map(next));
+        cache.current.set(entry.key, sessionLoad(points, { start: entry.start, end: entry.end }, entry.ref));
       }
+      const next = new Map<number, SessionLoad>();
+      for (const entry of entries) {
+        const value = cache.current.get(entry.key);
+        if (value !== undefined) next.set(entry.id, value);
+      }
+      if (!cancelled) setLoads(next);
     })();
     return () => {
       cancelled = true;
     };
-  }, [key, heartRateBetween, list, refFor]);
+  }, [key, heartRateBetween]);
 
   return loads;
 }
-

@@ -1,3 +1,4 @@
+import type { LoadReference } from '@openhoop/analytics';
 import type { SessionExercise, StrengthSession } from '@openhoop/core';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
@@ -12,13 +13,14 @@ import {
   activeSession,
   durationS,
   formatClockTimer,
-  formatVolume,
   planned,
   sessionLoad,
   sessionTotals,
+  type SessionLoad,
   setsDone,
   stepDraftValue,
   suggestSet,
+  suggestedWeightKg,
   validateSetDraft,
   type ExerciseRef,
   type RestSeconds,
@@ -42,7 +44,7 @@ import { Section } from '@/ui/Section';
 import { StatGrid, GridTile } from '@/ui/StatGrid';
 import { NumberStepper } from '@/ui/strength/NumberStepper';
 import { ExercisePicker, StrengthPage, useStrengthLabels } from '@/ui/strength/parts';
-import { useLoadReference } from '@/ui/strength/useSessionLoads';
+import { referenceKey, useLoadReference } from '@/ui/strength/useSessionLoads';
 import { goBack } from '@/ui/TopBar';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
@@ -124,6 +126,23 @@ function useSessionHeartRate(session: StrengthSession | null, liveHr: number | n
   }, [stored, beats]);
 }
 
+const LOAD_STEP_S = 15;
+const NO_LOAD: SessionLoad = { value: null, reason: 'no-data' };
+
+function useLiveLoad(session: StrengthSession | null, heartRate: readonly HeartRatePoint[], nowMs: number, referenceAt: (atS: number) => LoadReference): SessionLoad {
+  const startedAt = session?.startedAt ?? 0;
+  const reference = referenceAt(startedAt);
+  const refKey = referenceKey(reference);
+  const endS = Math.max(startedAt + 1, Math.floor(nowMs / 1000 / LOAD_STEP_S) * LOAD_STEP_S);
+  const cache = useRef<{ points: readonly HeartRatePoint[]; startedAt: number; endS: number; referenceKey: string; value: SessionLoad } | null>(null);
+  if (session === null) return NO_LOAD;
+  const cached = cache.current;
+  if (cached !== null && cached.points === heartRate && cached.startedAt === startedAt && cached.endS === endS && cached.referenceKey === refKey) return cached.value;
+  const value = sessionLoad(heartRate, { start: startedAt, end: endS }, reference);
+  cache.current = { points: heartRate, startedAt, endS, referenceKey: refKey, value };
+  return value;
+}
+
 function liveLoadMissing(reason: string | null): TranslationKey {
   if (reason === 'low-coverage') return 'strength.live.loadLow';
   if (reason === 'missing-signal') return 'strength.load.missing';
@@ -131,7 +150,7 @@ function liveLoadMissing(reason: string | null): TranslationKey {
 }
 
 export default function StrengthLiveScreen() {
-  const { t, language } = useT();
+  const { t } = useT();
   const { colors } = useTheme();
   const { narrow, width } = useLayout();
   const stackSteppers = narrow || width < STACK_BELOW_DP;
@@ -154,9 +173,10 @@ export default function StrengthLiveScreen() {
   const buzzWanted = useRef(false);
   buzzWanted.current = buzzOnRest && connected;
   const { timer, dispatch } = useRestTimer(() => {
-    if (buzzWanted.current) void bandActions.buzz('test');
+    if (buzzWanted.current) void bandActions.buzzIfConnected?.('target');
   });
   const heartRate = useSessionHeartRate(session, live.active ? live.heartRate : null, live.active ? live.updatedAt : null);
+  const load = useLiveLoad(session, heartRate, nowMs, referenceAt);
   const startedLiveHere = useRef(false);
   const stopLiveRef = useRef(stopLive);
   stopLiveRef.current = stopLive;
@@ -189,8 +209,7 @@ export default function StrengthLiveScreen() {
   const exercises = session.exercises;
   const index = Math.min(current, Math.max(0, exercises.length - 1));
   const exercise: SessionExercise | undefined = exercises[index];
-  const load = sessionLoad(heartRate, { start: session.startedAt, end: Math.max(nowS, session.startedAt + 1) }, referenceAt(session.startedAt));
-  const volume = formatVolume(sessionTotals(session.sets).volumeKg, labels.units, language);
+  const volume = labels.volume(sessionTotals(session.sets).volumeKg);
   const weightStep = labels.units === 'imperial' ? 5 : 2.5;
   const weightLimits = { min: 0, max: Math.floor(weightIn(STRENGTH_LIMITS.weightKg.max, labels.units)) };
   const hrShown = live.active && live.heartRate !== null ? live.heartRate : null;
@@ -200,8 +219,8 @@ export default function StrengthLiveScreen() {
     setInvalid((existing) => ({ ...existing, [key]: [] }));
   };
 
-  const log = async (key: string, name: string, muscle: ExerciseRef['muscle'], draft: SetDraft): Promise<void> => {
-    const result = validateSetDraft(draft, labels.units);
+  const log = async (key: string, name: string, muscle: ExerciseRef['muscle'], draft: SetDraft, storedKg: number): Promise<void> => {
+    const result = validateSetDraft(draft, labels.units, storedKg);
     if (!result.ok) {
       setInvalid((existing) => ({ ...existing, [key]: result.invalid }));
       return;
@@ -355,7 +374,7 @@ export default function StrengthLiveScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('strength.live.removeSet', { n: at + 1, name })}
                 onPress={() => void strengthActions.removeSet(set.id)}
-                style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="close" color={colors.textMuted} size={16} />
               </Pressable>
             </View>
@@ -372,7 +391,7 @@ export default function StrengthLiveScreen() {
             accessibilityLabel={t('strength.live.markDone', { n: logged.length + 1, name })}
             accessibilityState={{ disabled: busy }}
             disabled={busy}
-            onPress={() => void log(key, item.exerciseName, item.muscle, draft)}
+            onPress={() => void log(key, item.exerciseName, item.muscle, draft, suggestedWeightKg(item, session.sets))}
             style={({ pressed }) => ({
               width: 44,
               height: 44,

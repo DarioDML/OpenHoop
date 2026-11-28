@@ -208,12 +208,20 @@ describe('strength home', () => {
     const saveTemplate = jest.fn(async () => 1);
     await render(withAppData(<StrengthHomeScreen />, 'en', app(data({ templates: [{ ...TEMPLATE, name: 'Upper body' }] }), actions({ saveTemplate }))));
     await fireEvent.press(screen.getByTestId('preset-upperLower'));
-    await waitFor(() => expect(screen.getByTestId('strength-preset-notice')).toHaveTextContent(/^Added: Upper body 2, Lower body\./));
-    expect(saveTemplate).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.getByTestId('strength-preset-notice')).toHaveTextContent('Added: Lower body. Set the weights before you start. Already saved: Upper body.'));
+    expect(saveTemplate).toHaveBeenCalledTimes(1);
     expect(saveTemplate).toHaveBeenCalledWith(
       null,
-      expect.objectContaining({ name: 'Upper body 2', items: expect.arrayContaining([expect.objectContaining({ exerciseKey: 'lib:bench_press', exerciseName: 'Bench press', weightKg: 0 })]) }),
+      expect.objectContaining({ name: 'Lower body', items: expect.arrayContaining([expect.objectContaining({ exerciseKey: 'lib:back_squat', exerciseName: 'Back squat', weightKg: 0 })]) }),
     );
+  });
+
+  it('does not copy a preset that is already saved', async () => {
+    const saveTemplate = jest.fn(async () => 1);
+    await render(withAppData(<StrengthHomeScreen />, 'en', app(data({ templates: [{ ...TEMPLATE, name: 'Full body' }] }), actions({ saveTemplate }))));
+    await fireEvent.press(screen.getByTestId('preset-fullBody'));
+    await waitFor(() => expect(screen.getByTestId('strength-preset-notice')).toHaveTextContent(/Already in your saved workouts: Full body\./));
+    expect(saveTemplate).not.toHaveBeenCalled();
   });
 
   it('says so when a preset could not be saved', async () => {
@@ -229,6 +237,18 @@ describe('strength home', () => {
     await waitFor(() => expect(within(screen.getByTestId('session-2')).getByText(/Load \d+\.\d/)).toBeTruthy());
     expect(within(screen.getByTestId('session-1')).getByText(/no Load: no heart rate recorded/)).toBeTruthy();
     expect(heartRateBetween).toHaveBeenCalledWith(DAY_2.startedAt, DAY_2.endedAt, 1);
+  });
+
+  it('queries each session’s heart rate once and only the newly shown ones after See all', async () => {
+    const many = Array.from({ length: 7 }, (_, i) => finished(40 + i, '2026-11-20', NOW_S - (i + 2) * 86_400, [set(40 + i, 'lib:crunch', 'Crunch', 'core', 10, 0)]));
+    const heartRateBetween = jest.fn(async (): Promise<HeartRatePoint[]> => []);
+    const view = await render(withAppData(<StrengthHomeScreen />, 'en', app(data({ sessions: many }), actions(), { heartRateBetween })));
+    await waitFor(() => expect(within(screen.getByTestId('session-46')).getByText(/no Load/)).toBeTruthy());
+    expect(heartRateBetween).toHaveBeenCalledTimes(5);
+    await view.rerender(withAppData(<StrengthHomeScreen />, 'en', app(data({ sessions: many }), actions(), { heartRateBetween })));
+    await fireEvent.press(screen.getByTestId('strength-show-all'));
+    await waitFor(() => expect(within(screen.getByTestId('session-40')).getByText(/no Load/)).toBeTruthy());
+    expect(heartRateBetween).toHaveBeenCalledTimes(7);
   });
 
   it('lists every session after See all', async () => {
@@ -321,6 +341,22 @@ describe('workout builder', () => {
     const running: StrengthSession = { ...DAY_1, id: 9, endedAt: null };
     await render(withAppData(<StrengthBuilderScreen />, 'en', app(data({ sessions: [running] }), actions())));
     expect(screen.getByTestId('builder-save-start').props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('saves once when the save button is tapped twice', async () => {
+    mockParams = { id: '7' };
+    let release: (id: number) => void = () => undefined;
+    const saveTemplate = jest.fn(() => new Promise<number | null>((resolve) => (release = resolve)));
+    await render(withAppData(<StrengthBuilderScreen />, 'en', app(data({ templates: [TEMPLATE] }), actions({ saveTemplate }))));
+    await fireEvent.press(screen.getByTestId('builder-save-icon'));
+    await fireEvent.press(screen.getByTestId('builder-save-icon'));
+    await fireEvent.press(screen.getByTestId('builder-save'));
+    expect(saveTemplate).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('builder-save-icon').props.accessibilityState).toMatchObject({ disabled: true });
+    await act(async () => {
+      release(7);
+    });
+    expect(saveTemplate).toHaveBeenCalledWith(7, { name: 'Push day', items: TEMPLATE.items });
   });
 
   it('says so when the template no longer exists', async () => {
@@ -599,8 +635,9 @@ describe('live session', () => {
     jest.setSystemTime(FIXTURE_NOW);
     jest.spyOn(Date, 'now').mockImplementation(() => new Date().getTime());
     const buzz = jest.fn(async () => true);
+    const buzzIfConnected = jest.fn(async () => true);
     const device = { ...fixtureAppData().device, connection: 'connected' as const };
-    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [running] }), actions(), { device, bandActions: { ...fixtureBandActions(), buzz } })));
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [running] }), actions(), { device, bandActions: { ...fixtureBandActions(), buzz, buzzIfConnected } })));
     expect(screen.getByText(/buzzes once when the countdown ends/)).toBeTruthy();
     await fireEvent(screen.getByTestId('live-rest-buzz'), 'valueChange', true);
     await fireEvent.press(screen.getByTestId('live-rest-60'));
@@ -608,12 +645,13 @@ describe('live session', () => {
     await act(async () => {
       jest.advanceTimersByTime(59_000);
     });
-    expect(buzz).not.toHaveBeenCalled();
+    expect(buzzIfConnected).not.toHaveBeenCalled();
     await act(async () => {
       jest.advanceTimersByTime(2_000);
     });
-    expect(buzz).toHaveBeenCalledTimes(1);
-    expect(buzz).toHaveBeenCalledWith('test');
+    expect(buzzIfConnected).toHaveBeenCalledTimes(1);
+    expect(buzzIfConnected).toHaveBeenCalledWith('target');
+    expect(buzz).not.toHaveBeenCalled();
     expect(screen.getByTestId('live-rest-state')).toHaveTextContent(/Rest is over/);
     jest.useRealTimers();
   });
@@ -623,8 +661,9 @@ describe('live session', () => {
     jest.setSystemTime(FIXTURE_NOW);
     jest.spyOn(Date, 'now').mockImplementation(() => new Date().getTime());
     const buzz = jest.fn(async () => true);
+    const buzzIfConnected = jest.fn(async () => true);
     const device = { ...fixtureAppData().device, connection: 'disconnected' as const };
-    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [running] }), actions(), { device, bandActions: { ...fixtureBandActions(), buzz } })));
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [running] }), actions(), { device, bandActions: { ...fixtureBandActions(), buzz, buzzIfConnected } })));
     expect(screen.getByText(/not connected right now/)).toBeTruthy();
     await fireEvent(screen.getByTestId('live-rest-buzz'), 'valueChange', true);
     await fireEvent.press(screen.getByTestId('live-rest-60'));
@@ -633,6 +672,25 @@ describe('live session', () => {
       jest.advanceTimersByTime(61_000);
     });
     expect(buzz).not.toHaveBeenCalled();
+    expect(buzzIfConnected).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('keeps counting live Load while the same heart rate repeats', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(FIXTURE_NOW);
+    jest.spyOn(Date, 'now').mockImplementation(() => new Date().getTime());
+    const fresh: StrengthSession = { ...running, startedAt: NOW_S };
+    const overrides = (at: number): AppDataOverrides => ({ live: { active: true, heartRate: 150, lastRrMs: 400, updatedAt: at } });
+    const view = await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [fresh] }), actions(), overrides(0))));
+    expect(screen.getByTestId('live-load-missing')).toBeTruthy();
+    for (let at = 1; at <= 75; at++) {
+      await act(async () => {
+        jest.advanceTimersByTime(1_000);
+      });
+      await view.rerender(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [fresh] }), actions(), overrides(at))));
+    }
+    expect(screen.getByTestId('live-load-value')).toHaveTextContent(/^\d+\.\d$/);
     jest.useRealTimers();
   });
 
@@ -840,8 +898,24 @@ describe('strength trends', () => {
     await fireEvent.press(screen.getByTestId('trends-range-1w'));
     expect(screen.getByTestId('trends-total-value')).toHaveTextContent('1');
     expect(screen.getByTestId('trends-total')).toHaveTextContent(/this week/);
+    expect(screen.getByText('Sessions per day')).toBeTruthy();
+    expect(within(screen.getByTestId('trends-sessions-chart')).getByText('Mon')).toBeTruthy();
+    expect(within(screen.getByTestId('trends-sessions-chart')).getByText('Sun')).toBeTruthy();
+    expect(screen.getByTestId('trends-volume-total')).toHaveTextContent(/1195 kg/);
+    expect(screen.queryByTestId('trends-muscle-rows-quads')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('trends-range-6m'));
     expect(screen.getByTestId('trends-total-value')).toHaveTextContent('2');
+    expect(screen.getByText('Sessions per month')).toBeTruthy();
+    expect(within(screen.getByTestId('trends-sessions-chart')).getByText('Jun')).toBeTruthy();
+    expect(within(screen.getByTestId('trends-sessions-chart')).getByText('Nov')).toBeTruthy();
+    expect(screen.getByTestId('trends-volume-total')).toHaveTextContent(/1995 kg/);
+  });
+
+  it('names each range in full for screen readers', async () => {
+    await render(withAppData(<StrengthTrendsScreen />, 'en', app(data({ sessions: [DAY_2] }), actions())));
+    expect(screen.getByTestId('trends-range-1w').props.accessibilityLabel).toBe('This week');
+    expect(screen.getByTestId('trends-range-1m').props.accessibilityLabel).toBe('Last 4 weeks');
+    expect(screen.getByTestId('trends-range-6m').props.accessibilityLabel).toBe('Last 6 months');
   });
 
   it('shows strength minutes per week, day or month with values', async () => {

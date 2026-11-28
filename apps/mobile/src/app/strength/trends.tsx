@@ -1,4 +1,3 @@
-import type { MuscleGroup } from '@openhoop/core';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
@@ -6,8 +5,18 @@ import { View } from 'react-native';
 import { formatWeekday } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { planInputFor } from '@/data/planInput';
-import { MUSCLE_GROUPS, finishedSessions, formatVolume, percentChange, weeklyStats, type MuscleLoad } from '@/data/strength';
-import { RANGE_WEEKS, TREND_RANGES, parseTrendRange, periodTotals, strengthGoal, strengthMinuteBars, type MinuteBar, type TrendRange } from '@/data/strengthTrends';
+import { percentChange } from '@/data/strength';
+import {
+  TREND_RANGES,
+  parseTrendRange,
+  periodBuckets,
+  periodMuscles,
+  periodTotals,
+  strengthGoal,
+  strengthMinuteBars,
+  type MinuteBar,
+  type TrendRange,
+} from '@/data/strengthTrends';
 import { isoWeek } from '@/data/weeklyPlan';
 import { useT } from '@/i18n/useT';
 import { weightIn } from '@/lib/units';
@@ -35,34 +44,24 @@ export default function StrengthTrendsScreen() {
   const { strength, activities, days, userData } = useAppData();
   const labels = useStrengthLabels();
   const [range, setRange] = useState<TrendRange>('1m');
-  const weeks = RANGE_WEEKS[range];
-  const today = todayIso();
+  const today = days[days.length - 1]?.day ?? todayIso();
   const now = new Date(Date.now());
   const input = planInputFor(days, strength.sessions, activities, [], today, now);
-  const stats = weeklyStats(strength.sessions, today, weeks);
-  const hasData = finishedSessions(strength.sessions).length > 0 && stats.some((week) => week.sessions > 0);
+  const buckets = periodBuckets(range, strength.sessions, today);
+  const hasData = buckets.some((bucket) => bucket.sessions > 0);
   const bars = strengthMinuteBars(range, input);
   const goal = strengthGoal(userData.weeklyPlan, input);
   const period = periodTotals(range, strength.sessions, today);
-  const volume = formatVolume(period.volumeKg, labels.units, language);
+  const volume = labels.volume(period.volumeKg);
   const change = percentChange(period.volumeKg, period.previousVolumeKg);
+  const muscleTotals = periodMuscles(range, strength.sessions, today);
 
-  const totalVolume = stats.reduce((sum, week) => sum + week.volumeKg, 0);
-  const muscleTotals: MuscleLoad[] = MUSCLE_GROUPS.map((muscle: MuscleGroup) => {
-    const rows = stats.flatMap((week) => week.byMuscle.filter((row) => row.muscle === muscle));
-    return { muscle, sets: rows.reduce((sum, row) => sum + row.sets, 0), volumeKg: rows.reduce((sum, row) => sum + row.volumeKg, 0), share: null };
-  })
-    .filter((row) => row.sets > 0)
-    .sort((a, b) => b.volumeKg - a.volumeKg || b.sets - a.sets)
-    .map((row) => ({ ...row, share: totalVolume > 0 ? row.volumeKg / totalVolume : null }));
-
-  const first = stats[0];
-  const last = stats[stats.length - 1];
-  const startLabel = first === undefined ? undefined : labels.day(first.weekStart);
-  const endLabel = last === undefined ? undefined : labels.day(last.weekStart);
-
-  const barLabel = (bar: MinuteBar): string =>
-    bar.kind === 'day' ? formatWeekday(bar.start, language) : bar.kind === 'week' ? t('strength.trends.weekLabel', { week: isoWeek(bar.start) }) : monthLabel(bar.start, language);
+  const spanLabel = (span: Pick<MinuteBar, 'kind' | 'start'>): string =>
+    span.kind === 'day' ? formatWeekday(span.start, language) : span.kind === 'week' ? t('strength.trends.weekLabel', { week: isoWeek(span.start) }) : monthLabel(span.start, language);
+  const first = buckets[0];
+  const last = buckets[buckets.length - 1];
+  const startLabel = first === undefined ? undefined : spanLabel(first);
+  const endLabel = last === undefined ? undefined : spanLabel(last);
   const highlight = bars.findIndex((bar) => bar.current);
   const unitTitle = bars[0]?.kind ?? 'week';
 
@@ -75,7 +74,12 @@ export default function StrengthTrendsScreen() {
           testID="trends-range"
           value={range}
           onChange={(value) => setRange(parseTrendRange(value))}
-          options={TREND_RANGES.map((value) => ({ value, label: t(`strength.trends.range.${value}`), testID: `trends-range-${value}` }))}
+          options={TREND_RANGES.map((value) => ({
+            value,
+            label: t(`strength.trends.range.${value}`),
+            accessibilityLabel: t(`strength.trends.rangeName.${value}`),
+            testID: `trends-range-${value}`,
+          }))}
         />
       }>
       <Card testID="trends-minutes-card">
@@ -95,9 +99,9 @@ export default function StrengthTrendsScreen() {
             key: bar.key,
             color: colors.metric.loadBright,
             value: bar.minutes,
-            label: barLabel(bar),
+            label: spanLabel(bar),
             display: bar.minutes === null ? undefined : `${bar.minutes}`,
-            a11yLabel: `${barLabel(bar)}, ${t(bar.minutes === null ? 'strength.trends.future' : 'strength.trends.minutesA11y')}`,
+            a11yLabel: `${spanLabel(bar)}, ${t(bar.minutes === null ? 'strength.trends.future' : 'strength.trends.minutesA11y')}`,
           }))}
         />
         <AppText variant="caption" muted>
@@ -172,28 +176,28 @@ export default function StrengthTrendsScreen() {
               testID="trends-volume-tile"
             />
           </StatGrid>
-          <Section title={t('strength.trends.sessions')}>
+          <Section title={t(`strength.trends.sessionsPer.${unitTitle}`)}>
             <Card>
               <BarChart
                 testID="trends-sessions-chart"
-                data={stats.map((week) => week.sessions)}
+                data={buckets.map((bucket) => (bucket.future ? null : bucket.sessions))}
                 formatTick={(value) => labels.num(value)}
                 startLabel={startLabel}
                 endLabel={endLabel}
               />
             </Card>
           </Section>
-          <Section title={t('strength.trends.volume', { unit: labels.unit })}>
+          <Section title={t(`strength.trends.volumePer.${unitTitle}`, { unit: labels.unit })}>
             <Card>
               <BarChart
                 testID="trends-volume-chart"
-                data={stats.map((week) => weightIn(week.volumeKg, labels.units))}
+                data={buckets.map((bucket) => (bucket.future ? null : weightIn(bucket.volumeKg, labels.units)))}
                 formatTick={(value) => labels.num(value)}
                 startLabel={startLabel}
                 endLabel={endLabel}
               />
               <AppText variant="label" muted numeric testID="trends-volume-total">
-                {t('strength.trends.volumeTotal')}: {labels.volumeText(totalVolume)}
+                {t('strength.trends.volumeTotal')}: {labels.volumeText(period.volumeKg)}
               </AppText>
             </Card>
           </Section>
