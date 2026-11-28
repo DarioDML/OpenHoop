@@ -97,6 +97,15 @@ describe('screens at S24 size', () => {
     expect(within(screen.getByTestId('vital-rhr')).getByText('Resting HR')).toBeTruthy();
     expect(within(screen.getByTestId('vital-resp')).getByText('Breathing')).toBeTruthy();
   });
+
+  it('keeps the whole unit beside the value and the level badge on its own row', async () => {
+    s24();
+    await render(withAppData(<VitalsScreen />));
+    const unit = screen.getByTestId('vital-resp-unit');
+    expect(unit).toHaveTextContent('/min');
+    expect(unit).toHaveStyle({ flexShrink: 0 });
+    expect(within(screen.getByTestId('vital-resp-status')).getByText('B')).toBeTruthy();
+  });
 });
 
 describe('bottom sheets at S24 size', () => {

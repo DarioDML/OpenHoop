@@ -79,7 +79,7 @@ export function MetricTile({ label, value, level, unit, reason = null, decimals 
           {target && href ? <Icon name="chevronRight" size={14} color={colors.textMuted} /> : null}
         </View>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <View style={{ flexShrink: 1 }}>
           {shownValue !== null ? (
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
@@ -87,7 +87,7 @@ export function MetricTile({ label, value, level, unit, reason = null, decimals 
                 {shownValue}
               </Num>
               {unit ? (
-                <AppText variant="cardTitle" muted numberOfLines={1} style={{ fontWeight: '400', flexShrink: 1 }}>
+                <AppText variant={compact ? 'body' : 'cardTitle'} muted numberOfLines={1} style={{ fontWeight: '400', flexShrink: 0 }} testID={testID ? `${testID}-unit` : undefined}>
                   {unit}
                 </AppText>
               ) : null}
@@ -100,9 +100,15 @@ export function MetricTile({ label, value, level, unit, reason = null, decimals 
             </AppText>
           )}
         </View>
-        {compact ? <ParityBadge level={level} /> : null}
       </View>
-      {chip && hasValue ? <Chip label={chip.label} tone={chip.tone} /> : null}
+      {compact ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }} testID={testID ? `${testID}-status` : undefined}>
+          <View style={{ flexShrink: 1 }}>{chip && hasValue ? <Chip label={chip.label} tone={chip.tone} /> : null}</View>
+          <ParityBadge level={level} />
+        </View>
+      ) : chip && hasValue ? (
+        <Chip label={chip.label} tone={chip.tone} />
+      ) : null}
       {caption ? (
         <AppText variant="caption" muted>
           {caption}
