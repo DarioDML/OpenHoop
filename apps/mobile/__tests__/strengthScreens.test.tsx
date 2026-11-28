@@ -830,8 +830,57 @@ describe('strength trends', () => {
     expect(screen.getByTestId('trends-volume-chart')).toBeTruthy();
     expect(screen.getByTestId('trends-volume-total')).toHaveTextContent(/1995 kg/);
     expect(screen.getByTestId('trends-muscle-rows-chest')).toBeTruthy();
-    await fireEvent.press(screen.getByText('4 weeks'));
-    expect(within(screen.getByTestId('trends-total')).getByText(/2/)).toBeTruthy();
+    expect(screen.getByTestId('trends-total')).toHaveTextContent(/last 4 weeks/);
+    await fireEvent.press(screen.getByTestId('trends-range-1w'));
+    expect(screen.getByTestId('trends-total-value')).toHaveTextContent('1');
+    expect(screen.getByTestId('trends-total')).toHaveTextContent(/this week/);
+    await fireEvent.press(screen.getByTestId('trends-range-6m'));
+    expect(screen.getByTestId('trends-total-value')).toHaveTextContent('2');
+  });
+
+  it('shows strength minutes per week, day or month with values', async () => {
+    await render(withAppData(<StrengthTrendsScreen />, 'en', app(data({ sessions: [DAY_1, DAY_2] }), actions())));
+    expect(screen.getByText('Strength time per week')).toBeTruthy();
+    expect(screen.getByTestId('trends-minutes-2026-11-23').props.accessibilityLabel).toBe('W48, minutes: 50');
+    expect(screen.getByTestId('trends-minutes-2026-11-16').props.accessibilityLabel).toBe('W47, minutes: 50');
+    expect(screen.getByTestId('trends-minutes-2026-11-09').props.accessibilityLabel).toBe('W46, minutes: 0');
+    await fireEvent.press(screen.getByTestId('trends-range-1w'));
+    expect(screen.getByText('Strength time per day')).toBeTruthy();
+    expect(screen.getByTestId('trends-minutes-2026-11-24').props.accessibilityLabel).toBe('Tue, minutes: 50');
+    expect(screen.getByTestId('trends-minutes-2026-11-27').props.accessibilityLabel).toBe('Fri, still to come: –');
+    await fireEvent.press(screen.getByTestId('trends-range-6m'));
+    expect(screen.getByText('Strength time per month')).toBeTruthy();
+    expect(screen.getByTestId('trends-minutes-2026-11-01').props.accessibilityLabel).toBe('Nov, minutes: 100');
+  });
+
+  it('measures this week against the weekly plan’s strength goal', async () => {
+    const userData = { ...defaultUserData(), onboardingDone: true, weeklyPlan: { ...defaultPlan(null), goals: ['strength' as const], strengthMinutes: 90 } };
+    await render(withAppData(<StrengthTrendsScreen />, 'en', app(data({ sessions: [DAY_1, DAY_2] }), actions(), { userData })));
+    expect(screen.getByTestId('trends-goal-value')).toHaveTextContent('50 / 90 min');
+    expect(screen.getByTestId('trends-goal-text')).toHaveTextContent('40 min left this week. About 1 of your usual sessions does it.');
+    await fireEvent.press(screen.getByTestId('trends-goal-plan'));
+    expect(mockPush).toHaveBeenCalledWith('/plan');
+  });
+
+  it('is honest without a plan or without a strength goal', async () => {
+    await render(withAppData(<StrengthTrendsScreen />, 'en', app(data({ sessions: [DAY_2] }), actions())));
+    expect(screen.getByTestId('trends-goal-none')).toHaveTextContent(/no weekly plan yet/);
+    await fireEvent.press(screen.getByTestId('trends-goal-setup'));
+    expect(mockPush).toHaveBeenCalledWith('/plan/setup');
+    const userData = { ...defaultUserData(), onboardingDone: true, weeklyPlan: { ...defaultPlan(null), goals: ['loadDays' as const] } };
+    await render(withAppData(<StrengthTrendsScreen />, 'en', app(data({ sessions: [DAY_2] }), actions(), { userData })));
+    expect(screen.getByTestId('trends-goal-none')).toHaveTextContent(/no strength goal/);
+    expect(screen.getByText('Add a strength goal')).toBeTruthy();
+  });
+
+  it('compares the volume with the period before', async () => {
+    const earlier = finished(6, '2026-10-20', NOW_S - 36 * 86_400, [set(6, 'lib:bench_press', 'Bench press', 'chest', 10, 150)]);
+    await render(withAppData(<StrengthTrendsScreen />, 'en', app(data({ sessions: [earlier, DAY_1, DAY_2] }), actions())));
+    expect(screen.getByTestId('trends-volume-tile-value')).toHaveTextContent('1995 kg');
+    expect(screen.getByTestId('trends-volume-tile-chip')).toHaveTextContent('↑ 33%');
+    await render(withAppData(<StrengthTrendsScreen />, 'en', app(data({ sessions: [DAY_1, DAY_2] }), actions())));
+    expect(screen.queryByTestId('trends-volume-tile-chip')).toBeNull();
+    expect(screen.getByTestId('trends-volume-tile')).toHaveTextContent(/No volume in the period before/);
   });
 
   it('leaves out sessions older than the chosen period', async () => {

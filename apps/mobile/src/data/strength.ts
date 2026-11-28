@@ -433,13 +433,6 @@ export interface WeekStat {
   byMuscle: Array<{ muscle: MuscleGroup; volumeKg: number; sets: number }>;
 }
 
-export const TREND_WEEKS = [4, 8, 12] as const;
-export type TrendWeeks = (typeof TREND_WEEKS)[number];
-
-export function parseTrendWeeks(value: string): TrendWeeks {
-  return TREND_WEEKS.find((weeks) => `${weeks}` === value) ?? 8;
-}
-
 export function weeklyStats(sessions: readonly StrengthSession[], today: string, weeks: number): WeekStat[] {
   const current = weekStart(today);
   const result: WeekStat[] = [];
