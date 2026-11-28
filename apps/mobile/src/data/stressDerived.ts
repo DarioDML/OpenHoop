@@ -62,3 +62,23 @@ export function latestStressDayIndex(days: readonly DayRecord[]): number {
 export function latestStressScore(days: readonly DayRecord[]): number | null {
   return stressForDay(days[latestStressDayIndex(days)]).latest?.score ?? null;
 }
+
+export const STRESS_HOURS = 12;
+const HOUR_S = 3600;
+
+export interface StressHour {
+  start: number;
+  score: number | null;
+  level: StressLevel | null;
+}
+
+export function stressHours(windows: readonly StressWindow[], endS: number, tzOffsetS: number, hours = STRESS_HOURS): StressHour[] {
+  const lastStart = Math.floor((endS + tzOffsetS) / HOUR_S) * HOUR_S - tzOffsetS;
+  return Array.from({ length: hours }, (_, i) => {
+    const start = lastStart - (hours - 1 - i) * HOUR_S;
+    const scores = windows.flatMap((w) => (w.score !== null && w.t >= start && w.t < start + HOUR_S ? [w.score] : []));
+    if (scores.length === 0) return { start, score: null, level: null };
+    const score = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+    return { start, score, level: stressLevel(score) };
+  });
+}

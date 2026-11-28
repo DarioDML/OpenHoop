@@ -1,39 +1,87 @@
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { latestStressDayIndex, stressForDay, stressTimeline } from '@/data/stressDerived';
+import { STRESS_HOURS, latestStressDayIndex, stressForDay, stressHours, stressTimeline, type StressHour } from '@/data/stressDerived';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatNumber, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
+import { useExplain } from '@/ui/explain/ExplainProvider';
+import { SemiGauge } from '@/ui/Gauge';
+import { HealthPage } from '@/ui/health/HealthPage';
+import { StressLevels, stressColor } from '@/ui/health/StressLevels';
 import { Icon } from '@/ui/Icon';
+import { useLayout } from '@/ui/layout';
+import { LevelNote } from '@/ui/LevelNote';
 import { LineChart } from '@/ui/LineChart';
+import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { Num } from '@/ui/Num';
-import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
 import { StateCard } from '@/ui/StateCard';
-import { HealthPage } from '@/ui/health/HealthPage';
-import { STRESS_TONE, StressLevels, stressColor } from '@/ui/health/StressLevels';
-import { spacing, useTheme } from '@/ui/theme';
+import { radius, spacing, useTheme } from '@/ui/theme';
+import { IconButton } from '@/ui/TopBar';
+
+const SCALE_MAX = 3;
+const BAR_AREA = 150;
+
+function HourBars({ hours, tzOffsetS }: { hours: readonly StressHour[]; tzOffsetS: number }): ReactElement {
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  const label = hours
+    .filter((h) => h.score !== null)
+    .map((h) => `${formatClock(h.start, tzOffsetS)} ${formatNumber(h.score ?? 0, 1, language)}`)
+    .join(', ');
+  return (
+    <View accessible accessibilityLabel={label === '' ? t('stress.noWindows') : label} testID="stress-hours" style={{ gap: 6 }}>
+      <View style={{ height: BAR_AREA, flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
+        {hours.map((hour) => (
+          <View key={hour.start} style={{ flex: 1, height: BAR_AREA, justifyContent: 'flex-end' }}>
+            {hour.score === null || hour.level === null ? (
+              <View style={{ height: 4, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt }} />
+            ) : (
+              <View
+                testID={`stress-hour-${hour.level}`}
+                style={{ height: Math.max(14, (Math.min(hour.score, SCALE_MAX) / SCALE_MAX) * BAR_AREA), borderRadius: 7, backgroundColor: stressColor(colors, hour.level) }}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {hours.map((hour, i) => (
+          <AppText key={hour.start} variant="caption" muted numeric style={{ flex: 1, textAlign: 'center' }} numberOfLines={1}>
+            {i % 2 === 0 || i === hours.length - 1 ? formatClock(hour.start, tzOffsetS).slice(0, 2) : ''}
+          </AppText>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export default function StressScreen() {
   const { t, language, reason } = useT();
   const { colors } = useTheme();
+  const { width, gutter } = useLayout();
+  const explain = useExplain();
   const { days } = useAppData();
   const [index, setIndex] = useState<number>(() => latestStressDayIndex(days));
   const day = days[index];
   const view = stressForDay(day);
   const timeline = day ? stressTimeline(view.windows, day.start, day.end) : [];
+  const hours = day && view.latest ? stressHours(view.windows, view.latest.t, day.tzOffsetS) : [];
   const hasPrev = index > 0;
   const hasNext = index < days.length - 1;
+  const gaugeSize = Math.min(300, width - gutter * 2 - 40);
+  const fraction = view.latest === null ? null : Math.min(view.latest.score, SCALE_MAX) / SCALE_MAX;
+  const levelColor = view.latest === null ? colors.textMuted : stressColor(colors, view.latest.level);
 
   return (
     <HealthPage
       title={t('health.stress.title')}
       testID="health-stress"
-      right={<ParityBadge level={PARITY.stress} />}
+      right={<IconButton icon="info" label={t('explain.whatIs', { name: t('health.stress.title') })} onPress={() => explain.about({ term: 'stress', index, shown: null })} color={colors.text} testID="stress-about" />}
       hero={
         <View style={{ gap: spacing.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -46,7 +94,7 @@ export default function StressScreen() {
               testID="stress-prev">
               <Icon name="back" color={colors.text} />
             </Pressable>
-            <AppText variant="h2" testID="stress-day">
+            <AppText variant="bodyStrong" testID="stress-day">
               {day ? formatShortDay(day.day, language) : '–'}
             </AppText>
             <Pressable
@@ -59,79 +107,92 @@ export default function StressScreen() {
               <Icon name="chevronRight" color={colors.text} />
             </Pressable>
           </View>
-          <AppText variant="lead" muted>
-            {t('health.stress.body')}
-          </AppText>
+          <SemiGauge
+            size={gaugeSize}
+            stroke={16}
+            progress={fraction === null ? null : { to: fraction, color: levelColor }}
+            marker={fraction}
+            accessibilityLabel={view.latest === null ? undefined : `${t(`stress.level.${view.latest.level}`)}, ${t('stress.score', { score: formatNumber(view.latest.score, 1, language) })}`}
+            testID="stress-gauge">
+            {view.latest ? (
+              <View style={{ alignItems: 'center' }}>
+                <Num size={72} testID="stress-score">
+                  {formatNumber(view.latest.score, 1, language)}
+                </Num>
+                <AppText variant="capLarge" color={levelColor} testID="stress-latest-level">
+                  {t(`stress.level.${view.latest.level}`)}
+                </AppText>
+              </View>
+            ) : (
+              <AppText variant="bodyStrong" muted testID="stress-reason" style={{ textAlign: 'center', maxWidth: gaugeSize - 60 }}>
+                {view.calibrating ? t('stress.calibratingTitle') : view.reason === 'low-coverage' ? t('stress.noWindows') : reason(view.reason ?? 'no-data')}
+              </AppText>
+            )}
+          </SemiGauge>
+          {view.latest && day ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+              <Chip label={t('stress.estimate')} tone="purple" small />
+              <AppText variant="label" muted numeric testID="stress-latest-time" style={{ textAlign: 'center' }}>
+                {t('stress.at', { time: formatClock(view.latest.t, day.tzOffsetS) })}
+                {view.baselineDays > 0 ? ` · ${t('stress.baselineDays', { days: view.baselineDays })}` : ''}
+              </AppText>
+            </View>
+          ) : null}
         </View>
       }>
       {view.calibrating ? (
-        <StateCard
-          icon="pulse"
-          tone="warning"
-          title={t('stress.calibratingTitle')}
-          body={t('stress.calibratingBody', { needed: view.neededDays })}
-          testID="stress-calibrating"
-        />
+        <StateCard icon="pulse" tone="warning" title={t('stress.calibratingTitle')} body={t('stress.calibratingBody', { needed: view.neededDays })} testID="stress-calibrating" />
       ) : null}
-      <Card testID="stress-latest">
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <AppText variant="capSmall" muted>
-            {t('stress.latest')}
-          </AppText>
-          <Chip label={t('stress.estimate')} tone="purple" small />
-        </View>
-        {view.latest ? (
-          <View style={{ gap: 4 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm }}>
-              <Num size={40} color={stressColor(colors, view.latest.level)} testID="stress-latest-level">
-                {t(`stress.level.${view.latest.level}`)}
-              </Num>
-              <Chip label={t('stress.score', { score: formatNumber(view.latest.score, 1, language) })} tone={STRESS_TONE[view.latest.level]} small />
-            </View>
-            <AppText variant="label" muted numeric testID="stress-latest-time">
-              {day ? t('stress.at', { time: formatClock(view.latest.t, day.tzOffsetS) }) : ''}
-              {view.baselineDays > 0 ? ` · ${t('stress.baselineDays', { days: view.baselineDays })}` : ''}
-            </AppText>
-          </View>
-        ) : (
-          <AppText variant="bodyStrong" muted testID="stress-reason">
-            {view.calibrating ? t('stress.calibratingTitle') : view.reason === 'low-coverage' ? t('stress.noWindows') : reason(view.reason ?? 'no-data')}
-          </AppText>
-        )}
-      </Card>
-      {view.latest ? (
+      {view.latest && day ? (
         <>
+          <Card testID="stress-hours-card">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <AppText variant="capLarge" muted>
+                {t('health.stress.lastHours', { hours: STRESS_HOURS })}
+              </AppText>
+              <AppText variant="label" muted numeric>
+                {t('health.stress.scale')}
+              </AppText>
+            </View>
+            <HourBars hours={hours} tzOffsetS={day.tzOffsetS} />
+          </Card>
+          <Card testID="stress-levels">
+            <AppText variant="capLarge" muted>
+              {t('stress.timeInLevel')}
+            </AppText>
+            <StressLevels seconds={view.seconds} />
+          </Card>
           <Card>
             <CardHeader title={t('stress.timeline')} />
             <LineChart
               testID="stress-chart"
               data={timeline}
-              domain={{ min: 0, max: 3 }}
+              domain={{ min: 0, max: SCALE_MAX }}
               color={colors.levelC}
               formatTick={(v) => formatNumber(v, 0, language)}
               emptyLabel={t('stress.noWindows')}
-              startLabel={day ? formatClock(day.start, day.tzOffsetS) : undefined}
-              endLabel={day ? formatClock(day.end, day.tzOffsetS) : undefined}
+              startLabel={formatClock(day.start, day.tzOffsetS)}
+              endLabel={formatClock(day.end, day.tzOffsetS)}
             />
-          </Card>
-          <Card testID="stress-levels">
-            <CardHeader title={t('stress.timeInLevel')} />
-            <StressLevels seconds={view.seconds} />
           </Card>
         </>
       ) : null}
+      <ListGroup>
+        <ListRow
+          testID="stress-breathing"
+          title={t('health.stress.breathing')}
+          subtitle={t('health.stress.breathingHint')}
+          icon={{ icon: 'lungs', color: colors.info, background: colors.infoSoft }}
+          href="/health/breathing"
+        />
+      </ListGroup>
       <Card>
         <CardHeader title={t('stress.method')} />
         <AppText variant="body" soft>
           {t('stress.methodBody')}
         </AppText>
       </Card>
-      <Card style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }} testID="stress-disclaimer">
-        <ParityBadge level={PARITY.stress} long />
-        <AppText variant="label" muted style={{ flex: 1 }}>
-          {t('stress.disclaimer')}
-        </AppText>
-      </Card>
+      <LevelNote level={PARITY.stress} text={t('stress.disclaimer')} testID="stress-disclaimer" />
     </HealthPage>
   );
 }
