@@ -4,6 +4,7 @@ import { act, renderHook } from '@testing-library/react-native';
 import { MIN_PAIRS, compareWithOfficial, pairedCycle, pairedSleep, summarise } from '@/data/accuracy';
 import { isoWeekNumber, weeklyCharges } from '@/data/charges';
 import { createFixtureDays } from '@/data/fixtureSource';
+import { applyRawRetention, retentionChanged, retentionCutoff } from '@/data/rawRetention';
 import { previewCounts, vendorFrom } from '@/data/vendorExport/preview';
 import { autoShareCandidates, defaultAutoSharePrefs, parseAutoSharePrefs, sharesType, toggleType, withMode } from '@/strava/autoShare';
 
@@ -302,5 +303,24 @@ describe('accuracy pairs nights by time, not by date label', () => {
     const day = night(start, 0);
     expect(pairedSleep(day, [sleep(start + 12 * 3_600, 'x', 50)])).toBeNull();
     expect(pairedSleep(day, [sleep(start + 12 * 3_600, 'x', 50), sleep(start - 1_800, 'y', 70)])?.performancePct).toBe(70);
+  });
+});
+
+describe('raw retention wiring', () => {
+  it('prunes the active band before the cut-off only when a period is chosen', async () => {
+    const prune = jest.fn(async () => undefined);
+    const nowS = 1_800_000_000;
+    expect(await applyRawRetention(prune, 3, 7, nowS)).toBe(true);
+    expect(prune).toHaveBeenCalledWith(3, nowS - 7 * 86_400);
+    expect(await applyRawRetention(prune, 3, null, nowS)).toBe(false);
+    expect(await applyRawRetention(prune, null, 30, nowS)).toBe(false);
+    expect(prune).toHaveBeenCalledTimes(1);
+    expect(retentionCutoff(30, nowS)).toBe(nowS - 30 * 86_400);
+  });
+
+  it('runs again when the period changes and not for other settings', () => {
+    expect(retentionChanged({ rawRetentionDays: null })).toBe(true);
+    expect(retentionChanged({ rawRetentionDays: 7 })).toBe(true);
+    expect(retentionChanged({ theme: 'dark' })).toBe(false);
   });
 });

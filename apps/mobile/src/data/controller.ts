@@ -188,6 +188,7 @@ import { loadTargetBand } from './activityDerived';
 import { planInputFor } from './planInput';
 import { AppError, toAppError } from './errors';
 import { exportAll, removeLeftoverExports, type ExportContent } from './exportData';
+import { applyRawRetention, retentionChanged } from './rawRetention';
 import { deleteAllRawSessions, rawSessionExports } from './rawSessions';
 import { OPENHOOP_PACKAGE, nativeHealthConnect, type HealthConnectApi } from './healthConnectApi';
 import {
@@ -1470,7 +1471,7 @@ export class AppController {
         setNetworkPrefs(next.network);
         this.patch({ userData: next });
         if (patch.theme !== undefined) setThemePreference(next.theme);
-        if (patch.rawRetentionDays !== undefined) void this.exclusive(() => this.pruneRaw());
+        if (retentionChanged(patch)) void this.exclusive(() => this.pruneRaw());
         if (patch.notifications !== undefined || patch.weeklyPlan !== undefined || patch.windDown !== undefined) void this.refreshNotifications();
         if (patch.widgetValues !== undefined) void this.refreshWidgets();
         if (patch.jetLagShiftAlarm !== undefined || (patch.jetLagPlan !== undefined && next.jetLagShiftAlarm)) void this.reapplyAlarm();
@@ -2218,11 +2219,10 @@ export class AppController {
   };
 
   private async pruneRaw(): Promise<void> {
-    const days = this.snapshot.userData.rawRetentionDays;
-    const row = this.deviceRow;
-    if (days === null || row === null || this.app === null) return;
+    const app = this.app;
+    if (app === null) return;
     try {
-      await pruneRawBefore(this.app.store, row.id, nowSeconds() - days * DAY_S);
+      await applyRawRetention((deviceId, beforeS) => pruneRawBefore(app.store, deviceId, beforeS), this.deviceRow?.id ?? null, this.snapshot.userData.rawRetentionDays, nowSeconds());
     } catch (error) {
       this.fail(error);
     }
