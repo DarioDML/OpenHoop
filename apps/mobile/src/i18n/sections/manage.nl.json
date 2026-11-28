@@ -326,7 +326,7 @@
   "hc.type.sleepBody": "Begin en einde, met dutjes en je correcties. Geen slaapfasen.",
   "hc.type.exercise": "Trainingssessies",
   "hc.type.exerciseBody": "Herkende en gelogde trainingen",
-  "hc.type.spo2": "SpO2",
+  "hc.type.spo2": "SpO₂",
   "hc.type.respiratoryRate": "Ademhalingsfrequentie",
   "hc.type.skinTemperature": "Huidtemperatuur",
   "hc.type.skinTemperatureBody": "Nachtelijke afwijking van je basiswaarde",

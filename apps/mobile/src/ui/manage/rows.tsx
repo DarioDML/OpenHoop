@@ -1,8 +1,30 @@
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { AppText } from '@/ui/AppText';
 import { Toggle } from '@/ui/controls';
-import { spacing } from '@/ui/theme';
+import { useLayout } from '@/ui/layout';
+import { maxFontScale, spacing, typeScale } from '@/ui/theme';
+
+export function titleLineHeight(fontScale: number): number {
+  return Math.round(typeScale.body.lineHeight * Math.min(fontScale, maxFontScale.body));
+}
+
+interface RowStatusProps {
+  children: ReactNode;
+  placement: 'chip' | 'right';
+  testID?: string;
+}
+
+export function RowStatus({ children, placement, testID }: RowStatusProps) {
+  const { compact, fontScale } = useLayout();
+  if (placement === 'chip' && compact) return <>{children}</>;
+  return (
+    <View testID={testID} style={{ alignSelf: 'flex-start', minHeight: titleLineHeight(fontScale), justifyContent: 'center' }}>
+      {children}
+    </View>
+  );
+}
 
 interface KeyValueProps {
   label: string;

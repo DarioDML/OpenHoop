@@ -326,7 +326,7 @@
   "hc.type.sleepBody": "Start and end, with naps and your corrections. No sleep stages.",
   "hc.type.exercise": "Exercise sessions",
   "hc.type.exerciseBody": "Detected and logged workouts",
-  "hc.type.spo2": "SpO2",
+  "hc.type.spo2": "SpO₂",
   "hc.type.respiratoryRate": "Respiratory rate",
   "hc.type.skinTemperature": "Skin temperature",
   "hc.type.skinTemperatureBody": "Nightly change against your baseline",
