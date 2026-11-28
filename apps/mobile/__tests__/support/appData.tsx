@@ -127,6 +127,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     importVendorFiles: async () => null,
     removeVendorData: async () => true,
     heartRateBetween: async () => [],
+    spo2Between: async () => [],
     sleepStagesBetween: async () => [],
     routeFor: async () => [],
     inbox: [],

@@ -6,7 +6,7 @@ import type { JournalAnswer } from '@/data/userData';
 import { defaultUserData } from '@/data/userData';
 import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { addDays } from '@/data/derived';
-import { answerIsYes, breathPositionAt, BREATH_PATTERNS, compareBehaviour, latestVitalsIndex, vitalReadings, vitalsSummary, yesRate } from '@/data/healthDerived';
+import { answerIsYes, breathPositionAt, BREATH_PATTERNS, compareBehaviour, latestHeartRateDayIndex, latestVitalsIndex, vitalReadings, vitalsSummary, yesRate } from '@/data/healthDerived';
 import { todayIso } from '@/lib/format';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
@@ -148,6 +148,27 @@ describe('health screens', () => {
     expect(screen.getByTestId('hr-avg')).toBeTruthy();
     await waitFor(() => expect(heartRateBetween).toHaveBeenCalled());
     expect(heartRateBetween.mock.calls[0]?.[2]).toBe(300);
+  });
+
+  it('switches heart rate tabs, asks for the night blood oxygen and scrubs the chart', async () => {
+    const day = days[latestHeartRateDayIndex(days)];
+    if (!day) throw new Error('fixture');
+    const points = Array.from({ length: 50 }, (_, i) => ({ t: day.start + i * 1800, hr: 60 + (i % 10) }));
+    const heartRateBetween = jest.fn().mockResolvedValue(points);
+    const spo2Between = jest.fn().mockResolvedValue([{ t: (day.sleep.periods[0]?.onset ?? day.start) + 60, pct: 96 }]);
+    await render(withAppData(<HeartRateScreen />, 'en', { heartRateBetween, spo2Between }));
+    await waitFor(() => expect(spo2Between).toHaveBeenCalled());
+    expect(screen.getByTestId('hr-spo2')).toBeTruthy();
+    expect(screen.getByTestId('hr-scrub-note')).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('hr-chart-touch')).toBeTruthy());
+    await fireEvent(screen.getByTestId('hr-chart-touch'), 'layout', { nativeEvent: { layout: { width: 300, height: 180, x: 0, y: 0 } } });
+    await fireEvent(screen.getByTestId('hr-chart-touch'), 'responderGrant', { nativeEvent: { locationX: 0 } });
+    expect(screen.getByTestId('hr-chart-scrub')).toHaveTextContent(/60 bpm/);
+    await fireEvent.press(screen.getByTestId('hr-tab-resting'));
+    expect(screen.getByTestId('hr-resting')).toBeTruthy();
+    expect(screen.queryByTestId('hr-spo2')).toBeNull();
+    await fireEvent.press(screen.getByTestId('hr-tab-workouts'));
+    expect(screen.getByTestId('hr-window')).toBeTruthy();
   });
 
   it('filters the metric list and says when a value has no data', async () => {

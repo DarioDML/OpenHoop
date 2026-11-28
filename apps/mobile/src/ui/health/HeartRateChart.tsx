@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Line, Path, Rect } from 'react-native-svg';
+import { View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { formatElapsed } from '@/data/activityDerived';
+import { nearestPoint } from '@/data/heartRateView';
 import type { HeartRatePoint } from '@/data/types';
 import { formatClock } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -25,6 +26,7 @@ interface Props {
   emptyLabel: string;
   axis?: 'clock' | 'elapsed';
   area?: boolean;
+  scrubLabel?: (point: HeartRatePoint) => string;
   testID?: string;
 }
 
@@ -44,9 +46,10 @@ export function elapsedTicks(spanS: number): number[] {
   return [0, ...inner, spanS];
 }
 
-export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS, height = 180, emptyLabel, axis = 'clock', area = false, testID }: Props) {
+export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS, height = 180, emptyLabel, axis = 'clock', area = false, scrubLabel, testID }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
+  const [active, setActive] = useState<HeartRatePoint | null>(null);
   const onLayout = (event: LayoutChangeEvent): void => setWidth(event.nativeEvent.layout.width);
 
   if (points.length === 0) {
@@ -89,10 +92,29 @@ export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS
   }
   closeRun();
   const ticks = axis === 'elapsed' ? elapsedTicks(span) : null;
+  const scrubbing = scrubLabel !== undefined;
+  const pick = (event: GestureResponderEvent): void => {
+    if (width <= 0) return;
+    setActive(nearestPoint(points, startS + (event.nativeEvent.locationX / width) * span));
+  };
 
   return (
     <View testID={testID} style={{ gap: 6 }}>
-      <View onLayout={onLayout} style={{ height }}>
+      {scrubbing ? (
+        <AppText variant="label" numeric muted={active === null} testID={testID ? `${testID}-scrub` : undefined} style={{ minHeight: 18 }}>
+          {active === null ? ' ' : scrubLabel(active)}
+        </AppText>
+      ) : null}
+      <View
+        onLayout={onLayout}
+        style={{ height }}
+        testID={testID ? `${testID}-touch` : undefined}
+        onStartShouldSetResponder={() => scrubbing}
+        onResponderGrant={pick}
+        onResponderMove={pick}
+        onResponderRelease={() => setActive(null)}
+        onResponderTerminate={() => setActive(null)}
+        onResponderTerminationRequest={() => true}>
         {width > 0 ? (
           <Svg width={width} height={height}>
             {bands.map((band, index) => {
@@ -120,6 +142,12 @@ export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS
                 ))}
             {area ? <Path d={fill} fill={colors.negative} opacity={0.2} /> : null}
             <Path d={path} fill="none" stroke={colors.negative} strokeWidth={area ? 2.25 : 1.75} strokeLinejoin="round" strokeLinecap="round" />
+            {active === null ? null : (
+              <>
+                <Line x1={x(active.t)} x2={x(active.t)} y1={0} y2={height} stroke={colors.textMuted} strokeWidth={1} />
+                <Circle cx={x(active.t)} cy={y(active.hr)} r={4.5} fill={colors.negative} stroke={colors.background} strokeWidth={2} />
+              </>
+            )}
           </Svg>
         ) : null}
       </View>

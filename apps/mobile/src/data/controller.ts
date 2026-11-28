@@ -135,6 +135,7 @@ import {
   type DonationDay,
   type DonationProgress,
 } from '@openhoop/core';
+import { spo2Windows } from '@openhoop/analytics';
 import type { Profile as AnalyticsProfile } from '@openhoop/analytics';
 import { commandName, formatFirmware, type Wrist } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
@@ -241,6 +242,7 @@ import type {
   DiscoveredBand,
   HealthConnectView,
   HeartRatePoint,
+  Spo2Point,
   LiveState,
   LockState,
   Notice,
@@ -1758,6 +1760,13 @@ export class AppController {
     return this.app.store.heartRateBuckets(row.id, fromS, toS, bucketS);
   };
 
+  spo2Between = async (fromS: number, toS: number): Promise<Spo2Point[]> => {
+    const row = this.deviceRow;
+    if (this.app === null || row === null || toS <= fromS) return [];
+    const samples = await this.app.store.samplesBetween(row.id, fromS, toS);
+    return spo2Windows(samples).map((w) => ({ t: w.start, pct: w.percent }));
+  };
+
   sleepStagesBetween = async (fromS: number, toS: number): Promise<StageEpochRow[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
@@ -2396,6 +2405,7 @@ export class AppController {
       removeAllCycleData: this.removeAllCycleData,
       strengthActions: this.strengthActionSet,
       heartRateBetween: this.heartRateBetween,
+      spo2Between: this.spo2Between,
       sleepStagesBetween: this.sleepStagesBetween,
       routeFor: this.routeFor,
       saveSleepEdit: this.saveSleepEdit,

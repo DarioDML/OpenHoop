@@ -5,6 +5,7 @@ import { CONTRIBUTOR_IDS, CONTRIBUTOR_WINDOW_DAYS, STEPS_TARGET, bodyAgeContribu
 import { addDays } from '@/data/derived';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { FITNESS_LEVELS, fitnessLevel, scalePosition } from '@/data/healthspanDerived';
+import { bucketSpo2, hrStats, nearestPoint, pointsIn, restingSeries, tabWindows, windowSpan } from '@/data/heartRateView';
 import type { Profile } from '@/data/types';
 import { todayIso } from '@/lib/format';
 
@@ -191,5 +192,47 @@ describe('contributor scale', () => {
     expect(scale?.segments.map((s) => s.zone)).toEqual(['below', 'target']);
     expect(scale?.position).toBeCloseTo(0.25, 9);
     expect(contributorScale({ ...base, value: 20, target: { kind: 'none' } })).toBeNull();
+  });
+});
+
+describe('heart rate tabs', () => {
+  const day = days[days.length - 2];
+  if (day === undefined) throw new Error('fixture');
+
+  it('limits sleep and workout tabs to their windows', () => {
+    const sleep = tabWindows(day, 'sleep');
+    expect(sleep).toEqual(day.sleep.periods.map((p) => ({ from: p.onset, to: p.offset })));
+    expect(tabWindows(day, '24h')).toEqual([{ from: day.start, to: day.end }]);
+    const points = [
+      { t: 100, hr: 50 },
+      { t: 200, hr: 90 },
+      { t: 300, hr: 70 },
+    ];
+    expect(pointsIn(points, [{ from: 150, to: 301 }])).toEqual([points[1], points[2]]);
+    expect(hrStats(points)).toEqual({ min: 50, max: 90, avg: 70 });
+    expect(hrStats([])).toBeNull();
+    expect(windowSpan([{ from: 5, to: 9 }, { from: 1, to: 4 }])).toEqual({ from: 1, to: 9 });
+    expect(windowSpan([])).toBeNull();
+    expect(nearestPoint(points, 240)).toEqual(points[1]);
+  });
+
+  it('averages blood oxygen into ten-minute buckets with gaps as null', () => {
+    const buckets = bucketSpo2(
+      [
+        { t: 0, pct: 96 },
+        { t: 60, pct: 94 },
+        { t: 1300, pct: 97 },
+      ],
+      0,
+      1800,
+    );
+    expect(buckets).toEqual([95, null, 97]);
+    expect(bucketSpo2([], 10, 5)).toEqual([]);
+  });
+
+  it('takes resting heart rate of the last nights up to the day', () => {
+    const series = restingSeries(days, days.length - 1, 5);
+    expect(series).toHaveLength(5);
+    expect(series[4]).toBe(days[days.length - 1]?.restingHr.value ?? null);
   });
 });
