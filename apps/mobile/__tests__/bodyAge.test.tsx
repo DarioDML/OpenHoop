@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { LabResult } from '@openhoop/core';
 import type { ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
 
 import { PHENO_MARKERS, PHENO_WINDOW_DAYS, fitnessBand, latestFitnessAge, latestPhenoAge } from '@/data/bodyAgeDerived';
 import { createFixtureDays } from '@/data/fixtureSource';
@@ -8,6 +9,7 @@ import { CATALOGUE } from '@/data/healthDerived';
 import { latestVo2 } from '@/data/healthspanDerived';
 import type { Profile } from '@/data/types';
 import { defaultUserData, type UserData } from '@/data/userData';
+import { CLOUD_CLEAR, cloudClearWidth, cloudDots } from '@/ui/health/DotCloud';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -132,7 +134,7 @@ describe('Body age screen', () => {
     await render(withAppData(<BodyAgeScreen />, 'en', { profile: PROFILE, userData: MAN, labResults: panel() }));
     expect(screen.getByTestId('body-age-fitness')).toBeTruthy();
     expect(screen.getByTestId('body-age-fitness-value')).toBeTruthy();
-    expect(screen.getByText(/Your VO2 max estimate ± 4.7 mL\/kg\/min/)).toBeTruthy();
+    expect(screen.getByText(/Your VO₂ max estimate ± 4.7 mL\/kg\/min/)).toBeTruthy();
     expect(screen.getByText('Men (Loe 2013)')).toBeTruthy();
     expect(screen.getByText(`${Math.round(pheno.result.value.phenoAge)} years`)).toBeTruthy();
     expect(screen.getByText('Blood draw of 2026-11-01')).toBeTruthy();
@@ -189,9 +191,16 @@ describe('Body age hero, pace and contributors', () => {
     expect(screen.getByTestId('body-age-pace-value')).toHaveTextContent(/×$/);
   });
 
+  it('keeps the dot cloud out of the clear middle where the text sits', () => {
+    const inner = Math.min(...cloudDots(170).map((dot) => Math.hypot(dot.x - 0.5, dot.y - 0.5)));
+    expect(inner).toBeGreaterThanOrEqual(CLOUD_CLEAR / 2 - 1e-9);
+    expect(cloudClearWidth(280)).toBeLessThan(280 * CLOUD_CLEAR);
+  });
+
   it('says why there is no body age and lists nine contributors that open their detail', async () => {
     await render(withAppData(<BodyAgeScreen />, 'en', { profile: PROFILE, userData: { ...MAN, sex: null } }));
     expect(screen.getByTestId('body-age-missing')).toHaveTextContent('Set your sex in your profile');
+    expect(StyleSheet.flatten(screen.getByTestId('body-age-missing').props.style).maxWidth).toBeLessThanOrEqual(cloudClearWidth(280));
     expect(screen.getByText('9 contributors · last 4 weeks')).toBeTruthy();
     expect(screen.getByTestId('body-age-contrib-leanMass')).toHaveTextContent(/No body measurement entered yet/);
     await fireEvent.press(screen.getByTestId('body-age-contrib-zones45'));

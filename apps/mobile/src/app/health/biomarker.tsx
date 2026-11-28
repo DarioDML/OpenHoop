@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import { useAppData } from '@/data/context';
 import { buildHistory, convertLabValue, formatConverted, formatEntered, labBand, linkedBehaviours, rangeStatus, resultsFor, type LinkMetric } from '@/data/labs';
 import { useT } from '@/i18n/useT';
-import { formatNumber, formatShortDay } from '@/lib/format';
+import { formatNumber, formatShortDay, formatShortDayIn } from '@/lib/format';
 import { StatRow, StatTile } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
@@ -21,6 +21,9 @@ import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { Section } from '@/ui/Section';
 import { spacing, useTheme } from '@/ui/theme';
+
+const RESULT_VALUE_MIN_WIDTH = 140;
+const FLAT_SPAN_SHARE = 0.04;
 
 function hoursText(hours: number): string {
   const minutes = Math.round(hours * 60);
@@ -148,9 +151,9 @@ export default function BiomarkerScreen() {
           color={out ? colors.negative : undefined}
           formatTick={(value) => formatConverted(value, language)}
           emptyLabel={t('health.biomarker.chartEmpty')}
-          startLabel={first === undefined ? undefined : formatShortDay(first.result.day, language)}
+          startLabel={first === undefined ? undefined : formatShortDayIn(first.result.day, language, lastPoint?.result.day ?? first.result.day)}
           endLabel={lastPoint === undefined ? undefined : formatShortDay(lastPoint.result.day, language)}
-          minSpan={0.1}
+          minSpan={Math.max(0.1, Math.abs(lastPoint?.value ?? 0) * FLAT_SPAN_SHARE)}
         />
         <StatRow>
           <StatTile label={t('health.biomarker.latest')} value={lastPoint === undefined ? '–' : formatConverted(lastPoint.value, language)} unit={history.unit} testID="biomarker-latest" />
@@ -167,7 +170,7 @@ export default function BiomarkerScreen() {
           </AppText>
         ) : (
           <AppText variant="caption" muted testID="biomarker-band">
-            {t('health.biomarker.band', { day: history.bandFrom.day })}
+            {t('health.biomarker.band', { day: formatShortDayIn(history.bandFrom.day, language, latestEntry?.day ?? history.bandFrom.day) })}
           </AppText>
         )}
         {converted ? (
@@ -221,13 +224,20 @@ export default function BiomarkerScreen() {
           const range = rangeText(entry, t, language);
           return (
             <Card key={entry.id} testID={`biomarker-entry-${entry.id}`}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <AppText variant="bodyStrong" numeric>
-                    {formatEntered(entry.value, language)} {entry.unit}
+              <View
+                testID={`biomarker-entry-row-${entry.id}`}
+                style={{
+                  flexDirection: layout.compact ? 'column' : 'row',
+                  flexWrap: layout.compact ? 'nowrap' : 'wrap',
+                  alignItems: layout.compact ? 'flex-start' : 'center',
+                  gap: layout.compact ? spacing.sm : spacing.md,
+                }}>
+                <View style={layout.compact ? { alignSelf: 'stretch', gap: 2 } : { flexGrow: 1, flexShrink: 1, minWidth: RESULT_VALUE_MIN_WIDTH, gap: 2 }}>
+                  <AppText variant="bodyStrong" numeric testID={`biomarker-value-${entry.id}`}>
+                    {`${formatEntered(entry.value, language)}\u00a0${entry.unit}`}
                   </AppText>
-                  <AppText variant="label" muted numeric>
-                    {entry.day}
+                  <AppText variant="label" muted numeric testID={`biomarker-day-${entry.id}`}>
+                    {formatShortDayIn(entry.day, language, latestEntry?.day ?? entry.day)}
                   </AppText>
                 </View>
                 {rangeStatus(entry) === null ? null : <Chip label={statusText(entry, t)} tone={bandChip(labBand(entry), t).tone} small testID={`biomarker-status-${entry.id}`} />}

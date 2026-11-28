@@ -230,8 +230,17 @@ describe('summaries and history', () => {
     expect(mg?.band).toEqual({ low: 70, high: 100 });
   });
 
-  it('has no band when no entry has a full range', () => {
-    const history = buildHistory([result(1, { refLow: 3 }), result(2, { refHigh: 6 })], null);
+  it('keeps a one-sided range from the newest entry that has one', () => {
+    const history = buildHistory([result(1, { refLow: 3, refHigh: 6 }), result(2, { refHigh: 6, day: '2026-11-05' })], null);
+    expect(history?.band).toEqual({ low: null, high: 6 });
+    expect(history?.bandFrom?.id).toBe(2);
+    const atLeast = buildHistory([result(3, { refLow: 3 })], 'mg/dL');
+    expect(atLeast?.band?.low).toBeCloseTo(54, 0);
+    expect(atLeast?.band?.high).toBeNull();
+  });
+
+  it('has no band when no entry has a range', () => {
+    const history = buildHistory([result(1), result(2, { day: '2026-11-05' })], null);
     expect(history?.band).toBeNull();
     expect(history?.bandFrom).toBeNull();
   });

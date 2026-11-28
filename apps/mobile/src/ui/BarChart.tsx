@@ -67,7 +67,13 @@ export function BarChart({ data, height = 110, max, formatTick, startLabel, endL
           ) : null}
         </View>
       </View>
-      {startLabel || endLabel ? (
+      {(startLabel || endLabel) && (data.length <= 1 || startLabel === endLabel) ? (
+        <View style={{ alignItems: 'center', paddingLeft: AXIS_WIDTH }} testID={testID ? `${testID}-x-single` : undefined}>
+          <AppText variant="caption" muted>
+            {endLabel ?? startLabel}
+          </AppText>
+        </View>
+      ) : startLabel || endLabel ? (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: AXIS_WIDTH }}>
           <AppText variant="caption" muted>
             {startLabel}

@@ -136,6 +136,8 @@ describe('body composition screen', () => {
     const bodyMeasurements = [entry(1, '2026-10-30', 82, 22), entry(2, '2026-11-24', 80, 20)];
     await render(withAppData(<BodyCompositionScreen />, 'en', { userData: { ...userData, weightGoalKg: 75 }, bodyMeasurements, updateUserData }));
     expect(screen.getByTestId('body-latest-chip')).toHaveTextContent('↓ 2.0 kg');
+    expect(screen.getByTestId('body-fat-chip')).toHaveTextContent('↓ 2.0 % pt');
+    expect(screen.getByTestId('body-lean-chip')).toHaveTextContent(/^↑ \d+\.\d kg$/);
     expect(screen.getByTestId('body-goal-line')).toHaveTextContent(/75.0 kg/);
     await fireEvent.press(screen.getByTestId('body-goal'));
     await fireEvent.changeText(screen.getByTestId('body-goal-input'), '78');
@@ -161,6 +163,14 @@ describe('body composition screen', () => {
     await render(withAppData(<BodyCompositionScreen />, 'en', { userData, bodyMeasurements: [synced] }));
     expect(screen.getByText('Health Connect · Withings')).toBeTruthy();
     expect(screen.getByTestId('body-source-5')).toBeTruthy();
+  });
+
+  it('shows the app name instead of the Android package', async () => {
+    const synced: BodyMeasurement = { ...entry(5, '2026-11-24', 80), source: 'health_connect', origin: 'com.renpho.health' };
+    await render(withAppData(<BodyCompositionScreen />, 'en', { userData, bodyMeasurements: [synced] }));
+    expect(screen.getByText('Health Connect · Renpho')).toBeTruthy();
+    expect(screen.getByTestId('body-source-5')).toHaveTextContent('From Health Connect (Renpho)');
+    expect(screen.queryByText(/com\.renpho/)).toBeNull();
   });
 
   it('renders in Dutch', async () => {

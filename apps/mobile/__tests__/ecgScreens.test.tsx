@@ -1,6 +1,7 @@
 import type { EcgSummary } from '@openhoop/core';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { StyleSheet, type ViewStyle } from 'react-native';
 
 import { AppDataContext, LiveDataContext } from '@/data/context';
 import { ECG_CONTACT, ecgContact, ecgCsv, ecgStrips, stripLength, toggleEcgSymptom, traceColumns, traceRange } from '@/data/ecg';
@@ -171,6 +172,17 @@ describe('ECG result screen', () => {
     await fireEvent.press(screen.getByTestId('ecg-item-2'));
     await waitFor(() => expect(screen.getByText('Right wrist')).toBeTruthy());
     expect(screen.queryByText(/normal|sinus|atrial|irregular/i)).toBeNull();
+  });
+
+  it('puts a summary value under its label once it would wrap', async () => {
+    mockParams = { id: '4' };
+    await render(withAppData(<EcgResultScreen />, 'en', { ecgRecordings: [RECORDING] }));
+    const direction = (id: string): ViewStyle['flexDirection'] => StyleSheet.flatten<ViewStyle>(screen.getByTestId(id).props.style)?.flexDirection;
+    expect(direction('ecg-rate')).toBe('row');
+    await fireEvent(screen.getByTestId('ecg-rate-value'), 'textLayout', { nativeEvent: { lines: [{ text: 'about 95,' }, { text: 'measured' }] } });
+    expect(direction('ecg-rate')).toBeUndefined();
+    expect(screen.getByTestId('ecg-rate-value')).toBeTruthy();
+    expect(direction('ecg-length')).toBe('row');
   });
 
   it('stores how the wearer felt with the recording, with none on its own', async () => {

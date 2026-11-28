@@ -116,7 +116,15 @@ export function rowValue(row: ReportRow, value: number, { t, language }: ReportT
 
 export function rowRange(row: ReportRow, text: ReportText): string | null {
   if (row.min === null || row.max === null) return null;
-  return `${rowValue(row, row.min, text)} – ${rowValue(row, row.max, text)}`;
+  return spanText(rowValue(row, row.min, text), rowValue(row, row.max, text));
+}
+
+function spanText(low: string, high: string): string {
+  return low === high ? low : `${low} – ${high}`;
+}
+
+export function labSpan(lab: Pick<ReportLab, 'min' | 'max' | 'unit'>, language: Language): string {
+  return spanText(labValue(lab.min, lab.unit, language), labValue(lab.max, lab.unit, language));
 }
 
 export function coverageText(days: number, total: number, t: TFunction): string {
@@ -203,7 +211,7 @@ function labHtml(lab: ReportLab, text: ReportText): string {
     ...(lab.latest.note === null ? [] : [escapeHtml(t('health.report.labs.note', { note: lab.latest.note }))]),
   ];
   const average = escapeHtml(labValue(lab.average, lab.unit, language));
-  const range = escapeHtml(`${labValue(lab.min, lab.unit, language)} – ${labValue(lab.max, lab.unit, language)}`);
+  const range = escapeHtml(labSpan(lab, language));
   return `<tr>${cell(`${name}${lines.map((line) => `<div class="note">${line}</div>`).join('')}`)}${cell(average, 'num')}${cell(range, 'num')}${cell(
     sparklineSvg(lab.values, rawName) + `<div class="note">${escapeHtml(trendText(lab.trend, t))}</div>`,
   )}${cell(escapeHtml(t('health.report.labs.count', { count: lab.count })), 'num')}${levelCell('D', t)}</tr>`;

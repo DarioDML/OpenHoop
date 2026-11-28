@@ -2,7 +2,8 @@ import type { BodyMeasurement, DayRecord, LabResult } from '@openhoop/core';
 
 import { createFixtureDays } from '@/data/fixtureSource';
 import { DEFAULT_REPORT_SECTIONS, REPORT_SECTIONS, buildReport, checkCustomRange, localDay, parseReportPeriod, periodDates, reportStats, trendOf, type ReportInput, type ReportModel, type ReportRow } from '@/data/healthReport';
-import { escapeHtml, renderReportHtml, sparklineSvg } from '@/data/healthReportHtml';
+import { escapeHtml, labSpan, renderReportHtml, rowRange, sparklineSvg } from '@/data/healthReportHtml';
+import { buttonPairFits } from '@/ui/health/buttonPair';
 import type { Language } from '@/data/types';
 import { defaultUserData } from '@/data/userData';
 import { translate } from '@/i18n';
@@ -208,6 +209,24 @@ describe('sparklineSvg', () => {
 
   it('escapes the label', () => {
     expect(sparklineSvg([1, 2], HOSTILE)).not.toContain('<script>');
+  });
+});
+
+describe('report ranges', () => {
+  const text = { t: (key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) => translate('en', key, params), language: 'en' as const };
+
+  it('shows one value when the lowest and highest are the same', () => {
+    const asleep = row(buildReport(input({ days: DAYS.slice(-1) })), 'asleep');
+    expect(rowRange({ ...asleep, min: 25860, max: 25860 }, text)).toBe('7 h 11 min');
+    expect(rowRange({ ...asleep, min: 25200, max: 25860 }, text)).toBe('7 h – 7 h 11 min');
+    expect(labSpan({ min: 84, max: 84, unit: 'mg/dL' }, 'en')).toBe('84 mg/dL');
+    expect(labSpan({ min: 80, max: 84, unit: 'mg/dL' }, 'en')).toBe('80 mg/dL – 84 mg/dL');
+  });
+
+  it('stacks the export and share buttons when they do not fit side by side', () => {
+    expect(buttonPairFits(['Export PDF', 'Share'], { width: 360, gutter: 16, fontScale: 1.3 })).toBe(false);
+    expect(buttonPairFits(['Export PDF', 'Share'], { width: 360, gutter: 20, fontScale: 1 })).toBe(false);
+    expect(buttonPairFits(['Export PDF', 'Share'], { width: 800, gutter: 20, fontScale: 1 })).toBe(true);
   });
 });
 
