@@ -6,6 +6,7 @@ import { mergeSteps, stepsStats, type StepsDay } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { compactThousands, HOUR_TICK, hourAxis, hourlyStepBars, type HourBar } from '@/data/loadDerived';
 import { useT } from '@/i18n/useT';
+import { appNameList } from '@/lib/appNames';
 import { formatNumber, formatShortDay } from '@/lib/format';
 import { NoDataScreen, StatRow, StatTile } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
@@ -28,11 +29,12 @@ type Range = '7' | '30';
 
 function HealthConnectSource({ entry }: { entry: StepsDay }) {
   const { t } = useT();
+  const apps = appNameList(entry.origins);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
       <ParityBadge level="D" />
       <AppText variant="caption" muted style={{ flexShrink: 1 }} testID="steps-today-source">
-        {entry.origins.length === 0 ? t('steps.fromHealthConnect') : t('steps.fromHealthConnectApp', { app: entry.origins.join(', ') })}
+        {apps.length === 0 ? t('steps.fromHealthConnect') : t('steps.fromHealthConnectApp', { app: apps.join(', ') })}
       </AppText>
     </View>
   );

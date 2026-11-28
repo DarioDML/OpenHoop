@@ -259,11 +259,11 @@ describe('steps', () => {
       availability: 'available' as const,
       granted: [],
       syncing: false,
-      state: { ...defaultHealthConnectState(), steps: [{ day: today, steps: 6_543, origins: ['com.phone'] }] },
+      state: { ...defaultHealthConnectState(), steps: [{ day: today, steps: 6_543, origins: ['com.sec.android.app.shealth'] }] },
     };
     await render(withAppData(<StepsScreen />, 'en', { days: shown, healthConnect }));
     expect(screen.getByText(/^6\D?543$/).props.testID).toBe('steps-today');
-    expect(screen.getByTestId('steps-today-source').props.children).toBe('From Health Connect (com.phone)');
+    expect(screen.getByTestId('steps-today-source').props.children).toBe('From Health Connect (Samsung Health)');
     expect(screen.getByTestId('steps-hc-days').props.children).toContain('Days from Health Connect: 1.');
   });
 

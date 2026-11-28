@@ -271,7 +271,7 @@ describe('Body log source labels', () => {
     ];
     await render(withAppData(<BodyCompositionScreen />, 'en', { bodyMeasurements: entries }));
     expect(screen.queryByTestId('body-source-1')).toBeNull();
-    expect(screen.getByTestId('body-source-2')).toHaveTextContent('From Health Connect (com.example.scale)');
+    expect(screen.getByTestId('body-source-2')).toHaveTextContent('From Health Connect (Example)');
     expect(screen.getByTestId('body-source-3')).toHaveTextContent('From Health Connect');
   });
 });

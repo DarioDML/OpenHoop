@@ -16,6 +16,7 @@ import { NoDataScreen } from '@/ui/activity/parts';
 
 import { AppText } from '../AppText';
 import { Card } from '../Card';
+import { hourDomain } from '../chartScale';
 import { Screen } from '../Screen';
 import { GridTile, StatGrid } from '../StatGrid';
 import { readinessColor, spacing, useTheme } from '../theme';
@@ -53,8 +54,9 @@ export function WeeklyReport({ testID }: { testID: string }): ReactElement {
 
   const beds = bedtimePoints(current);
   const bedValues = beds.map((b) => b.minutesFromNoon);
-  const bedMin = bedValues.length > 0 ? Math.min(...bedValues) - 30 : 0;
-  const bedMax = bedValues.length > 0 ? Math.max(...bedValues) + 30 : 1;
+  const bedDomain = hourDomain(bedValues);
+  const bedMin = bedDomain?.min ?? 0;
+  const bedMax = bedDomain?.max ?? 1;
   const spread = bedtimeSpread(beds);
   const consistency = averageConsistency(current);
   const position = new Map(current.map((d, i) => [d.day, i]));
@@ -131,7 +133,7 @@ export function WeeklyReport({ testID }: { testID: string }): ReactElement {
               xDomain={{ min: -0.5, max: Math.max(1, current.length) - 0.5 }}
               yDomain={{ min: bedMin, max: bedMax }}
               invertY
-              yTicks={bedValues.length > 0 ? { top: formatMinutes(clockFromNoon(bedMin + 30)), bottom: formatMinutes(clockFromNoon(bedMax - 30)) } : null}
+              yTicks={bedDomain === null ? null : { top: formatMinutes(clockFromNoon(bedDomain.min)), bottom: formatMinutes(clockFromNoon(bedDomain.max)) }}
               xLabel={t('plan.chart.dayAxis')}
               yLabel={t('plan.chart.bedtimeAxis')}
               emptyLabel={t('plan.chart.noSleep')}

@@ -43,7 +43,7 @@ import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
 import { Section } from '@/ui/Section';
 import { GridTile, StatGrid } from '@/ui/StatGrid';
-import { spacing, useTheme } from '@/ui/theme';
+import { radius, spacing, useTheme } from '@/ui/theme';
 import { IconButton } from '@/ui/TopBar';
 
 const FLOW_LABEL: Readonly<Record<FlowLevel, TranslationKey>> = {
@@ -53,6 +53,24 @@ const FLOW_LABEL: Readonly<Record<FlowLevel, TranslationKey>> = {
 };
 
 const RECENT_TEMP_DAYS = 3;
+const NAME_TOUCH_HEIGHT = 44;
+const CAP_SMALL_LINE = 14;
+const CAP_SMALL_MAX_SCALE = 1.4;
+
+function OverviewStat({ label, value, unit, missing, testID }: { label: string; value: string | null; unit?: string; missing: string; testID: string }) {
+  const { colors } = useTheme();
+  if (value !== null) return <StatTile label={label} value={value} unit={unit} testID={testID} />;
+  return (
+    <View style={{ flex: 1, minWidth: 96, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 4 }} testID={testID}>
+      <AppText variant="capSmall" muted>
+        {label}
+      </AppText>
+      <AppText variant="body" muted testID={`${testID}-missing`}>
+        {missing}
+      </AppText>
+    </View>
+  );
+}
 
 function emptyDraft(): PeriodDraft {
   return { start: todayIsoDate(), end: '', flow: 2 };
@@ -140,6 +158,7 @@ export default function CycleScreen() {
   };
 
   const notSet = t('health.cycle.stat.notSet');
+  const nameOverhang = Math.max(0, (NAME_TOUCH_HEIGHT - CAP_SMALL_LINE * Math.min(layout.fontScale, CAP_SMALL_MAX_SCALE)) / 2);
   const timelineStart = timeline[0]?.day ?? '';
   const temp = deviation === null ? null : formatTemperatureDelta(deviation.value, units, language);
 
@@ -225,11 +244,13 @@ export default function CycleScreen() {
           missing={deviationGap(days, today, RECENT_TEMP_DAYS) === 'learning' ? t('health.cycle.tile.tempLearning') : t('health.cycle.tile.noTemp')}
           caption={deviation === null ? undefined : t(`health.cycle.tile.tempDir.${tempDirection(deviation.value, units)}`)}
           header={
-            <MetricName
-              target={{ term: 'skinTempChange', index: deviationIndex, shown: temp === null ? null : { value: temp.value, unit: temp.unit, reason: null } }}
-              label={t('health.cycle.tile.temp')}
-              testID="cycle-tile-temp-name"
-            />
+            <View style={{ marginVertical: -nameOverhang }} testID="cycle-tile-temp-header">
+              <MetricName
+                target={{ term: 'skinTempChange', index: deviationIndex, shown: temp === null ? null : { value: temp.value, unit: temp.unit, reason: null } }}
+                label={t('health.cycle.tile.temp')}
+                testID="cycle-tile-temp-name"
+              />
+            </View>
           }
           chip={fit === null ? null : fit === 'typical' ? { label: t('health.cycle.tile.typical'), tone: 'positive' } : { label: t('health.cycle.tile.different'), tone: 'neutral' }}
           testID="cycle-tile-temp"
@@ -299,16 +320,18 @@ export default function CycleScreen() {
       <Section title={t('health.cycle.overview.title')}>
         <Card testID="cycle-overview">
           <StatRow>
-            <StatTile
+            <OverviewStat
               label={t('health.cycle.stat.cycleLength')}
-              value={stats.averageCycleDays === null ? notSet : fmt(stats.averageCycleDays)}
-              unit={stats.averageCycleDays === null ? undefined : t('health.cycle.unit.days')}
+              value={stats.averageCycleDays === null ? null : fmt(stats.averageCycleDays)}
+              unit={t('health.cycle.unit.days')}
+              missing={notSet}
               testID="cycle-average"
             />
-            <StatTile
+            <OverviewStat
               label={t('health.cycle.stat.periodLength')}
-              value={stats.averagePeriodDays === null ? notSet : fmt(stats.averagePeriodDays)}
-              unit={stats.averagePeriodDays === null ? undefined : t('health.cycle.unit.days')}
+              value={stats.averagePeriodDays === null ? null : fmt(stats.averagePeriodDays)}
+              unit={t('health.cycle.unit.days')}
+              missing={notSet}
               testID="cycle-period-average"
             />
           </StatRow>

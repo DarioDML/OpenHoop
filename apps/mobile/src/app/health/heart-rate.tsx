@@ -22,6 +22,8 @@ import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { spacing, useTheme } from '@/ui/theme';
 
+const SPO2_CLAMP = { max: 100 } as const;
+
 const BUCKET_S = 300;
 
 const TAB_LABEL: Readonly<Record<HrTab, TranslationKey>> = {
@@ -95,6 +97,7 @@ function Spo2Card({ day, index, points }: { day: DayRecord; index: number; point
         <>
           <LineChart
             testID="hr-spo2-chart"
+            clamp={SPO2_CLAMP}
             data={data}
             color={colors.zones[1]}
             band={baseline === null ? null : { low: baseline.low, high: baseline.high }}

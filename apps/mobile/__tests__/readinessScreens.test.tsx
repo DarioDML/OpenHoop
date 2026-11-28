@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { ScrollView } from 'react-native';
 
 import { addDays, visibleReadiness } from '@/data/derived';
 import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
@@ -81,6 +82,23 @@ describe('Readiness screen', () => {
     await fireEvent.press(screen.getByTestId('row-rhr-name'));
     expect(screen.getByTestId('about-sheet')).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('scrolls the selected metric tab into view', async () => {
+    const scrollTo = jest.fn();
+    const proto = ScrollView.prototype as { scrollTo: (options: { x: number; animated: boolean }) => void };
+    const original = proto.scrollTo;
+    proto.scrollTo = scrollTo;
+    try {
+      mockParams = { metric: 'temp' };
+      await render(withAppData(<MetricDetailScreen />));
+      await fireEvent(screen.getByTestId('pill-wrap-hrv'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 60, height: 40 } } });
+      expect(scrollTo).not.toHaveBeenCalled();
+      await fireEvent(screen.getByTestId('pill-wrap-temp'), 'layout', { nativeEvent: { layout: { x: 380, y: 0, width: 110, height: 40 } } });
+      expect(scrollTo).toHaveBeenCalledWith({ x: 364, animated: false });
+    } finally {
+      proto.scrollTo = original;
+    }
   });
 
   it('shows skin temperature as a deviation in the chosen units', async () => {

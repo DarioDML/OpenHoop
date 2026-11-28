@@ -1,6 +1,7 @@
 import type { CycleData, PeriodEntry, PeriodInput, SymptomEntry, SymptomInput } from '@openhoop/core';
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import CycleScreen from '@/app/health/cycle';
 import PregnancyScreen from '@/app/health/pregnancy';
@@ -50,6 +51,8 @@ describe('cycle screen', () => {
     expect(screen.getByTestId('cycle-entries-empty')).toBeTruthy();
     expect(within(screen.getByTestId('cycle-average')).getByText('Not enough logs')).toBeTruthy();
     expect(within(screen.getByTestId('cycle-period-average')).getByText('Not enough logs')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('cycle-average-missing').props.style).fontSize).toBeLessThan(20);
+    expect(StyleSheet.flatten(screen.getByTestId('cycle-tile-temp-header').props.style).marginVertical).toBeLessThan(0);
     expect(screen.getByTestId('cycle-next-reason')).toHaveTextContent(/Log your first period to start/);
     expect(screen.getByTestId('cycle-next-disclaimer')).toHaveTextContent(/not a prediction of fertility or ovulation, and not medical advice/);
     expect(screen.getByTestId('cycle-wipe').props.accessibilityState?.disabled).toBe(true);

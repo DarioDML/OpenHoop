@@ -2,7 +2,7 @@ import type { EcgSummary, EcgSymptom } from '@openhoop/core';
 import { ECG_SYMPTOMS } from '@openhoop/core/ecg-symptoms';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, View, type TextLayoutEvent } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import type { Language } from '@/data/types';
@@ -24,11 +24,39 @@ import { SelectChip } from '@/ui/health/SelectChip';
 import { useLayout } from '@/ui/layout';
 import { LevelNote } from '@/ui/LevelNote';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
-import { KeyValueRow } from '@/ui/manage/rows';
 import { Num } from '@/ui/Num';
 import { StateCard } from '@/ui/StateCard';
 import { spacing, useTheme } from '@/ui/theme';
 import { IconButton } from '@/ui/TopBar';
+
+function SummaryRow({ label, value, narrow, testID }: { label: string; value: string; narrow: boolean; testID: string }) {
+  const [wrapped, setWrapped] = useState(false);
+  const onLines = (event: TextLayoutEvent): void => {
+    if (event.nativeEvent.lines.length > 1) setWrapped(true);
+  };
+  if (narrow || wrapped) {
+    return (
+      <View testID={testID} style={{ gap: 2, minHeight: 44, justifyContent: 'center', paddingVertical: spacing.xs }}>
+        <AppText variant="body" muted testID={`${testID}-label`}>
+          {label}
+        </AppText>
+        <AppText variant="bodyStrong" numeric testID={`${testID}-value`}>
+          {value}
+        </AppText>
+      </View>
+    );
+  }
+  return (
+    <View testID={testID} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, minHeight: 44 }}>
+      <AppText variant="body" muted onTextLayout={onLines} style={{ flexShrink: 1, minWidth: 96 }} testID={`${testID}-label`}>
+        {label}
+      </AppText>
+      <AppText variant="bodyStrong" numeric onTextLayout={onLines} style={{ flexShrink: 1, textAlign: 'right' }} testID={`${testID}-value`}>
+        {value}
+      </AppText>
+    </View>
+  );
+}
 
 function dayLabel(t: TFunction, language: Language, unixS: number): string {
   const day = unixToIsoDate(unixS, deviceTzOffsetS(new Date(unixS * 1000)));
@@ -274,7 +302,7 @@ export default function EcgResultScreen() {
 
           <Card style={{ gap: spacing.xs }} testID="ecg-summary">
             {summaryRows(selected, current?.avgHr ?? null).map((row) => (
-              <KeyValueRow key={row.id} label={row.label} value={row.value} testID={`ecg-${row.id}`} />
+              <SummaryRow key={row.id} label={row.label} value={row.value} narrow={layout.narrow} testID={`ecg-${row.id}`} />
             ))}
             <AppText variant="caption" muted>
               {t('ecg.bandHrNote')}
