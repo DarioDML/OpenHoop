@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
 import { CATALOGUE } from '@/data/healthDerived';
-import { ageOnDay, healthspanPillars, isPillarId, latestVo2, vo2Trend } from '@/data/healthspanDerived';
+import { ageOnDay, fitnessLevel, healthspanPillars, isPillarId, latestVo2, vo2Trend } from '@/data/healthspanDerived';
 import type { Profile } from '@/data/types';
 import { defaultUserData, type UserData } from '@/data/userData';
 import type { DayRecord } from '@openhoop/core';
@@ -254,5 +254,24 @@ describe('Contributor detail', () => {
     await render(withAppData(<PillarScreen />, 'en', { profile: PROFILE, userData: MAN }));
     expect(screen.getByTestId('health-pillar')).toBeTruthy();
     delete mockParams.contributor;
+  });
+});
+
+describe('VO2 max fitness level', () => {
+  it('classifies the estimate for your age and sex on the five-band scale', async () => {
+    const view = latestVo2(days, PROFILE, 'male');
+    if (!view.result.ok || view.norm === null) throw new Error('fixture should give a norm');
+    const level = fitnessLevel(view.result.value.vo2max, view.norm.norm).level;
+    const name = level.charAt(0).toUpperCase() + level.slice(1);
+    await render(withAppData(<Vo2maxScreen />, 'en', { profile: PROFILE, userData: MAN }));
+    expect(screen.getByTestId('vo2-class')).toHaveTextContent(`${name} for men aged 30–39`);
+    expect(screen.getByTestId(`vo2-scale-${level}-current`)).toBeTruthy();
+    expect(screen.getByText(/split that group into fifths/)).toBeTruthy();
+  });
+
+  it('shows no level without a sex and says why', async () => {
+    await render(withAppData(<Vo2maxScreen />, 'en', { profile: PROFILE, userData: { ...MAN, sex: null } }));
+    expect(screen.queryByTestId('vo2-scale')).toBeNull();
+    expect(screen.getByTestId('vo2-class-reason')).toHaveTextContent(/Set your sex/);
   });
 });
