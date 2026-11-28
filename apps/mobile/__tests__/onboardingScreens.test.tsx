@@ -4,9 +4,10 @@ import type { ReactNode } from 'react';
 import { Linking } from 'react-native';
 
 import WelcomeScreen from '@/app/onboarding/index';
+import BodyScreen from '@/app/onboarding/body';
 import ProfileScreen from '@/app/onboarding/profile';
 
-import { withAppData } from './support/appData';
+import { fixtureAppData, withAppData } from './support/appData';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
@@ -52,5 +53,59 @@ describe('Profile (A2)', () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/body'));
     expect(updateUserData).toHaveBeenCalledWith({ name: 'Alex' });
     openURL.mockRestore();
+  });
+});
+
+describe('Body (A3)', () => {
+  it('switches units, converting the typed values and writing the setting', async () => {
+    const base = fixtureAppData();
+    const updateSettings = jest.fn(async () => undefined);
+    await render(
+      withAppData(<BodyScreen />, 'en', { updateSettings, settings: { ...base.settings, units: 'metric' }, userData: { ...base.userData, heightCm: 180, weightKg: 80 } }),
+    );
+    expect(screen.getByTestId('height-input').props.value).toBe('180');
+    await fireEvent.press(screen.getByTestId('units-imperial'));
+    expect(updateSettings).toHaveBeenCalledWith({ units: 'imperial' });
+    expect(screen.getByTestId('height-input').props.value).toBe('70.9');
+    expect(screen.getByTestId('weight-input').props.value).toBe('176.4');
+    expect(screen.getByText('lb')).toBeTruthy();
+  });
+
+  it('stores the full birth date, sex and measures in metric', async () => {
+    const base = fixtureAppData();
+    const updateProfile = jest.fn(async () => undefined);
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<BodyScreen />, 'en', { updateProfile, updateUserData, settings: { ...base.settings, units: 'imperial' } }));
+    await fireEvent.changeText(screen.getByTestId('height-input'), '70');
+    await fireEvent.changeText(screen.getByTestId('weight-input'), '176');
+    await fireEvent.changeText(screen.getByTestId('birth-day-input'), '14');
+    await fireEvent.changeText(screen.getByTestId('birth-month-input'), '03');
+    await fireEvent.changeText(screen.getByTestId('birth-year-input'), '2003');
+    await fireEvent.press(screen.getByTestId('sex-female'));
+    expect(screen.getByTestId('max-hr-input')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/goals'));
+    expect(updateProfile).toHaveBeenCalledWith({ birthYear: 2003, birthDate: '2003-03-14', maxHeartRate: null });
+    expect(updateUserData).toHaveBeenCalledWith({ heightCm: 177.8, weightKg: 79.83, sex: 'female' });
+  });
+
+  it('keeps "prefer not to say" as no stored sex and keeps the other option', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<BodyScreen />, 'en', { updateUserData }));
+    expect(screen.getByTestId('sex-other')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('sex-none'));
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith(expect.objectContaining({ sex: null })));
+  });
+
+  it('rejects a date that does not exist', async () => {
+    const updateProfile = jest.fn(async () => undefined);
+    await render(withAppData(<BodyScreen />, 'en', { updateProfile }));
+    await fireEvent.changeText(screen.getByTestId('birth-day-input'), '31');
+    await fireEvent.changeText(screen.getByTestId('birth-month-input'), '02');
+    await fireEvent.changeText(screen.getByTestId('birth-year-input'), '2000');
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    expect(await screen.findByTestId('body-invalid')).toHaveTextContent(/a real birth date/);
+    expect(updateProfile).not.toHaveBeenCalled();
   });
 });

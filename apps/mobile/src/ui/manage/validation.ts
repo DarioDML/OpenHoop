@@ -1,3 +1,6 @@
+import type { Units } from '@/data/types';
+import { heightIn, weightIn } from '@/lib/units';
+
 export function parseInteger(text: string): number {
   const trimmed = text.trim();
   return /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
@@ -38,4 +41,16 @@ export function checkMeasure(text: string, range: { min: number; max: number }):
   const value = parseDecimal(text);
   if (Number.isNaN(value) || value < range.min || value > range.max) return { ok: false };
   return { ok: true, value };
+}
+
+export interface MeasureRange {
+  min: number;
+  max: number;
+}
+
+export function measureLimits(units: Units): { height: MeasureRange; weight: MeasureRange } {
+  return {
+    height: { min: Math.ceil(heightIn(HEIGHT_RANGE.min, units)), max: Math.floor(heightIn(HEIGHT_RANGE.max, units)) },
+    weight: { min: Math.ceil(weightIn(WEIGHT_RANGE.min, units)), max: Math.floor(weightIn(WEIGHT_RANGE.max, units)) },
+  };
 }

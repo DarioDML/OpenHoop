@@ -22,6 +22,27 @@ export function birthDateOf(year: number, month: number, day: number, today: str
   return iso <= today ? iso : null;
 }
 
+export type BirthFields = { ok: true; birthYear: number | null; birthDate: string | null } | { ok: false };
+
+function wholeNumber(text: string): number | null {
+  const trimmed = text.trim();
+  return /^\d{1,4}$/.test(trimmed) ? Number(trimmed) : null;
+}
+
+export function parseBirthFields(dayText: string, monthText: string, yearText: string, today: string): BirthFields {
+  const filled = (text: string): boolean => text.trim() !== '';
+  if (!filled(dayText) && !filled(monthText) && !filled(yearText)) return { ok: true, birthYear: null, birthDate: null };
+  const year = wholeNumber(yearText);
+  const currentYear = Number(today.slice(0, 4));
+  if (year === null || year < BIRTH_YEAR_MIN || year > currentYear) return { ok: false };
+  if (!filled(dayText) && !filled(monthText)) return { ok: true, birthYear: year, birthDate: null };
+  const day = wholeNumber(dayText);
+  const month = wholeNumber(monthText);
+  if (day === null || month === null) return { ok: false };
+  const date = birthDateOf(year, month, day, today);
+  return date === null ? { ok: false } : { ok: true, birthYear: year, birthDate: date };
+}
+
 export function parseBirthDate(raw: string | null | undefined, today: string): string | null {
   if (typeof raw !== 'string') return null;
   const match = ISO_DAY.exec(raw);
