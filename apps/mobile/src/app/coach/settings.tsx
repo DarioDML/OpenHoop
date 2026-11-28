@@ -207,10 +207,10 @@ export default function CoachSettingsScreen() {
 
       <CapHeader title={t('coach.settings.seesTitle')} />
       <Card style={{ gap: spacing.md }}>
-        <AppText variant="label" muted>
-          {t('coach.settings.seesBody')}
+        <AppText variant="label" muted testID="coach-sees-note">
+          {prefs.enabled ? t('coach.settings.seesBody') : t('coach.settings.seesOff')}
         </AppText>
-        <AppText variant="caption" selectable style={{ fontFamily: fonts.mono }} testID="coach-sees">
+        <AppText variant="caption" selectable muted={!prefs.enabled} style={{ fontFamily: fonts.mono }} testID="coach-sees">
           {sees}
         </AppText>
       </Card>

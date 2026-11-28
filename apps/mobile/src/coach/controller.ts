@@ -8,7 +8,7 @@ import type { GatedFetch } from '@/net/gate';
 import { requestCoachReply, type CoachErrorKind, type CoachTurn } from './api';
 import { buildSystemPrompt } from './context';
 import type { KeyStore } from './keyStore';
-import { effectiveProactivity, type CoachPrefs } from './prefs';
+import { effectiveProactivity, type CheckInReplyKind, type CoachPrefs } from './prefs';
 import { parseCoachReply, serializeChips } from './reply';
 import type { CoachRepo } from './repo';
 
@@ -45,6 +45,13 @@ export interface SendContext {
   journal?: Readonly<Record<string, Readonly<Record<string, JournalAnswer>>>>;
 }
 
+export interface CheckInDraft {
+  text: string;
+  conversationId: number | null;
+  checkInId: string;
+  reply: Exclude<CheckInReplyKind, 'later'>;
+}
+
 export function historyTurns(messages: readonly CoachMessage[]): CoachTurn[] {
   const turns: CoachTurn[] = messages.slice(-HISTORY_MESSAGES).map((m) => ({ role: m.role === 'coach' ? 'assistant' : 'user', content: m.text }));
   while (turns[0]?.role === 'assistant') turns.shift();
@@ -77,6 +84,7 @@ export class CoachController {
   };
   private readonly listeners = new Set<() => void>();
   private inflight: AbortController | null = null;
+  private draft: CheckInDraft | null = null;
 
   constructor(private readonly deps: CoachDeps) {}
 
@@ -174,6 +182,7 @@ export class CoachController {
         this.patch({ error: 'invalid-response' });
         return false;
       }
+      if (abort.signal.aborted) return false;
       return await this.guard(async () => {
         const now = this.deps.now();
         const id = await this.deps.repo.appendExchange(
@@ -185,7 +194,7 @@ export class CoachController {
           ],
           now,
         );
-        if (ctx.prefs.memory && reply.remember !== null) await this.deps.repo.addMemory(reply.remember, 'coach', now);
+        if (!abort.signal.aborted && ctx.prefs.memory && reply.remember !== null) await this.deps.repo.addMemory(reply.remember, 'coach', now);
         const [messages, conversations, memory] = await Promise.all([
           this.deps.repo.messages(id),
           this.deps.repo.conversations(),
@@ -200,6 +209,16 @@ export class CoachController {
         this.patch({ sending: false });
       } else if (this.inflight === null) this.patch({ sending: false });
     }
+  };
+
+  queueDraft = (draft: CheckInDraft): void => {
+    this.draft = draft;
+  };
+
+  takeDraft = (): CheckInDraft | null => {
+    const draft = this.draft;
+    this.draft = null;
+    return draft;
   };
 
   stop = (): void => {

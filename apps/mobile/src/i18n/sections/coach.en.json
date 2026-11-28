@@ -190,5 +190,10 @@
   "coach.checkIn.footPatterns": "They appear only when a number is clearly outside your usual range, compared on this phone. Change this in Coach settings.",
   "coach.checkIn.footWeekly": "A review of last week appears from Monday, plus a check-in when a number is clearly outside your usual range. Change this in Coach settings.",
   "coach.checkIn.allTitle": "Current check-ins",
-  "coach.checkIn.coachOff": "The coach is switched off in Coach settings, so there are no check-ins."
+  "coach.checkIn.coachOff": "The coach is switched off in Coach settings, so there are no check-ins.",
+  "coach.checkIn.questionPrivateDown": "My {metric} looks lower than usual. What could explain that?",
+  "coach.checkIn.questionPrivateUp": "My {metric} looks higher than usual. What could explain that?",
+  "coach.checkIn.weekQuestionPrivateDown": "Can you review my last week? My {metric} looked lower than the week before.",
+  "coach.checkIn.weekQuestionPrivateUp": "Can you review my last week? My {metric} looked higher than the week before.",
+  "coach.settings.seesOff": "The coach is switched off, so nothing is sent. This is what a question would send once you switch it on."
 }

@@ -6,8 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/coach/CoachContext';
 import { coachCheckIns, findCheckIn } from '@/coach/checkIns';
 import { CONTEXT_DAYS } from '@/coach/context';
-import { MAX_QUESTION_LENGTH, type SendContext } from '@/coach/controller';
-import { CHECK_IN_REPLIES, checkInReplyFor, withCheckInReply, withDismissed, type CheckInReplyKind } from '@/coach/prefs';
+import { MAX_QUESTION_LENGTH, type CheckInDraft, type SendContext } from '@/coach/controller';
+import { withCheckInReply, withDismissed } from '@/coach/prefs';
 import { parseStoredChips, resolveChips } from '@/coach/reply';
 import { useAppData } from '@/data/context';
 import { appendDictation } from '@/data/dictation';
@@ -18,7 +18,7 @@ import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatNumber, todayIso } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
-import { CheckInCard, ErrorCard, GateState, MetricChips, checkInQuestion, replyQuestion, useCoachGate } from '@/ui/coach/parts';
+import { CheckInCard, ErrorCard, GateState, MetricChips, checkInQuestion, useCoachGate } from '@/ui/coach/parts';
 import { useDictation } from '@/ui/health/useDictation';
 import { micNoticeKey } from '@/ui/health/VoiceMic';
 import { Icon } from '@/ui/Icon';
@@ -51,10 +51,6 @@ function firstParam(value: string | string[] | undefined): string | null {
   return value?.[0] ?? null;
 }
 
-function replyParam(value: string | null): CheckInReplyKind | null {
-  return value !== null && (CHECK_IN_REPLIES as readonly string[]).includes(value) ? (value as CheckInReplyKind) : null;
-}
-
 export default function CoachScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
@@ -64,13 +60,14 @@ export default function CoachScreen() {
   const { state, controller } = useCoach();
   const gate = useCoachGate();
   const ready = gate === 'ready';
-  const params = useLocalSearchParams<{ ask?: string; conversation?: string; term?: string; reply?: string }>();
+  const params = useLocalSearchParams<{ ask?: string; conversation?: string; term?: string }>();
   const [draft, setDraft] = useState('');
   const [dictationSession, setDictationSession] = useState(0);
   const scrollRef = useRef<ScrollViewInstance>(null);
   const handledAsk = useRef<string | null>(null);
   const handledConversation = useRef<string | null>(null);
   const handledTerm = useRef<string | null>(null);
+  const checkInDraft = useRef<CheckInDraft | null>(null);
   const today = todayIso(new Date());
   const chips = CHIPS.map((spec) => ({ spec, latest: latestValue(days, spec.key) })).filter((c) => c.latest !== null);
   const checkIns = useMemo(() => coachCheckIns(days, userData.coach, today), [days, userData.coach, today]);
@@ -87,7 +84,7 @@ export default function CoachScreen() {
   const ask = firstParam(params.ask);
   const conversation = firstParam(params.conversation);
   const term = firstParam(params.term);
-  const reply = replyParam(firstParam(params.reply));
+  const withValues = userData.coach.access.scores;
 
   const context = useCallback(
     (): SendContext => ({ days, today, language, prefs: userData.coach, network: userData.network, journal: userData.journal }),
@@ -101,9 +98,15 @@ export default function CoachScreen() {
   }, [term, t]);
 
   useEffect(() => {
-    const key = ask === null ? null : `${ask}|${reply ?? ''}`;
-    if (ask === null || key === null || handledAsk.current === key) return;
-    handledAsk.current = key;
+    const queued = controller.takeDraft();
+    if (queued === null) return;
+    checkInDraft.current = queued;
+    void controller.open(queued.conversationId).then(() => setDraft(queued.text));
+  }, [controller]);
+
+  useEffect(() => {
+    if (ask === null || handledAsk.current === ask) return;
+    handledAsk.current = ask;
     const checkIn = findCheckIn(days, ask, today);
     if (checkIn === null) {
       if (CHECK_IN_SHAPE.test(ask)) return;
@@ -111,23 +114,9 @@ export default function CoachScreen() {
       setDraft(ask.trim().slice(0, MAX_QUESTION_LENGTH));
       return;
     }
-    const question = reply !== null && reply !== 'later' ? replyQuestion(t, language, checkIn, reply) : checkInQuestion(t, language, checkIn);
-    const record = reply !== null ? checkInReplyFor(userData.coach, checkIn.id) : null;
-    void (async () => {
-      await controller.open(record?.conversationId ?? null);
-      if (reply === null || reply === 'later' || !ready) {
-        setDraft(question);
-        return;
-      }
-      const sent = await controller.send(question, context());
-      if (!sent) {
-        setDraft(question);
-        return;
-      }
-      const conversationId = controller.getState().activeId;
-      if (conversationId !== null) await updateUserData({ coach: withCheckInReply(userData.coach, { id: checkIn.id, reply, conversationId }) });
-    })();
-  }, [ask, reply, days, today, controller, t, language, ready, context, userData.coach, updateUserData]);
+    void controller.open(null);
+    setDraft(checkInQuestion(t, language, checkIn, withValues));
+  }, [ask, days, today, controller, t, language, withValues]);
 
   useEffect(() => {
     if (conversation === null || handledConversation.current === conversation) return;
@@ -144,7 +133,16 @@ export default function CoachScreen() {
     setDraft('');
     setDictationSession((session) => session + 1);
     const sent = await controller.send(text, context());
-    if (!sent) setDraft(text);
+    if (!sent) {
+      setDraft(text);
+      return;
+    }
+    const answered = checkInDraft.current;
+    const conversationId = controller.getState().activeId;
+    if (answered !== null && conversationId !== null) {
+      checkInDraft.current = null;
+      await updateUserData({ coach: withCheckInReply(userData.coach, { id: answered.checkInId, reply: answered.reply, conversationId }) });
+    }
   };
 
   const dismiss = (id: string): void => {
@@ -244,7 +242,7 @@ export default function CoachScreen() {
               checkIn={checkIn}
               onAsk={() => {
                 void controller.open(null);
-                setDraft(checkInQuestion(t, language, checkIn));
+                setDraft(checkInQuestion(t, language, checkIn, withValues));
               }}
               onDismiss={() => dismiss(checkIn.id)}
             />
@@ -305,7 +303,7 @@ export default function CoachScreen() {
               }}>
               <ActivityIndicator size="small" color={colors.purple} />
               <AppText variant="label" color={colors.levelC} style={{ flexShrink: 1 }}>
-                {t('coach.thinkingDays', { days: CONTEXT_DAYS })}
+                {withValues ? t('coach.thinkingDays', { days: CONTEXT_DAYS }) : t('coach.thinking')}
               </AppText>
               <Pressable
                 testID="coach-stop"
@@ -369,7 +367,7 @@ export default function CoachScreen() {
                 disabled={!ready || state.sending}
                 onPress={() => void send(t(key))}
                 style={({ pressed }) => ({
-                  minHeight: 36,
+                  minHeight: 44,
                   paddingHorizontal: 14,
                   justifyContent: 'center',
                   borderRadius: radius.pill,

@@ -159,24 +159,71 @@ describe('coach chat', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('answers a check-in reply in a conversation and remembers which one', async () => {
+  it('never sends from a deep link, even one that carries a reply', async () => {
     const latest = days[days.length - 1];
     if (!latest) throw new Error('fixture has no days');
     const changed = [...days.slice(0, -1), { ...latest, hrv: { ...latest.hrv, value: 5 } }];
     const scan = scanForCheckIns(changed, []);
     const id = scan.status === 'ok' ? scan.checkIns.find((c) => c.metric === 'hrv')?.id : undefined;
     if (id === undefined) throw new Error('expected an hrv check-in');
-    mockParams.value = { ask: id, reply: 'tired' };
-    const send = replying('Take it easy today.');
+    mockParams.value = { ask: id, reply: 'sick' };
+    const send = replying('x');
     const updateUserData = jest.fn(async () => true);
-    const coach = withCheckInReply(withProactivity(defaultCoachPrefs(), 'patterns'), { id, reply: 'tired', conversationId: null });
     const { controller } = makeController({ send });
     await controller.load();
+    await render(withCoach(<CoachScreen />, controller, { days: changed, userData: userData(withProactivity(defaultCoachPrefs(), 'patterns')), updateUserData }));
+    await waitFor(() => expect(screen.getByTestId('coach-input').props.value).toMatch(/^My HRV on .* was 5 ms/));
+    expect(String(screen.getByTestId('coach-input').props.value)).not.toContain('getting sick');
+    expect(send).not.toHaveBeenCalled();
+    expect(updateUserData).not.toHaveBeenCalled();
+  });
+
+  it('fills a tapped check-in reply as a draft and remembers the conversation only after Send', async () => {
+    const latest = days[days.length - 1];
+    if (!latest) throw new Error('fixture has no days');
+    const changed = [...days.slice(0, -1), { ...latest, hrv: { ...latest.hrv, value: 5 } }];
+    const send = replying('Take it easy today.');
+    const updateUserData = jest.fn(async () => true);
+    const coach = withProactivity(defaultCoachPrefs(), 'patterns');
+    const { controller } = makeController({ send });
+    await controller.load();
+    const id = `${latest.day}:hrv`;
+    controller.queueDraft({ text: 'My HRV looks lower than usual. I am just tired.', conversationId: null, checkInId: id, reply: 'tired' });
     await render(withCoach(<CoachScreen />, controller, { days: changed, userData: userData(coach), updateUserData }));
+    await waitFor(() => expect(screen.getByTestId('coach-input').props.value).toBe('My HRV looks lower than usual. I am just tired.'));
+    expect(send).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('coach-send'));
     await waitFor(() => expect(screen.getByText('Take it easy today.')).toBeTruthy());
-    expect(String(send.mock.calls[0]?.[2].body)).toContain('just tired');
     const conversationId = controller.getState().activeId;
     await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ coach: withCheckInReply(coach, { id, reply: 'tired', conversationId: conversationId ?? -1 }) }));
+  });
+
+  it('keeps numbers out of a check-in reply when scores are not shared', async () => {
+    const latest = days[days.length - 1];
+    if (!latest) throw new Error('fixture has no days');
+    const changed = [...days.slice(0, -1), { ...latest, hrv: { ...latest.hrv, value: 5 } }];
+    const send = replying('Rest well.');
+    const coach = { ...withProactivity(defaultCoachPrefs(), 'patterns'), access: { scores: false, journal: false, sensors: false } };
+    const { controller } = makeController({ send });
+    await controller.load();
+    await render(withCoach(<CoachCheckInScreen />, controller, { days: changed, userData: userData(coach) }));
+    await fireEvent.press(screen.getByTestId('check-in-reply-sick'));
+    expect(router.push).toHaveBeenCalledWith('/coach');
+    expect(send).not.toHaveBeenCalled();
+    await screen.unmount();
+    await render(withCoach(<CoachScreen />, controller, { days: changed, userData: userData(coach) }));
+    await waitFor(() => expect(screen.getByTestId('coach-input').props.value).toContain('getting sick'));
+    const draft = String(screen.getByTestId('coach-input').props.value);
+    expect(draft).not.toMatch(/\d/);
+    expect(draft).not.toMatch(/usual \d/);
+    expect(send).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('coach-send'));
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(String(send.mock.calls[0]?.[2].body)) as { messages: Array<{ role: string; content: string }>; system: string };
+    const question = body.messages[body.messages.length - 1]?.content ?? '';
+    expect(question).toContain('getting sick');
+    expect(question).not.toMatch(/\d/);
+    expect(body.system).not.toContain('day | readiness');
   });
 
   it('shows the switched-off state and sends nothing', async () => {
@@ -267,7 +314,7 @@ describe('proactive check-in screen', () => {
     return id;
   }
 
-  it('shows the coach message with data chips and starts a conversation from a reply', async () => {
+  it('shows the coach message with data chips and turns a reply into a draft for the chat', async () => {
     const list = changedDays();
     const id = hrvCheckInId(list);
     const updateUserData = jest.fn(async () => true);
@@ -278,22 +325,25 @@ describe('proactive check-in screen', () => {
     expect(screen.getByTestId('check-in-message')).toHaveTextContent(/Your HRV is 5 ms, against your usual/);
     expect(screen.getByTestId('check-in-chips')).toHaveTextContent(/HRV 5 ms/);
     expect(screen.getByTestId(`check-in-${id}`)).toBeTruthy();
+    expect(screen.queryByTestId('check-in-answered')).toBeNull();
     await fireEvent.press(screen.getByTestId('check-in-reply-tired'));
-    expect(updateUserData).toHaveBeenCalledWith({ coach: withCheckInReply(coach, { id, reply: 'tired', conversationId: null }) });
-    expect(router.push).toHaveBeenCalledWith({ pathname: '/coach', params: { ask: id, reply: 'tired' } });
+    expect(updateUserData).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalledWith('/coach');
+    const draft = controller.takeDraft();
+    expect(draft).toMatchObject({ checkInId: id, reply: 'tired', conversationId: null });
+    expect(draft?.text).toMatch(/My HRV on .* was 5 ms.*just tired/);
   });
 
-  it('keeps an earlier conversation for the next reply and marks the answer', async () => {
+  it('continues the earlier conversation of an answered check-in', async () => {
     const list = changedDays();
     const id = hrvCheckInId(list);
-    const updateUserData = jest.fn(async () => true);
     const coach = withCheckInReply(withProactivity(defaultCoachPrefs(), 'patterns'), { id, reply: 'tired', conversationId: 7 });
     const { controller } = makeController();
-    await render(withCoach(<CoachCheckInScreen />, controller, { days: list, userData: userData(coach), updateUserData }));
+    await render(withCoach(<CoachCheckInScreen />, controller, { days: list, userData: userData(coach) }));
     expect(screen.getByTestId('check-in-answered')).toHaveTextContent('You answered: Just tired');
     expect(screen.getByTestId('check-in-reply-tired').props.accessibilityState.selected).toBe(true);
     await fireEvent.press(screen.getByTestId('check-in-reply-sick'));
-    expect(updateUserData).toHaveBeenCalledWith({ coach: withCheckInReply(coach, { id, reply: 'sick', conversationId: 7 }) });
+    expect(controller.takeDraft()).toMatchObject({ checkInId: id, reply: 'sick', conversationId: 7 });
   });
 
   it('puts the check-in away for today with Not now and points to the settings', async () => {

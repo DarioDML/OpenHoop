@@ -190,5 +190,10 @@
   "coach.checkIn.footPatterns": "Ze verschijnen alleen als een cijfer duidelijk buiten je gewone bereik valt, vergeleken op deze telefoon. Pas dit aan in de coachinstellingen.",
   "coach.checkIn.footWeekly": "Vanaf maandag verschijnt een overzicht van vorige week, plus een check-in als een cijfer duidelijk buiten je gewone bereik valt. Pas dit aan in de coachinstellingen.",
   "coach.checkIn.allTitle": "Huidige check-ins",
-  "coach.checkIn.coachOff": "De coach staat uit in de coachinstellingen, dus er zijn geen check-ins."
+  "coach.checkIn.coachOff": "De coach staat uit in de coachinstellingen, dus er zijn geen check-ins.",
+  "coach.checkIn.questionPrivateDown": "Mijn {metric} lijkt lager dan gewoonlijk. Wat kan dat verklaren?",
+  "coach.checkIn.questionPrivateUp": "Mijn {metric} lijkt hoger dan gewoonlijk. Wat kan dat verklaren?",
+  "coach.checkIn.weekQuestionPrivateDown": "Kun je mijn vorige week overlopen? Mijn {metric} lag lager dan de week ervoor.",
+  "coach.checkIn.weekQuestionPrivateUp": "Kun je mijn vorige week overlopen? Mijn {metric} lag hoger dan de week ervoor.",
+  "coach.settings.seesOff": "De coach staat uit, dus er wordt niets verstuurd. Dit zou een vraag versturen zodra je hem aanzet."
 }

@@ -125,9 +125,14 @@ export function MetricChips({ chips, days, testID }: { chips: readonly ResolvedC
   );
 }
 
-export function checkInQuestion(t: TFunction, language: Language, checkIn: CheckIn): string {
+export function checkInQuestion(t: TFunction, language: Language, checkIn: CheckIn, withValues: boolean): string {
+  const metric = t(COACH_METRIC_SPECS[checkIn.metric].labelKey);
+  if (!withValues) {
+    if (checkIn.kind === 'week') return t(checkIn.direction === 'up' ? 'coach.checkIn.weekQuestionPrivateUp' : 'coach.checkIn.weekQuestionPrivateDown', { metric });
+    return t(checkIn.direction === 'up' ? 'coach.checkIn.questionPrivateUp' : 'coach.checkIn.questionPrivateDown', { metric });
+  }
   const params = {
-    metric: t(COACH_METRIC_SPECS[checkIn.metric].labelKey),
+    metric,
     day: formatShortDay(checkIn.day, language),
     value: formatMetric(t, language, checkIn.metric, checkIn.value),
     usual: formatMetric(t, language, checkIn.metric, checkIn.usual),
@@ -135,8 +140,8 @@ export function checkInQuestion(t: TFunction, language: Language, checkIn: Check
   return checkIn.kind === 'week' ? t('coach.checkIn.weekQuestion', params) : t('coach.checkIn.question', params);
 }
 
-export function replyQuestion(t: TFunction, language: Language, checkIn: CheckIn, reply: Exclude<CheckInReplyKind, 'later'>): string {
-  return `${checkInQuestion(t, language, checkIn)} ${t(`coach.checkIn.replyAsk.${reply}`)}`;
+export function replyQuestion(t: TFunction, language: Language, checkIn: CheckIn, reply: Exclude<CheckInReplyKind, 'later'>, withValues: boolean): string {
+  return `${checkInQuestion(t, language, checkIn, withValues)} ${t(`coach.checkIn.replyAsk.${reply}`)}`;
 }
 
 interface CheckInCardProps {

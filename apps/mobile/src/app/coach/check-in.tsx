@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
+import { useCoach } from '@/coach/CoachContext';
 import { chipStatus } from '@/coach/chipStatus';
 import { checkInStreak, coachCheckIns, scanForCheckIns, type CheckIn } from '@/coach/checkIns';
 import { COACH_METRIC_SPECS } from '@/coach/metrics';
@@ -23,7 +24,7 @@ import type { Language } from '@/data/types';
 import { todayIso } from '@/lib/format';
 import { formatTemperatureDelta, useUnits } from '@/lib/units';
 import { AppText } from '@/ui/AppText';
-import { CheckInCard, formatMetric } from '@/ui/coach/parts';
+import { CheckInCard, formatMetric, replyQuestion } from '@/ui/coach/parts';
 import { Toggle } from '@/ui/controls';
 import { HealthPage } from '@/ui/health/HealthPage';
 import { Icon } from '@/ui/Icon';
@@ -77,6 +78,7 @@ export default function CoachCheckInScreen() {
   const { colors } = useTheme();
   const units = useUnits();
   const { days, userData, updateUserData } = useAppData();
+  const { controller } = useCoach();
   const prefs = userData.coach;
   const today = todayIso(new Date());
   const mode = effectiveProactivity(prefs);
@@ -124,13 +126,18 @@ export default function CoachCheckInScreen() {
 
   const answer = (reply: CheckInReplyKind): void => {
     if (top === null) return;
-    const record = { id: top.id, reply, conversationId: answered?.conversationId ?? null };
     if (reply === 'later') {
+      const record = { id: top.id, reply, conversationId: answered?.conversationId ?? null };
       save(withCheckInReply(current.reduce((next, checkIn) => withDismissed(next, checkIn.id), prefs), record));
       return;
     }
-    save(withCheckInReply(prefs, record));
-    router.push({ pathname: '/coach', params: { ask: top.id, reply } });
+    controller.queueDraft({
+      text: replyQuestion(t, language, top, reply, prefs.access.scores),
+      conversationId: answered?.conversationId ?? null,
+      checkInId: top.id,
+      reply,
+    });
+    router.push('/coach');
   };
 
   return (
@@ -197,7 +204,7 @@ export default function CoachCheckInScreen() {
                   accessibilityState={{ selected }}
                   onPress={() => answer(reply)}
                   style={({ pressed }) => ({
-                    minHeight: 40,
+                    minHeight: 44,
                     paddingHorizontal: spacing.lg,
                     justifyContent: 'center',
                     borderRadius: radius.pill,
