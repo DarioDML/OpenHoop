@@ -15,6 +15,7 @@ import {
 } from '@/lib/units';
 import { CoachAsk } from '@/ui/CoachAsk';
 import { RadioRow } from '@/ui/controls';
+import { ChartLegend, DualLineChart } from '@/ui/DualLineChart';
 import { LevelNote } from '@/ui/LevelNote';
 import { SheetScreen } from '@/ui/SheetScreen';
 import { ActionTile, MetricLinkTile } from '@/ui/Tiles';
@@ -96,6 +97,81 @@ describe('ValueBars', () => {
     expect(screen.getByText('62%')).toBeTruthy();
     expect(screen.getByTestId('bars-tu').props.accessibilityLabel).toBe('Tu: –');
     expect(screen.getByTestId('bars-we').props.accessibilityLabel).toBe('We: 62%');
+  });
+
+  it('scales bars to the largest value or the given maximum and tells zero from missing', async () => {
+    const bars = [
+      { key: 'a', value: 10, label: 'A' },
+      { key: 'b', value: 5, label: 'B' },
+      { key: 'c', value: 0, label: 'C' },
+      { key: 'd', value: null, label: 'D' },
+    ];
+    const height = (id: string): number => {
+      const style = screen.getByTestId(id).props.style as { height: number };
+      return style.height;
+    };
+    const view = await render(withAppData(<ValueBars testID="v" height={80} bars={bars} showValues={false} fill />));
+    expect(height('v.bar.a')).toBe(80);
+    expect(height('v.bar.b')).toBe(40);
+    expect(height('v.bar.c')).toBe(2);
+    expect(screen.queryByTestId('v.bar.d')).toBeNull();
+    expect(screen.getByTestId('v.missing.d')).toHaveTextContent('–');
+    expect(screen.queryByTestId('v.missing.c')).toBeNull();
+    await view.rerender(withAppData(<ValueBars testID="v" height={80} max={20} bars={bars} />));
+    expect(height('v.bar.a')).toBe(40);
+    expect(height('v.bar.b')).toBe(20);
+    expect(screen.getByText('0')).toBeTruthy();
+    expect(screen.queryByTestId('v.missing.d')).toBeNull();
+    expect(screen.getByText('–')).toBeTruthy();
+  });
+});
+
+describe('DualLineChart', () => {
+  it('puts each line on its own scale and breaks a line at missing days', async () => {
+    await render(
+      withAppData(
+        <DualLineChart
+          testID="dual"
+          height={120}
+          accessibilityLabel="chart"
+          labels={['Mo', 'Tu', 'We']}
+          primary={{ data: [21, 0, 10.5], max: 21, color: 'blue', dots: true }}
+          secondary={{ data: [100, null, 50], max: 100, color: 'yellow', dots: true }}
+        />,
+      ),
+    );
+    expect(screen.queryByTestId('dual.dot.primary.0')).toBeNull();
+    await fireEvent(screen.getByLabelText('chart'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 310, height: 120 } } });
+    const dot = (id: string): { cx: number; cy: number } => screen.getByTestId(id).props as { cx: number; cy: number };
+    expect(dot('dual.dot.primary.0')).toMatchObject({ cx: 5, cy: 5 });
+    expect(dot('dual.dot.primary.1')).toMatchObject({ cx: 155, cy: 115 });
+    expect(dot('dual.dot.primary.2')).toMatchObject({ cx: 305, cy: 60 });
+    expect(dot('dual.dot.secondary.0')).toMatchObject({ cy: 5 });
+    expect(dot('dual.dot.secondary.2')).toMatchObject({ cy: 60 });
+    expect(screen.queryByTestId('dual.dot.secondary.1')).toBeNull();
+    expect(screen.getByTestId('dual.line.primary.0')).toBeTruthy();
+    expect(screen.queryByTestId('dual.line.primary.1')).toBeNull();
+    expect(screen.getByTestId('dual.line.secondary.1')).toBeTruthy();
+    expect(screen.getByText('Tu')).toBeTruthy();
+  });
+
+  it('shows only the first and last label when there are more than seven', async () => {
+    const labels = Array.from({ length: 30 }, (_, i) => `d${i}`);
+    const data = labels.map((_, i) => i % 21);
+    await render(
+      withAppData(
+        <>
+          <DualLineChart testID="long" accessibilityLabel="long" labels={labels} primary={{ data, max: 21, color: 'blue', dots: true }} secondary={{ data, max: 100, color: 'yellow' }} />
+          <ChartLegend items={[{ label: 'Load', color: 'blue' }]} />
+        </>,
+      ),
+    );
+    await fireEvent(screen.getByLabelText('long'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 120 } } });
+    expect(screen.getByText('d0')).toBeTruthy();
+    expect(screen.getByText('d29')).toBeTruthy();
+    expect(screen.queryByText('d1')).toBeNull();
+    expect(screen.queryByTestId('long.dot.primary.0')).toBeNull();
+    expect(screen.getByText('Load')).toBeTruthy();
   });
 });
 

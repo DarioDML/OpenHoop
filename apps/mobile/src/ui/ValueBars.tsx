@@ -26,6 +26,7 @@ interface Props {
 }
 
 const MIN_BAR = 4;
+const ZERO_BAR = 2;
 
 export function ValueBars({ bars, highlight, height = 80, max, barWidth = 22, showValues = true, fill = false, testID }: Props): ReactElement {
   const { colors } = useTheme();
@@ -36,7 +37,7 @@ export function ValueBars({ bars, highlight, height = 80, max, barWidth = 22, sh
       {bars.map((bar, index) => {
         const current = index === highlight;
         const color = bar.color ?? colors.accent;
-        const barHeight = bar.value === null ? 0 : Math.max(MIN_BAR, Math.round((Math.max(0, bar.value) / top) * height));
+        const barHeight = bar.value === null ? 0 : bar.value <= 0 ? ZERO_BAR : Math.max(MIN_BAR, Math.round((bar.value / top) * height));
         const width = fill ? '70%' : barWidth;
         return (
           <View
@@ -58,9 +59,14 @@ export function ValueBars({ bars, highlight, height = 80, max, barWidth = 22, sh
             ) : null}
             <View style={{ height, width: '100%', alignItems: 'center', justifyContent: 'flex-end' }}>
               {bar.value === null ? (
-                <View style={{ width, maxWidth: barWidth, height: MIN_BAR, borderRadius: 2, backgroundColor: colors.surface3 }} />
+                showValues ? null : (
+                  <AppText variant="caption" muted testID={testID === undefined ? undefined : `${testID}.missing.${bar.key}`}>
+                    –
+                  </AppText>
+                )
               ) : (
                 <View
+                  testID={testID === undefined ? undefined : `${testID}.bar.${bar.key}`}
                   style={{
                     width,
                     maxWidth: barWidth,

@@ -63,14 +63,34 @@ export function DualLineChart({ primary, secondary, labels, height = 120, access
             {series.map((s, si) => {
               const y = yFor(s.max);
               return paths(s.data, x, y).map((d, pi) => (
-                <Path key={`${si}-${pi}`} d={d} stroke={s.color} strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+                <Path
+                  key={`${si}-${pi}`}
+                  testID={testID === undefined ? undefined : `${testID}.line.${si === 1 ? 'primary' : 'secondary'}.${pi}`}
+                  d={d}
+                  stroke={s.color}
+                  strokeWidth={2}
+                  fill="none"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
               ));
             })}
             {series.map((s, si) => {
               if (s.dots !== true || count > MAX_DOTS) return null;
               const y = yFor(s.max);
               return s.data.map((v, i) =>
-                v === null ? null : <Circle key={`${si}-dot-${i}`} cx={x(i)} cy={y(v)} r={4} fill={colors.surface} stroke={s.color} strokeWidth={2} />,
+                v === null ? null : (
+                  <Circle
+                    key={`${si}-dot-${i}`}
+                    testID={testID === undefined ? undefined : `${testID}.dot.${si === 1 ? 'primary' : 'secondary'}.${i}`}
+                    cx={x(i)}
+                    cy={y(v)}
+                    r={4}
+                    fill={colors.surface}
+                    stroke={s.color}
+                    strokeWidth={2}
+                  />
+                ),
               );
             })}
           </Svg>
