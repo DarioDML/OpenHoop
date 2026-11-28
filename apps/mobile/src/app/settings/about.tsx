@@ -8,7 +8,7 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
-import { REPO_URL } from '@/ui/manage/links';
+import { REPO_SLUG, REPO_URL } from '@/ui/manage/links';
 import { MonoLine } from '@/ui/manage/PageHero';
 import { tile } from '@/ui/manage/tiles';
 import { ParityBadge } from '@/ui/ParityBadge';
@@ -60,7 +60,7 @@ export default function AboutScreen() {
           onPress={() => void Linking.openURL(`${REPO_URL}/blob/master/LICENSE`)}
           testID="about-licence"
         />
-        <ListRow icon={tile(colors, 'code', 'plain')} title={t('aboutx.source')} subtitle={REPO_URL} onPress={() => void Linking.openURL(REPO_URL)} testID="about-source" />
+        <ListRow icon={tile(colors, 'code', 'plain')} title={t('aboutx.source')} subtitle={t('aboutx.sourceLabel', { repo: REPO_SLUG })} onPress={() => void Linking.openURL(REPO_URL)} testID="about-source" />
         <ListRow
           title={t('aboutx.contributors')}
           subtitle={t('aboutx.contributorsBody')}

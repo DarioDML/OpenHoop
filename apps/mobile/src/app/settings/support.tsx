@@ -7,7 +7,7 @@ import { Button, Field, Segmented } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { openInAppBrowser } from '@/ui/manage/inAppBrowser';
-import { DONATION_AMOUNTS_USD, donationUrl, parseDonationAmount, REPO_URL, type DonationFrequency } from '@/ui/manage/links';
+import { DONATION_AMOUNTS_USD, donationUrl, parseDonationAmount, REPO_SLUG, REPO_URL, type DonationFrequency } from '@/ui/manage/links';
 import { tile } from '@/ui/manage/tiles';
 import { Screen } from '@/ui/Screen';
 import { radius, spacing, useTheme } from '@/ui/theme';
@@ -158,7 +158,7 @@ export default function SupportScreen() {
         <ListRow
           icon={tile(colors, 'link', 'plain')}
           title={t('aboutx.source')}
-          subtitle={REPO_URL}
+          subtitle={t('aboutx.sourceLabel', { repo: REPO_SLUG })}
           onPress={() => void Linking.openURL(REPO_URL)}
           testID="support-repo"
         />

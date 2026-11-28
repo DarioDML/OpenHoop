@@ -674,5 +674,6 @@
   "aboutx.accuracy.vsOfficialOne": "vs official app · 1 night",
   "aboutx.accuracy.summaryNoTargetOne": "1 metric compared",
   "import.importOneDay": "Import 1 day",
-  "appSettings.presetLabel": "How many notifications"
+  "appSettings.presetLabel": "How many notifications",
+  "aboutx.sourceLabel": "{repo} on GitHub"
 }

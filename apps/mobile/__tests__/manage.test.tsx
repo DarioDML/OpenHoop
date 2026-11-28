@@ -480,6 +480,19 @@ describe('Data and privacy', () => {
 });
 
 describe('About, accuracy and support', () => {
+  it.each([
+    ['about', () => <AboutScreen />, 'about-source'],
+    ['support', () => <SupportScreen />, 'support-repo'],
+  ])('labels the source code link on %s without a bare URL and still opens the repository', async (_name, make, id) => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    await render(withAppData(make()));
+    expect(within(screen.getByTestId(id)).getByText('DarioDML/OpenHoop on GitHub')).toBeTruthy();
+    expect(within(screen.getByTestId(id)).queryByText(/https:/)).toBeNull();
+    await fireEvent.press(screen.getByTestId(id));
+    expect(open).toHaveBeenCalledWith('https://github.com/DarioDML/OpenHoop');
+    open.mockRestore();
+  });
+
   it('shows the app version from the config', async () => {
     await render(withAppData(<AboutScreen />));
     expect(screen.getByTestId('about-version')).toHaveTextContent(/^(Version 1\.2\.3|v1\.2\.3 · build \d+)$/);

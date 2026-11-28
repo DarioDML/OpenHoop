@@ -674,5 +674,6 @@
   "aboutx.accuracy.vsOfficialOne": "vs officiële app · 1 nacht",
   "aboutx.accuracy.summaryNoTargetOne": "1 waarde vergeleken",
   "import.importOneDay": "1 dag importeren",
-  "appSettings.presetLabel": "Hoeveel meldingen"
+  "appSettings.presetLabel": "Hoeveel meldingen",
+  "aboutx.sourceLabel": "{repo} op GitHub"
 }
