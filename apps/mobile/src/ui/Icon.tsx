@@ -81,7 +81,6 @@ export const ICON_PATHS = {
   file: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
   download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
   upload: 'M5 4h14M12 20V9M7 14l5-5 5 5',
-  scale: 'M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM8 8h8M12 8l1.5-2.5',
   arrowUp: 'M12 19V5M6 11l6-6 6 6',
   arrowDown: 'M12 5v14M6 13l6 6 6-6',
   grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
