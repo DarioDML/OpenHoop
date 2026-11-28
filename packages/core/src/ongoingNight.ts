@@ -1,4 +1,4 @@
-import { classifyRecentStages, groupNights, isAsleepSample, sleepPeriods } from '@openhoop/analytics';
+import { classifyRecentStages, groupNights, isAsleepSample, sleepPeriods, withoutAwakeTails } from '@openhoop/analytics';
 import type { Sample } from '@openhoop/analytics';
 import { samplesFromRows } from './pipeline';
 import type { Store } from './store/types';
@@ -30,10 +30,14 @@ export function awakeNow(samples: readonly Sample[], nowS: number): boolean {
   return asleep / recent.length <= AWAKE_MAX_ASLEEP_SHARE;
 }
 
+// The band keeps flagging SLEEP while its wearer lies awake in bed, so an awake stretch at the end of the night counts.
 export function nightNow(samples: Sample[], nowS: number): NightNow {
-  const awake = awakeNow(samples, nowS);
-  const night = groupNights(sleepPeriods(samples)).at(-1);
-  if (night === undefined || night.offset < nowS - ONGOING_GAP_S) return { onset: null, asleepS: null, recent: null, awake };
+  const flagged = groupNights(sleepPeriods(samples)).at(-1);
+  if (flagged === undefined || flagged.offset < nowS - ONGOING_GAP_S) return { onset: null, asleepS: null, recent: null, awake: awakeNow(samples, nowS) };
+  const night = groupNights(withoutAwakeTails(flagged.periods, samples)).at(-1);
+  const awakeInBed = night === undefined || flagged.offset - night.offset >= AWAKE_WINDOW_S;
+  const awake = awakeInBed || awakeNow(samples, nowS);
+  if (night === undefined) return { onset: null, asleepS: null, recent: null, awake };
   const stages = classifyRecentStages(samples, night.onset, nowS, RECENT_EPOCHS);
   const recent = stages.ok ? stages.value.map((e) => ({ t: e.t, wake: e.probabilities[0], light: e.probabilities[1] })) : null;
   return { onset: night.onset, asleepS: night.asleepS, recent, awake };
