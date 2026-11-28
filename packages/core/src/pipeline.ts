@@ -43,6 +43,7 @@ import type {
   DayRecord,
   DeleteBeforeResult,
   Derived,
+  HourSteps,
   PackEventRow,
   SampleRow,
   SampleSource,
@@ -315,6 +316,13 @@ function mean(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
+function stepDelta(previous: number, current: number): number {
+  const delta = current - previous;
+  if (delta >= 0) return delta;
+  const wrapped = delta + STEP_MODULUS;
+  return wrapped <= STEP_WRAP_MAX ? wrapped : current;
+}
+
 function countSteps(samples: Sample[]): number | null {
   let previous: number | null = null;
   let total = 0;
@@ -322,17 +330,22 @@ function countSteps(samples: Sample[]): number | null {
   for (const s of samples) {
     if (s.steps === null) continue;
     seen = true;
-    if (previous !== null) {
-      const delta = s.steps - previous;
-      if (delta >= 0) total += delta;
-      else {
-        const wrapped = delta + STEP_MODULUS;
-        total += wrapped <= STEP_WRAP_MAX ? wrapped : s.steps;
-      }
-    }
+    if (previous !== null) total += stepDelta(previous, s.steps);
     previous = s.steps;
   }
   return seen ? total : null;
+}
+
+export function stepsPerHour(samples: readonly Pick<Sample, 't' | 'steps'>[], tzOffsetS: number): HourSteps[] {
+  const hours = new Map<number, number>();
+  let previous: number | null = null;
+  for (const s of samples) {
+    if (s.steps === null) continue;
+    const hour = Math.floor((s.t + tzOffsetS) / HOUR_S) * HOUR_S - tzOffsetS;
+    hours.set(hour, (hours.get(hour) ?? 0) + (previous === null ? 0 : stepDelta(previous, s.steps)));
+    previous = s.steps;
+  }
+  return [...hours.entries()].sort((a, b) => a[0] - b[0]).map(([t, steps]) => ({ t, steps }));
 }
 
 async function clockOffsetFlagged(ctx: Context, chunkId: number): Promise<boolean> {
@@ -596,6 +609,7 @@ async function computeDay(
     loadValidMinutes: counted.valid,
     zoneSeconds: zones,
     steps: countSteps(samples),
+    stepsByHour: stepsPerHour(samples, tz),
     heartRate: { min: hrMin, avg: hrCount > 0 ? hrSum / hrCount : null, max: hrMax },
     workouts,
     activeMinutes: activeMinutes(minuteHr, rest, maxHr),

@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ALGO, STAGE_EPOCH_S, STAGE_MIN_COVERAGE } from '@openhoop/analytics';
 import type { Profile } from '@openhoop/analytics';
-import { bindStore, dayKey, deleteDataBefore, exportCsv, newestFrameTime, openStore, rebuildFromRaw, recomputeDays } from '../src/index';
+import { bindStore, dayKey, deleteDataBefore, exportCsv, newestFrameTime, openStore, rebuildFromRaw, recomputeDays, stepsPerHour } from '../src/index';
 import type { DayRecord, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 import { TZ_S, awakeSamples, decodeRow, localMidnight, nightSamples, simulateDays, toFrame } from './sampleFactory';
@@ -121,6 +121,8 @@ describe('pipeline', () => {
           expect(r.sleep.periods[0]?.nap).toBe(false);
           expect(r.sleep.asleepS).toBe(8 * HOUR_S);
           expect(r.steps).toBe(28_800);
+          expect((r.stepsByHour ?? []).reduce((sum, h) => sum + h.steps, 0)).toBe(r.steps);
+          expect(r.stepsByHour?.every((h) => (h.t + TZ_S) % HOUR_S === 0)).toBe(true);
           expect(r.zoneSeconds).toHaveLength(6);
         }
         expect(records.map((r) => r.readinessCalibrating)).toEqual([true, true, true, false, false, false, false]);
@@ -328,6 +330,37 @@ describe('pipeline', () => {
       const records = await recompute(rows);
       expect(records).toHaveLength(1);
       expect(records[0]?.steps).toBe(expected);
+    });
+
+    it('keeps a stored day without samples when every day is recomputed for a new record version', async () => {
+      const rows = [...awakeSamples(deviceId, localMidnight(0), 24 * HOUR_S), ...awakeSamples(deviceId, localMidnight(2), 24 * HOUR_S)];
+      await store.insertSamples(rows);
+      const computed = await recompute(rows);
+      const gap = dayKey(localMidnight(1), TZ_S);
+      expect(computed.map((r) => r.day)).not.toContain(gap);
+      const template = computed[0];
+      if (template === undefined) throw new Error('no day');
+      const { stepsByHour: _dropped, ...older } = template;
+      await store.replaceDay({ ...older, day: gap, start: localMidnight(1), end: localMidnight(2) });
+      const before = await store.getDay(deviceId, gap);
+      expect(before?.stepsByHour).toBeUndefined();
+      await recomputeDays(store, { deviceId, from: 0, to: Number.MAX_SAFE_INTEGER, profile: PROFILE, tzOffsetS: TZ_S });
+      expect(await store.getDay(deviceId, gap)).toEqual(before);
+      const others = (await storedDays()).filter((d) => d.day !== gap);
+      expect(others.length).toBeGreaterThan(0);
+      expect(others.every((d) => Array.isArray(d.stepsByHour))).toBe(true);
+    });
+
+    it('splits the step count over local clock hours', async () => {
+      const start = localMidnight(0) + 7 * HOUR_S + 1_800;
+      const rows = awakeSamples(deviceId, localMidnight(0), 24 * HOUR_S).map((s) => ({ ...s, steps: s.t < start ? 100 : 100 + Math.floor((s.t - start) / 60) }));
+      await store.insertSamples(rows);
+      const records = await recompute(rows);
+      const byHour = records[0]?.stepsByHour ?? [];
+      expect(byHour.reduce((sum, h) => sum + h.steps, 0)).toBe(records[0]?.steps);
+      expect(byHour.find((h) => h.t === localMidnight(0) + 6 * HOUR_S)?.steps).toBe(0);
+      expect(byHour.find((h) => h.t === localMidnight(0) + 7 * HOUR_S)?.steps).toBe(29);
+      expect(byHour.find((h) => h.t === localMidnight(0) + 8 * HOUR_S)?.steps).toBe(60);
     });
 
     it('flags the days touched by a chunk whose clock offset exceeds 120 seconds', async () => {
@@ -718,5 +751,47 @@ describe('pipeline', () => {
       expect(await storedDays()).toEqual([]);
       expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 2, samples: 15 });
     });
+  });
+});
+
+describe('stepsPerHour', () => {
+  it('attributes each counter step to the local hour it was counted in', () => {
+    const tz = 1_800;
+    const hour = Date.UTC(2026, 2, 2, 9) / 1000 - tz;
+    const samples = [
+      { t: hour - 10, steps: 65_530 },
+      { t: hour + 5, steps: 4 },
+      { t: hour + 3_599, steps: 54 },
+      { t: hour + 3_600, steps: null },
+      { t: hour + 3_700, steps: 60 },
+    ];
+    expect(stepsPerHour(samples, tz)).toEqual([
+      { t: hour - HOUR_S, steps: 0 },
+      { t: hour, steps: 60 },
+      { t: hour + HOUR_S, steps: 6 },
+    ]);
+  });
+
+  it('returns no hours without step readings', () => {
+    expect(stepsPerHour([{ t: 0, steps: null }], 0)).toEqual([]);
+  });
+});
+
+describe('stepsPerHour across a clock change', () => {
+  it('uses the one offset of the recompute, so a 25-hour day keeps every step in its own bucket', () => {
+    const tz = 7_200;
+    const start = Date.UTC(2026, 9, 25, 0) / 1000 - tz;
+    const samples = Array.from({ length: 25 * 60 }, (_, i) => ({ t: start + i * 60, steps: i }));
+    const hours = stepsPerHour(samples, tz);
+    expect(hours).toHaveLength(25);
+    expect(hours.reduce((sum, h) => sum + h.steps, 0)).toBe(25 * 60 - 1);
+    expect(hours.every((h) => (h.t + tz) % HOUR_S === 0)).toBe(true);
+    expect(new Set(hours.map((h) => h.t)).size).toBe(25);
+  });
+
+  it('aligns buckets to local hours for offsets that are not whole hours', () => {
+    const tz = 19_800;
+    const hours = stepsPerHour([{ t: 1_800 - tz + 100, steps: 1 }, { t: 1_800 - tz + 200, steps: 5 }], tz);
+    expect(hours).toEqual([{ t: -tz, steps: 4 }]);
   });
 });

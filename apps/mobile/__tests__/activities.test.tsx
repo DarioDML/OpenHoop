@@ -380,7 +380,8 @@ describe('activity details, edit and delete with undo', () => {
 
   it('lists own activities with their load on the Load screen', async () => {
     await render(withAppData(<LoadScreen />, 'en', { activities: [activity()] }));
-    expect(screen.getByTestId('entry-a:7')).toHaveTextContent(/Load 6\.2/);
+    expect(screen.getByTestId('entry-a:7-load')).toHaveTextContent('6.2');
+    expect(screen.getByTestId('entry-a:7').props.accessibilityLabel).toMatch(/Load 6\.2/);
   });
 });
 
@@ -430,6 +431,42 @@ describe('live activity screen', () => {
     await fireEvent.press(screen.getByTestId('live-view'));
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/details', params: { id: '55' } });
   });
+
+  it('reports the projected day load while a session runs so the band can buzz at the target', async () => {
+    const latest = lastDay();
+    const startMs = (latest.start + 12 * 3600) * 1000;
+    let nowMs = startMs;
+    jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    expect(unixToIsoDate(startMs / 1000, deviceTzOffsetS(new Date(startMs)))).toBe(latest.day);
+    const base = latest.load.value ?? 0;
+    const open = [...days.slice(0, -1), { ...latest, end: startMs / 1000 }];
+    mockParams = { type: 'running' };
+    const reportLiveLoad = jest.fn();
+    const props = { days: open, profile: { birthYear: null, maxHeartRate: 190 }, reportLiveLoad };
+    const view = await render(withAppData(<LiveActivityScreen />, 'en', { ...props, live: { active: true, heartRate: null, lastRrMs: null, updatedAt: null } }));
+    expect(reportLiveLoad).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('live-begin'));
+    await waitFor(() => expect(reportLiveLoad).toHaveBeenCalledWith(Math.round(base * 10) / 10));
+    for (let i = 1; i <= 70; i++) {
+      nowMs += 1000;
+      await act(async () => {
+        await view.rerender(withAppData(<LiveActivityScreen />, 'en', { ...props, live: { active: true, heartRate: 175, lastRrMs: 340, updatedAt: nowMs } }));
+      });
+    }
+    const values = reportLiveLoad.mock.calls.map((call: unknown[]) => call[0]);
+    const last = values[values.length - 1];
+    expect(typeof last).toBe('number');
+    expect(last as number).toBeGreaterThan(base);
+    expect(Number.isInteger(Math.round((last as number) * 10))).toBe(true);
+    expect(values.every((v) => typeof v === 'number' && v >= Math.round(base * 10) / 10)).toBe(true);
+    const calls = reportLiveLoad.mock.calls.length;
+    await fireEvent.press(screen.getByTestId('live-stop'));
+    nowMs += 1000;
+    await act(async () => {
+      await view.rerender(withAppData(<LiveActivityScreen />, 'en', { ...props, live: { active: true, heartRate: 180, lastRrMs: 330, updatedAt: nowMs } }));
+    });
+    expect(reportLiveLoad.mock.calls.length).toBe(calls);
+  }, 30_000);
 
   it('shows progress toward the load target when today has a Load', async () => {
     const latest = lastDay();

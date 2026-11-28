@@ -56,6 +56,7 @@ import {
   ConfigWriteError,
   TEST_BUZZ_LOOPS,
   FIND_BAND_LOOPS,
+  WARN_BUZZ_LOOPS,
   type KeyKind,
   AlarmError,
   armAlarm,
@@ -204,6 +205,7 @@ import type { FileReport } from './vendorExport/parse';
 import type { SourceFile } from './vendorExport/sources';
 import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
+import { LoadBuzzRunner } from './loadBuzzRunner';
 import { changesAppData } from './liveData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, storeProfile } from './settingsCodec';
 import { analyticsProfileOf, emptyProfile, mergeProfile } from './profile';
@@ -304,7 +306,8 @@ export interface SyncTimings {
 
 const SYNC_FAILURES_NOT_ALERTED = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
 
-const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
+const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null, dayLoad: null };
+const BUZZ_LOOPS: Readonly<Record<BandBuzz, number>> = { test: TEST_BUZZ_LOOPS, target: TEST_BUZZ_LOOPS, top: WARN_BUZZ_LOOPS, find: FIND_BAND_LOOPS };
 const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
 const ECG_PROGRESS_MS = 200;
 const RING_WAIT_MS = 40_000;
@@ -388,6 +391,16 @@ export class AppController {
   private syncRun: Promise<void> | null = null;
   private liveAbort: AbortController | null = null;
   private liveRun: Promise<void> | null = null;
+  private readonly loadBuzz = new LoadBuzzRunner({
+    connected: () => this.conn !== null && this.conn.session.isConnected,
+    syncing: () => this.syncRun !== null,
+    days: () => this.snapshot.days,
+    prefs: () => this.snapshot.userData.loadBuzz,
+    buzz: (kind) => this.bandActionSet.buzz(kind),
+    save: (last) => this.updateUserData({ loadBuzz: { ...this.snapshot.userData.loadBuzz, ...last } }),
+    nowMs: () => Date.now(),
+    tzOffsetS: (atS) => deviceTzOffsetS(new Date(atS * 1000)),
+  });
   private lastProgressAt = 0;
   private pendingTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingCreated = false;
@@ -828,6 +841,7 @@ export class AppController {
       () => undefined,
     ).finally(() => {
       this.syncRun = null;
+      void this.loadBuzz.check(this.loadBuzz.todayLoad());
     });
     this.syncRun = run;
     return run;
@@ -981,13 +995,13 @@ export class AppController {
     try {
       const conn = await this.exclusive(() => this.ensureConnection());
       const { store } = this.requireApp();
-      this.patch({ live: { active: true, heartRate: null, lastRrMs: null, updatedAt: null } });
+      this.patch({ live: { active: true, heartRate: null, lastRrMs: null, updatedAt: null, dayLoad: null } });
       this.liveRun = recordHeartRate(conn.transport, store, {
         deviceId: conn.deviceId,
         signal: abort.signal,
         onBeat: (heartRate, rrMs) =>
           this.patch({
-            live: { active: true, heartRate, lastRrMs: rrMs[rrMs.length - 1] ?? null, updatedAt: Date.now() },
+            live: { active: true, heartRate, lastRrMs: rrMs[rrMs.length - 1] ?? null, updatedAt: Date.now(), dayLoad: this.snapshot.live.dayLoad ?? null },
           }),
       }).then(
         () => undefined,
@@ -1004,6 +1018,12 @@ export class AppController {
       this.patch({ live: IDLE_LIVE });
       this.fail(error);
     }
+  };
+
+  reportLiveLoad = (dayLoad: number | null): void => {
+    if (this.liveAbort === null) return;
+    const value = this.loadBuzz.live(dayLoad);
+    if ((this.snapshot.live.dayLoad ?? null) !== value) this.patch({ live: { ...this.snapshot.live, dayLoad: value } });
   };
 
   readBandConfig = async (): Promise<void> => {
@@ -1287,7 +1307,7 @@ export class AppController {
   }
 
   private readonly bandActionSet: BandActions = {
-    buzz: (kind: BandBuzz) => this.onBand((conn) => buzz(conn.session, kind === 'find' ? FIND_BAND_LOOPS : TEST_BUZZ_LOOPS), false),
+    buzz: (kind: BandBuzz) => this.onBand((conn) => buzz(conn.session, BUZZ_LOOPS[kind]), false),
     stopBuzz: () => this.onBand((conn) => stopBuzz(conn.session), false),
     setHeartRateBroadcast: (on: boolean) =>
       this.onBand(async (conn) => {
@@ -2212,6 +2232,7 @@ export class AppController {
       pair: this.pair,
       sync: this.sync,
       startLive: this.startLive,
+      reportLiveLoad: this.reportLiveLoad,
       readBandConfig: this.readBandConfig,
       bandActions: this.bandActionSet,
       alarmActions: this.alarmActionSet,

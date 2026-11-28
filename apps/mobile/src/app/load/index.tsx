@@ -1,52 +1,56 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
-import { useAppData } from '@/data/context';
-import { loadTargetBand, stepsForDay } from '@/data/activityDerived';
+import { stepsForDay } from '@/data/activityDerived';
 import { dayEntries, dayTotals } from '@/data/activities';
-import { rangeStatus, shownLoad } from '@/data/derived';
+import { useAppData } from '@/data/context';
+import { LOAD_SCALE_MAX } from '@/data/loadDerived';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatNumber, formatShortDay } from '@/lib/format';
-import { CaloriesCard } from '@/ui/activity/CaloriesCard';
-import { EntryRow, entryHref, UndoBar } from '@/ui/activity/entries';
-import { NoDataScreen, ProgressBar, StatRow, StatTile } from '@/ui/activity/parts';
+import { CaloriesCard, CaloriesTile } from '@/ui/activity/CaloriesCard';
+import { entryHref, UndoBar } from '@/ui/activity/entries';
+import { NoDataScreen, StatRow, StatTile } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { BarChart } from '@/ui/BarChart';
-import { Card, CardHeader } from '@/ui/Card';
-import { Chip } from '@/ui/Chip';
+import { Card } from '@/ui/Card';
 import { Button } from '@/ui/controls';
 import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
-import { Num } from '@/ui/Num';
-import { ParityBadge } from '@/ui/ParityBadge';
+import { LevelNote } from '@/ui/LevelNote';
+import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
+import { LoadEntryRow } from '@/ui/load/LoadEntryRow';
+import { LoadRing } from '@/ui/load/LoadRing';
+import { ReadyCard } from '@/ui/load/ReadyCard';
+import { StepsTile } from '@/ui/load/StepsTile';
+import { TargetPill } from '@/ui/load/TargetPill';
+import { useLoadToday } from '@/ui/load/useLoadToday';
+import { ZoneRows } from '@/ui/load/ZoneRows';
 import { PARITY } from '@/ui/parity';
 import { Screen } from '@/ui/Screen';
-import { ScoreRing } from '@/ui/ScoreRing';
 import { Section } from '@/ui/Section';
-import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { spacing, useTheme } from '@/ui/theme';
 import { IconButton, TopBar } from '@/ui/TopBar';
-import { displayedZones, ZoneBar } from '@/ui/ZoneBar';
+import { displayedZones } from '@/ui/ZoneBar';
 
 export default function LoadScreen() {
   const { days, userData, activities, healthConnect, device } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const explain = useExplain();
-  const day = days[days.length - 1];
+  const today = useLoadToday();
 
-  if (!day) return <NoDataScreen title={t('score.load')} />;
+  if (today === null) return <NoDataScreen title={t('score.load')} />;
 
+  const { day, index } = today;
   const recent = days.slice(-14);
   const zoneTotal = displayedZones(day.zoneSeconds).reduce((a, b) => a + b, 0);
-  const band = loadTargetBand(days);
-  const status = rangeStatus(day.load.value, band);
-  const stepsGoal = userData.stepsGoal;
   const steps = stepsForDay(day, healthConnect.state.steps);
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
-  const index = days.length - 1;
-  const load = shownLoad(days, index);
-  const target: ExplainTarget = { term: 'load', index, shown: { value: load.value === null ? null : fmt(load.value, 1), unit: null, reason: load.reason } };
-  const caption = load.soFar && device.lastSyncAt !== null ? t('loadx.soFarCaption', { time: formatClock(device.lastSyncAt, day.tzOffsetS) }) : t('loadx.hero.caption');
+  const target: ExplainTarget = { term: 'load', index, shown: { value: today.value === null ? null : fmt(today.value, 1), unit: null, reason: today.reason } };
+  const caption = today.live
+    ? t('loadScreen.ring.live', { max: LOAD_SCALE_MAX })
+    : today.soFar
+      ? t('loadScreen.ring.soFar', { max: LOAD_SCALE_MAX })
+      : t('loadScreen.ring.day', { max: LOAD_SCALE_MAX });
   const entries = dayEntries(days, day, activities);
   const totals = dayTotals(entries);
 
@@ -56,69 +60,71 @@ export default function LoadScreen() {
       header={
         <>
           <TopBar title={t('score.load')} right={<IconButton icon="info" label={t('explain.whatIs', { name: t('score.load') })} onPress={() => explain.about(target)} testID="load-about" />} />
-          <View style={{ alignItems: 'center', gap: spacing.sm }}>
-            <ScoreRing
+          <View style={{ alignItems: 'center', gap: spacing.lg }}>
+            <LoadRing
               testID="ring-load-detail"
-              label={t('score.load')}
-              value={load.value}
-              max={21}
-              level={PARITY.load}
-              reason={load.reason}
-              sublabel={load.soFar ? t('load.soFar') : undefined}
+              value={today.value}
+              max={LOAD_SCALE_MAX}
+              aim={today.aim}
+              caption={caption}
+              reason={today.reason}
               onExplain={() => explain.why(target)}
-              decimals={1}
-              size={200}
-              strokeWidth={12}
-              color={colors.metric.loadBright}
-              showLabel={false}
-              tickValue={band ? band.mean : null}
             />
-            <AppText variant="cap" muted>
-              {caption}
-            </AppText>
-            <ParityBadge level={PARITY.load} long />
+            <View style={{ alignItems: 'center', gap: spacing.xs }}>
+              <TargetPill view={today.view} marker onPress={() => router.push('/load/target')} testID="load-target-pill" />
+              {today.soFar && device.lastSyncAt !== null ? (
+                <AppText variant="caption" muted>
+                  {t('loadx.soFarCaption', { time: formatClock(device.lastSyncAt, day.tzOffsetS) })}
+                </AppText>
+              ) : null}
+            </View>
           </View>
         </>
       }>
-      <Card href="/load/target" accessibilityLabel={t('loadx.target.title')} testID="load-target-card">
-        <CardHeader title={t('loadx.target.title')} chevron />
-        {band ? (
-          <>
-            <AppText variant="body">{t('loadx.target.usual', { low: fmt(band.low, 1), high: fmt(band.high, 1) })}</AppText>
-            {status ? <Chip tone={status === 'within' ? 'positive' : 'info'} label={t(`range.${status}`, { low: fmt(band.low, 1), high: fmt(band.high, 1) })} /> : null}
-          </>
-        ) : (
-          <Chip label={t('range.calibrating')} tone="warning" />
-        )}
-      </Card>
+      <ReadyCard today={today} />
 
       <UndoBar />
-      <Section title={t('load.workouts')} hint={totals.count > 0 ? t('activity.totals', { count: totals.count, time: formatDuration(t, totals.seconds) }) : undefined}>
-        {entries.length === 0 ? (
-          <Card>
-            <AppText variant="body" muted>
-              {t('load.noWorkouts')}
-            </AppText>
-          </Card>
-        ) : (
-          entries.map((entry) => {
-            const index = entry.id === null ? day.workouts.findIndex((w) => w.start === entry.detectedStart) : null;
-            return <EntryRow key={entry.key} entry={entry} href={entryHref(entry, day.day, index)} tzOffsetS={day.tzOffsetS} testID={`entry-${entry.key}`} />;
-          })
-        )}
+      <View style={{ gap: spacing.sm }}>
+        <CapHeader title={t('loadScreen.activities')} />
         {totals.count > 0 ? (
-          <AppText variant="caption" muted>
-            {t('activity.dayLoadNote')}
+          <AppText variant="label" muted>
+            {t('activity.totals', { count: totals.count, time: formatDuration(t, totals.seconds) })}
           </AppText>
         ) : null}
-        <Button label={t('loadx.addActivity')} variant="secondary" onPress={() => router.push('/activity/add')} />
-      </Section>
-
-      <Section title={t('load.zones')} hint={t('load.zonesTotal', { time: formatDuration(t, zoneTotal) })}>
+      </View>
+      {entries.length === 0 ? (
         <Card>
-          <ZoneBar zoneSeconds={day.zoneSeconds} />
+          <AppText variant="body" muted>
+            {t('load.noWorkouts')}
+          </AppText>
         </Card>
-      </Section>
+      ) : (
+        entries.map((entry) => {
+          const workoutIndex = entry.id === null ? day.workouts.findIndex((w) => w.start === entry.detectedStart) : null;
+          return <LoadEntryRow key={entry.key} entry={entry} href={entryHref(entry, day.day, workoutIndex)} tzOffsetS={day.tzOffsetS} max={LOAD_SCALE_MAX} testID={`entry-${entry.key}`} />;
+        })
+      )}
+      {totals.count > 0 ? (
+        <AppText variant="caption" muted>
+          {t('activity.dayLoadNote')}
+        </AppText>
+      ) : null}
+      <Button label={t('loadx.addActivity')} variant="secondary" onPress={() => router.push('/activity/add')} />
+
+      <Card testID="load-zones" style={{ gap: spacing.md }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }}>
+          <AppText variant="cap" muted style={{ flexShrink: 1 }}>
+            {t('loadScreen.zones.title')}
+          </AppText>
+          <AppText variant="caption" muted>
+            {t('loadScreen.zones.unit')}
+          </AppText>
+        </View>
+        <ZoneRows zoneSeconds={day.zoneSeconds} testID="load-zone" />
+        <AppText variant="caption" muted>
+          {t('load.zonesTotal', { time: formatDuration(t, zoneTotal) })}
+        </AppText>
+      </Card>
 
       <Section title={t('metric.heartRate')}>
         <StatRow>
@@ -128,42 +134,17 @@ export default function LoadScreen() {
         </StatRow>
       </Section>
 
-      <Card href="/steps" accessibilityLabel={t('metric.steps')} testID="steps-card">
-        <CardHeader title={t('metric.steps')} chevron />
-        {steps.steps === null ? (
-          <AppText variant="body" muted>
-            {t('steps.none')}
-          </AppText>
-        ) : (
-          <>
-            <Num size={40}>{fmt(steps.steps)}</Num>
-            {stepsGoal !== null ? (
-              <>
-                <ProgressBar fraction={steps.steps / stepsGoal} label={t('metric.steps')} />
-                <AppText variant="label" muted>
-                  {t('steps.ofGoal', { percent: Math.round((steps.steps / stepsGoal) * 100), goal: fmt(stepsGoal) })}
-                </AppText>
-              </>
-            ) : null}
-            {steps.source === 'healthConnect' ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <ParityBadge level="D" />
-                <AppText variant="caption" muted testID="steps-card-source">
-                  {t('steps.fromHealthConnect')}
-                </AppText>
-              </View>
-            ) : null}
-          </>
-        )}
-      </Card>
-
-      <CaloriesCard day={day} />
+      <View style={{ flexDirection: 'row', gap: spacing.md }}>
+        <StepsTile steps={steps} goal={userData.stepsGoal} />
+        <CaloriesTile day={day} />
+      </View>
+      <CaloriesCard day={day} compact />
 
       <Section title={t('load.history')}>
         <Card>
           <BarChart
             data={recent.map((d) => d.load.value)}
-            max={21}
+            max={LOAD_SCALE_MAX}
             formatTick={(v) => fmt(v)}
             startLabel={formatShortDay(recent[0]?.day ?? '', language)}
             endLabel={formatShortDay(recent[recent.length - 1]?.day ?? '', language)}
@@ -178,15 +159,7 @@ export default function LoadScreen() {
         <ListRow title={t('loadx.link.strength')} href="/strength" icon={{ icon: 'dumbbell', color: colors.accent, background: colors.accentSoft }} />
       </ListGroup>
 
-      <Card tone="outline" style={{ gap: 4 }}>
-        <ParityBadge level={PARITY.load} long />
-        <AppText variant="label" muted>
-          {t('loadx.levelNote')}
-        </AppText>
-        <AppText variant="caption" muted>
-          {t('load.scale')}
-        </AppText>
-      </Card>
+      <LevelNote level={PARITY.load} text={t('loadScreen.levelNote')} testID="load-level" />
     </Screen>
   );
 }

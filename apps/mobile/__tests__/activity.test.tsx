@@ -125,7 +125,8 @@ describe('load screens', () => {
     await render(withAppData(<LoadScreen />));
     const latest = days[days.length - 1];
     expect(screen.getByTestId('hr-max')).toBeTruthy();
-    expect(screen.getByText('Time per heart rate zone')).toBeTruthy();
+    expect(screen.getByText('Heart-rate zones today')).toBeTruthy();
+    expect(screen.getByTestId('load-zone-1')).toBeTruthy();
     expect(screen.getByTestId('calories-card')).toBeTruthy();
     if (latest && latest.workouts.length > 0) expect(screen.getByTestId(`entry-w:${latest.workouts[0]?.start}`)).toBeTruthy();
     else expect(screen.getByText('No workouts on this day.')).toBeTruthy();

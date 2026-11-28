@@ -88,6 +88,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     pair: noop,
     sync: noop,
     startLive: noop,
+    reportLiveLoad: () => undefined,
     readBandConfig: noop,
     bandActions: fixtureBandActions(),
     alarm: { plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null, smartAvailable: true },

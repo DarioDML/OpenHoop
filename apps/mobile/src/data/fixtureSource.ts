@@ -1,5 +1,5 @@
 import { ACTIVE_HRR_FRACTION, ALGO, STRESS_WINDOW_S, type ActiveMinutes, type StressDay, type StressWindow } from '@openhoop/analytics';
-import type { DayRecord, Derived, SleepPeriodRecord, SleepStagesSummary, WorkoutRecord } from '@openhoop/core';
+import type { DayRecord, Derived, HourSteps, SleepPeriodRecord, SleepStagesSummary, WorkoutRecord } from '@openhoop/core';
 
 import type { DeviceStatus, DiscoveredBand, LockState, Profile, Settings } from './types';
 
@@ -145,6 +145,22 @@ function fixtureStages(sleepPart: SleepPart | null, lowCoverage: boolean): Sleep
   return { algo: ALGO.stages, reason: null, coverage: 0.97, totals: { wake: epochs(sleepPart.inBedS - sleepPart.asleepS), light, deep, rem } };
 }
 
+const STEP_HOURS_FROM = 7;
+const STEP_HOUR_WEIGHTS = [4, 12, 8, 5, 6, 7, 10, 5, 4, 6, 8, 9, 7, 5, 4];
+
+function buildStepsByHour(i: number, dayStart: number, steps: number, untilS: number): HourSteps[] {
+  const hours = STEP_HOUR_WEIGHTS.map((_, h) => ({ t: dayStart + (STEP_HOURS_FROM + h) * 3600, weight: STEP_HOUR_WEIGHTS[(h + i) % STEP_HOUR_WEIGHTS.length] ?? 1 })).filter(
+    (h) => h.t + 3600 <= untilS,
+  );
+  const total = hours.reduce((sum, h) => sum + h.weight, 0);
+  let left = steps;
+  return hours.map((h, index) => {
+    const share = index === hours.length - 1 ? left : Math.round((steps * h.weight) / total);
+    left -= share;
+    return { t: h.t, steps: share };
+  });
+}
+
 function buildDay(i: number, epochDay: number, deviceId: number, untilS: number): DayRecord {
   const rand = mulberry32(i * 7919 + 13);
   const noise = (amp: number): number => (rand() - 0.5) * 2 * amp;
@@ -193,7 +209,7 @@ function buildDay(i: number, epochDay: number, deviceId: number, untilS: number)
     ? derived(readinessRaw, 'readiness-rec-rhr@1', hrv.coverage ?? 1)
     : missing(nightReason, 'readiness-rec-rhr@1', nightCoverage);
 
-  return {
+  const record: DayRecord = {
     deviceId,
     day: dayString(epochDay),
     start,
@@ -240,6 +256,7 @@ function buildDay(i: number, epochDay: number, deviceId: number, untilS: number)
     activeMinutes: buildActiveMinutes(zoneSeconds, rhrRaw, lowCoverage),
     stress: buildStress(i, start, workouts, sleepPart?.periods ?? [], lowCoverage, untilS),
   };
+  return { ...record, stepsByHour: buildStepsByHour(i, start, record.steps ?? 0, untilS) };
 }
 
 export function createFixtureDays(now: Date = new Date(), deviceId = 1): DayRecord[] {

@@ -53,6 +53,7 @@ export interface LiveState {
   heartRate: number | null;
   lastRrMs: number | null;
   updatedAt: number | null;
+  dayLoad?: number | null;
 }
 
 export type ZoneMode = 'auto' | 'custom';
@@ -138,7 +139,7 @@ export interface StrengthActions {
   removeSession(id: number): Promise<boolean>;
 }
 
-export type BandBuzz = 'test' | 'find';
+export type BandBuzz = 'test' | 'find' | 'target' | 'top';
 
 export interface BandActions {
   buzz(kind: BandBuzz): Promise<boolean>;
@@ -226,6 +227,7 @@ export interface AppData {
   pair(bandId: string, ownerSince: string): Promise<void>;
   sync(): Promise<void>;
   startLive(): Promise<void>;
+  reportLiveLoad(dayLoad: number | null): void;
   readBandConfig(): Promise<void>;
   bandActions: BandActions;
   alarm: AlarmView;

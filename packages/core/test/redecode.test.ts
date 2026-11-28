@@ -158,6 +158,10 @@ describe('recomputeStaleDays', () => {
     expect(recomputed).toEqual([]);
   });
 
+  it('is at least 4, the version that adds the hourly step split', () => {
+    expect(DAY_RECORD_VERSION).toBeGreaterThanOrEqual(4);
+  });
+
   it('keeps the version stale when a recompute fails', async () => {
     await expect(recomputeStaleDays(store, () => Promise.reject(new Error('killed')))).rejects.toThrow('killed');
     expect(await store.getSetting(DAY_RECORD_VERSION_KEY)).toBeNull();

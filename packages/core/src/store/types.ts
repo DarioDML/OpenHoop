@@ -146,6 +146,11 @@ export interface SleepStagesSummary {
   totals: StageTotals | null;
 }
 
+export interface HourSteps {
+  t: number;
+  steps: number;
+}
+
 export interface DayRecord {
   deviceId: number;
   day: string;
@@ -177,6 +182,7 @@ export interface DayRecord {
   loadValidMinutes?: number;
   zoneSeconds: number[];
   steps: number | null;
+  stepsByHour?: HourSteps[] | null;
   heartRate: { min: number | null; avg: number | null; max: number | null };
   workouts: WorkoutRecord[];
   activeMinutes?: ActiveMinutes | null;

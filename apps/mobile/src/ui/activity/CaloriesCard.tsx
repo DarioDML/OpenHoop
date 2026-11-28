@@ -16,7 +16,32 @@ import { PARITY } from '@/ui/parity';
 import { spacing } from '@/ui/theme';
 import type { DayRecord } from '@openhoop/core';
 
-export function CaloriesCard({ day }: { day: DayRecord }) {
+export function CaloriesTile({ day }: { day: DayRecord }) {
+  const { userData, profile } = useAppData();
+  const { t, language, reason } = useT();
+  const view = caloriesForDay(day, userData, profile);
+  return (
+    <Card testID="calories-tile" style={{ flex: 1, gap: 10 }}>
+      <AppText variant="capSmall" muted>
+        {t('calories.title')}
+      </AppText>
+      {view.estimate === null ? (
+        <AppText variant="bodyStrong" muted testID="calories-reason">
+          {reason(view.reason)}
+        </AppText>
+      ) : (
+        <Num size={44} testID="calories-total" accessibilityLabel={`${formatNumber(view.estimate.totalKcal, 0, language)} ${t('calories.unit')}`}>
+          {formatNumber(view.estimate.totalKcal, 0, language)}
+        </Num>
+      )}
+      <AppText variant="caption" muted>
+        {t('loadScreen.calories.caption')}
+      </AppText>
+    </Card>
+  );
+}
+
+export function CaloriesCard({ day, compact = false }: { day: DayRecord; compact?: boolean }) {
   const { userData, profile } = useAppData();
   const { t, language, reason } = useT();
   const view = caloriesForDay(day, userData, profile);
@@ -27,13 +52,18 @@ export function CaloriesCard({ day }: { day: DayRecord }) {
     <Card testID="calories-card" style={{ gap: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
         <AppText variant="cardTitle">{t('calories.title')}</AppText>
-        <ParityBadge level={PARITY.calories} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          {compact && estimate !== null ? <Chip label={t('calories.estimate')} tone="info" /> : null}
+          <ParityBadge level={PARITY.calories} />
+        </View>
       </View>
       {estimate === null ? (
         <>
-          <AppText variant="bodyStrong" muted testID="calories-reason">
-            {reason(view.reason)}
-          </AppText>
+          {compact ? null : (
+            <AppText variant="bodyStrong" muted testID="calories-reason">
+              {reason(view.reason)}
+            </AppText>
+          )}
           {view.reason === 'no-profile' ? (
             <>
               <AppText variant="label" muted>
@@ -45,12 +75,14 @@ export function CaloriesCard({ day }: { day: DayRecord }) {
         </>
       ) : (
         <>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Num size={40} unit={t('calories.unit')} testID="calories-total">
-              {fmt(estimate.totalKcal)}
-            </Num>
-            <Chip label={t('calories.estimate')} tone="info" />
-          </View>
+          {compact ? null : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <Num size={40} unit={t('calories.unit')} testID="calories-total">
+                {fmt(estimate.totalKcal)}
+              </Num>
+              <Chip label={t('calories.estimate')} tone="info" />
+            </View>
+          )}
           <StatRow>
             <StatTile label={t('calories.resting')} value={fmt(estimate.restingKcal)} unit={t('calories.unit')} testID="calories-resting" />
             <StatTile label={t('calories.active')} value={fmt(estimate.activeKcal)} unit={t('calories.unit')} testID="calories-active" />
