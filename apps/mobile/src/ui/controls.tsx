@@ -48,6 +48,7 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
           borderRadius: radius.pill,
           minHeight: compact ? 44 : 56,
           paddingHorizontal: variant === 'tertiary' ? spacing.md : compact ? spacing.lg : spacing.xl,
+          paddingVertical: spacing.sm,
           flexDirection: 'row',
           gap: spacing.sm,
           alignItems: 'center',
@@ -56,7 +57,7 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
         style,
       ]}>
       {icon ? <Icon name={icon} color={foreground} size={18} strokeWidth={2} /> : null}
-      <AppText variant="capLarge" color={foreground}>
+      <AppText variant="capLarge" color={foreground} style={{ flexShrink: 1, textAlign: 'center' }}>
         {label}
       </AppText>
     </Pressable>
@@ -68,16 +69,19 @@ interface SegmentedProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   wrap?: boolean;
+  columns?: number;
   testID?: string;
 }
 
-export function Segmented<T extends string>({ options, value, onChange, wrap = false, testID }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ options, value, onChange, wrap = false, columns, testID }: SegmentedProps<T>) {
   const { colors } = useTheme();
+  const grid = columns !== undefined && columns > 0 && columns < options.length;
+  const cell = grid ? { flexBasis: `${Math.floor(100 / columns) - 4}%` as const, flexGrow: 1 } : { flex: 1 };
   return (
     <View
       accessibilityRole="tablist"
       testID={testID}
-      style={{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: wrap ? radius.lg : radius.pill, padding: 4, gap: 4 }}>
+      style={{ flexDirection: 'row', flexWrap: grid ? 'wrap' : 'nowrap', backgroundColor: colors.surface, borderRadius: wrap || grid ? radius.lg : radius.pill, padding: 4, gap: 4 }}>
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -89,7 +93,7 @@ export function Segmented<T extends string>({ options, value, onChange, wrap = f
             accessibilityState={{ selected }}
             onPress={() => onChange(option.value)}
             style={{
-              flex: 1,
+              ...cell,
               minWidth: 0,
               minHeight: 36,
               paddingHorizontal: wrap ? 10 : 6,

@@ -11,6 +11,7 @@ import { todayIsoDate } from '@/lib/dates';
 import { heightIn, heightToCm, heightUnit, weightIn, weightToKg, weightUnit } from '@/lib/units';
 import { AppText } from '@/ui/AppText';
 import { Field, Segmented } from '@/ui/controls';
+import { useLayout } from '@/ui/layout';
 import { BirthDateField, type BirthPart } from '@/ui/manage/BirthDateField';
 import { OnboardingPage } from '@/ui/manage/OnboardingPage';
 import { checkMeasure, checkProfile, defaultMaxHr, measureLimits, parseDecimal } from '@/ui/manage/validation';
@@ -46,6 +47,7 @@ function shownText(measure: TypedMeasure, units: Units, toMetric: Convert, fromM
 
 export default function BodyScreen() {
   const { t } = useT();
+  const { narrow } = useLayout();
   const { colors } = useTheme();
   const { profile, settings, userData, updateProfile, updateSettings, updateUserData } = useAppData();
   const born = birthDateParts(profile.birthDate);
@@ -154,6 +156,7 @@ export default function BodyScreen() {
           value={sex}
           onChange={setSex}
           wrap
+          columns={narrow ? 2 : undefined}
           options={[
             { value: 'male', label: t('onboarding.body.male'), testID: 'sex-male' },
             { value: 'female', label: t('onboarding.body.female'), testID: 'sex-female' },
