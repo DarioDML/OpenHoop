@@ -208,11 +208,11 @@ export function groupNights<P extends SleepPeriod>(periods: P[]): Night<P>[] {
   return nights;
 }
 
-function stillSince(rows: readonly Sample[], onset: number, reportsSkinTemp: boolean): number {
+function stillSince(rows: readonly Sample[], onset: number, after: number, reportsSkinTemp: boolean): number {
   let start = onset;
   for (let i = lowerBound(rows, onset) - 1; i >= 0; i--) {
     const r = rows[i];
-    if (r === undefined || r.state !== 'STILL' || onset - r.t > STILL_LEAD_IN_MAX_S || start - r.t > MINUTE_S) break;
+    if (r === undefined || r.t <= after || r.state !== 'STILL' || onset - r.t > STILL_LEAD_IN_MAX_S || start - r.t > MINUTE_S) break;
     if (reportsSkinTemp && r.skinTempC === null) break;
     start = r.t;
   }
@@ -225,8 +225,10 @@ export function withStillLeadIn(periods: readonly SleepPeriod[], samples: readon
   if (periods.length === 0) return [];
   const rows = sortedUnique(samples);
   const reportsSkinTemp = rows.some((r) => r.skinTempC !== null);
+  let previousEnd = -Infinity;
   return periods.map((period) => {
-    const start = stillSince(rows, period.onset, reportsSkinTemp);
+    const start = stillSince(rows, period.onset, previousEnd, reportsSkinTemp);
+    previousEnd = Math.max(period.offset, period.onset + period.inBedS - 1);
     if (start >= period.onset) return period;
     const from = lowerBound(rows, period.onset);
     const to = lowerBound(rows, period.offset + 1);

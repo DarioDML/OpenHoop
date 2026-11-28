@@ -216,6 +216,17 @@ describe('lying still before the band flags sleep', () => {
     expect(withStillLeadIn(sleepPeriods(samples), samples)).toEqual(sleepPeriods(samples));
   });
 
+  it('never reaches back into the sleep before it', () => {
+    const samples: Sample[] = [];
+    const state = (i: number): Sample['state'] => (i < 3600 ? 'SLEEP' : i < 3600 + 1500 ? 'STILL' : 'SLEEP');
+    for (let i = 0; i < 3600 + 1500 + 3600; i++) samples.push(sample(T0 + i, { state: state(i), hr: 55, motionG: 0.006, skinTempC: 33.4 }));
+    const periods = withStillLeadIn(sleepPeriods(samples), samples);
+    expect(periods).toHaveLength(2);
+    const [first, second] = periods;
+    expect(second?.onset ?? 0).toBeGreaterThan((first?.onset ?? 0) + (first?.inBedS ?? 0) - 1);
+    expect(second?.onset ?? 0).toBeLessThan(T0 + 3600 + 1500);
+  });
+
   it('reaches back at most an hour and not over seconds without skin temperature', () => {
     const long = night(() => ({}), 2 * 3600);
     expect(withStillLeadIn(sleepPeriods(long), long)[0]?.onset).toBe(T0 + 1800 + 3600);
