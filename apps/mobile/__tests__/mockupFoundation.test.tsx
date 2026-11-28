@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Text } from 'react-native';
 
 import { parseUnits } from '@/data/settingsCodec';
+import { formatNumber } from '@/lib/format';
 import {
   formatDistance,
   formatHeight,
@@ -69,6 +70,14 @@ describe('units', () => {
     expect(formatTemperatureDelta(-0.4, 'metric', 'en')).toEqual({ value: '−0.4', unit: '°C' });
     expect(formatTemperatureDelta(0.5, 'imperial', 'en')).toEqual({ value: '+0.9', unit: '°F' });
     expect(formatTemperatureDelta(-0.04, 'metric', 'en')).toEqual({ value: '0.0', unit: '°C' });
+  });
+
+  it('never shows a negative zero', () => {
+    expect(formatNumber(-0.04, 1, 'en')).toBe('0.0');
+    expect(formatNumber(-0.04, 1, 'nl')).toBe('0,0');
+    expect(formatNumber(-0, 0, 'en')).toBe('0');
+    expect(formatNumber(-0.06, 1, 'en')).toBe('-0.1');
+    expect(formatNumber(0.04, 1, 'en')).toBe('0.0');
   });
 
   it('converts typed values back to metric for storage', () => {
