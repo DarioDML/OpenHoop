@@ -32,7 +32,11 @@ beforeEach(() => {
   mockPush.mockClear();
 });
 
-const staged = (wake: number) => firstNightDay({ sleep: { ...firstNightDay().sleep, asleepS: 27_000, inBedS: 28_800, stages: { algo: 'x', reason: null, coverage: 0.9, totals: { wake, light: 14_400, deep: 5_400, rem: 5_400 } } } });
+const staged = (wake: number) => {
+  const sleep = firstNightDay().sleep;
+  const periods = sleep.periods.map((p) => (p.nap ? p : { ...p, offset: p.onset + 28_799, asleepS: 27_000, inBedS: 28_800 }));
+  return firstNightDay({ sleep: { ...sleep, periods, asleepS: 27_000, inBedS: 28_800, stages: { algo: 'x', reason: null, coverage: 0.9, totals: { wake, light: 14_400, deep: 5_400, rem: 5_400 } } } });
+};
 
 describe('explain on screens', () => {
   it('computes efficiency from stages when they exist', () => {

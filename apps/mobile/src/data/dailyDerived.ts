@@ -119,11 +119,15 @@ export function typicalWake(days: readonly DayRecord[], endIndex: number, count 
   return minutes === null ? null : { minutes, nights: wakes.length };
 }
 
+function sleepWindowS(day: DayRecord): number {
+  return day.sleep.periods.reduce((sum, p) => (p.nap ? sum : sum + p.offset - p.onset + 1), 0);
+}
+
 export function typicalAwakeInBedS(days: readonly DayRecord[], endIndex: number, count = 7): number | null {
   const gaps: number[] = [];
   for (let i = endIndex; i >= 0 && gaps.length < count; i--) {
     const day = days[i];
-    if (day && day.sleep.inBedS !== null && day.sleep.asleepS !== null) gaps.push(Math.max(0, day.sleep.inBedS - day.sleep.asleepS));
+    if (day && day.sleep.inBedS !== null && day.sleep.asleepS !== null) gaps.push(Math.max(0, sleepWindowS(day) - day.sleep.asleepS));
   }
   return mean(gaps);
 }
@@ -271,7 +275,7 @@ export function sleepEfficiency(day: DayRecord): number | null {
   const { asleepS, inBedS, stages } = day.sleep;
   if (inBedS === null || inBedS <= 0) return null;
   const wake = stages?.totals?.wake;
-  const asleep = wake === undefined ? asleepS : inBedS - wake;
+  const asleep = wake === undefined || asleepS === null ? asleepS : Math.min(asleepS, sleepWindowS(day) - wake);
   if (asleep === null) return null;
   return Math.min(100, Math.max(0, Math.round((asleep / inBedS) * 100)));
 }

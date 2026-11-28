@@ -3,7 +3,20 @@ import type { ReactNode } from 'react';
 
 import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { addDays } from '@/data/derived';
-import { formatLongDay, formatMinutes, isDayString, monthGrid, planBedtime, readinessImpacts, shiftMonth, singleParam, vitalsSummary, weekProgress } from '@/data/dailyDerived';
+import {
+  formatLongDay,
+  formatMinutes,
+  isDayString,
+  monthGrid,
+  planBedtime,
+  readinessImpacts,
+  shiftMonth,
+  singleParam,
+  sleepEfficiency,
+  typicalAwakeInBedS,
+  vitalsSummary,
+  weekProgress,
+} from '@/data/dailyDerived';
 import { defaultPlan } from '@/data/weeklyPlan';
 import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
 import { moveItem, reorderTarget, shiftFor } from '@/lib/reorder';
@@ -77,6 +90,26 @@ describe('dailyDerived', () => {
     expect(weeks[0]?.[6]?.day).toBe('2026-11-01');
     expect(shiftMonth(2026, 1, -1)).toEqual({ year: 2025, month: 12 });
     expect(shiftMonth(2026, 12, 1)).toEqual({ year: 2027, month: 1 });
+  });
+
+  it('counts lying awake after waking as time in bed but not as sleep or as time to plan before sleeping', () => {
+    const base = last;
+    if (base === undefined) throw new Error('no fixture day');
+    const onset = base.start;
+    const asleepS = 8 * 3600 + 51 * 60;
+    const inBedS = 10 * 3600 + 20 * 60;
+    const lieIn = {
+      ...base,
+      sleep: {
+        ...base.sleep,
+        periods: [{ onset, offset: onset + asleepS - 1, asleepS, inBedS, nap: false, source: 'detected' as const, editId: null }],
+        asleepS,
+        inBedS,
+        stages: { algo: 'x', reason: null, coverage: 1, totals: { wake: 0, light: asleepS / 2, deep: asleepS / 4, rem: asleepS / 4 } },
+      },
+    };
+    expect(sleepEfficiency(lieIn)).toBe(86);
+    expect(typicalAwakeInBedS([lieIn], 0)).toBe(0);
   });
 
   it('plans a bedtime from need, typical wake and time awake in bed', () => {

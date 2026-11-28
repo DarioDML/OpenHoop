@@ -152,8 +152,8 @@ describe('awake time at the end of a band-flagged sleep', () => {
     const [period, ...rest] = detect(samples);
     expect(rest).toEqual([]);
     expect(Math.abs((period?.offset ?? 0) - (T0 + ASLEEP_S - 1))).toBeLessThanOrEqual(60);
-    expect(period?.inBedS).toBe((period?.offset ?? 0) - T0 + 1);
-    expect(period?.asleepS).toBe(period?.inBedS);
+    expect(period?.asleepS).toBe((period?.offset ?? 0) - T0 + 1);
+    expect(period?.inBedS).toBe(ASLEEP_S + 45 * 60);
     expect(period?.hrMean ?? 99).toBeLessThan(57);
   });
 
