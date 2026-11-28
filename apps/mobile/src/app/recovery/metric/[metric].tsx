@@ -4,7 +4,8 @@ import { Pressable, ScrollView, View, type LayoutChangeEvent, type ScrollViewIns
 
 import { useAppData } from '@/data/context';
 import { sliceEndingAt, singleParam, TREND_RANGES, type TrendRange } from '@/data/dailyDerived';
-import { useDayIndex } from '@/ui/daily/useDayParam';
+import { PastDayLabel } from '@/ui/daily/PastDayLabel';
+import { pastDayOf, useDayIndex, withDay } from '@/ui/daily/useDayParam';
 import { baselineAt, percentFromBaseline, rangeStatus } from '@/data/derived';
 import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
@@ -64,6 +65,7 @@ export default function MetricDetailScreen() {
     if (x !== undefined) scrollChipsTo(chipsRef.current, x);
   }, [slug]);
   const index = useDayIndex(days);
+  const pastDay = pastDayOf(days, index);
   const day = days[index];
 
   if (!isMetricSlug(slug)) return <NoDataPage title={t('metricDetail.title')} body={t('metricDetail.unknown')} />;
@@ -111,10 +113,11 @@ export default function MetricDetailScreen() {
       testID="metric-detail"
       hero={
         <View style={{ gap: spacing.lg }}>
+          <PastDayLabel day={pastDay} />
           <ScrollView ref={chipsRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }} testID="metric-chips">
             {METRIC_SLUGS.map((s) => (
               <View key={s} onLayout={(event) => onChipLayout(s, event)} testID={`pill-wrap-${s}`}>
-                <Pill testID={`pill-${s}`} label={t(`readinessShort.${s}`)} selected={s === slug} onPress={() => router.replace(`/recovery/metric/${s}`)} />
+                <Pill testID={`pill-${s}`} label={t(`readinessShort.${s}`)} selected={s === slug} onPress={() => router.replace(withDay(`/recovery/metric/${s}`, pastDay))} />
               </View>
             ))}
           </ScrollView>

@@ -2,6 +2,7 @@ import type { DayRecord } from '@openhoop/core';
 import { useLocalSearchParams, type Href } from 'expo-router';
 
 import { indexOfDay, isDayString, singleParam } from '@/data/dailyDerived';
+import type { MetricSlug } from '@/ui/daily/metrics';
 
 export function dayIndexFor(days: readonly DayRecord[], requested: string | null): number {
   if (requested === null) return days.length - 1;
@@ -18,7 +19,6 @@ export function pastDayOf(days: readonly DayRecord[], index: number): string | n
   return days[index]?.day ?? null;
 }
 
-type MetricSlug = 'hrv' | 'rhr' | 'resp' | 'spo2' | 'temp';
 export type DayRoute = '/recovery' | '/load' | '/sleep' | `/recovery/metric/${MetricSlug}`;
 
 export function withDay(path: DayRoute, pastDay: string | null): Href {

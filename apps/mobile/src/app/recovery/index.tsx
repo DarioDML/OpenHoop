@@ -6,6 +6,7 @@ import { loadTargetBand } from '@/data/activityDerived';
 import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { useAppData } from '@/data/context';
 import { sliceEndingAt } from '@/data/dailyDerived';
+import { PastDayLabel } from '@/ui/daily/PastDayLabel';
 import { pastDayOf, useDayIndex, withDay, type DayRoute } from '@/ui/daily/useDayParam';
 import { baselineAt, shownLoad, visibleReadiness, type MetricKey } from '@/data/derived';
 import { buildingProgress, remaining } from '@/data/progress';
@@ -132,6 +133,7 @@ export default function ReadinessScreen() {
       right={<IconButton icon="info" label={t('explain.whatIs', { name: t('score.readiness') })} onPress={() => explain.about(readinessTarget)} testID="readiness-about" />}
       hero={
         <View style={{ alignItems: 'center', gap: 18 }}>
+          <PastDayLabel day={pastDay} />
           <ScoreRing
             testID="ring-readiness-detail"
             label={t('score.readiness')}
