@@ -24,7 +24,8 @@ import { ReadyCard } from '@/ui/load/ReadyCard';
 import { StepsTile } from '@/ui/load/StepsTile';
 import { TargetPill } from '@/ui/load/TargetPill';
 import { useLoadToday } from '@/ui/load/useLoadToday';
-import { useDayIndex } from '@/ui/daily/useDayParam';
+import { PastDayLabel } from '@/ui/daily/PastDayLabel';
+import { pastDayOf, useDayIndex } from '@/ui/daily/useDayParam';
 import { ZoneRows } from '@/ui/load/ZoneRows';
 import { PARITY } from '@/ui/parity';
 import { Screen } from '@/ui/Screen';
@@ -38,7 +39,9 @@ export default function LoadScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
   const explain = useExplain();
-  const today = useLoadToday(useDayIndex(days));
+  const dayIndex = useDayIndex(days);
+  const today = useLoadToday(dayIndex);
+  const pastDay = pastDayOf(days, dayIndex);
 
   if (today === null) return <NoDataScreen title={t('score.load')} />;
 
@@ -63,6 +66,7 @@ export default function LoadScreen() {
         <>
           <TopBar title={t('score.load')} right={<IconButton icon="info" label={t('explain.whatIs', { name: t('score.load') })} onPress={() => explain.about(target)} testID="load-about" />} />
           <View style={{ alignItems: 'center', gap: spacing.lg }}>
+            <PastDayLabel day={pastDay} />
             <LoadRing
               testID="ring-load-detail"
               value={today.value}

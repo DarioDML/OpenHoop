@@ -1,3 +1,4 @@
+import { formatLongDay } from '@/data/dailyDerived';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { ScrollView } from 'react-native';
@@ -57,6 +58,12 @@ describe('Readiness screen', () => {
     expect(screen.getByTestId('readiness-verdict')).toHaveTextContent('Your body has recovered well. A good day to push.');
     await fireEvent.press(screen.getByTestId('row-hrv'));
     expect(mockPush).toHaveBeenCalledWith(`/recovery/metric/hrv?day=${day}`);
+    expect(screen.getByTestId('past-day-label')).toHaveTextContent(formatLongDay(day ?? '', 'en'));
+  });
+
+  it('shows no date line for today', async () => {
+    await render(withAppData(<ReadinessScreen />));
+    expect(screen.queryByTestId('past-day-label')).toBeNull();
   });
 
   it('praises a high score', async () => {
@@ -233,6 +240,15 @@ describe('Metric detail', () => {
     expect(within(screen.getByTestId('pill-rhr')).getByText('Resting HR')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('pill-spo2'));
     expect(mockReplace).toHaveBeenCalledWith('/recovery/metric/spo2');
+  });
+
+  it('keeps the past day when switching metrics', async () => {
+    const day = days[days.length - 2]?.day;
+    mockParams = { metric: 'rhr', day };
+    await render(withAppData(<MetricDetailScreen />));
+    expect(screen.getByTestId('past-day-label')).toHaveTextContent(formatLongDay(day ?? '', 'en'));
+    await fireEvent.press(screen.getByTestId('pill-spo2'));
+    expect(mockReplace).toHaveBeenCalledWith(`/recovery/metric/spo2?day=${day}`);
   });
 
   it('shows skin temperature as a deviation and keeps the measured value, in the chosen units', async () => {
