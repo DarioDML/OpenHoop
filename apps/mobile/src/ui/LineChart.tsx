@@ -3,7 +3,7 @@ import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { AppText } from './AppText';
-import { flatDomain } from './chartScale';
+import { flatDomain, type Clamp } from './chartScale';
 import { useTheme } from './theme';
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
   band?: { low: number | null; high: number | null } | null;
   domain?: { min: number; max: number } | null;
   guide?: number | null;
+  clamp?: Clamp;
   testID?: string;
 }
 
@@ -25,7 +26,7 @@ const AXIS_WIDTH = 40;
 const PAD_Y = 8;
 const PAD_X = 6;
 
-export function LineChart({ data, height = 120, formatTick, emptyLabel, startLabel, endLabel, minSpan = 1, color, band = null, domain = null, guide = null, testID }: Props) {
+export function LineChart({ data, height = 120, formatTick, emptyLabel, startLabel, endLabel, minSpan = 1, color, band = null, domain = null, guide = null, clamp = {}, testID }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const values = data.filter((v): v is number => v !== null);
@@ -48,9 +49,11 @@ export function LineChart({ data, height = 120, formatTick, emptyLabel, startLab
   const lo = Math.min(...values, ...(bandLow === null ? [] : [bandLow]));
   const hi = Math.max(...values, ...(bandHigh === null ? [] : [bandHigh]));
   const pad = Math.max((hi - lo) * 0.15, (minSpan - (hi - lo)) / 2, 0);
-  const flat = domain === null && hi === lo ? flatDomain(lo, minSpan) : null;
-  const min = domain ? Math.min(domain.min, lo) : (flat?.min ?? lo - pad);
-  const max = domain ? Math.max(domain.max, hi) : (flat?.max ?? hi + pad);
+  const flat = domain === null && hi === lo ? flatDomain(lo, minSpan, clamp) : null;
+  const padMin = clamp.min !== undefined && lo >= clamp.min ? Math.max(clamp.min, lo - pad) : lo - pad;
+  const padMax = clamp.max !== undefined && hi <= clamp.max ? Math.min(clamp.max, hi + pad) : hi + pad;
+  const min = domain ? Math.min(domain.min, lo) : (flat?.min ?? padMin);
+  const max = domain ? Math.max(domain.max, hi) : (flat?.max ?? padMax);
   const span = max - min || 1;
   const plotH = height - PAD_Y * 2;
   const x = (i: number): number => (data.length <= 1 ? width / 2 : PAD_X + (i / (data.length - 1)) * (width - PAD_X * 2));

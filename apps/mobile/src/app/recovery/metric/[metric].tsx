@@ -23,6 +23,8 @@ import { Num } from '@/ui/Num';
 import { spacing, useTheme } from '@/ui/theme';
 import { IconButton } from '@/ui/TopBar';
 
+const SPO2_CLAMP = { max: 100 } as const;
+
 function scrollChipsTo(scroller: ScrollViewInstance | null, x: number): void {
   scroller?.scrollTo({ x: Math.max(0, x - spacing.lg), animated: false });
 }
@@ -189,6 +191,7 @@ export default function MetricDetailScreen() {
           testID="chart-metric"
           data={values}
           minSpan={temp ? temperatureDeltaIn(spec.minSpan, units) : spec.minSpan}
+          clamp={slug === 'spo2' ? SPO2_CLAMP : undefined}
           color={colors.text}
           band={baseline ? { low: show(baseline.low), high: show(baseline.high) } : null}
           formatTick={(v) => formatNumber(v, spec.decimals, language)}

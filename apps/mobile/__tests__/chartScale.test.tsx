@@ -15,17 +15,38 @@ describe('chart scale', () => {
     expect(niceStep(2.3)).toBe(2);
   });
 
-  it('pads a flat series to a round range around the value', () => {
-    expect(flatDomain(84, 0.1)).toEqual({ min: 80, max: 90 });
-    expect(flatDomain(46, 1)).toEqual({ min: 44, max: 48 });
-    expect(flatDomain(5.2, 0.1)).toEqual({ min: 5, max: 5.4 });
-    expect(flatDomain(34.3, 1)).toEqual({ min: 33, max: 36 });
+  it('pads a flat series to a round range of about the minimum span', () => {
+    expect(flatDomain(46, 10)).toEqual({ min: 40, max: 55 });
+    expect(flatDomain(84, 3.36)).toEqual({ min: 82, max: 86 });
+    expect(flatDomain(5.2, 0.4)).toEqual({ min: 5, max: 5.4 });
+    expect(flatDomain(34.3, 1)).toEqual({ min: 33.5, max: 35 });
+    for (const [value, minSpan] of [[46, 10], [84, 3.36], [5.2, 0.4], [34.3, 1], [-0.35, 0.1]] as const) {
+      const domain = flatDomain(value, minSpan);
+      expect(domain.max - domain.min).toBeGreaterThanOrEqual(minSpan);
+      expect(domain.max - domain.min).toBeLessThanOrEqual(minSpan * 3);
+      expect(domain.min).toBeLessThanOrEqual(value);
+      expect(domain.max).toBeGreaterThanOrEqual(value);
+    }
   });
 
-  it('never drops a flat non-negative series below zero', () => {
+  it('snaps away float noise on step edges', () => {
+    expect(flatDomain(-0.35, 0.1)).toEqual({ min: -0.4, max: -0.3 });
+  });
+
+  it('keeps the span when a flat non-negative series sits on zero', () => {
     const domain = flatDomain(0, 1);
     expect(domain.min).toBe(0);
-    expect(domain.max).toBeGreaterThan(0);
+    expect(domain.max - domain.min).toBeGreaterThanOrEqual(1);
+  });
+
+  it('never puts a flat SpO2 series above 100 %', () => {
+    for (const value of [100, 98, 99.5]) {
+      const domain = flatDomain(value, 3, { max: 100 });
+      expect(domain.max).toBeLessThanOrEqual(100);
+      expect(domain.max - domain.min).toBeGreaterThanOrEqual(3);
+      expect(domain.min).toBeLessThanOrEqual(value);
+    }
+    expect(flatDomain(98, 3, { max: 100 })).toEqual({ min: 96, max: 100 });
   });
 
   it('rounds bedtimes out to whole hours, at least one hour apart', () => {
@@ -38,11 +59,17 @@ describe('chart scale', () => {
 
 describe('LineChart', () => {
   it('labels one value with a round range and one date', async () => {
-    await render(withAppData(<LineChart testID="chart" data={[84]} formatTick={tick} emptyLabel="none" startLabel="9/9" endLabel="9/9" minSpan={0.1} />));
-    expect(screen.getByText('90')).toBeTruthy();
-    expect(screen.getByText('80')).toBeTruthy();
+    await render(withAppData(<LineChart testID="chart" data={[84]} formatTick={tick} emptyLabel="none" startLabel="9/9" endLabel="9/9" minSpan={3.36} />));
+    expect(screen.getByText('86')).toBeTruthy();
+    expect(screen.getByText('82')).toBeTruthy();
     expect(screen.getAllByText('9/9')).toHaveLength(1);
     expect(screen.getByTestId('chart-x-single')).toBeTruthy();
+  });
+
+  it('clamps the axis of a flat SpO2 series at 100', async () => {
+    await render(withAppData(<LineChart testID="chart" data={[100]} minSpan={3} clamp={{ max: 100 }} formatTick={tick} emptyLabel="none" />));
+    expect(screen.getByText('100')).toBeTruthy();
+    expect(screen.getByText('96')).toBeTruthy();
   });
 
   it('keeps both dates when the series spans days', async () => {
@@ -62,8 +89,9 @@ describe('LineChart', () => {
 });
 
 describe('BarChart', () => {
-  it('shows a single date once', async () => {
-    await render(withAppData(<BarChart data={[3]} formatTick={tick} startLabel="11/28" endLabel="11/28" />));
+  it('shows a single date once, centred', async () => {
+    await render(withAppData(<BarChart testID="bars" data={[3]} formatTick={tick} startLabel="11/28" endLabel="11/28" />));
     expect(screen.getAllByText('11/28')).toHaveLength(1);
+    expect(screen.getByTestId('bars-x-single')).toBeTruthy();
   });
 });

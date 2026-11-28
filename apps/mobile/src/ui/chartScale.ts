@@ -3,24 +3,49 @@ export interface Domain {
   max: number;
 }
 
+export interface Clamp {
+  min?: number;
+  max?: number;
+}
+
+const SNAP = 1e-9;
+
 function roundTo(value: number, step: number): number {
   return Number((Math.round(value / step) * step).toPrecision(12));
+}
+
+function floorTo(value: number, step: number): number {
+  return roundTo(Math.floor(value / step + SNAP) * step, step);
+}
+
+function ceilTo(value: number, step: number): number {
+  return roundTo(Math.ceil(value / step - SNAP) * step, step);
 }
 
 export function niceStep(span: number): number {
   const raw = span / 2;
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   const fraction = raw / magnitude;
-  const nice = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+  const nice = fraction <= 1 + SNAP ? 1 : fraction <= 2 + SNAP ? 2 : fraction <= 5 + SNAP ? 5 : 10;
   return nice * magnitude;
 }
 
-export function flatDomain(value: number, minSpan: number): Domain {
-  const span = Math.max(minSpan, Math.abs(value) * 0.05, Number.EPSILON);
+export function flatDomain(value: number, minSpan: number, clamp: Clamp = {}): Domain {
+  const span = minSpan > 0 ? minSpan : Math.max(Math.abs(value) * 0.05, 1);
   const step = niceStep(span);
-  let min = roundTo(Math.floor((value - span / 2) / step) * step, step);
-  const max = roundTo(Math.ceil((value + span / 2) / step) * step, step);
-  if (value >= 0 && min < 0) min = 0;
+  let min = floorTo(value - span / 2, step);
+  let max = ceilTo(value + span / 2, step);
+  const low = clamp.min ?? (value >= 0 ? 0 : undefined);
+  const high = clamp.max;
+  if (low !== undefined && min < low && value >= low) {
+    min = low;
+    max = Math.max(max, ceilTo(low + span, step));
+  }
+  if (high !== undefined && max > high && value <= high) {
+    max = high;
+    min = Math.min(min, floorTo(high - span, step));
+    if (low !== undefined && min < low && value >= low) min = low;
+  }
   return { min, max };
 }
 

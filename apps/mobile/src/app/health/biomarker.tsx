@@ -23,6 +23,7 @@ import { Section } from '@/ui/Section';
 import { spacing, useTheme } from '@/ui/theme';
 
 const RESULT_VALUE_MIN_WIDTH = 140;
+const FLAT_SPAN_SHARE = 0.04;
 
 function hoursText(hours: number): string {
   const minutes = Math.round(hours * 60);
@@ -152,7 +153,7 @@ export default function BiomarkerScreen() {
           emptyLabel={t('health.biomarker.chartEmpty')}
           startLabel={first === undefined ? undefined : formatShortDayIn(first.result.day, language, lastPoint?.result.day ?? first.result.day)}
           endLabel={lastPoint === undefined ? undefined : formatShortDay(lastPoint.result.day, language)}
-          minSpan={0.1}
+          minSpan={Math.max(0.1, Math.abs(lastPoint?.value ?? 0) * FLAT_SPAN_SHARE)}
         />
         <StatRow>
           <StatTile label={t('health.biomarker.latest')} value={lastPoint === undefined ? '–' : formatConverted(lastPoint.value, language)} unit={history.unit} testID="biomarker-latest" />
