@@ -7,6 +7,7 @@ import { scanForCheckIns } from '@/coach/checkIns';
 import { defaultCoachPrefs, withCheckInReply, withProactivity, type CoachPrefs } from '@/coach/prefs';
 import type { GatedFetch } from '@/net/gate';
 import { createFixtureDays } from '@/data/fixtureSource';
+import type { UserData } from '@/data/userData';
 
 import { FIXTURE_NOW, fixtureAppData } from './support/appData';
 import { jsonResponse, makeController, memoryRepo, replyBody, withCoach } from './support/coach';
@@ -27,6 +28,7 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
+import CoachCheckInScreen from '@/app/coach/check-in';
 import CoachScreen from '@/app/coach/index';
 import CoachMemoryScreen from '@/app/coach/memory';
 import CoachSettingsScreen from '@/app/coach/settings';
@@ -248,5 +250,72 @@ describe('coach memory groups', () => {
     await fireEvent.press(screen.getByTestId('coach-memory-category-goals'));
     await fireEvent.press(screen.getByTestId('coach-memory-edit-save'));
     await waitFor(() => expect(updateUserData).toHaveBeenLastCalledWith({ coach: expect.objectContaining({ memoryCategories: expect.objectContaining({ [`${bench.id}@${bench.createdAt}`]: 'goals' }) }) }));
+  });
+});
+
+describe('proactive check-in screen', () => {
+  function changedDays() {
+    const latest = days[days.length - 1];
+    if (!latest) throw new Error('fixture has no days');
+    return [...days.slice(0, -1), { ...latest, hrv: { ...latest.hrv, value: 5 } }];
+  }
+
+  function hrvCheckInId(list: ReturnType<typeof changedDays>): string {
+    const scan = scanForCheckIns(list, []);
+    const id = scan.status === 'ok' ? scan.checkIns.find((c) => c.metric === 'hrv')?.id : undefined;
+    if (id === undefined) throw new Error('expected an hrv check-in');
+    return id;
+  }
+
+  it('shows the coach message with data chips and starts a conversation from a reply', async () => {
+    const list = changedDays();
+    const id = hrvCheckInId(list);
+    const updateUserData = jest.fn(async () => true);
+    const coach = withProactivity(defaultCoachPrefs(), 'patterns');
+    const { controller } = makeController();
+    await render(withCoach(<CoachCheckInScreen />, controller, { days: list, userData: userData(coach), updateUserData }));
+    expect(screen.getByTestId('check-in-banner')).toHaveTextContent(/HRV is lower than usual/);
+    expect(screen.getByTestId('check-in-message')).toHaveTextContent(/Your HRV is 5 ms, against your usual/);
+    expect(screen.getByTestId('check-in-chips')).toHaveTextContent(/HRV 5 ms/);
+    expect(screen.getByTestId(`check-in-${id}`)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('check-in-reply-tired'));
+    expect(updateUserData).toHaveBeenCalledWith({ coach: withCheckInReply(coach, { id, reply: 'tired', conversationId: null }) });
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/coach', params: { ask: id, reply: 'tired' } });
+  });
+
+  it('keeps an earlier conversation for the next reply and marks the answer', async () => {
+    const list = changedDays();
+    const id = hrvCheckInId(list);
+    const updateUserData = jest.fn(async () => true);
+    const coach = withCheckInReply(withProactivity(defaultCoachPrefs(), 'patterns'), { id, reply: 'tired', conversationId: 7 });
+    const { controller } = makeController();
+    await render(withCoach(<CoachCheckInScreen />, controller, { days: list, userData: userData(coach), updateUserData }));
+    expect(screen.getByTestId('check-in-answered')).toHaveTextContent('You answered: Just tired');
+    expect(screen.getByTestId('check-in-reply-tired').props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(screen.getByTestId('check-in-reply-sick'));
+    expect(updateUserData).toHaveBeenCalledWith({ coach: withCheckInReply(coach, { id, reply: 'sick', conversationId: 7 }) });
+  });
+
+  it('puts the check-in away for today with Not now and points to the settings', async () => {
+    const list = changedDays();
+    const id = hrvCheckInId(list);
+    const updateUserData = jest.fn<Promise<boolean>, [Partial<UserData>]>(async () => true);
+    const coach = withProactivity(defaultCoachPrefs(), 'patterns');
+    const { controller } = makeController();
+    await render(withCoach(<CoachCheckInScreen />, controller, { days: list, userData: userData(coach), updateUserData }));
+    await fireEvent.press(screen.getByTestId('check-in-reply-later'));
+    const saved = updateUserData.mock.calls[0]?.[0];
+    expect(saved?.coach?.dismissedCheckIns).toContain(id);
+    expect(saved?.coach?.checkInReplies).toEqual([{ id, reply: 'later', conversationId: null }]);
+    expect(router.push).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: '/coach' }));
+    await fireEvent.press(screen.getByTestId('check-in-footnote'));
+    expect(router.push).toHaveBeenCalledWith('/coach/settings');
+  });
+
+  it('says plainly when the coach itself is off', async () => {
+    const { controller } = makeController();
+    await render(withCoach(<CoachCheckInScreen />, controller, { days: changedDays(), userData: userData({ ...withProactivity(defaultCoachPrefs(), 'patterns'), enabled: false }) }));
+    expect(screen.getByTestId('coach-check-in-status')).toHaveTextContent(/switched off in Coach settings/);
+    expect(screen.queryByTestId('check-in-banner')).toBeNull();
   });
 });

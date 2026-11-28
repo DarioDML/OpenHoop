@@ -97,10 +97,17 @@ export function weeklyCheckIn(days: readonly DayRecord[], today: string, metric:
   return { id: weekCheckInId(lastWeek), metric, day: lastWeek, value, usual, direction: value >= usual ? 'up' : 'down', kind: 'week' };
 }
 
+function severity(days: readonly DayRecord[], checkIn: CheckIn): number {
+  const index = days.findIndex((day) => day.day === checkIn.day);
+  const baseline = index < 0 ? null : baselineAt(days, index, checkIn.metric);
+  const spread = baseline === null ? 0 : (baseline.high - baseline.low) / 2;
+  return spread > 0 ? Math.abs(checkIn.value - checkIn.usual) / spread : 0;
+}
+
 export function coachCheckIns(days: readonly DayRecord[], prefs: CoachPrefs, today: string): CheckIn[] {
   const mode = effectiveProactivity(prefs);
   if (!prefs.enabled || mode === 'off') return [];
-  const changes = activeCheckIns(days, prefs.dismissedCheckIns);
+  const changes = activeCheckIns(days, prefs.dismissedCheckIns).sort((a, b) => severity(days, b) - severity(days, a));
   if (mode !== 'weekly') return changes;
   const week = weeklyCheckIn(days, today);
   return week === null || prefs.dismissedCheckIns.includes(week.id) ? changes : [week, ...changes];

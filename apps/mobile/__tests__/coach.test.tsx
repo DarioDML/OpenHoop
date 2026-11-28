@@ -216,7 +216,7 @@ describe('coach check-ins', () => {
     await render(withCoach(<CoachCheckInScreen />, controller, { updateUserData }));
     expect(screen.getByText('Check-ins are off.')).toBeTruthy();
     fireEvent(screen.getByTestId('coach-check-in-toggle'), 'valueChange', true);
-    expect(updateUserData).toHaveBeenCalledWith({ coach: { ...defaultCoachPrefs(), checkIns: true } });
+    expect(updateUserData).toHaveBeenCalledWith({ coach: { ...defaultCoachPrefs(), checkIns: true, proactivity: 'patterns' } });
   });
 
   it('show a clear change with ask and dismiss when on', async () => {
