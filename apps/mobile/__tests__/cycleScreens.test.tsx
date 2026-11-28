@@ -209,6 +209,49 @@ describe('symptoms screen', () => {
     expect(save).toHaveBeenCalledWith({ day: '2026-11-25', symptom: 'headache', intensity: 3 });
   });
 
+  it('saves several symptoms with their own intensity and logs the flow for the day', async () => {
+    const save = jest.fn<Promise<boolean>, [SymptomInput]>(async () => true);
+    const savePeriod = jest.fn<Promise<boolean>, [number | null, PeriodInput]>(async () => true);
+    await render(withAppData(<SymptomsScreen />, 'en', { saveSymptom: save, savePeriod }));
+    await fireEvent.press(screen.getByTestId('symptom-chip-cramps'));
+    await fireEvent.press(screen.getByTestId('symptom-chip-fatigue'));
+    await fireEvent.press(within(screen.getByTestId('symptom-intensity-fatigue')).getByText('Strong'));
+    await fireEvent.press(screen.getByTestId('symptom-flow-3'));
+    await fireEvent.press(screen.getByTestId('symptom-save-top'));
+    expect(save).toHaveBeenCalledWith({ day: '2026-11-25', symptom: 'cramps', intensity: 1 });
+    expect(save).toHaveBeenCalledWith({ day: '2026-11-25', symptom: 'fatigue', intensity: 3 });
+    expect(savePeriod).toHaveBeenCalledWith(null, { startDay: '2026-11-25', endDay: null, flow: 3 });
+  });
+
+  it('removes a period started today when the flow is set back to none', async () => {
+    const removePeriod = jest.fn<Promise<boolean>, [number]>(async () => true);
+    await render(withAppData(<SymptomsScreen />, 'en', { cycle: cycleData({ periods: [period(5, '2026-11-25')] }), removePeriod }));
+    expect(screen.getByTestId('symptom-flow-2').props.accessibilityState).toMatchObject({ selected: true });
+    await fireEvent.press(screen.getByTestId('symptom-flow-0'));
+    await fireEvent.press(screen.getByTestId('symptom-save'));
+    expect(removePeriod).toHaveBeenCalledWith(5);
+  });
+
+  it('will not cut a day out of the middle of a period', async () => {
+    const savePeriod = jest.fn<Promise<boolean>, [number | null, PeriodInput]>(async () => true);
+    await render(withAppData(<SymptomsScreen />, 'en', { cycle: cycleData({ periods: [period(6, '2026-11-20', '2026-11-24')] }), savePeriod }));
+    await fireEvent.changeText(screen.getByTestId('symptom-input-day'), '2026-11-22');
+    await fireEvent.press(screen.getByTestId('symptom-flow-0'));
+    await fireEvent.press(screen.getByTestId('symptom-save'));
+    expect(savePeriod).not.toHaveBeenCalled();
+    expect(screen.getByTestId('symptom-problem')).toHaveTextContent(/middle of a logged period/);
+  });
+
+  it('marks the predictions as estimates and explains when there are none', async () => {
+    await render(withAppData(<SymptomsScreen />, 'en', { cycle: cycleData({ periods: THREE_PERIODS }) }));
+    expect(screen.getByTestId('symptom-predict-next')).toBeTruthy();
+    expect(screen.getByTestId('symptom-predict-fertile')).toBeTruthy();
+    expect(screen.getByText('estimate')).toBeTruthy();
+    expect(screen.getByTestId('symptom-predictions')).toHaveTextContent(/Not for contraception and not medical advice/);
+    await render(withAppData(<SymptomsScreen />, 'en', { cycle: cycleData() }));
+    expect(screen.getByTestId('symptom-predictions-reason')).toHaveTextContent(/Log your first period/);
+  });
+
   it('lists entries by day and deletes a single entry after confirming', async () => {
     const remove = jest.fn<Promise<boolean>, [number]>(async () => true);
     const symptoms = [symptom(1, '2026-11-24', 'cramps', 3), symptom(2, '2026-11-24', 'mood', 1), symptom(3, '2026-11-20', 'fatigue')];
