@@ -6,6 +6,7 @@ import type { SleepStage } from '@openhoop/analytics';
 import type { DayRecord } from '@openhoop/core';
 
 import { formatDuration, formatShortDay } from '@/lib/format';
+import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 
 import { AppText } from './AppText';
@@ -46,7 +47,7 @@ export function StageTrend({ slice, height = 120 }: Props) {
         </View>
         {staged.length > 0 ? (
           <AppText variant="label" muted numeric>
-            {t('stage.trendNights', { count: staged.length })}
+            {t(countKey(staged.length, 'stage.trendNightsOne', 'stage.trendNights'), { count: staged.length })}
           </AppText>
         ) : null}
       </View>

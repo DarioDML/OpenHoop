@@ -15,7 +15,7 @@ import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
-import { useLayout } from '@/ui/layout';
+import { fitsSideBySide, useLayout } from '@/ui/layout';
 import { radius, readinessBand, readinessColor, spacing, useTheme } from '@/ui/theme';
 
 import { useLoadBuzz, type LoadToday } from './useLoadToday';
@@ -49,6 +49,8 @@ export function adviceText(t: TFunction, language: Language, advice: ReadyAdvice
     }
   }
 }
+
+const ACTION_MIN_DP = 176;
 
 function BuzzCheck({ today, stacked }: { today: LoadToday; stacked: boolean }): ReactElement {
   const { colors } = useTheme();
@@ -111,7 +113,8 @@ export function ReadyCard({ today }: { today: LoadToday }): ReactElement {
   const { colors } = useTheme();
   const { t, language } = useT();
   const { days } = useAppData();
-  const { compact } = useLayout();
+  const layout = useLayout();
+  const stacked = !fitsSideBySide(layout, spacing.lg, ACTION_MIN_DP, 2, spacing.sm);
   const advice = readyAdvice(today.value, today.aim, today.trainingHr, today.ref);
   const band = readinessBand(today.readiness);
   const title = band === null ? t('loadScreen.ready.today') : band === 'low' ? t('loadScreen.ready.easy') : t('loadScreen.ready.perform');
@@ -132,9 +135,9 @@ export function ReadyCard({ today }: { today: LoadToday }): ReactElement {
           {t('loadTarget.basis', { hr: Math.round(today.trainingHr) })}
         </AppText>
       ) : null}
-      <View style={{ flexDirection: compact ? 'column' : 'row', gap: spacing.sm, marginTop: spacing.xs }} testID="load-ready-actions">
-        <Button label={t('home.startActivity')} onPress={() => router.push('/activity/start')} style={{ flex: compact ? undefined : 1, minHeight: 48, paddingHorizontal: spacing.md }} testID="load-start" />
-        <BuzzCheck today={today} stacked={compact} />
+      <View style={{ flexDirection: stacked ? 'column' : 'row', gap: spacing.sm, marginTop: spacing.xs }} testID="load-ready-actions">
+        <Button label={t('home.startActivity')} onPress={() => router.push('/activity/start')} style={{ flex: stacked ? undefined : 1, minHeight: 48, paddingHorizontal: spacing.md }} testID="load-start" />
+        <BuzzCheck today={today} stacked={stacked} />
       </View>
       <BuzzNote today={today} />
       <Pressable

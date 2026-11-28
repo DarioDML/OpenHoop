@@ -13,11 +13,16 @@ interface Props {
 }
 
 const SIZE = 14;
+const GAP = 6;
+
+export function goalDotsWidth(count: number): number {
+  return count * SIZE + Math.max(0, count - 1) * GAP;
+}
 
 export function GoalDots({ dots, color, label, testID }: Props): ReactElement {
   const { colors } = useTheme();
   return (
-    <View accessible accessibilityLabel={label} testID={testID} style={{ flexDirection: 'row', gap: 6 }}>
+    <View accessible accessibilityLabel={label} testID={testID} style={{ flexDirection: 'row', gap: GAP }}>
       {dots.map((state, i) => (
         <View
           key={i}

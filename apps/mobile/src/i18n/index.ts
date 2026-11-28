@@ -53,6 +53,10 @@ export function translate(language: Language, key: TranslationKey, params?: Tran
   });
 }
 
+export function countKey<K extends TranslationKey>(count: number, one: K, other: K): K {
+  return count === 1 ? one : other;
+}
+
 export function detectLanguage(languageCode: string | null | undefined): Language {
   return languageCode === 'nl' ? 'nl' : 'en';
 }

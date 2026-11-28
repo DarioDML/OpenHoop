@@ -5,6 +5,7 @@ import { Pressable, ScrollView, View, type LayoutChangeEvent, type ScrollViewIns
 import { useAppData } from '@/data/context';
 import { sliceEndingAt, singleParam, TREND_RANGES, type TrendRange } from '@/data/dailyDerived';
 import { baselineAt, percentFromBaseline, rangeStatus } from '@/data/derived';
+import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatNumber, formatShortDay, formatSigned } from '@/lib/format';
 import { formatTemperature, formatTemperatureDelta, temperatureDeltaIn, temperatureIn, temperatureUnit, useUnits } from '@/lib/units';
@@ -164,7 +165,7 @@ export default function MetricDetailScreen() {
               })}
             </AppText>
             <AppText variant="caption" muted>
-              {t('metricDetail.baselineNights', { count: baseline.count })}
+              {t(countKey(baseline.count, 'metricDetail.baselineNightsOne', 'metricDetail.baselineNights'), { count: baseline.count })}
             </AppText>
             {pct === null || temp ? null : (
               <AppText variant="caption" muted testID="baseline-pct">

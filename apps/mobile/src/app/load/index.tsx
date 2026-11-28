@@ -128,9 +128,9 @@ export default function LoadScreen() {
 
       <Section title={t('metric.heartRate')}>
         <StatRow>
-          <StatTile label={t('loadx.hr.min')} value={day.heartRate.min === null ? t('loadx.noValue') : fmt(day.heartRate.min)} unit={day.heartRate.min === null ? undefined : t('unit.bpm')} testID="hr-min" />
-          <StatTile label={t('loadx.hr.avg')} value={day.heartRate.avg === null ? t('loadx.noValue') : fmt(day.heartRate.avg)} unit={day.heartRate.avg === null ? undefined : t('unit.bpm')} testID="hr-avg" />
-          <StatTile label={t('loadx.hr.max')} value={day.heartRate.max === null ? t('loadx.noValue') : fmt(day.heartRate.max)} unit={day.heartRate.max === null ? undefined : t('unit.bpm')} testID="hr-max" />
+          <StatTile label={t('loadx.hr.min')} value={day.heartRate.min === null ? t('loadx.noValue') : fmt(day.heartRate.min)} unit={day.heartRate.min === null ? undefined : t('unit.bpm')} unitBelow testID="hr-min" />
+          <StatTile label={t('loadx.hr.avg')} value={day.heartRate.avg === null ? t('loadx.noValue') : fmt(day.heartRate.avg)} unit={day.heartRate.avg === null ? undefined : t('unit.bpm')} unitBelow testID="hr-avg" />
+          <StatTile label={t('loadx.hr.max')} value={day.heartRate.max === null ? t('loadx.noValue') : fmt(day.heartRate.max)} unit={day.heartRate.max === null ? undefined : t('unit.bpm')} unitBelow testID="hr-max" />
         </StatRow>
       </Section>
 
