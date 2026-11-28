@@ -685,9 +685,10 @@ export async function rebuildFromRaw(store: Store, deviceId: number): Promise<{ 
     const inner = bindStore(tx);
     const device = await inner.getDevice(deviceId);
     const ownerSince = device?.ownerSince ?? null;
-    await inner.deleteSamples(deviceId, 'history');
-    await inner.clearDerived(deviceId);
     const chunkIds = await inner.listChunkIds(deviceId);
+    // History whose raw chunk was pruned has no chunk_id and cannot be rebuilt, so only chunk-backed rows are replaced.
+    await tx.run("DELETE FROM samples_1hz WHERE device_id = ? AND source = 'history' AND chunk_id IS NOT NULL", [deviceId]);
+    await inner.clearDerived(deviceId);
     let samples = 0;
     for (const chunkId of chunkIds) {
       const rows: SampleRow[] = [];

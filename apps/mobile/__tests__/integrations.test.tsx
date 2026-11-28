@@ -1,7 +1,11 @@
 import type { BodyMeasurement } from '@openhoop/core';
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
+
+import { isIos } from '@/lib/platform';
+import { AutoShareRunner } from '@/strava/AutoShareRunner';
+import type { StravaState } from '@/strava/controller';
 
 import BodyCompositionScreen from '@/app/health/body-composition';
 import WelcomeScreen from '@/app/onboarding/index';
@@ -10,6 +14,7 @@ import { defaultHealthConnectState, type HealthConnectState } from '@/data/healt
 import type { HealthConnectView } from '@/data/types';
 
 import { FIXTURE_NOW, fixtureAppData, withAppData } from './support/appData';
+import { STRAVA_ON } from './support/strava';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
@@ -17,6 +22,8 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   Link: ({ children }: { children: ReactNode }) => children,
 }));
+
+jest.mock('@/lib/platform', () => ({ isIos: jest.fn(() => false) }));
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -35,6 +42,7 @@ function bandSettings() {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Date, 'now').mockReturnValue(FIXTURE_NOW.getTime());
+  jest.mocked(isIos).mockReturnValue(false);
 });
 
 afterEach(() => {
@@ -158,6 +166,91 @@ describe('Integrations (M4) with Health Connect', () => {
     expect(screen.getByTestId('hc-unsupported')).toBeTruthy();
     expect(within(screen.getByTestId('hc-status')).getByText('Android only')).toBeTruthy();
     expect(screen.queryByTestId('hc-sync')).toBeNull();
+  });
+});
+
+describe('Integrations (M4) layout', () => {
+  it('shows Apple Health instead of Health Connect on iOS, both honestly not built', async () => {
+    jest.mocked(isIos).mockReturnValue(true);
+    await render(withAppData(<IntegrationsScreen />));
+    expect(screen.getByTestId('apple-health-row')).toBeTruthy();
+    expect(screen.getByTestId('apple-export-row')).toBeTruthy();
+    expect(screen.queryByTestId('hc-row')).toBeNull();
+    expect(screen.queryByTestId('hc-toggle-sleep')).toBeNull();
+    expect(within(screen.getByTestId('apple-health-status')).getByText('Not built')).toBeTruthy();
+  });
+
+  it('shows Health Connect and no Apple Health rows on Android', async () => {
+    await render(withAppData(<IntegrationsScreen />));
+    expect(screen.getByTestId('hc-row')).toBeTruthy();
+    expect(screen.queryByTestId('apple-health-row')).toBeNull();
+    expect(screen.queryByTestId('apple-export-row')).toBeNull();
+  });
+
+  it('switches Strava auto-share and picks the types to share', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const base = fixtureAppData();
+    await render(withAppData(<IntegrationsScreen />, 'en', { updateUserData }));
+    expect(screen.getByText('You share each activity yourself')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('tab', { name: 'By type' }));
+    expect(updateUserData).toHaveBeenCalledWith({ stravaAutoShare: { mode: 'byType', types: ['running', 'cycling'], since: NOW_S } });
+    const userData = { ...base.userData, stravaAutoShare: { mode: 'byType' as const, types: ['running' as const, 'cycling' as const], since: NOW_S } };
+    await render(withAppData(<IntegrationsScreen />, 'en', { updateUserData, userData }));
+    expect(screen.getByText('Auto-share: Running, Cycling')).toBeTruthy();
+    expect(screen.getByTestId('auto-share-needs-connection')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('auto-share-type-swimming'));
+    expect(updateUserData).toHaveBeenLastCalledWith({ stravaAutoShare: { mode: 'byType', types: ['running', 'cycling', 'swimming'], since: NOW_S } });
+  });
+});
+
+describe('Strava auto-share runner', () => {
+  const connected: StravaState = { ready: true, hasClient: true, connection: 'connected', busy: null, error: null, revokeFailed: false, ledger: {}, uploading: null, uploadErrors: {} };
+
+  function setup(mode: 'all' | 'manual', state: StravaState = connected, source: 'band' | 'demo' = 'band') {
+    const base = fixtureAppData();
+    const today = base.days[base.days.length - 1];
+    const start = (today?.start ?? 0) + 3_600;
+    const activities = [
+      {
+        id: 7,
+        deviceId: 1,
+        source: 'manual' as const,
+        detectedStart: null,
+        type: 'running',
+        start,
+        end: start + 1_800,
+        paused: [],
+        note: null,
+        deletedAt: null,
+        metrics: { activeS: 1_800, load: null, loadReason: 'no-data', zoneSeconds: [0, 0, 0, 0, 0, 0], avgHr: null, maxHr: null, hrSeconds: 0, activeMinutes: null },
+        createdAt: start,
+        updatedAt: start,
+      },
+    ];
+    const userData = { ...base.userData, network: STRAVA_ON, stravaAutoShare: { mode, types: [], since: mode === 'manual' ? null : start - 60 } };
+    const upload = jest.fn(async () => true);
+    const heartRateBetween = jest.fn(async () => [{ t: start + 60, hr: 140 }]);
+    const settings = { ...base.settings, dataSource: source };
+    return { upload, heartRateBetween, start, element: withAppData(<AutoShareRunner controller={{ upload }} state={state} now={() => start + 7_200} />, 'en', { userData, activities, heartRateBetween, settings }) };
+  }
+
+  it('uploads a finished activity once with its heart rate when auto-share is on', async () => {
+    const { upload, start, element } = setup('all');
+    await render(element);
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
+    expect(upload).toHaveBeenCalledWith(expect.objectContaining({ key: 'activity:7', type: 'running', name: 'Running', startS: start, heartRate: [{ t: start + 60, hr: 140 }] }));
+  });
+
+  it('sends nothing in manual mode, while Strava is not connected or from the demo band', async () => {
+    const manual = setup('manual');
+    await render(manual.element);
+    const offline = setup('all', { ...connected, connection: 'none' });
+    await render(offline.element);
+    const demo = setup('all', connected, 'demo');
+    await render(demo.element);
+    expect(manual.upload).not.toHaveBeenCalled();
+    expect(offline.upload).not.toHaveBeenCalled();
+    expect(demo.upload).not.toHaveBeenCalled();
   });
 });
 

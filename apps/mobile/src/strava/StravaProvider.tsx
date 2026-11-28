@@ -6,6 +6,7 @@ import { openAppStore } from '@/data/appStore';
 import { currentNetworkPrefs, netFetch } from '@/net';
 import { checkRequest } from '@/net/gate';
 
+import { AutoShareRunner } from './AutoShareRunner';
 import { StravaContext } from './context';
 import { StravaController, type AuthSessionResult } from './controller';
 import { STRAVA_UPLOADS_KEY, parseLedger, serializeLedger, type LedgerStore } from './ledger';
@@ -52,5 +53,10 @@ export function StravaProvider({ children }: { children: ReactNode }) {
   }, [instance]);
 
   const value = useMemo(() => ({ state, controller: instance }), [state, instance]);
-  return <StravaContext.Provider value={value}>{children}</StravaContext.Provider>;
+  return (
+    <StravaContext.Provider value={value}>
+      {children}
+      <AutoShareRunner controller={instance} state={state} />
+    </StravaContext.Provider>
+  );
 }

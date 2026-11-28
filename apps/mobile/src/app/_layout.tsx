@@ -10,7 +10,7 @@ import { expoNotifier } from '@/data/notifier';
 import { StravaProvider } from '@/strava/StravaProvider';
 import { ExplainProvider } from '@/ui/explain/ExplainProvider';
 import { useAppFonts } from '@/ui/fonts';
-import { darkColors, useTheme } from '@/ui/theme';
+import { useTheme } from '@/ui/theme';
 
 type ScreenOptions = NonNullable<ComponentProps<typeof Stack.Screen>['options']>;
 
@@ -53,6 +53,7 @@ function RootStack() {
 
 export default function RootLayout() {
   const fontsReady = useAppFonts();
+  const { colors } = useTheme();
   return (
     <LiveProvider>
       {fontsReady ? (
@@ -64,7 +65,7 @@ export default function RootLayout() {
           </StravaProvider>
         </CoachProvider>
       ) : (
-        <View style={{ flex: 1, backgroundColor: darkColors.background }} />
+        <View style={{ flex: 1, backgroundColor: colors.background }} />
       )}
     </LiveProvider>
   );

@@ -5,6 +5,7 @@ import type { NotificationPrefs } from '@/data/userData';
 import { planWeek, type PlanGoal, type PlanInput as WeekInput, type WeeklyPlan } from '@/data/weeklyPlan';
 
 export const DIGEST_CLOCK = '07:00';
+export const COACH_CHECKIN_CLOCK = '19:00';
 export const DATA_AT_RISK_DAYS = 2;
 export const DIGEST_HORIZON_DAYS = 3;
 export const SYNC_ALERT_GAP_MS = 6 * 3_600_000;
@@ -57,12 +58,20 @@ export function goalFacts(plan: WeeklyPlan | null, input: WeekInput): GoalFact[]
   return facts;
 }
 
+export interface StepsGoalFact {
+  day: string;
+  steps: number | null;
+  stepsGoal: number | null;
+}
+
 export type AlertPayload =
   | ({ kind: 'digest'; day: string } & DigestFacts)
   | { kind: 'syncFailed' }
   | { kind: 'dataAtRisk'; days: number }
   | ({ kind: 'goal' } & GoalFact)
-  | { kind: 'windDown'; bed: number };
+  | { kind: 'windDown'; bed: number }
+  | { kind: 'stepsGoal'; day: string; value: number; target: number }
+  | { kind: 'coachCheckin'; day: string };
 
 export type AlertKind = AlertPayload['kind'];
 export type Alert = AlertPayload & { id: string; at: number };
@@ -78,6 +87,8 @@ export interface PlanInput {
   watchBand: boolean;
   fresh?: readonly Alert[];
   goals?: readonly GoalFact[];
+  steps?: readonly StepsGoalFact[];
+  coachReady?: boolean;
   windDown?: WindDown | null;
 }
 
@@ -142,6 +153,62 @@ export function planDigests(input: Pick<PlanInput, 'now' | 'prefs' | 'sent' | 'f
   return out;
 }
 
+export function stepsGoalFacts(days: readonly DayRecord[], stepsGoal: number | null, now: Date): StepsGoalFact[] {
+  const today = localDay(now);
+  return days.filter((record) => record.day === today).map((record) => ({ day: record.day, steps: record.steps, stepsGoal }));
+}
+
+export function stepsGoalAlertId(day: string): string {
+  return `steps:${day}`;
+}
+
+export function planStepsGoal(input: Pick<PlanInput, 'now' | 'prefs' | 'sent' | 'steps'>): Alert[] {
+  const today = localDay(input.now);
+  const out: Alert[] = [];
+  for (const fact of input.steps ?? []) {
+    if (fact.day !== today || fact.steps === null || fact.stepsGoal === null || fact.steps < fact.stepsGoal) continue;
+    const id = stepsGoalAlertId(fact.day);
+    if (input.sent.includes(id) || out.some((alert) => alert.id === id)) continue;
+    const at = outOfQuiet(input.now, input.prefs);
+    if (localDay(at) !== fact.day) continue;
+    out.push({ kind: 'stepsGoal', id, at: at.getTime(), day: fact.day, value: fact.steps, target: fact.stepsGoal });
+  }
+  return out;
+}
+
+export function planCoachCheckin(input: Pick<PlanInput, 'now' | 'prefs' | 'sent' | 'coachReady'>): Alert | null {
+  if (input.coachReady !== true) return null;
+  const { now, prefs } = input;
+  const minutes = clockMinutes(COACH_CHECKIN_CLOCK) ?? 19 * 60;
+  for (let offset = 0; offset <= 1; offset += 1) {
+    const slot = atMinutes(now, minutes, offset);
+    const at = outOfQuiet(slot, prefs);
+    if (at.getTime() <= now.getTime() || localDay(at) !== localDay(slot)) continue;
+    const day = localDay(at);
+    const id = `coach:${day}`;
+    if (input.sent.includes(id)) continue;
+    return { kind: 'coachCheckin', id, at: at.getTime(), day };
+  }
+  return null;
+}
+
+export function kindEnabled(prefs: NotificationPrefs, kind: AlertKind): boolean {
+  switch (kind) {
+    case 'digest':
+      return prefs.morningDigest;
+    case 'goal':
+    case 'stepsGoal':
+      return prefs.goals;
+    case 'coachCheckin':
+      return prefs.coachCheckins === true;
+    case 'windDown':
+      return true;
+    case 'syncFailed':
+    case 'dataAtRisk':
+      return prefs.syncProblems;
+  }
+}
+
 export function planDataAtRisk(input: Pick<PlanInput, 'now' | 'prefs' | 'sent' | 'lastSyncAt' | 'watchBand'>): Alert | null {
   const { now, prefs, lastSyncAt } = input;
   if (!input.watchBand || lastSyncAt === null) return null;
@@ -177,19 +244,12 @@ export function planGoals(input: Pick<PlanInput, 'now' | 'prefs' | 'sent' | 'pen
     .map((fact) => ({ kind: 'goal', id: goalAlertId(fact), at, ...fact }));
 }
 
-function wanted(alert: Alert, prefs: NotificationPrefs): boolean {
-  if (alert.kind === 'digest') return prefs.morningDigest;
-  if (alert.kind === 'goal') return prefs.goals;
-  if (alert.kind === 'windDown') return true;
-  return prefs.syncProblems;
-}
-
 export function planAlerts(input: PlanInput): Alert[] {
   const { prefs, now } = input;
   const wind = windDownAlert(input.windDown, now);
   const dueWind = input.pending.filter((alert) => alert.kind === 'windDown' && alert.at <= now.getTime());
   if (!prefs.enabled) return [...dueWind, ...(wind === null ? [] : [wind])];
-  const planned: Alert[] = input.pending.filter((alert) => (alert.at <= now.getTime() || alert.kind === 'goal') && wanted(alert, prefs));
+  const planned: Alert[] = input.pending.filter((alert) => (alert.at <= now.getTime() || alert.kind === 'goal') && kindEnabled(prefs, alert.kind));
   if (wind !== null) planned.push(wind);
   if (prefs.syncProblems) {
     for (const alert of input.pending) {
@@ -201,6 +261,11 @@ export function planAlerts(input: PlanInput): Alert[] {
   }
   if (prefs.morningDigest) planned.push(...planDigests(input));
   if (prefs.goals) planned.push(...planGoals(input));
+  if (prefs.goals) planned.push(...planStepsGoal(input));
+  if (prefs.coachCheckins === true) {
+    const checkin = planCoachCheckin(input);
+    if (checkin !== null) planned.push(checkin);
+  }
   const seen = new Set<string>();
   return planned
     .filter((alert) => {

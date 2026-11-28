@@ -2,10 +2,14 @@ import type { IconName } from '../Icon';
 import type { IconTileStyle } from '../ListGroup';
 import type { ColorTokens } from '../theme';
 
-export type TileTone = 'info' | 'positive' | 'warning' | 'negative' | 'purple' | 'pink' | 'neutral' | 'gold';
+export type TileTone = 'info' | 'positive' | 'warning' | 'negative' | 'purple' | 'pink' | 'neutral' | 'gold' | 'plain' | 'load';
 
 export function tile(colors: ColorTokens, icon: IconName, tone: TileTone = 'neutral'): IconTileStyle {
   switch (tone) {
+    case 'plain':
+      return { icon, color: colors.text, background: colors.surfaceAlt };
+    case 'load':
+      return { icon, color: colors.metric.loadBright, background: colors.tint.load };
     case 'info':
       return { icon, color: colors.info, background: colors.infoSoft };
     case 'positive':

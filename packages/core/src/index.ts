@@ -16,6 +16,7 @@ export * from './ecg';
 export * from './ongoingNight';
 export * from './pipeline';
 export * from './redecode';
+export * from './retention';
 export * from './batteryPack';
 export * from './wear';
 export * from './bandStatus';

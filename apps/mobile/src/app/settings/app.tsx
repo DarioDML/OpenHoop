@@ -2,18 +2,20 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import type { DataSource, Language } from '@/data/types';
+import { isCustomLayout, previousLayoutPatch } from '@/data/layoutRestore';
+import type { DataSource, Language, Units } from '@/data/types';
 import type { NotificationPrefs } from '@/data/userData';
 import { DATA_AT_RISK_DAYS, clockMinutes } from '@/lib/notificationPlan';
+import type { ThemePreference } from '@/lib/themePreference';
 import { useT } from '@/i18n/useT';
+import { featureEnabled } from '@/net/features';
 import { AppText } from '@/ui/AppText';
-import { Card } from '@/ui/Card';
 import { Button, Field, Segmented } from '@/ui/controls';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
+import { NOTIFICATION_PRESETS, presetChoice, presetOf, type NotificationPreset } from '@/ui/manage/notificationPresets';
 import { useNotificationSwitch } from '@/ui/manage/notificationSwitch';
-import { ToggleRow, KeyValueRow } from '@/ui/manage/rows';
+import { ToggleRow } from '@/ui/manage/rows';
 import { SettingsPage } from '@/ui/manage/SettingsPage';
-import { tile } from '@/ui/manage/tiles';
 import { spacing, useTheme } from '@/ui/theme';
 
 interface QuietFieldProps {
@@ -49,7 +51,7 @@ function QuietField({ label, value, onSave, disabled, testID }: QuietFieldProps)
       keyboardType="numbers-and-punctuation"
       maxLength={5}
       error={invalid}
-      hint={invalid ? t('appSettings.quietInvalid') : t('appSettings.quietHint')}
+      hint={invalid ? t('appSettings.quietInvalid') : undefined}
     />
   );
 }
@@ -58,25 +60,173 @@ export default function AppSettingsScreen() {
   const { t } = useT();
   const { colors } = useTheme();
   const { settings, userData, updateSettings, updateUserData } = useAppData();
+  const [restored, setRestored] = useState(false);
   const prefs = userData.notifications;
   const notifications = useNotificationSwitch();
   const off = !notifications.enabled;
+  const preset = presetOf(prefs);
+  const coachReady = featureEnabled(userData.network, 'coach');
+  const restorePatch = previousLayoutPatch(userData);
+  const hero = t(userData.homeHero === 'compact' ? 'appSettings.hero.compact' : 'appSettings.hero.classic');
   const savePrefs = (patch: Partial<NotificationPrefs>): void => {
     void updateUserData({ notifications: { ...prefs, ...patch } });
+  };
+  const restore = async (): Promise<void> => {
+    if (restorePatch === null) return;
+    setRestored(await updateUserData(restorePatch));
   };
 
   return (
     <SettingsPage title={t('appSettings.title')} tint="neutral" notice testID="app-settings">
+      <CapHeader title={t('appSettings.units')} />
+      <Segmented<Units>
+        testID="units-segmented"
+        value={settings.units}
+        onChange={(units) => void updateSettings({ units })}
+        options={[
+          { value: 'metric', label: t('appSettings.units.metric') },
+          { value: 'imperial', label: t('appSettings.units.imperial') },
+        ]}
+      />
+
+      <CapHeader title={t('appSettings.theme')} />
+      <Segmented<ThemePreference>
+        testID="theme-segmented"
+        value={userData.theme}
+        onChange={(theme) => void updateUserData({ theme })}
+        options={[
+          { value: 'dark', label: t('appSettings.theme.dark') },
+          { value: 'light', label: t('appSettings.theme.light') },
+          { value: 'system', label: t('appSettings.theme.system') },
+        ]}
+      />
+      <AppText variant="caption" muted>
+        {t('appSettings.themeBody')}
+      </AppText>
+
       <CapHeader title={t('settings.language')} />
       <Segmented<Language>
         testID="language-segmented"
         value={settings.language}
         onChange={(language) => void updateSettings({ language })}
         options={[
-          { value: 'nl', label: t('settings.lang.nl') },
           { value: 'en', label: t('settings.lang.en') },
+          { value: 'nl', label: t('settings.lang.nl') },
         ]}
       />
+
+      <CapHeader title={t('appSettings.notifications')} />
+      <ListGroup>
+        <ToggleRow
+          title={t('appSettings.notificationsAllow')}
+          subtitle={t('appSettings.notificationsAllowBody')}
+          value={notifications.enabled}
+          onChange={notifications.toggle}
+          disabled={notifications.busy}
+          testID="toggle-notifications"
+        />
+        {notifications.blocked ? (
+          <View style={{ gap: spacing.sm, paddingVertical: spacing.sm }} testID="notifications-blocked">
+            <AppText variant="label" color={colors.warning}>
+              {t('appSettings.notificationsBlocked')}
+            </AppText>
+            <Button variant="tertiary" label={t('appSettings.openSystemSettings')} onPress={notifications.openSettings} />
+          </View>
+        ) : null}
+      </ListGroup>
+      <Segmented<NotificationPreset | 'custom'>
+        testID="notification-preset"
+        value={preset ?? 'custom'}
+        onChange={(next) => {
+          if (next !== 'custom' && !off) savePrefs(presetChoice(next));
+        }}
+        options={NOTIFICATION_PRESETS.map((value) => ({ value, label: t(`appSettings.preset.${value}`) }))}
+      />
+      {preset === null ? (
+        <AppText variant="caption" muted testID="notification-preset-custom">
+          {t('appSettings.preset.custom')}
+        </AppText>
+      ) : null}
+      <ListGroup>
+        <ToggleRow
+          title={t('appSettings.morningDigest')}
+          subtitle={t('appSettings.morningDigestBody')}
+          value={prefs.morningDigest}
+          onChange={(morningDigest) => savePrefs({ morningDigest })}
+          disabled={off}
+          testID="toggle-morning-digest"
+        />
+        <ToggleRow
+          title={t('appSettings.syncProblems')}
+          subtitle={t('appSettings.syncProblemsBody', { days: DATA_AT_RISK_DAYS })}
+          value={prefs.syncProblems}
+          onChange={(syncProblems) => savePrefs({ syncProblems })}
+          disabled={off}
+          testID="toggle-sync-problems"
+        />
+        <ToggleRow
+          title={t('appSettings.goalHits')}
+          subtitle={t('appSettings.goalHitsBody')}
+          value={prefs.goals}
+          onChange={(goals) => savePrefs({ goals })}
+          disabled={off}
+          testID="toggle-goals"
+        />
+        <ToggleRow
+          title={t('appSettings.coachCheckins')}
+          subtitle={coachReady ? t('appSettings.coachCheckinsBody') : t('appSettings.coachCheckinsOff')}
+          value={prefs.coachCheckins === true}
+          onChange={(coachCheckins) => savePrefs({ coachCheckins })}
+          disabled={off}
+          testID="toggle-coach-checkins"
+        />
+      </ListGroup>
+      <View style={{ flexDirection: 'row', gap: spacing.md }}>
+        <View style={{ flex: 1 }}>
+          <QuietField
+            key={`start-${prefs.quietStart}`}
+            label={t('appSettings.quietFrom')}
+            value={prefs.quietStart}
+            onSave={(quietStart) => savePrefs({ quietStart })}
+            disabled={off}
+            testID="quiet-start"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <QuietField
+            key={`end-${prefs.quietEnd}`}
+            label={t('appSettings.quietUntil')}
+            value={prefs.quietEnd}
+            onSave={(quietEnd) => savePrefs({ quietEnd })}
+            disabled={off}
+            testID="quiet-end"
+          />
+        </View>
+      </View>
+      <AppText variant="caption" muted>
+        {t('appSettings.quietHint')}
+      </AppText>
+      <AppText variant="label" muted>
+        {t('appSettings.notificationsLocal')}
+      </AppText>
+
+      <CapHeader title={t('appSettings.layout')} />
+      <ListGroup>
+        <ListRow
+          title={t('appSettings.homeLayout')}
+          subtitle={t(isCustomLayout(userData) ? 'appSettings.layoutCustomised' : 'appSettings.layoutDefault', { hero })}
+          href="/home/customize"
+          testID="home-layout"
+        />
+        <ListRow
+          title={t('appSettings.restoreLayout')}
+          subtitle={restored ? t('appSettings.restoreLayoutDone') : restorePatch === null ? t('appSettings.restoreLayoutNone') : t('appSettings.restoreLayoutBody')}
+          onPress={restorePatch === null ? undefined : () => void restore()}
+          disabled={restorePatch === null && !restored}
+          chevron={restorePatch !== null}
+          testID="restore-layout"
+        />
+      </ListGroup>
 
       <CapHeader title={t('settings.dataSource')} />
       <Segmented<DataSource>
@@ -96,84 +246,6 @@ export default function AppSettingsScreen() {
           {t('settings.sourceUntested')}
         </AppText>
       ) : null}
-
-      <CapHeader title={t('appSettings.theme')} />
-      <Card>
-        <KeyValueRow label={t('appSettings.theme')} value={t('appSettings.themeSystem')} />
-        <AppText variant="label" muted>
-          {t('appSettings.themeBody')}
-        </AppText>
-      </Card>
-
-      <CapHeader title={t('appSettings.notifications')} />
-      <Card style={{ gap: 0 }}>
-        <ToggleRow
-          title={t('appSettings.notificationsAllow')}
-          subtitle={t('appSettings.notificationsAllowBody')}
-          value={notifications.enabled}
-          onChange={notifications.toggle}
-          disabled={notifications.busy}
-          testID="toggle-notifications"
-        />
-        {notifications.blocked ? (
-          <View style={{ gap: spacing.sm, paddingBottom: spacing.sm }} testID="notifications-blocked">
-            <AppText variant="label" color={colors.warning}>
-              {t('appSettings.notificationsBlocked')}
-            </AppText>
-            <Button variant="tertiary" label={t('appSettings.openSystemSettings')} onPress={notifications.openSettings} />
-          </View>
-        ) : null}
-        <ToggleRow
-          title={t('appSettings.morningDigest')}
-          subtitle={t('appSettings.morningDigestBody')}
-          value={prefs.morningDigest}
-          onChange={(morningDigest) => savePrefs({ morningDigest })}
-          disabled={off}
-          testID="toggle-morning-digest"
-        />
-        <ToggleRow
-          title={t('appSettings.syncProblems')}
-          subtitle={t('appSettings.syncProblemsBody', { days: DATA_AT_RISK_DAYS })}
-          value={prefs.syncProblems}
-          onChange={(syncProblems) => savePrefs({ syncProblems })}
-          disabled={off}
-          testID="toggle-sync-problems"
-        />
-        <ToggleRow
-          title={t('home.notif.goalsSetting')}
-          subtitle={t('home.notif.goalsSettingBody')}
-          value={prefs.goals}
-          onChange={(goals) => savePrefs({ goals })}
-          disabled={off}
-          testID="toggle-goals"
-        />
-        <View style={{ paddingTop: spacing.sm, gap: spacing.md }}>
-          <QuietField
-            key={`start-${prefs.quietStart}`}
-            label={t('appSettings.quietFrom')}
-            value={prefs.quietStart}
-            onSave={(quietStart) => savePrefs({ quietStart })}
-            disabled={off}
-            testID="quiet-start"
-          />
-          <QuietField
-            key={`end-${prefs.quietEnd}`}
-            label={t('appSettings.quietUntil')}
-            value={prefs.quietEnd}
-            onSave={(quietEnd) => savePrefs({ quietEnd })}
-            disabled={off}
-            testID="quiet-end"
-          />
-        </View>
-      </Card>
-      <AppText variant="label" muted>
-        {t('appSettings.notificationsLocal')}
-      </AppText>
-
-      <CapHeader title={t('appSettings.layout')} />
-      <ListGroup>
-        <ListRow icon={tile(colors, 'widget', 'info')} title={t('appSettings.homeLayout')} subtitle={t('appSettings.homeLayoutBody')} href="/home/customize" />
-      </ListGroup>
     </SettingsPage>
   );
 }

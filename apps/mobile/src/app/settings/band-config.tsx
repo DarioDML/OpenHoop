@@ -1,36 +1,43 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Share, View } from 'react-native';
 
 import {
+  FLAG_KEYS,
   changeFor,
+  configSnapshots,
   describeFields,
   isWritableValue,
+  changeSummary,
   parseBandConfig,
   type BandConfigSnapshot,
   type BandConfigState,
-  type ConfigKind,
+  type ConfigChange,
   type FieldRow,
   type WritableValue,
 } from '@/data/bandConfig';
 import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
-import { formatAgo } from '@/lib/format';
+import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
+import { formatAgo, formatClock, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Button } from '@/ui/controls';
-import { CapHeader } from '@/ui/ListGroup';
 import { ConfirmDangerDialog } from '@/ui/ConfirmDangerDialog';
+import { Button } from '@/ui/controls';
+import { Icon } from '@/ui/Icon';
+import { LevelNote } from '@/ui/LevelNote';
+import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
 import { ConfigFieldRow, writableText } from '@/ui/manage/ConfigFieldRow';
 import { KeyValueRow } from '@/ui/manage/rows';
-import { SettingsPage } from '@/ui/manage/SettingsPage';
-import { ParityBadge } from '@/ui/ParityBadge';
-import { spacing } from '@/ui/theme';
+import { tile } from '@/ui/manage/tiles';
+import { NoticeCard } from '@/ui/NoticeCard';
+import { Screen } from '@/ui/Screen';
+import { spacing, useTheme } from '@/ui/theme';
+import { IconButton, TopBar } from '@/ui/TopBar';
 
-interface PendingWrite {
-  row: FieldRow;
-  from: WritableValue;
-  to: WritableValue;
-}
+type Pending =
+  | { kind: 'write'; row: FieldRow; from: WritableValue; to: WritableValue }
+  | { kind: 'putBack'; changes: ConfigChange[] }
+  | { kind: 'restore'; change: ConfigChange };
 
 interface SnapshotProps {
   snapshot: BandConfigSnapshot;
@@ -56,6 +63,7 @@ function Snapshot({ snapshot, onChange, onRestore, disabled }: SnapshotProps) {
         onChange={change}
         onRestore={() => onRestore(row)}
         disabled={disabled}
+        unchangedMarker={row.writable}
       />
     );
   };
@@ -63,7 +71,14 @@ function Snapshot({ snapshot, onChange, onRestore, disabled }: SnapshotProps) {
     <>
       {flags.known.length > 0 ? (
         <>
-          <CapHeader title={t('bandConfig.flagsTitle')} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.sm }}>
+            <AppText variant="capLarge" muted>
+              {t('bandConfig.flagsTitle')}
+            </AppText>
+            <AppText variant="cap" muted testID="config-flags-count">
+              {t('bandConfig.flagsCount', { shown: flags.known.length, total: FLAG_KEYS.length })}
+            </AppText>
+          </View>
           <Card testID="config-flags" style={{ gap: 0 }}>
             {flags.known.map(known)}
           </Card>
@@ -107,15 +122,19 @@ function StateCard({ state }: { state: Exclude<BandConfigState, { status: 'ok' }
 }
 
 export default function BandConfigScreen() {
-  const { t } = useT();
+  const { t, language } = useT();
+  const { colors } = useTheme();
   const { device, readBandConfig, bandActions } = useAppData();
   const [reading, setReading] = useState(false);
   const [writing, setWriting] = useState(false);
-  const [pending, setPending] = useState<PendingWrite | null>(null);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [putBack, setPutBack] = useState<{ restored: number; total: number } | null>(null);
   const unknown = t('band.unknown');
   const state = useMemo(() => parseBandConfig(device.configSnapshot), [device.configSnapshot]);
   const busy = reading || writing || device.connection === 'syncing' || device.connection === 'connecting';
   const nowS = Math.floor(Date.now() / 1000);
+  const summary = state.status === 'ok' ? changeSummary(state.snapshot) : null;
+  const snapshots = state.status === 'ok' ? configSnapshots(state.snapshot) : [];
 
   const read = async (): Promise<void> => {
     setReading(true);
@@ -134,21 +153,90 @@ export default function BandConfigScreen() {
       setWriting(false);
     }
   };
-  const write = (kind: ConfigKind, key: string, to: WritableValue): Promise<void> => guarded(() => bandActions.writeConfig(kind, key, to));
   const restore = (row: FieldRow): Promise<void> => guarded(() => bandActions.restoreConfig(row.kind, row.entry.key));
+  const putBackAll = (changes: readonly ConfigChange[]): Promise<void> =>
+    guarded(async () => {
+      let restored = 0;
+      for (const change of changes) {
+        if (!(await bandActions.restoreConfig(change.kind, change.key))) break;
+        restored += 1;
+      }
+      setPutBack({ restored, total: changes.length });
+      return restored === changes.length;
+    });
 
   const confirmWord = t('bandConfig.write.word');
+  const onOff = (kind: ConfigChange['kind'], value: WritableValue): string => (kind === 'flag' ? t(value === '1' ? 'bandConfig.on' : 'bandConfig.off') : value);
+  const dialog = (() => {
+    if (pending === null) return { title: '', body: '' };
+    if (pending.kind === 'write') {
+      return {
+        title: t('bandConfig.write.dialogTitle'),
+        body: t('bandConfig.write.dialogBody', {
+          key: pending.row.entry.key,
+          from: writableText(t, pending.row, pending.from),
+          to: writableText(t, pending.row, pending.to),
+          word: confirmWord,
+        }),
+      };
+    }
+    if (pending.kind === 'putBack') {
+      return { title: t('bandConfig.putBackTitle'), body: t('bandConfig.putBackBody', { keys: pending.changes.map((change) => change.key).join(', '), word: confirmWord }) };
+    }
+    return {
+      title: t('bandConfig.restoreOneTitle', { key: pending.change.key }),
+      body: t('bandConfig.restoreOneBody', { key: pending.change.key, value: onOff(pending.change.kind, pending.change.original), word: confirmWord }),
+    };
+  })();
+  const confirm = (): void => {
+    const target = pending;
+    setPending(null);
+    if (target === null) return;
+    if (target.kind === 'write') void guarded(() => bandActions.writeConfig(target.row.kind, target.row.entry.key, target.to));
+    else if (target.kind === 'putBack') void putBackAll(target.changes);
+    else void guarded(() => bandActions.restoreConfig(target.change.kind, target.change.key));
+  };
+  const snapshotTime = (at: number): string => {
+    const tz = deviceTzOffsetS(new Date(at * 1000));
+    return `${formatShortDay(unixToIsoDate(at, tz), language)} ${formatClock(at, tz)}`;
+  };
+  const share = (): void => {
+    if (device.configSnapshot !== null) void Share.share({ title: t('bandConfig.title'), message: device.configSnapshot });
+  };
+
+  const header = (
+    <>
+      <TopBar
+        title={t('bandConfig.title')}
+        right={device.configSnapshot === null ? undefined : <IconButton icon="import" label={t('bandConfig.share')} onPress={share} color={colors.text} testID="config-share" />}
+      />
+      <View style={{ gap: spacing.sm }} testID="config-hero">
+        <AppText variant="capLarge" soft>
+          {t('bandConfig.eyebrow', { model: device.model ?? unknown, firmware: device.firmware ?? unknown })}
+        </AppText>
+        <AppText variant="h1" accessibilityRole="header" testID="config-summary">
+          {summary === null ? t('bandConfig.summaryNotRead') : t('bandConfig.summary', { unchanged: summary.unchanged, total: summary.total })}
+        </AppText>
+        {summary === null ? null : (
+          <AppText variant="label" soft>
+            {t('bandConfig.changesExplained')}
+          </AppText>
+        )}
+      </View>
+    </>
+  );
 
   return (
-    <SettingsPage title={t('device.config')} tint="neutral" notice testID="band-config">
-      <Card style={{ gap: spacing.xs }}>
+    <Screen header={header} tint="neutral" testID="band-config">
+      <NoticeCard />
+      <ListGroup>
         <KeyValueRow label={t('band.model')} value={device.model ?? unknown} />
         <KeyValueRow label={t('band.firmware')} value={device.firmware ?? unknown} />
         <KeyValueRow label={t('band.lock')} value={t(`lock.${device.lockState}`)} />
         {state.status === 'ok' || state.status === 'empty' ? (
           <KeyValueRow label={t('bandConfig.readAt')} value={formatAgo(t, nowS, state.snapshot.readAt)} testID="config-read-at" />
         ) : null}
-      </Card>
+      </ListGroup>
       <Card tone="warning" testID="config-unverified-note" style={{ gap: 6 }}>
         {state.status === 'ok' || state.status === 'empty' ? (
           <AppText variant="bodyStrong" testID="config-source">
@@ -160,52 +248,95 @@ export default function BandConfigScreen() {
         </AppText>
       </Card>
       <Button label={reading ? t('bandConfig.reading') : t('bandConfig.read')} onPress={() => void read()} disabled={busy} testID="read-config-button" />
-      <Card testID="config-write-note" style={{ gap: 6 }}>
-        <AppText variant="bodyStrong">{t('bandConfig.write.title')}</AppText>
-        <AppText variant="label" muted>
-          {t('bandConfig.write.body')}
-        </AppText>
-      </Card>
+
       {state.status === 'ok' ? (
         <Snapshot
           snapshot={state.snapshot}
-          onChange={(row, to) => setPending({ row, from: to === '1' ? '2' : '1', to })}
+          onChange={(row, to) => setPending({ kind: 'write', row, from: to === '1' ? '2' : '1', to })}
           onRestore={(row) => void restore(row)}
           disabled={busy}
         />
       ) : (
         <StateCard state={state} />
       )}
+
+      <Card testID="config-write-note" style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: colors.infoSoft }}>
+        <Icon name="sync" color={colors.info} size={16} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <AppText variant="bodyStrong" color={colors.info}>
+            {t('bandConfig.write.title')}
+          </AppText>
+          <AppText variant="body" soft>
+            {t('bandConfig.write.body')}
+          </AppText>
+        </View>
+      </Card>
+
+      {summary !== null ? (
+        <>
+          <Button
+            label={t('bandConfig.putBackAll')}
+            variant="soft"
+            disabled={busy || summary.changed.length === 0}
+            onPress={() => setPending({ kind: 'putBack', changes: summary.changed })}
+            testID="put-back-all"
+          />
+          {putBack !== null && putBack.restored < putBack.total ? (
+            <AppText variant="label" color={colors.warning} testID="put-back-partial">
+              {t('bandConfig.putBackPartial', { restored: putBack.restored, total: putBack.total })}
+            </AppText>
+          ) : null}
+          {summary.changed.length === 0 ? (
+            <AppText variant="caption" muted testID="put-back-none">
+              {t('bandConfig.putBackNone')}
+            </AppText>
+          ) : null}
+        </>
+      ) : null}
+
+      {snapshots.length > 0 ? (
+        <>
+          <CapHeader title={t('bandConfig.snapshots')} />
+          <ListGroup>
+            {snapshots.map((entry) => {
+              const change = entry.change;
+              return change === null ? (
+                <ListRow
+                  key={entry.id}
+                  icon={tile(colors, 'lock', 'positive')}
+                  title={snapshotTime(entry.at)}
+                  subtitle={t('bandConfig.snapshotRead')}
+                  chevron={false}
+                  testID="snapshot-read"
+                />
+              ) : (
+                <ListRow
+                  key={entry.id}
+                  icon={tile(colors, 'sync', 'plain')}
+                  title={snapshotTime(entry.at)}
+                  subtitle={`${t('bandConfig.snapshotBefore', { key: change.key })} · ${t('bandConfig.snapshotBeforeHint', { key: change.key })}`}
+                  onPress={busy ? undefined : () => setPending({ kind: 'restore', change })}
+                  testID={`snapshot-${change.key}`}
+                />
+              );
+            })}
+          </ListGroup>
+        </>
+      ) : null}
+
+      <LevelNote level="D" text={t('device.flags.levelD')} />
+
       <ConfirmDangerDialog
         visible={pending !== null}
         commandName={confirmWord}
-        title={t('bandConfig.write.dialogTitle')}
-        body={
-          pending === null
-            ? ''
-            : t('bandConfig.write.dialogBody', {
-                key: pending.row.entry.key,
-                from: writableText(t, pending.row, pending.from),
-                to: writableText(t, pending.row, pending.to),
-                word: confirmWord,
-              })
-        }
+        title={dialog.title}
+        body={dialog.body}
         inputLabel={t('bandConfig.write.inputLabel')}
         confirmLabel={t('bandConfig.write.confirm')}
         cancelLabel={t('common.cancel')}
         onCancel={() => setPending(null)}
-        onConfirm={() => {
-          const target = pending;
-          setPending(null);
-          if (target !== null) void write(target.row.kind, target.row.entry.key, target.to);
-        }}
+        onConfirm={confirm}
       />
-      <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
-        <ParityBadge level="D" />
-        <AppText variant="label" muted style={{ flex: 1 }}>
-          {t('device.flags.levelD')}
-        </AppText>
-      </View>
-    </SettingsPage>
+    </Screen>
   );
 }

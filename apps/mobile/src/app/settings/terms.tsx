@@ -39,9 +39,11 @@ export default function TermsScreen() {
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.sm,
-          minHeight: 52,
-          paddingHorizontal: 14,
-          borderRadius: radius.md,
+          minHeight: 48,
+          paddingHorizontal: spacing.lg,
+          borderRadius: radius.pill,
+          borderWidth: 1,
+          borderColor: colors.borderStrong,
           backgroundColor: colors.surface,
         }}>
         <Icon name="search" color={colors.textMuted} size={20} />
@@ -53,7 +55,7 @@ export default function TermsScreen() {
           value={query}
           onChangeText={setQuery}
           autoCorrect={false}
-          style={{ flex: 1, minHeight: 48, color: colors.text, fontSize: 16, fontFamily: fonts.regular }}
+          style={{ flex: 1, minHeight: 44, color: colors.text, fontSize: 16, fontFamily: fonts.regular }}
         />
       </View>
       {visible.length === 0 ? (

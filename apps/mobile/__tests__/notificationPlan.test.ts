@@ -9,8 +9,11 @@ import {
   isQuiet,
   localDay,
   outOfQuiet,
+  stepsGoalFacts,
   planAlerts,
+  planCoachCheckin,
   planDataAtRisk,
+  planStepsGoal,
   planDigests,
   reconcile,
   syncFailedAlert,
@@ -310,6 +313,7 @@ describe('inbox', () => {
       morningDigest: false,
       syncProblems: true,
       goals: false,
+      coachCheckins: false,
       quietStart: '22:00',
       quietEnd: '07:00',
     });
@@ -355,5 +359,55 @@ describe('wind-down reminder', () => {
     expect(parseUserData(JSON.stringify({ ...data, windDown: { at: 5, bed: 1440 } })).windDown).toBeNull();
     expect(parseUserData(JSON.stringify({ ...data, sleepGoal: 'getBy' })).sleepGoal).toBe('getBy');
     expect(parseUserData(JSON.stringify({ ...data, sleepGoal: 'nap' })).sleepGoal).toBeNull();
+  });
+});
+
+describe('steps goal hits and coach check-ins', () => {
+  const goal = (steps: number | null, stepsGoal: number | null, day = '2026-11-25') => [{ day, steps, stepsGoal }];
+
+  it('sends a goal hit once when today reaches the steps goal, only when switched on', () => {
+    const now = at(25, 15);
+    expect(planStepsGoal(input({ now, steps: goal(9_000, 10_000) }))).toEqual([]);
+    expect(planStepsGoal(input({ now, steps: goal(12_000, null) }))).toEqual([]);
+    const [hit] = planStepsGoal(input({ now, steps: goal(12_000, 10_000) }));
+    expect(hit).toEqual({ kind: 'stepsGoal', id: 'steps:2026-11-25', at: now.getTime(), day: '2026-11-25', value: 12_000, target: 10_000 });
+    expect(planStepsGoal(input({ now, steps: goal(12_000, 10_000), sent: ['steps:2026-11-25'] }))).toEqual([]);
+    expect(planStepsGoal(input({ now, steps: goal(12_000, 10_000, '2026-11-24') }))).toEqual([]);
+    expect(planAlerts(input({ now, steps: goal(12_000, 10_000), prefs: { ...PREFS, morningDigest: false, goals: false } })).some((alert) => alert.kind === 'stepsGoal')).toBe(false);
+    expect(planAlerts(input({ now, steps: goal(12_000, 10_000), prefs: { ...PREFS, morningDigest: false, goals: true } })).map((alert) => alert.id)).toEqual([
+      'steps:2026-11-25',
+    ]);
+  });
+
+  it('does not carry a goal hit reached in quiet hours over to the next day', () => {
+    expect(planStepsGoal(input({ now: at(25, 23), steps: goal(12_000, 10_000) }))).toEqual([]);
+  });
+
+  it('plans at most one coach check-in a day, only when the coach may use the network', () => {
+    const prefs = { ...PREFS, morningDigest: false, coachCheckins: true };
+    expect(planCoachCheckin(input({ now: at(25, 12), prefs }))).toBeNull();
+    const checkin = planCoachCheckin(input({ now: at(25, 12), prefs, coachReady: true }));
+    expect(checkin).toEqual({ kind: 'coachCheckin', id: 'coach:2026-11-25', at: at(25, 19).getTime(), day: '2026-11-25' });
+    expect(planCoachCheckin(input({ now: at(25, 20), prefs, coachReady: true }))?.id).toBe('coach:2026-11-26');
+    expect(planCoachCheckin(input({ now: at(25, 12), prefs, coachReady: true, sent: ['coach:2026-11-25'] }))?.id).toBe('coach:2026-11-26');
+    expect(planAlerts(input({ now: at(25, 12), prefs, coachReady: true })).map((alert) => alert.id)).toEqual(['coach:2026-11-25']);
+    expect(planAlerts(input({ now: at(25, 12), prefs: { ...prefs, coachCheckins: false }, coachReady: true }))).toEqual([]);
+  });
+
+  it('builds goal facts from today only', () => {
+    const today = { day: '2026-11-25', steps: 8_000 };
+    const yesterday = { day: '2026-11-24', steps: 20_000 };
+    expect(stepsGoalFacts([yesterday, today] as unknown as Parameters<typeof stepsGoalFacts>[0], 10_000, at(25, 9))).toEqual([{ day: '2026-11-25', steps: 8_000, stepsGoal: 10_000 }]);
+  });
+
+  it('writes the texts and round-trips the new kinds through storage', () => {
+    const hit: Alert = { kind: 'stepsGoal', id: 'steps:2026-11-25', at: 5, day: '2026-11-25', value: 12_000, target: 10_000 };
+    const coach: Alert = { kind: 'coachCheckin', id: 'coach:2026-11-25', at: 6, day: '2026-11-25' };
+    expect(alertText('en', hit)).toEqual({ title: 'Goal hit', body: '12000 steps today. Your goal was 10000.' });
+    expect(alertText('nl', coach).title).toBe('Check-in van de coach');
+    const state = { pending: [hit, coach], inbox: [], sent: [] };
+    expect(parseNotificationState(serializeNotificationState(state))).toEqual(state);
+    const tampered = JSON.stringify({ pending: [{ ...hit, day: '2026-11-26' }, { ...coach, id: 'coach:x' }, { ...hit, value: -1 }], inbox: [], sent: [] });
+    expect(parseNotificationState(tampered).pending).toEqual([]);
   });
 });

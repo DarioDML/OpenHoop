@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { latestBandStatus, openStore } from '../src/index';
+import { chargeStartTimes, chargeStartsSince, latestBandStatus, openStore } from '../src/index';
 import type { DeviceRow, EventRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 
@@ -97,5 +97,28 @@ describe('latestBandStatus', () => {
       rebootReason: 0x1001,
       signalProcessingVersion: '12.0.6',
     });
+  });
+
+  it('counts one charge each time charging starts, and only from a given time', async () => {
+    await events([
+      { t: T0, event: 7 },
+      { t: T0 + 600, event: 110, payloadHex: '0101010200030000' },
+      { t: T0 + 1_200, event: 8 },
+      { t: T0 + 90_000, event: 7 },
+      { t: T0 + 95_000, event: 8 },
+      { t: T0 + 95_100, event: 8 },
+    ]);
+    expect(await chargeStartsSince(store, deviceId, 0)).toEqual([T0, T0 + 90_000]);
+    expect(await chargeStartsSince(store, deviceId, T0 + 1)).toEqual([T0 + 90_000]);
+    expect(chargeStartTimes([])).toEqual([]);
+  });
+
+  it('does not count a charge start when the first report it sees is already charging', async () => {
+    await events([
+      { t: T0, event: 110, payloadHex: '0101010200030000' },
+      { t: T0 + 1_200, event: 8 },
+      { t: T0 + 5_000, event: 110, payloadHex: '0101010200030000' },
+    ]);
+    expect(await chargeStartsSince(store, deviceId, 0)).toEqual([T0 + 5_000]);
   });
 });

@@ -22,6 +22,12 @@ import {
   deleteBodyMeasurement,
   deleteJournalNote,
   deleteDataBefore,
+  exportJson,
+  pruneRawBefore,
+  chargeStartsSince,
+  storageStats as readStorageStats,
+  wipeAllData,
+  type StorageStats,
   deleteLabResult,
   consoleLinesCsv,
   exportCsv,
@@ -140,16 +146,18 @@ import { Platform } from 'react-native';
 
 import { dayEntries, DELETE_UNDO_MS } from './activities';
 import { BleManagerTransport } from '@/ble/bleManagerTransport';
+import { describePacket, loggedTransport, packetLog } from '@/ble/packetLog';
 import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, todayIsoDate, unixToIsoDate } from '@/lib/dates';
 import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
-import { digestFacts, goalFacts, localDay, planAlerts, reconcile, syncFailedAlert, windDownAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
+import { digestFacts, goalFacts, localDay, planAlerts, reconcile, stepsGoalFacts, syncFailedAlert, windDownAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
+import { setThemePreference } from '@/lib/themePreference';
 import { alertText } from '@/lib/notificationText';
 import { buildWidgetFile } from '@/lib/widgetSnapshot';
 import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
 import { setNetworkPrefs } from '@/net';
-import { strictestPrefs } from '@/net/features';
+import { featureEnabled, strictestPrefs } from '@/net/features';
 
 import { applyConfigWrite, buildSnapshot, carryOver, changeFor, parseBandConfig, recordOriginal, serializeSnapshot, type ConfigKind, type WritableValue } from './bandConfig';
 import { hrBroadcastKey, parseHrBroadcast, serializeHrBroadcast, type HrBroadcastState } from './hrBroadcast';
@@ -179,7 +187,9 @@ import { readinessNightsLeft } from './progress';
 import { loadTargetBand } from './activityDerived';
 import { planInputFor } from './planInput';
 import { AppError, toAppError } from './errors';
-import { exportAll, removeLeftoverExports } from './exportData';
+import { exportAll, removeLeftoverExports, type ExportContent } from './exportData';
+import { applyRawRetention, retentionChanged } from './rawRetention';
+import { deleteAllRawSessions, rawSessionExports } from './rawSessions';
 import { OPENHOOP_PACKAGE, nativeHealthConnect, type HealthConnectApi } from './healthConnectApi';
 import {
   HEALTH_CONNECT_STATE_KEY,
@@ -200,6 +210,7 @@ import {
 } from './notificationState';
 import { expoNotifier, type Notifier, type PermissionState } from './notifier';
 import { otherSleepSpans, recomputeFrom, type SleepEditRequest, type EditableSleep } from './sleepEditForm';
+import { vendorFrom } from './vendorExport/preview';
 import { parseVendorSources } from './vendorExport/sources';
 import type { FileReport } from './vendorExport/parse';
 import type { SourceFile } from './vendorExport/sources';
@@ -479,6 +490,7 @@ export class AppController {
         name: source === 'demo' ? translate(language, 'band.demoName') : (row?.name ?? null),
         model: row?.model ?? null,
         firmware: row?.firmware ?? null,
+        serial: row?.serial ?? null,
         batteryPercent: this.battery,
         lastSyncAt: this.lastSyncAt,
         backlogPages: this.backlogPages,
@@ -567,6 +579,7 @@ export class AppController {
     if (rawUserData === null && (await store.listDevices()).length > 0) userData.onboardingDone = true;
     this.notificationState = parseNotificationState(await store.getSetting(NOTIFICATION_STATE_KEY));
     setNetworkPrefs(userData.network);
+    setThemePreference(userData.theme);
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
     const healthConnectState = parseHealthConnectState(await store.getSetting(HEALTH_CONNECT_STATE_KEY));
     const labResults = await listLabResults(this.app.driver);
@@ -593,6 +606,7 @@ export class AppController {
     await this.loadActiveDevice();
     this.patch({ ready: true });
     void this.exclusive(() => this.redecodeStoredSamples());
+    void this.exclusive(() => this.pruneRaw());
     void this.refreshNotifications();
     void this.refreshHealthConnect();
     if (dataSource === 'demo') void this.sync();
@@ -753,7 +767,9 @@ export class AppController {
       await transport.connect(bleId);
       if ((await transport.bond()) === 'refused') throw new BleError('bond-refused');
       const info = await readDeviceInformation(transport);
-      const session = new Session(transport, { now: () => Date.now() });
+      const logged = loggedTransport(transport);
+      const session = new Session(logged, { now: () => Date.now() });
+      session.onPacket((packet, raw) => packetLog.record('rx', describePacket(packet), raw));
       const hello = await session.open();
       const row = await store.upsertDevice({
         bleId,
@@ -774,7 +790,7 @@ export class AppController {
         this.connection = 'disconnected';
         this.patchDevice();
       });
-      const conn: Connection = { transport, session, deviceId: row.id, heldChunk: null };
+      const conn: Connection = { transport: logged, session, deviceId: row.id, heldChunk: null };
       this.conn = conn;
       if ((await store.getSetting(ecgCleanupKey(row.id))) === '1' && (await stopEcg(session))) {
         await store.setSetting(ecgCleanupKey(row.id), '');
@@ -887,6 +903,7 @@ export class AppController {
       }
       const computeStarted = Date.now();
       await this.recompute(deviceId, previousNewest === null ? null : previousNewest - INCREMENTAL_RECOMPUTE_BACK_S);
+      await this.pruneRaw();
       await this.loadBandReports(deviceId);
       await this.syncAlarm(conn);
       const computeMs = Date.now() - computeStarted;
@@ -1453,6 +1470,8 @@ export class AppController {
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
         setNetworkPrefs(next.network);
         this.patch({ userData: next });
+        if (patch.theme !== undefined) setThemePreference(next.theme);
+        if (retentionChanged(patch)) void this.exclusive(() => this.pruneRaw());
         if (patch.notifications !== undefined || patch.weeklyPlan !== undefined || patch.windDown !== undefined) void this.refreshNotifications();
         if (patch.widgetValues !== undefined) void this.refreshWidgets();
         if (patch.jetLagShiftAlarm !== undefined || (patch.jetLagPlan !== undefined && next.jetLagShiftAlarm)) void this.reapplyAlarm();
@@ -1538,12 +1557,12 @@ export class AppController {
     return run;
   }
 
-  importVendorFiles = (files: SourceFile[], rejected: FileReport[]): Promise<VendorImportResult | null> => {
+  importVendorFiles = (files: SourceFile[], rejected: FileReport[], options: { fromDay?: string | null } = {}): Promise<VendorImportResult | null> => {
     const run = this.userDataChain.then(async () => {
       try {
         const { driver } = this.requireApp();
         const parsed = parseVendorSources(files);
-        const written = await upsertVendorData(driver, parsed.data, nowSeconds());
+        const written = await upsertVendorData(driver, vendorFrom(parsed.data, options.fromDay ?? null), nowSeconds());
         this.patch({ vendorData: await listVendorData(driver) });
         return summariseImport(parsed, written, rejected);
       } catch (error) {
@@ -1769,6 +1788,8 @@ export class AppController {
             watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
             fresh,
             windDown: wind,
+            steps: stepsGoalFacts(this.snapshot.days, userData.stepsGoal, now),
+            coachReady: featureEnabled(userData.network, 'coach'),
           })
         : [];
       this.patch({ notificationPermission: permission });
@@ -2158,19 +2179,99 @@ export class AppController {
     await this.loadActivities();
   }
 
-  exportData = async (): Promise<void> => {
+  exportData = async (content: ExportContent = 'all'): Promise<void> => {
     const app = this.requireApp();
     try {
-      await this.exclusive(async () =>
-        exportAll(app, exportCsv, {
-          'console_lines.csv': await consoleLinesCsv(app.store),
-          'notifications.json': this.notificationsExport(),
-          'health-connect.json': JSON.stringify(this.snapshot.healthConnect.state, null, 2),
-        }),
-      );
+      await this.exclusive(async () => {
+        const sessions = await rawSessionExports().catch((): Record<string, string> => ({}));
+        const extras =
+          content === 'sessions'
+            ? sessions
+            : {
+                'console_lines.csv': await consoleLinesCsv(app.store),
+                'notifications.json': this.notificationsExport(),
+                'health-connect.json': JSON.stringify(this.snapshot.healthConnect.state, null, 2),
+                ...sessions,
+              };
+        return exportAll(app, exportCsv, extras, { content, jsonFor: exportJson });
+      });
     } catch (error) {
       this.fail(error);
     }
+  };
+
+  storageStats = async (): Promise<StorageStats | null> => {
+    if (this.app === null) return null;
+    try {
+      return await readStorageStats(this.app.driver);
+    } catch {
+      return null;
+    }
+  };
+
+  chargeHistory = async (sinceS: number): Promise<number[]> => {
+    if (this.app === null || this.deviceRow === null) return [];
+    try {
+      return await chargeStartsSince(this.app.store, this.deviceRow.id, sinceS);
+    } catch {
+      return [];
+    }
+  };
+
+  private async pruneRaw(): Promise<void> {
+    const app = this.app;
+    if (app === null) return;
+    try {
+      await applyRawRetention((deviceId, beforeS) => pruneRawBefore(app.store, deviceId, beforeS), this.deviceRow?.id ?? null, this.snapshot.userData.rawRetentionDays, nowSeconds());
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+
+  deleteAllData = async (): Promise<boolean> => {
+    const app = this.requireApp();
+    await this.stopLiveInternal();
+    try {
+      await this.exclusive(async () => {
+        const conn = this.conn;
+        if (conn !== null && conn.session.isConnected && this.snapshot.alarm.armed !== null) await cancelAlarm(conn.session).catch(() => undefined);
+        await this.dropConnection();
+        await wipeAllData(app.driver);
+        await app.driver.exec('VACUUM').catch(() => undefined);
+      });
+      deleteAllRawSessions();
+    } catch (error) {
+      this.fail(error);
+      return false;
+    }
+    this.smartWake.cancel();
+    await this.notifier.cancelAll().catch(() => undefined);
+    this.notificationState = emptyNotificationState();
+    const userData = defaultUserData();
+    setNetworkPrefs(userData.network);
+    setThemePreference(userData.theme);
+    this.deviceRow = null;
+    this.demoBand = null;
+    this.connection = 'disconnected';
+    this.patch({
+      userData,
+      settings: { ...this.snapshot.settings, dataSource: 'demo', ownerSince: null, units: 'metric' },
+      profile: { birthYear: null, maxHeartRate: null },
+      bodyMeasurements: [],
+      journalNotes: [],
+      labResults: [],
+      vendorData: emptyVendorData(),
+      cycle: emptyCycleData(),
+      strength: emptyStrengthData(),
+      inbox: [],
+      healthConnect: { ...this.snapshot.healthConnect, state: defaultHealthConnectState() },
+      alarm: { ...this.snapshot.alarm, plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
+      ecgRecordings: [],
+      notice: null,
+    });
+    await this.loadActiveDevice();
+    void this.refreshWidgets();
+    return true;
   };
 
   listDonationDays = async (): Promise<DonationDay[]> => {
@@ -2239,6 +2340,9 @@ export class AppController {
       ecgActions: this.ecgActionSet,
       stopLive: this.stopLive,
       exportData: this.exportData,
+      storageStats: this.storageStats,
+      chargeHistory: this.chargeHistory,
+      deleteAllData: this.deleteAllData,
       listDonationDays: this.listDonationDays,
       buildDonation: this.buildDonation,
       saveDonation: this.saveDonation,

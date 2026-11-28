@@ -10,6 +10,9 @@ import {
   buildSnapshot,
   carryOver,
   changeFor,
+  configSnapshots,
+  changeSummary,
+  originalValue,
   recordOriginal,
   describeFields,
   parseBandConfig,
@@ -188,5 +191,38 @@ describe('changes made from OpenHoop', () => {
       ['make_hrfm_visible', false],
     ]);
     expect(rows.unknown.every((row) => !row.writable)).toBe(true);
+  });
+});
+
+describe('changes by OpenHoop', () => {
+  it('counts writable known values that still have the value the band had before OpenHoop wrote', () => {
+    expect(changeSummary(SNAPSHOT)).toEqual({ total: 3, unchanged: 3, changed: [] });
+    const changed = applyConfigWrite(SNAPSHOT, 'flag', 'make_hrfm_visible', '2', '1', 50);
+    const summary = changeSummary(changed);
+    expect(summary.unchanged).toBe(2);
+    expect(summary.total).toBe(3);
+    expect(summary.changed.map((change) => change.key)).toEqual(['make_hrfm_visible']);
+    const entry = changed.flags.find((item) => item.key === 'make_hrfm_visible');
+    expect(entry === undefined ? null : originalValue(changed, 'flag', entry)).toBe('2');
+  });
+
+  it('lists the first read and one snapshot before each write, oldest first', () => {
+    const changed = applyConfigWrite(applyConfigWrite(SNAPSHOT, 'config', 'enable_rfid', '2', '1', 1_700_000_200), 'flag', 'make_hrfm_visible', '2', '1', 1_700_000_100);
+    expect(configSnapshots(changed).map((entry) => [entry.kind, entry.key, entry.at])).toEqual([
+      ['read', null, 1_700_000_000],
+      ['before-write', 'make_hrfm_visible', 1_700_000_100],
+      ['before-write', 'enable_rfid', 1_700_000_200],
+    ]);
+  });
+
+  it('keeps the time of the first read over later reads of the same band, and reads old snapshots without it', () => {
+    const reread = carryOver(SNAPSHOT, buildSnapshot(1_700_009_000, 'demo', SNAPSHOT.flags, SNAPSHOT.config));
+    expect(reread.readAt).toBe(1_700_009_000);
+    expect(reread.firstReadAt).toBe(1_700_000_000);
+    expect(configSnapshots(reread)[0]).toMatchObject({ kind: 'read', at: 1_700_000_000 });
+    expect(carryOver(SNAPSHOT, buildSnapshot(1_700_009_000, 'band', [], [])).firstReadAt).toBe(1_700_009_000);
+    const { firstReadAt: _first, ...legacy } = reread;
+    const parsed = parseBandConfig(JSON.stringify(legacy));
+    expect(parsed.status === 'ok' ? parsed.snapshot.firstReadAt : null).toBe(1_700_009_000);
   });
 });

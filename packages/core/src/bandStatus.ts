@@ -74,3 +74,24 @@ export async function latestBandStatus(store: Store, deviceId: number): Promise<
     },
   };
 }
+
+const CHARGING_EVENTS = [CHARGING_ON, CHARGING_OFF, CHARGER_REPORT, CHARGER_STATUS] as const;
+
+export function chargeStartTimes(rows: readonly EventRow[]): number[] {
+  const ordered = [...rows].sort((a, b) => a.t - b.t);
+  const starts: number[] = [];
+  let charging: boolean | null = null;
+  for (const row of ordered) {
+    const state = chargingOf(row);
+    if (state === null) continue;
+    const started = row.event === CHARGING_ON ? charging !== true : charging === false;
+    if (state && started) starts.push(row.t);
+    charging = state;
+  }
+  return starts;
+}
+
+export async function chargeStartsSince(store: Store, deviceId: number, sinceS: number): Promise<number[]> {
+  const rows = await store.eventsOf(deviceId, CHARGING_EVENTS);
+  return chargeStartTimes(rows).filter((t) => t >= sinceS);
+}

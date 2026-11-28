@@ -637,22 +637,23 @@ describe('pipeline', () => {
       expect(kept.map((s) => s.source)).toEqual(['history', 'hrm']);
     });
 
-    it('is idempotent and drops stale derived days', async () => {
+    it('is idempotent, drops stale derived days and keeps history that has no raw chunk', async () => {
       const rows = simulateDays(deviceId, { days: 1 });
       const frames = rows.slice(0, 600).map((row, i) => toFrame(row, i));
+      const backed = frames.map((frame) => decodeRow(deviceId, frame)).filter((row): row is SampleRow => row !== null);
       await store.commitChunk(
         { deviceId, endToken: null, frames, clockOffsetS: null, receivedAt: 1 },
-        [],
+        backed,
         { events: [], console: [], unknownFrames: 0, syncState: syncState(deviceId) },
       );
-      await store.insertSamples(rows);
+      await store.insertSamples(rows.slice(600));
       await recompute(rows);
       expect(await storedDays()).toHaveLength(1);
 
       expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 1, samples: 600 });
       expect(await storedDays()).toEqual([]);
       expect(await rebuildFromRaw(store, deviceId)).toEqual({ chunks: 1, samples: 600 });
-      expect(await store.sampleRange(deviceId)).toMatchObject({ count: 600 });
+      expect(await store.sampleRange(deviceId)).toMatchObject({ count: rows.length });
     });
 
     it('never writes records from before the device owner_since', async () => {

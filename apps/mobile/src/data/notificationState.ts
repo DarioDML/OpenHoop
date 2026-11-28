@@ -12,7 +12,7 @@ function isRecord(value: Json | undefined): value is { [key: string]: Json } {
 }
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
-const ALERT_ID = /^(digest:\d{4}-\d{2}-\d{2}|risk:\d{1,15}|sync:\d{1,15}|goal:(load|sleep|strength):\d{4}-\d{2}-\d{2}|wind:\d{1,15})$/;
+const ALERT_ID = /^(digest:\d{4}-\d{2}-\d{2}|risk:\d{1,15}|sync:\d{1,15}|goal:(load|sleep|strength):\d{4}-\d{2}-\d{2}|wind:\d{1,15}|steps:\d{4}-\d{2}-\d{2}|coach:\d{4}-\d{2}-\d{2})$/;
 
 function score(value: Json | undefined, max: number): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max ? value : null;
@@ -41,6 +41,16 @@ function parseAlert(value: Json | undefined): Alert | null {
   if (kind === 'windDown' && id === `wind:${at}`) {
     const bed = typeof value.bed === 'number' && Number.isInteger(value.bed) && value.bed >= 0 && value.bed < 1440 ? value.bed : null;
     return bed === null ? null : { kind, id, at, bed };
+  }
+  if (kind === 'stepsGoal') {
+    const steps = score(value.value, 1_000_000);
+    const target = score(value.target, 1_000_000);
+    if (typeof value.day !== 'string' || id !== `steps:${value.day}` || steps === null || target === null) return null;
+    return { kind, id, at, day: value.day, value: steps, target };
+  }
+  if (kind === 'coachCheckin') {
+    if (typeof value.day !== 'string' || id !== `coach:${value.day}`) return null;
+    return { kind, id, at, day: value.day };
   }
   if (kind === 'dataAtRisk' && id.startsWith('risk:')) {
     const days = typeof value.days === 'number' && Number.isInteger(value.days) && value.days > 0 && value.days <= 3650 ? value.days : null;

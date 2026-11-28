@@ -8,21 +8,29 @@ import { fonts, radius, spacing, useTheme } from './theme';
 interface ButtonProps {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'tertiary' | 'danger' | 'soft';
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'danger' | 'soft' | 'outlineDanger';
   disabled?: boolean;
   icon?: IconName;
+  compact?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
   accessibilityLabel?: string;
 }
 
-export function Button({ label, onPress, variant = 'primary', disabled = false, icon, style, testID, accessibilityLabel }: ButtonProps) {
+export function Button({ label, onPress, variant = 'primary', disabled = false, icon, compact = false, style, testID, accessibilityLabel }: ButtonProps) {
   const { colors } = useTheme();
   const background =
     variant === 'primary' ? colors.primary : variant === 'danger' ? colors.negativeSoft : variant === 'soft' ? colors.surfaceAlt : 'transparent';
   const foreground =
-    variant === 'primary' ? colors.primaryOn : variant === 'tertiary' ? colors.link : variant === 'danger' ? colors.negative : colors.text;
-  const border = variant === 'secondary' ? colors.text : variant === 'danger' ? colors.negative : 'transparent';
+    variant === 'primary'
+      ? colors.primaryOn
+      : variant === 'tertiary'
+        ? colors.link
+        : variant === 'danger' || variant === 'outlineDanger'
+          ? colors.negative
+          : colors.text;
+  const border = variant === 'secondary' ? colors.text : variant === 'danger' || variant === 'outlineDanger' ? colors.negative : 'transparent';
+  const bordered = variant === 'secondary' || variant === 'danger' || variant === 'outlineDanger';
   return (
     <Pressable
       testID={testID}
@@ -35,11 +43,11 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
         {
           backgroundColor: background,
           borderColor: border,
-          borderWidth: variant === 'secondary' || variant === 'danger' ? 2 : 0,
+          borderWidth: bordered ? 2 : 0,
           opacity: disabled ? 0.4 : pressed ? 0.8 : 1,
           borderRadius: radius.pill,
-          minHeight: 56,
-          paddingHorizontal: variant === 'tertiary' ? spacing.md : spacing.xl,
+          minHeight: compact ? 44 : 56,
+          paddingHorizontal: variant === 'tertiary' ? spacing.md : compact ? spacing.lg : spacing.xl,
           flexDirection: 'row',
           gap: spacing.sm,
           alignItems: 'center',

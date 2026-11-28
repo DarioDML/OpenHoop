@@ -282,13 +282,13 @@ describe('privacy network settings', () => {
     const updateUserData = jest.fn(async () => true);
     const { controller } = makeController();
     await render(withCoach(<PrivacyScreen />, controller, { updateUserData }));
-    expect(screen.getByTestId('network-global-toggle').props.value).toBe(false);
+    expect(screen.getByTestId('local-only-toggle').props.value).toBe(true);
     expect(screen.getByTestId('network-feature-coach').props.value).toBe(false);
     expect(screen.getByTestId('network-feature-coach').props.disabled).toBe(true);
     expect(screen.getAllByText(/api\.anthropic\.com/)).toHaveLength(2);
     expect(screen.getByTestId('network-feature-labs').props.value).toBe(false);
     expect(screen.getByText('Read lab reports with Claude')).toBeTruthy();
-    fireEvent(screen.getByTestId('network-global-toggle'), 'valueChange', true);
+    fireEvent(screen.getByTestId('local-only-toggle'), 'valueChange', false);
     expect(updateUserData).toHaveBeenCalledWith({ network: { enabled: true, features: { coach: false, maps: false, labs: false, strava: false } } });
   });
 

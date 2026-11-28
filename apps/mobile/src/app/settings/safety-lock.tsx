@@ -1,47 +1,74 @@
 import { useState } from 'react';
+import { View } from 'react-native';
 
+import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
-import { Card } from '@/ui/Card';
-import { ConfirmDangerDialog } from '@/ui/ConfirmDangerDialog';
-import { Button } from '@/ui/controls';
-import { SettingsPage } from '@/ui/manage/SettingsPage';
-import { useTheme } from '@/ui/theme';
+import { Button, Field } from '@/ui/controls';
+import { Icon } from '@/ui/Icon';
+import { codeMatches, serialCode } from '@/ui/manage/safetyCode';
+import { SheetScreen } from '@/ui/SheetScreen';
+import { radius, spacing, useTheme } from '@/ui/theme';
+import { goBack } from '@/ui/TopBar';
 
 export default function SafetyLockScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const [open, setOpen] = useState(false);
+  const { device } = useAppData();
+  const [typed, setTyped] = useState('');
+  const fromSerial = serialCode(device.serial);
+  const code = fromSerial ?? t('danger.command');
+  const matches = codeMatches(typed, code);
+
+  const confirm = (): void => {
+    if (!matches) return;
+    setTyped('');
+    goBack();
+  };
 
   return (
-    <SettingsPage title={t('device.safety.title')} tint="neutral" testID="safety-lock">
-      <Card tone="danger" style={{ gap: 8 }}>
-        <AppText variant="cardTitle" color={colors.negative}>
-          {t('device.safety.heading')}
+    <SheetScreen title={t('device.safety.title')} testID="safety-lock">
+      <View testID="safety-nothing-sent" style={{ flexDirection: 'row', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.warningSoft }}>
+        <Icon name="info" color={colors.warning} size={18} />
+        <AppText variant="label" style={{ flex: 1 }}>
+          {t('device.safety.nothingSent')}
         </AppText>
-        <AppText variant="body">{t('device.safety.body')}</AppText>
-      </Card>
-      <Card style={{ gap: 6 }}>
-        <AppText variant="bodyStrong">{t('device.safety.howTitle')}</AppText>
-        <AppText variant="label" muted>
-          {t('device.safety.howBody')}
+      </View>
+      <View style={{ alignItems: 'center', gap: spacing.md }}>
+        <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: colors.negativeSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="lock" color={colors.negative} size={28} />
+        </View>
+        <AppText variant="title" accessibilityRole="header" style={{ textAlign: 'center' }}>
+          {t('device.safety.question')}
         </AppText>
-      </Card>
-      <Button label={t('danger.entry')} variant="danger" onPress={() => setOpen(true)} testID="safety-entry" />
-      <AppText variant="label" muted>
-        {t('danger.note')}
-      </AppText>
-      <ConfirmDangerDialog
-        visible={open}
-        commandName={t('danger.command')}
-        title={t('danger.dialogTitle')}
-        body={t('danger.dialogBody', { command: t('danger.command') })}
-        inputLabel={t('danger.inputLabel')}
-        confirmLabel={t('danger.confirm')}
-        cancelLabel={t('common.cancel')}
-        onCancel={() => setOpen(false)}
-        onConfirm={() => setOpen(false)}
+        <AppText variant="lead" muted style={{ textAlign: 'center' }}>
+          {t('device.safety.sheetBody')}
+        </AppText>
+        {device.backlogPages !== null && device.backlogPages > 0 ? (
+          <AppText variant="label" muted style={{ textAlign: 'center' }} testID="safety-backlog">
+            {t('device.safety.backlog', { count: device.backlogPages })}
+          </AppText>
+        ) : null}
+      </View>
+      <Field
+        label={t('device.safety.typeLabel', { code })}
+        value={typed}
+        onChangeText={setTyped}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        maxLength={12}
+        returnKeyType="done"
+        onSubmitEditing={confirm}
+        hint={fromSerial === null ? t('device.safety.noSerialHint') : t('device.safety.serialHint')}
+        testID="danger-input"
       />
-    </SettingsPage>
+      <View style={{ gap: spacing.sm }}>
+        <Button label={t('device.safety.confirmNothing')} variant="outlineDanger" disabled={!matches} onPress={confirm} testID="danger-confirm" />
+        <Button label={t('common.cancel')} onPress={goBack} testID="safety-cancel" />
+      </View>
+      <AppText variant="caption" muted>
+        {t('device.safety.howBody')}
+      </AppText>
+    </SheetScreen>
   );
 }
