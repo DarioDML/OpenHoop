@@ -159,3 +159,33 @@ export function hourlyStepBars(day: DayRecord, nowS: number): HourBar[] | null {
 export function compactThousands(value: number): number {
   return Math.round(value / 100) / 10;
 }
+
+export type BlockGap = 'future' | 'noData' | 'open' | 'calibrating' | 'missing';
+
+export interface WeekBlockGap {
+  load: BlockGap | null;
+  loadReason: string | null;
+  soFar: number | null;
+  readiness: BlockGap | null;
+  readinessReason: string | null;
+}
+
+export function weekBlockGaps(week: ReadonlyArray<DayRecord | null>, start: string, latestDay: string): WeekBlockGap[] {
+  return week.map((day, i) => {
+    if (day === null) {
+      const gap: BlockGap = addDays(start, i) > latestDay ? 'future' : 'noData';
+      return { load: gap, loadReason: null, soFar: null, readiness: gap, readinessReason: null };
+    }
+    const open = day.day === latestDay;
+    const visible = visibleReadiness(day);
+    const load: BlockGap | null = day.load.value !== null ? null : open ? 'open' : 'missing';
+    const readiness: BlockGap | null = visible.value !== null ? null : day.readinessCalibrating || visible.reason === 'needs-history' ? 'calibrating' : 'missing';
+    return {
+      load,
+      loadReason: load === 'missing' ? day.load.reason : null,
+      soFar: load === 'open' ? (day.loadSoFar ?? null) : null,
+      readiness,
+      readinessReason: readiness === 'missing' ? visible.reason : null,
+    };
+  });
+}

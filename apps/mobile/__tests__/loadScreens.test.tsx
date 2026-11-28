@@ -308,10 +308,33 @@ describe('Weekly overview', () => {
       expect(screen.getByTestId(`week-readiness-${i}`)).toHaveTextContent(readiness === null ? '' : String(Math.round(readiness)));
     });
     expect(screen.getByTestId('week-legend')).toHaveTextContent('Readiness %Load');
-    if (week.some((d) => d === null)) expect(screen.getByTestId('week-empty-note')).toBeTruthy();
+    week.forEach((d, i) => {
+      const date = addDays(start, i);
+      if (d === null && date > lastDay().day) expect(screen.getByTestId(`week-gap-${date}`)).toHaveTextContent(/: still to come$/);
+    });
     const index = week.findIndex((d) => d !== null);
     await fireEvent.press(screen.getByTestId(`week-day-${index}`));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/day/[day]', params: { day: addDays(start, index) } });
+  });
+
+  it('gives each empty block its own reason', async () => {
+    const start = weekStart(lastDay().day);
+    const monday = days.find((d) => d.day === start);
+    if (monday === undefined) throw new Error('fixture week');
+    const index = days.indexOf(monday);
+    const latest = { ...lastDay(), load: { ...lastDay().load, value: null, reason: 'low-coverage' }, loadSoFar: 4.2 };
+    const list = [
+      ...days.slice(0, index),
+      { ...monday, readinessCalibrating: true, load: { ...monday.load, value: null, reason: 'no-data' } },
+      ...days.slice(index + 2, -1),
+      latest,
+    ];
+    await render(withAppData(<LoadWeekScreen />, 'en', { days: list }));
+    expect(screen.getByTestId(`week-gap-${start}`)).toHaveTextContent(/^Mo: load: no data, readiness calibrating$/);
+    expect(screen.getByTestId(`week-gap-${addDays(start, 1)}`)).toHaveTextContent(/^Tu: no data$/);
+    expect(screen.getByTestId(`week-gap-${latest.day}`)).toHaveTextContent(/: load still open, 4\.2 so far$/);
+    await fireEvent.press(screen.getByTestId('week-info'));
+    expect(screen.getByText(/each line on its own scale/)).toBeTruthy();
   });
 
   it('goes to the previous week and opens the explanation', async () => {

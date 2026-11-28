@@ -320,13 +320,20 @@
   "loadWeek.title": "Week {week}",
   "loadWeek.info": "About the weekly overview",
   "loadWeek.about": "About this week",
-  "loadWeek.aboutBody": "The chart puts your load (0–21) and your readiness (%) for each day of the week on one scale, so you can see whether hard days followed good nights. The blocks show the same numbers: readiness on top, coloured by its band, and load below. Tap a day to open it.",
+  "loadWeek.aboutBody": "The chart shows your load and your readiness for each day of the week, each line on its own scale: the top of the chart is 21 for load and 100% for readiness. That lets you see whether hard days followed good nights. The blocks show the same numbers: readiness on top, coloured by its band, and load below. Tap a day to open it.",
   "loadWeek.aboutLoadDays": "A load day is a day with a load of 7 or more.",
   "loadWeek.chartTitle": "Load & readiness",
   "loadWeek.chartA11y": "Load and readiness for the week of {range}",
   "loadWeek.blocks": "Daily blocks",
   "loadWeek.legendReadiness": "Readiness %",
-  "loadWeek.emptyNote": "An empty block has no value for that day: no data yet, no load, or readiness still calibrating.",
   "loadWeek.dayA11y": "{day}: readiness {readiness}, load {load}",
-  "loadWeek.noValue": "no value"
+  "loadWeek.noValue": "no value",
+  "loadWeek.gap.line": "{day}: {text}",
+  "loadWeek.gap.future": "still to come",
+  "loadWeek.gap.noData": "no data",
+  "loadWeek.gap.open": "load still open",
+  "loadWeek.gap.openSoFar": "load still open, {value} so far",
+  "loadWeek.gap.load": "load: {reason}",
+  "loadWeek.gap.calibrating": "readiness calibrating",
+  "loadWeek.gap.readiness": "readiness: {reason}"
 }

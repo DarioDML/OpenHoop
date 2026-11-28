@@ -5,7 +5,8 @@ import { Pressable, View } from 'react-native';
 import { formatWeekday, isLoadDay } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { addDays, daysInWeek, visibleReadiness, weekStart } from '@/data/derived';
-import { isoWeekNumber, LOAD_SCALE_MAX } from '@/data/loadDerived';
+import { isoWeekNumber, LOAD_SCALE_MAX, weekBlockGaps, type WeekBlockGap } from '@/data/loadDerived';
+import type { TFunction } from '@/i18n/useT';
 import { useT } from '@/i18n/useT';
 import { formatNumber, formatShortDay } from '@/lib/format';
 import { NoDataScreen } from '@/ui/activity/parts';
@@ -19,9 +20,24 @@ import { Sheet } from '@/ui/Sheet';
 import { radius, readinessColor, spacing, useTheme } from '@/ui/theme';
 import { IconButton, TopBar } from '@/ui/TopBar';
 
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+function gapText(t: TFunction, reason: (value: string | null) => string, gap: WeekBlockGap, soFar: string | null): string | null {
+  if (gap.load === null && gap.readiness === null) return null;
+  if (gap.load === 'future' || gap.load === 'noData') return t(`loadWeek.gap.${gap.load}`);
+  const parts: string[] = [];
+  if (gap.load === 'open') parts.push(soFar === null ? t('loadWeek.gap.open') : t('loadWeek.gap.openSoFar', { value: soFar }));
+  if (gap.load === 'missing') parts.push(t('loadWeek.gap.load', { reason: lowerFirst(reason(gap.loadReason)) }));
+  if (gap.readiness === 'calibrating') parts.push(t('loadWeek.gap.calibrating'));
+  if (gap.readiness === 'missing') parts.push(t('loadWeek.gap.readiness', { reason: lowerFirst(reason(gap.readinessReason)) }));
+  return parts.join(', ');
+}
+
 export default function LoadWeekScreen() {
   const { days } = useAppData();
-  const { t, language } = useT();
+  const { t, language, reason } = useT();
   const { colors } = useTheme();
   const [offset, setOffset] = useState(0);
   const [about, setAbout] = useState(false);
@@ -42,7 +58,13 @@ export default function LoadWeekScreen() {
     const value = d === null ? null : visibleReadiness(d).value;
     return value === null ? null : Math.round(value);
   });
-  const hasEmpty = loads.some((v) => v === null) || readiness.some((v) => v === null);
+  const gaps = weekBlockGaps(week, start, latest.day);
+  const gapLines = gaps
+    .map((gap, i) => {
+      const text = gapText(t, reason, gap, gap.soFar === null ? null : fmt(gap.soFar));
+      return text === null ? null : { key: addDays(start, i), line: t('loadWeek.gap.line', { day: weekdayShort(addDays(start, i), language), text }) };
+    })
+    .filter((entry): entry is { key: string; line: string } => entry !== null);
 
   const nav = (delta: number, enabled: boolean, label: string, icon: 'back' | 'chevronRight') => (
     <Pressable
@@ -167,10 +189,14 @@ export default function LoadWeekScreen() {
             );
           })}
         </View>
-        {hasEmpty ? (
-          <AppText variant="caption" muted testID="week-empty-note">
-            {t('loadWeek.emptyNote')}
-          </AppText>
+        {gapLines.length > 0 ? (
+          <View style={{ gap: 2 }} testID="week-gaps">
+            {gapLines.map((entry) => (
+              <AppText key={entry.key} variant="caption" muted testID={`week-gap-${entry.key}`}>
+                {entry.line}
+              </AppText>
+            ))}
+          </View>
         ) : null}
       </Card>
 

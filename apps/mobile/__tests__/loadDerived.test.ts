@@ -16,6 +16,7 @@ import {
   readyAdvice,
   roundMinutes,
   typicalTrainingHr,
+  weekBlockGaps,
 } from '@/data/loadDerived';
 import { loadAimRange } from '@/data/readinessDerived';
 
@@ -166,5 +167,21 @@ describe('hourlyStepBars', () => {
   it('shows thousands with one decimal', () => {
     expect(compactThousands(8_249)).toBe(8.2);
     expect(compactThousands(11_450)).toBe(11.5);
+  });
+});
+
+describe('weekBlockGaps', () => {
+  it('names why a block is empty', () => {
+    const base = last();
+    const open = { ...base, load: { ...base.load, value: null, reason: 'low-coverage' }, loadSoFar: 3.1 };
+    const noSleep = { ...base, day: '2026-11-23', readiness: { ...base.readiness, value: null, reason: 'no-sleep' }, load: { ...base.load, value: null, reason: 'no-data' } };
+    const calibrating = { ...base, day: '2026-11-24', readinessCalibrating: true };
+    const gaps = weekBlockGaps([noSleep, calibrating, open, null, null, null, null], '2026-11-23', open.day);
+    expect(open.day).toBe('2026-11-25');
+    expect(gaps[0]).toEqual({ load: 'missing', loadReason: 'no-data', soFar: null, readiness: 'missing', readinessReason: 'no-sleep' });
+    expect(gaps[1]).toMatchObject({ load: null, readiness: 'calibrating' });
+    expect(gaps[2]).toMatchObject({ load: 'open', soFar: 3.1 });
+    expect(gaps[3]).toMatchObject({ load: 'future', readiness: 'future' });
+    expect(weekBlockGaps([null], '2026-11-20', '2026-11-25')[0]).toMatchObject({ load: 'noData', readiness: 'noData' });
   });
 });
