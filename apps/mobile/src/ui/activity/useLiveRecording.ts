@@ -1,5 +1,5 @@
 import { loadReference } from '@openhoop/analytics';
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import type { ActivityType } from '@/data/activityDerived';
 import { useAppData, useLive } from '@/data/context';
@@ -16,13 +16,17 @@ export function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-export function useLiveRecording(type: ActivityType) {
+export interface LiveRecordingOptions {
+  adoptLive?: boolean;
+}
+
+export function useLiveRecording(type: ActivityType, options: LiveRecordingOptions = {}) {
   const { profile, days, startLive, stopLive, saveActivity, reportLiveLoad } = useAppData();
   const live = useLive();
   const [session, dispatch] = useReducer(liveReducer, IDLE_SESSION);
   const [now, setNow] = useState(nowSeconds);
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });
-  const startedLive = useRef(false);
+  const startedLive = useRef(options.adoptLive === true);
   const stopRef = useRef(stopLive);
   stopRef.current = stopLive;
   const sessionRef = useRef<LiveSession>(session);
@@ -76,10 +80,14 @@ export function useLiveRecording(type: ActivityType) {
     setSave(id === null ? { kind: 'failed' } : { kind: 'saved', id });
   };
 
-  const tz = deviceTzOffsetS(new Date());
-  const ref = loadReference(days, analyticsProfileOf(profile), now, new Date(now * 1000).getFullYear());
-  const latest = days[days.length - 1] ?? null;
-  const today = latest !== null && latest.day === unixToIsoDate(now, tz) ? latest : null;
+  const dayKey = unixToIsoDate(now, deviceTzOffsetS(new Date(now * 1000)));
+  const { ref, today } = useMemo(() => {
+    const latest = days[days.length - 1] ?? null;
+    return {
+      ref: loadReference(days, analyticsProfileOf(profile), Number.MAX_SAFE_INTEGER, Number(dayKey.slice(0, 4))),
+      today: latest !== null && latest.day === dayKey ? latest : null,
+    };
+  }, [days, profile, dayKey]);
   const heartRate = live.active ? live.heartRate : null;
   const hud = hudFor(session, now, heartRate, ref, today);
   const projectedTenths = hud.projectedDayLoad === null ? null : Math.round(hud.projectedDayLoad * 10);

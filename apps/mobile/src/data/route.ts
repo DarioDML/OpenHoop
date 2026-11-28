@@ -1,6 +1,9 @@
 import type { RoutePoint } from '@openhoop/core';
 
 import type { LatLon } from '@/lib/mercator';
+import { unitLengthM } from '@/lib/units';
+
+import type { Units } from './types';
 
 import type { ActivityType } from './activityDerived';
 
@@ -43,6 +46,10 @@ export function maxSpeedFor(type: ActivityType): number {
 
 export function usesPace(type: ActivityType): boolean {
   return FOOT_TYPES.has(type);
+}
+
+export function gpsByDefault(type: ActivityType): boolean {
+  return FOOT_TYPES.has(type) || type === 'cycling';
 }
 
 function validFix(fix: Fix): boolean {
@@ -178,11 +185,13 @@ export interface RouteMarker extends LatLon {
   movingS: number;
 }
 
-export function markerStepM(totalM: number): number {
-  if (totalM >= 40_000) return 10_000;
-  if (totalM >= 15_000) return 5_000;
-  if (totalM >= 1_500) return 1_000;
-  return 500;
+export function markerStepM(totalM: number, units: Units = 'metric'): number {
+  const unit = unitLengthM(units);
+  const total = totalM / unit;
+  if (total >= 40) return 10 * unit;
+  if (total >= 15) return 5 * unit;
+  if (total >= 1.5) return unit;
+  return unit / 2;
 }
 
 export function distanceMarkers(points: readonly RoutePoint[], stepM: number): RouteMarker[] {
@@ -217,17 +226,35 @@ export interface VisibleRoute {
 export function visibleRoute(points: readonly RoutePoint[], hideStartM: number, hideEndM: number, stepM: number): VisibleRoute | null {
   const markers = distanceMarkers(points, stepM);
   if (hideStartM <= 0 && hideEndM <= 0) return points.length >= 2 ? { points: [...points], markers, trimmed: false } : null;
-  const cum = cumulativeM(points);
-  const total = cum[cum.length - 1] ?? 0;
-  const from = hideStartM;
-  const to = total - hideEndM;
-  if (to <= from) return null;
-  const kept = points.filter((_, i) => {
-    const d = cum[i] ?? 0;
-    return d >= from && d <= to;
-  });
+  const kept = hideAroundEnds(points, hideStartM, hideEndM);
   if (kept.length < 2) return null;
-  return { points: kept, markers: markers.filter((m) => m.distanceM >= from && m.distanceM <= to), trimmed: true };
+  return { points: kept, markers: markers.filter((m) => !nearEnds(points, m, hideStartM, hideEndM)), trimmed: true };
+}
+
+function nearEnds(points: readonly RoutePoint[], at: LatLon, startRadiusM: number, endRadiusM: number): boolean {
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (first === undefined || last === undefined) return false;
+  return (startRadiusM > 0 && haversineM(first, at) < startRadiusM) || (endRadiusM > 0 && haversineM(last, at) < endRadiusM);
+}
+
+export function hideAroundEnds(points: readonly RoutePoint[], startRadiusM: number, endRadiusM: number = startRadiusM): RoutePoint[] {
+  if (startRadiusM <= 0 && endRadiusM <= 0) return [...points];
+  const out: RoutePoint[] = [];
+  let segment = 0;
+  let gap = false;
+  let previous: number | null = null;
+  for (const p of points) {
+    if (nearEnds(points, p, startRadiusM, endRadiusM)) {
+      gap = true;
+      continue;
+    }
+    if (out.length > 0 && (gap || p.segment !== previous)) segment++;
+    gap = false;
+    previous = p.segment;
+    out.push({ ...p, segment });
+  }
+  return out;
 }
 
 export interface Split {
@@ -238,4 +265,25 @@ export interface Split {
 
 export function splits(markers: readonly RouteMarker[]): Split[] {
   return markers.map((m, i) => ({ index: i + 1, distanceM: m.distanceM, durationS: m.movingS - (markers[i - 1]?.movingS ?? 0) }));
+}
+
+export function routeSplits(points: readonly RoutePoint[], units: Units): Split[] {
+  return splits(distanceMarkers(points, unitLengthM(units)));
+}
+
+export function latestSplits(all: readonly Split[], count: number): Split[] {
+  return all.slice(Math.max(0, all.length - count)).reverse();
+}
+
+export type GpsSignal = 0 | 1 | 2 | 3;
+
+export const GOOD_ACCURACY_M = 10;
+export const FAIR_ACCURACY_M = 20;
+
+export function gpsSignal(recording: boolean, accuracyM: number | null): GpsSignal {
+  if (!recording || accuracyM === null || !Number.isFinite(accuracyM) || accuracyM < 0) return 0;
+  if (accuracyM <= GOOD_ACCURACY_M) return 3;
+  if (accuracyM <= FAIR_ACCURACY_M) return 2;
+  if (accuracyM <= MAX_ACCURACY_M) return 1;
+  return 0;
 }

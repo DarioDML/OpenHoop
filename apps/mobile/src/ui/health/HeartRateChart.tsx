@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 
+import { formatElapsed } from '@/data/activityDerived';
 import type { HeartRatePoint } from '@/data/types';
 import { formatClock } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -22,13 +23,28 @@ interface Props {
   bucketS: number;
   height?: number;
   emptyLabel: string;
+  axis?: 'clock' | 'elapsed';
+  area?: boolean;
   testID?: string;
 }
 
 const PAD_Y = 10;
 const TICKS = [0, 0.25, 0.5, 0.75, 1] as const;
+const TICK_STEPS_S: readonly number[] = [60, 120, 300, 600, 900, 1_200, 1_800, 3_600, 7_200, 10_800, 21_600];
+const LONGEST_STEP_S = 43_200;
+const MAX_INNER_TICKS = 4;
+const END_GAP = 0.1;
+const LABEL_WIDTH = 60;
 
-export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS, height = 180, emptyLabel, testID }: Props) {
+export function elapsedTicks(spanS: number): number[] {
+  if (!(spanS > 0)) return [0];
+  const step: number = TICK_STEPS_S.find((s) => Math.ceil(spanS / s) - 1 <= MAX_INNER_TICKS) ?? LONGEST_STEP_S;
+  const inner: number[] = [];
+  for (let t = step; t < spanS; t += step) if (spanS - t >= END_GAP * spanS) inner.push(t);
+  return [0, ...inner, spanS];
+}
+
+export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS, height = 180, emptyLabel, axis = 'clock', area = false, testID }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const onLayout = (event: LayoutChangeEvent): void => setWidth(event.nativeEvent.layout.width);
@@ -52,12 +68,27 @@ export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS
   const y = (hr: number): number => PAD_Y + plotH - ((hr - lo) / (hi - lo)) * plotH;
 
   let path = '';
+  let fill = '';
+  let runStart: number | null = null;
   let previous: number | null = null;
+  const closeRun = (): void => {
+    if (runStart !== null && previous !== null) fill += `L${x(previous).toFixed(1)} ${height}L${x(runStart).toFixed(1)} ${height}Z`;
+  };
   for (const point of points) {
     const connected = previous !== null && point.t - previous <= bucketS * 3;
-    path += `${connected ? 'L' : 'M'}${x(point.t).toFixed(1)} ${y(point.hr).toFixed(1)}`;
+    const px = `${x(point.t).toFixed(1)} ${y(point.hr).toFixed(1)}`;
+    path += `${connected ? 'L' : 'M'}${px}`;
+    if (!connected) {
+      closeRun();
+      runStart = point.t;
+      fill += `M${px}`;
+    } else {
+      fill += `L${px}`;
+    }
     previous = point.t;
   }
+  closeRun();
+  const ticks = axis === 'elapsed' ? elapsedTicks(span) : null;
 
   return (
     <View testID={testID} style={{ gap: 6 }}>
@@ -80,20 +111,47 @@ export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS
                 />
               );
             })}
-            {TICKS.map((fraction) => (
-              <Line key={fraction} x1={fraction * width} x2={fraction * width} y1={0} y2={height} stroke={colors.grid} strokeWidth={1} />
-            ))}
-            <Path d={path} fill="none" stroke={colors.negative} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
+            {ticks === null
+              ? TICKS.map((fraction) => (
+                  <Line key={fraction} x1={fraction * width} x2={fraction * width} y1={0} y2={height} stroke={colors.grid} strokeWidth={1} />
+                ))
+              : [0.5].map((fraction) => (
+                  <Line key={fraction} x1={0} x2={width} y1={PAD_Y + plotH * fraction} y2={PAD_Y + plotH * fraction} stroke={colors.grid} strokeWidth={1} />
+                ))}
+            {area ? <Path d={fill} fill={colors.negative} opacity={0.2} /> : null}
+            <Path d={path} fill="none" stroke={colors.negative} strokeWidth={area ? 2.25 : 1.75} strokeLinejoin="round" strokeLinecap="round" />
           </Svg>
         ) : null}
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        {TICKS.map((fraction) => (
-          <AppText key={fraction} variant="caption" muted numeric>
-            {formatClock(Math.round(startS + fraction * span), tzOffsetS)}
-          </AppText>
-        ))}
-      </View>
+      {ticks === null ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          {TICKS.map((fraction) => (
+            <AppText key={fraction} variant="caption" muted numeric>
+              {formatClock(Math.round(startS + fraction * span), tzOffsetS)}
+            </AppText>
+          ))}
+        </View>
+      ) : (
+        <View style={{ height: 18 }} testID={testID ? `${testID}-axis` : undefined}>
+          {width > 0
+            ? ticks.map((tick, index) => {
+                const first = index === 0;
+                const last = index === ticks.length - 1;
+                const left = Math.min(width - LABEL_WIDTH, Math.max(0, x(startS + tick) - LABEL_WIDTH / 2));
+                return (
+                  <AppText
+                    key={tick}
+                    variant="caption"
+                    muted
+                    numeric
+                    style={[{ position: 'absolute', width: LABEL_WIDTH }, first ? { left: 0 } : last ? { right: 0, textAlign: 'right' } : { left, textAlign: 'center' }]}>
+                    {formatElapsed(tick)}
+                  </AppText>
+                );
+              })
+            : null}
+        </View>
+      )}
     </View>
   );
 }

@@ -10,7 +10,7 @@ import { defaultUserData } from '@/data/userData';
 import { setNetworkPrefs } from '@/net';
 import { defaultNetworkPrefs, type NetworkPrefs } from '@/net/features';
 
-import { FIXTURE_NOW, withAppData } from './support/appData';
+import { FIXTURE_NOW, fixtureBandActions, withAppData } from './support/appData';
 
 type Permission = { granted: boolean; status: string; android?: { accuracy: 'fine' | 'coarse' | 'none' } };
 
@@ -108,12 +108,13 @@ afterEach(() => {
 });
 
 describe('start screen', () => {
-  it('offers a start with a route', async () => {
-    mockParams = { type: 'cycling' };
+  it('offers a start with a route through the GPS switch', async () => {
+    mockParams = { type: 'yoga' };
     await render(withAppData(<StartActivityScreen />));
-    expect(screen.getByTestId('start-route')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('start-route-begin'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: { type: 'cycling' } });
+    expect(screen.getByTestId('start-gps').props.value).toBe(false);
+    await fireEvent(screen.getByTestId('start-gps'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('start-begin'));
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: expect.objectContaining({ type: 'yoga', start: '1' }) });
   });
 });
 
@@ -168,6 +169,54 @@ describe('live GPS activity', () => {
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/details', params: { id: '42' } });
   });
 
+  it('shows the GPS signal and the latest splits, per mile with imperial units', async () => {
+    let nowMs = FIXTURE_NOW.getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    mockParams = { type: 'running', start: '1' };
+    const settings = { language: 'en' as const, dataSource: 'demo' as const, ownerSince: null, units: 'imperial' as const };
+    await render(withAppData(<GpsActivityScreen />, 'en', { settings }));
+    await waitFor(() => expect(screen.getByTestId('gps-pause')).toBeTruthy());
+    expect(screen.getByTestId('gps-signal').props.accessibilityLabel).toBe('No GPS signal');
+    expect(screen.getByTestId('gps-pace')).toHaveTextContent(/Needs 330 ft/);
+    for (let i = 0; i < 170; i++) {
+      nowMs += 2000;
+      await act(async () => mockOnLocation?.(location(nowMs, i * 10)));
+    }
+    expect(screen.getByTestId('gps-signal').props.accessibilityLabel).toMatch(/^Good GPS signal · GPS accuracy ±5 m$/);
+    expect(screen.getByTestId('gps-distance')).toHaveTextContent(/1\.05\s*mi/);
+    await fireEvent.press(screen.getByTestId('gps-pause'));
+    expect(screen.getByTestId('gps-pace')).toHaveTextContent(/\d:\d\d\s*\/mi/);
+    expect(screen.getByTestId('gps-splits')).toHaveTextContent(/mi 1/);
+    expect(screen.queryByText(/mi 2/)).toBeNull();
+  });
+
+  it('shows the saved buzz state and never buzzes the band itself', async () => {
+    const nowMs = FIXTURE_NOW.getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    mockParams = { type: 'running', start: '1' };
+    const buzz = jest.fn(async () => true);
+    const userData = { ...defaultUserData(), onboardingDone: true, loadBuzz: { atTarget: true, overTop: false, lastTarget: null, lastTop: null } };
+    await render(withAppData(<GpsActivityScreen />, 'en', { userData, bandActions: { ...fixtureBandActions(), buzz } }));
+    await waitFor(() => expect(screen.getByTestId('gps-pause')).toBeTruthy());
+    for (let i = 0; i < 5; i++) await act(async () => mockOnLocation?.(location(nowMs + i * 2000, i * 10)));
+    expect(screen.getByTestId('gps-buzz')).toHaveTextContent(/^Buzz at \d/);
+    expect(buzz).not.toHaveBeenCalled();
+  });
+
+  it('lists the newest kilometre splits first', async () => {
+    let nowMs = FIXTURE_NOW.getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    mockParams = { type: 'running', start: '1' };
+    await render(withAppData(<GpsActivityScreen />));
+    await waitFor(() => expect(screen.getByTestId('gps-pause')).toBeTruthy());
+    expect(screen.queryByTestId('gps-splits')).toBeNull();
+    for (let i = 0; i < 205; i++) {
+      nowMs += 2000;
+      await act(async () => mockOnLocation?.(location(nowMs, i * 10)));
+    }
+    expect(screen.getAllByText(/^km \d$/).map((node) => node.props.children)).toEqual(['km 2', 'km 1']);
+  }, 30_000);
+
   it('starts a new segment after a pause and ignores fixes while paused', async () => {
     let nowMs = FIXTURE_NOW.getTime();
     jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
@@ -219,7 +268,7 @@ describe('live GPS activity', () => {
     expect(startLive).not.toHaveBeenCalled();
     expect(mockWatch).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('gps-without-route'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'walking' } });
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'walking', start: '1' } });
   });
 
   it('says so when GPS cannot start', async () => {

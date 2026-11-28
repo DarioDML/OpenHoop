@@ -223,6 +223,85 @@ export function keepSeconds(original: { start: number; end: number }, edited: { 
   return end > start ? { start, end } : edited;
 }
 
+export const DELETE_UNDO_MS = 5_000;
+
+export interface TimeRange {
+  start: number;
+  end: number;
+}
+
+export interface RangeWindow {
+  from: number;
+  to: number;
+  ticks: number[];
+}
+
+const HALF_HOUR_S = 1_800;
+const RANGE_PAD_S = 600;
+
+function tickStepFor(spanS: number): number {
+  if (spanS <= 3 * 3_600) return HALF_HOUR_S;
+  if (spanS <= 6 * 3_600) return 3_600;
+  if (spanS <= 12 * 3_600) return 2 * 3_600;
+  return 4 * 3_600;
+}
+
+export function rangeWindow(range: TimeRange, tzOffsetS: number): RangeWindow {
+  const step = tickStepFor(range.end - range.start + 2 * RANGE_PAD_S);
+  const from = Math.floor((range.start - RANGE_PAD_S + tzOffsetS) / step) * step - tzOffsetS;
+  const to = Math.ceil((range.end + RANGE_PAD_S + tzOffsetS) / step) * step - tzOffsetS;
+  const ticks: number[] = [];
+  for (let t = from; t <= to; t += step) ticks.push(t);
+  return { from, to, ticks };
+}
+
+export function dragRange(range: TimeRange, handle: 'start' | 'end', to: number, bounds: { from: number; to: number }, minSpanS: number = ACTIVITY_MIN_S, stepS = 60): TimeRange {
+  const snapped = Math.round(to / stepS) * stepS;
+  if (handle === 'start') return { start: Math.min(Math.max(snapped, bounds.from), range.end - minSpanS), end: range.end };
+  return { start: range.start, end: Math.max(Math.min(snapped, bounds.to), range.start + minSpanS) };
+}
+
+export function formRange(form: ActivityForm, tzOffsetS: number): TimeRange | null {
+  const startOfDay = parseClock(form.startTime);
+  const endOfDay = parseClock(form.endTime);
+  if (startOfDay === null || endOfDay === null) return null;
+  const start = localUnix(form.date, startOfDay, tzOffsetS);
+  if (start === null) return null;
+  const sameDay = endOfDay - startOfDay;
+  const span = sameDay > 0 ? sameDay : sameDay + 86_400;
+  if (sameDay === 0 || (sameDay < 0 && span > OVERNIGHT_MAX_S)) return null;
+  return { start, end: start + span };
+}
+
+export function withRange(form: ActivityForm, range: TimeRange, tzOffsetS: number): ActivityForm {
+  return { ...form, date: unixToIsoDate(range.start, tzOffsetS), startTime: clockText(range.start, tzOffsetS), endTime: clockText(range.end, tzOffsetS) };
+}
+
+export const CHART_POINTS = 150;
+export const MIN_CHART_BUCKET_S = 5;
+
+export function chartBucketS(durationS: number): number {
+  return Math.max(MIN_CHART_BUCKET_S, Math.ceil(durationS / CHART_POINTS));
+}
+
+export const RECENT_TYPES_MAX = 5;
+
+export function recentActivityTypes(rows: readonly ActivityRow[], limit: number = RECENT_TYPES_MAX): ActivityType[] {
+  const out: ActivityType[] = [];
+  const newestFirst = rows.filter((r) => r.deletedAt === null && isActivityType(r.type)).sort((a, b) => b.start - a.start);
+  for (const row of newestFirst) {
+    if (out.length >= limit) break;
+    const type = toActivityType(row.type);
+    if (!out.includes(type)) out.push(type);
+  }
+  return out;
+}
+
+export function matchesActivitySearch(label: string, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  return needle === '' || label.toLowerCase().includes(needle);
+}
+
 export function defaultForm(type: ActivityType, nowS: number, tzOffsetS: number): ActivityForm {
   const end = Math.floor(nowS / 300) * 300;
   return formFor(type, end - 3600, end, null, tzOffsetS);

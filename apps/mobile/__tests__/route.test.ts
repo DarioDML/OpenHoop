@@ -153,7 +153,7 @@ describe('markers, splits and hidden zones', () => {
     expect(first?.durationS).toBeCloseTo(300, 3);
   });
 
-  it('hides the first and last 200 m and the markers in them', () => {
+  it('hides everything within 200 m of the start and the end, and the markers there', () => {
     const points = line(21, 100, 30_000);
     const full = visibleRoute(points, 0, 0, 500);
     expect(full?.points).toHaveLength(21);
@@ -164,6 +164,20 @@ describe('markers, splits and hidden zones', () => {
     expect(hidden?.points[hidden.points.length - 1]?.lat).toBeCloseTo(LAT + 1800 / M_PER_DEG_LAT, 9);
     expect(hidden?.markers.map((m) => m.distanceM)).toEqual([500, 1000, 1500]);
     expect(visibleRoute(points, 200, 0, 500)?.points).toHaveLength(19);
+  });
+
+  it('also hides where a loop passes the start again, and breaks the line there', () => {
+    const out = line(11, 100, 30_000);
+    const east = out.map((p, i) => ({ ...p, tMs: T0 + (11 + i) * 30_000, lat: LAT + ((10 - i) * 100) / M_PER_DEG_LAT, lon: LON + 0.008 }));
+    const back = line(6, 100, 30_000, (i) => ({ tMs: T0 + (22 + i) * 30_000, lat: LAT + 50 / M_PER_DEG_LAT, lon: LON + 0.006 - i * 0.0012 }));
+    const loop = [...out, ...east, ...back, ...line(10, 100, 30_000, (i) => ({ tMs: T0 + (28 + i) * 30_000, lat: LAT - (i + 3) * 100 / M_PER_DEG_LAT }))];
+    const shown = visibleRoute(loop, 200, 200, 500);
+    const start = loop[0];
+    const end = loop[loop.length - 1];
+    if (start === undefined || end === undefined || shown === null) throw new Error('route');
+    expect(shown.points.every((p) => haversineM(start, p) >= 200 && haversineM(end, p) >= 200)).toBe(true);
+    expect(new Set(shown.points.map((p) => p.segment)).size).toBeGreaterThan(1);
+    expect(shown.markers.every((m) => haversineM(start, m) >= 200 && haversineM(end, m) >= 200)).toBe(true);
   });
 
   it('shows nothing when the route is shorter than both hidden zones', () => {

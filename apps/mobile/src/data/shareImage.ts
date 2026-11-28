@@ -6,6 +6,8 @@ import type { View } from 'react-native';
 
 import { exportFolderName } from '@/lib/paths';
 
+import { ANDROID_DOWNLOADS_URI } from './donation/files';
+
 export class ShareUnavailableError extends Error {
   constructor() {
     super('sharing unavailable');
@@ -20,7 +22,22 @@ export class ShareCaptureError extends Error {
   }
 }
 
+export class SaveImageError extends Error {
+  constructor() {
+    super('image not saved');
+    this.name = 'SaveImageError';
+  }
+}
+
 export type CardHandle = ComponentRef<typeof View>;
+
+export type SaveImageOutcome = { kind: 'saved'; folderUri: string } | { kind: 'cancelled' };
+
+const PICKER_CANCEL_CODES: ReadonlySet<string> = new Set(['ERR_PICKER_CANCELLED', 'ERR_FILE_PICKING_CANCELLED']);
+
+function isPickerCancel(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' && PICKER_CANCEL_CODES.has(error.code);
+}
 
 const IMAGE_NAME = 'openhoop-activity.png';
 
@@ -53,4 +70,24 @@ export async function shareSnapshotImage(target: RefObject<CardHandle | null>, f
   } finally {
     removeFolder(folder);
   }
+}
+
+export async function saveSnapshotImage(target: RefObject<CardHandle | null>, fileName: string, platform: 'android' | 'ios'): Promise<SaveImageOutcome> {
+  const view = target.current;
+  if (view === null) throw new ShareCaptureError();
+  const base64 = await captureRef(view, { format: 'png', result: 'base64' });
+  let folder: Directory;
+  try {
+    folder = await Directory.pickDirectoryAsync(platform === 'android' ? ANDROID_DOWNLOADS_URI : undefined);
+  } catch (error) {
+    if (isPickerCancel(error)) return { kind: 'cancelled' };
+    throw new SaveImageError();
+  }
+  try {
+    const file = folder.createFile(fileName, 'image/png');
+    await file.write(decodeBase64(base64));
+  } catch {
+    throw new SaveImageError();
+  }
+  return { kind: 'saved', folderUri: folder.uri };
 }

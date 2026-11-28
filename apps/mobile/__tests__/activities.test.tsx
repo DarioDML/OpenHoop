@@ -10,8 +10,10 @@ import {
   entryById,
   entryForWorkout,
   keepSeconds,
+  matchesActivitySearch,
   parseClock,
   parseIdParam,
+  recentActivityTypes,
   validateActivityForm,
   type ActivityForm,
 } from '@/data/activities';
@@ -124,6 +126,28 @@ describe('activity form validation', () => {
     const f = defaultForm('yoga', NOW_S, TZ);
     expect(f).toEqual({ type: 'yoga', date: '2026-11-25', startTime: '11:00', endTime: '12:00', note: '' });
     expect(validateActivityForm(f, NOW_S, TZ).ok).toBe(true);
+  });
+});
+
+describe('activity picker helpers', () => {
+  it('lists recent types newest first, once each, skipping deleted rows and unknown types', () => {
+    const rows = [
+      activity({ id: 1, type: 'walking', start: 100 }),
+      activity({ id: 2, type: 'running', start: 400 }),
+      activity({ id: 3, type: 'walking', start: 300 }),
+      activity({ id: 4, type: 'yoga', start: 500, deletedAt: 1 }),
+      activity({ id: 5, type: 'unicycle', start: 600 }),
+      activity({ id: 6, type: 'padel', start: 200 }),
+    ];
+    expect(recentActivityTypes(rows)).toEqual(['running', 'walking', 'padel']);
+    expect(recentActivityTypes(rows, 1)).toEqual(['running']);
+    expect(recentActivityTypes([])).toEqual([]);
+  });
+
+  it('matches the search in any case and shows everything for an empty search', () => {
+    expect(matchesActivitySearch('Running', '  RUN ')).toBe(true);
+    expect(matchesActivitySearch('Running', 'yoga')).toBe(false);
+    expect(matchesActivitySearch('Running', '   ')).toBe(true);
   });
 });
 
@@ -273,6 +297,31 @@ describe('add activity screen', () => {
     jest.restoreAllMocks();
   });
 
+  it('offers the recent activity types as a quick pick and opens the form for them', async () => {
+    const rows = [
+      activity({ id: 1, type: 'running', start: 100 }),
+      activity({ id: 2, type: 'yoga', start: 300 }),
+      activity({ id: 3, type: 'running', start: 400 }),
+      activity({ id: 4, type: 'padel', start: 500, deletedAt: 9 }),
+    ];
+    await render(withAppData(<AddActivityScreen />, 'en', { activities: rows }));
+    expect(screen.getByTestId('activity-recent-running')).toBeTruthy();
+    expect(screen.getByTestId('activity-recent-yoga')).toBeTruthy();
+    expect(screen.queryByTestId('activity-recent-padel')).toBeNull();
+    expect(screen.getByTestId('activity-type-hiking')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('activity-search'), 'run');
+    expect(screen.queryByTestId('activity-recent')).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('activity-search'), '');
+    await fireEvent.press(screen.getByTestId('activity-recent-yoga'));
+    expect(screen.getByTestId('form-type-yoga').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByTestId('add-form-type')).toHaveTextContent('Yoga');
+  });
+
+  it('says where recent activities come from when there are none', async () => {
+    await render(withAppData(<AddActivityScreen />, 'en', { activities: [] }));
+    expect(screen.getByTestId('activity-recent-none')).toHaveTextContent(/show up here/);
+  });
+
   it('shows the reason when saving fails', async () => {
     const saveActivity = jest.fn(async () => null);
     await render(withAppData(<AddActivityScreen />, 'en', { saveActivity, notice: { key: 'activity.error.noBand' } }));
@@ -318,6 +367,7 @@ describe('activity details, edit and delete with undo', () => {
     const saveActivity = jest.fn(async () => 7);
     const row = activity({ source: 'live', paused: [{ start: activity().start + 60, end: activity().start + 120 }] });
     await render(withAppData(<EditActivityScreen />, 'en', { activities: [row], saveActivity }));
+    await fireEvent.press(screen.getByTestId('edit-type-row'));
     await fireEvent.press(screen.getByTestId('form-type-running'));
     await fireEvent.changeText(screen.getByTestId('form-note'), 'felt good');
     await fireEvent.press(screen.getByTestId('edit-save'));
@@ -338,6 +388,7 @@ describe('activity details, edit and delete with undo', () => {
     const saveActivity = jest.fn(async () => 3);
     await render(withAppData(<EditActivityScreen />, 'en', { saveActivity }));
     expect(screen.getByTestId('edit-detected-note')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('edit-type-row'));
     await fireEvent.press(screen.getByTestId('form-type-football'));
     await fireEvent.press(screen.getByTestId('edit-save'));
     await waitFor(() =>
@@ -402,8 +453,8 @@ describe('live activity screen', () => {
     await fireEvent.press(screen.getByTestId('live-begin'));
     await waitFor(() => expect(startLive).toHaveBeenCalled());
     const start = Math.floor(nowMs / 1000);
-    for (let i = 1; i <= 40; i++) {
-      nowMs += 1000;
+    for (let i = 1; i <= 10; i++) {
+      nowMs += 4000;
       await act(async () => {
         await view.rerender(withAppData(<LiveActivityScreen />, 'en', { ...base, live: { active: true, heartRate: 150, lastRrMs: 400, updatedAt: nowMs } }));
       });

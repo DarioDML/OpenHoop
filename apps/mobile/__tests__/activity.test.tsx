@@ -168,9 +168,9 @@ describe('activity screens', () => {
     mockParams = { type: 'running' };
     await render(withAppData(<StartActivityScreen />));
     expect(screen.getByTestId('start-type').props.children).toBe('Running');
-    expect(screen.getByTestId('start-route')).toBeTruthy();
+    expect(screen.getByTestId('start-gps')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('start-begin'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'running' } });
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: expect.objectContaining({ type: 'running', start: '1' }) });
   });
 
   it('shows live heart rate and the zone', async () => {

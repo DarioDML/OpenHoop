@@ -1,31 +1,35 @@
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
+import { View } from 'react-native';
 
 import { ACTIVITY_TYPES, type ActivityType } from '@/data/activityDerived';
-import { defaultForm, validateActivityForm, type ActivityForm, type FormError } from '@/data/activities';
+import { defaultForm, matchesActivitySearch, recentActivityTypes, toActivityType, validateActivityForm, type ActivityForm, type FormError } from '@/data/activities';
 import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
 import { deviceTzOffsetS } from '@/lib/dates';
+import { ActivityGlyph } from '@/ui/activity/ActivityGlyph';
+import { ActivityTypeGrid, RecentActivityRow } from '@/ui/activity/ActivityTypeGrid';
 import { ActivityFormFields } from '@/ui/activity/entries';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Button, Field } from '@/ui/controls';
-import { ListGroup, ListRow } from '@/ui/ListGroup';
+import { Button } from '@/ui/controls';
 import { Screen } from '@/ui/Screen';
+import { SearchField } from '@/ui/SearchField';
 import { TopBar } from '@/ui/TopBar';
-import { useTheme } from '@/ui/theme';
+import { spacing, useTheme } from '@/ui/theme';
 
 export default function AddActivityScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const { saveActivity, notice } = useAppData();
+  const { saveActivity, notice, activities } = useAppData();
   const [query, setQuery] = useState('');
   const [form, setForm] = useState<ActivityForm | null>(null);
   const [error, setError] = useState<FormError | null>(null);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
-  const needle = query.trim().toLowerCase();
-  const shown = ACTIVITY_TYPES.filter((type) => needle === '' || t(`activity.type.${type}`).toLowerCase().includes(needle));
+  const searching = query.trim() !== '';
+  const shown = ACTIVITY_TYPES.filter((type) => matchesActivitySearch(t(`activity.type.${type}`), query));
+  const recent = recentActivityTypes(activities);
 
   const choose = (type: ActivityType): void => {
     setForm(defaultForm(type, Math.floor(Date.now() / 1000), deviceTzOffsetS(new Date())));
@@ -60,6 +64,12 @@ export default function AddActivityScreen() {
           <>
             <Stack.Screen options={{ presentation: 'modal' }} />
             <TopBar title={t('activity.add.title')} close back={false} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <ActivityGlyph type={toActivityType(form.type)} size={48} />
+              <AppText variant="title" testID="add-form-type">
+                {t(`activity.type.${toActivityType(form.type)}`)}
+              </AppText>
+            </View>
           </>
         }
         footer={<Button label={t('activity.form.save')} onPress={() => void save()} disabled={saving} testID="form-save" />}>
@@ -90,29 +100,35 @@ export default function AddActivityScreen() {
         <>
           <Stack.Screen options={{ presentation: 'modal' }} />
           <TopBar title={t('activity.add.title')} close back={false} />
-          <Field label={t('activity.add.search')} value={query} onChangeText={setQuery} autoCapitalize="none" testID="activity-search" />
+          <SearchField label={t('activity.add.search')} value={query} onChangeText={setQuery} testID="activity-search" />
         </>
       }>
       <AppText variant="label" muted>
         {t('activity.add.intro')}
+      </AppText>
+      {searching ? null : (
+        <View style={{ gap: spacing.md }}>
+          <AppText variant="capLarge" muted>
+            {t('activity.add.recent')}
+          </AppText>
+          {recent.length > 0 ? (
+            <RecentActivityRow types={recent} onChoose={choose} />
+          ) : (
+            <AppText variant="label" muted testID="activity-recent-none">
+              {t('activity.add.recentNone')}
+            </AppText>
+          )}
+        </View>
+      )}
+      <AppText variant="capLarge" muted style={{ marginTop: spacing.sm }}>
+        {t('activity.add.all')}
       </AppText>
       {shown.length === 0 ? (
         <AppText variant="body" muted testID="activity-none">
           {t('activity.add.none')}
         </AppText>
       ) : (
-        <ListGroup title={t('activity.add.all')}>
-          {shown.map((type) => (
-            <ListRow
-              key={type}
-              testID={`activity-type-${type}`}
-              title={t(`activity.type.${type}`)}
-              icon={{ icon: 'pulse', color: colors.accent, background: colors.accentSoft }}
-              onPress={() => choose(type)}
-              chevron
-            />
-          ))}
-        </ListGroup>
+        <ActivityTypeGrid types={shown} onChoose={choose} testIDPrefix="activity-type" />
       )}
     </Screen>
   );

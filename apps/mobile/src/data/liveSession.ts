@@ -1,4 +1,4 @@
-import { activeSegments, activityMetrics, projectDayLoad, zoneIndex, type HrPoint, type Interval, type LoadReference } from '@openhoop/analytics';
+import { activeSegments, activityMetrics, projectDayLoad, zoneIndex, type ActiveMinutes, type HrPoint, type Interval, type LoadReference } from '@openhoop/analytics';
 import type { DayRecord } from '@openhoop/core';
 
 export type LivePhase = 'ready' | 'running' | 'paused' | 'stopped';
@@ -75,13 +75,14 @@ export interface Hud {
   maxHr: number | null;
   zone: number | null;
   projectedDayLoad: number | null;
+  activeMinutes: ActiveMinutes | null;
 }
 
 export function hudFor(state: LiveSession, nowS: number, heartRate: number | null, ref: LoadReference, today: DayRecord | null): Hud {
   const span = sessionWindow(state, nowS);
   const floors = ref.zoneFloors ?? null;
   const zone = heartRate !== null && heartRate > 0 && (floors !== null || ref.max > ref.rest) ? zoneIndex(heartRate, ref.rest, ref.max, floors) : null;
-  if (span === null) return { activeS: 0, load: null, loadReason: null, avgHr: null, maxHr: null, zone, projectedDayLoad: today?.load.value ?? null };
+  if (span === null) return { activeS: 0, load: null, loadReason: null, avgHr: null, maxHr: null, zone, projectedDayLoad: today?.load.value ?? null, activeMinutes: null };
   const m = activityMetrics(state.points, span.window, span.paused, ref.rest, ref.max, undefined, floors);
   const dayLoad = today === null ? null : (today.load.value ?? today.loadSoFar ?? null);
   const projected =
@@ -96,5 +97,6 @@ export function hudFor(state: LiveSession, nowS: number, heartRate: number | nul
     maxHr: m.maxHr,
     zone,
     projectedDayLoad: projected,
+    activeMinutes: m.activeMinutes,
   };
 }
