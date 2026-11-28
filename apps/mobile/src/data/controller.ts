@@ -218,6 +218,7 @@ import {
   NOTIFICATION_STATE_KEY,
   emptyNotificationState,
   parseNotificationState,
+  refreshesNotifications,
   serializeNotificationState,
   type NotificationState,
 } from './notificationState';
@@ -1535,7 +1536,7 @@ export class AppController {
         this.patch({ userData: next });
         if (patch.theme !== undefined) setThemePreference(next.theme);
         if (retentionChanged(patch)) void this.exclusive(() => this.pruneRaw());
-        if (patch.notifications !== undefined || patch.weeklyPlan !== undefined || patch.windDown !== undefined) void this.refreshNotifications();
+        if (refreshesNotifications(patch)) void this.refreshNotifications();
         if (patch.widgetValues !== undefined || patch.pregnancyPrefs !== undefined) void this.refreshWidgets();
         if (patch.jetLagShiftAlarm !== undefined || (patch.jetLagPlan !== undefined && next.jetLagShiftAlarm)) void this.reapplyAlarm();
         return true;
