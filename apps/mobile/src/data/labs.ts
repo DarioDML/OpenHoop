@@ -270,7 +270,7 @@ export interface LabHistory {
   units: string[];
   unit: string;
   points: LabHistoryPoint[];
-  band: { low: number; high: number } | null;
+  band: { low: number | null; high: number | null } | null;
   bandFrom: LabResult | null;
 }
 
@@ -292,10 +292,10 @@ export function buildHistory(entries: readonly LabResult[], requestedUnit: strin
   let band: LabHistory['band'] = null;
   let bandFrom: LabResult | null = null;
   for (const result of [...sorted].reverse()) {
-    if (result.refLow === null || result.refHigh === null) continue;
-    const low = convertLabValue(result.refLow, result.unit, chosen, ref);
-    const high = convertLabValue(result.refHigh, result.unit, chosen, ref);
-    if (low !== null && high !== null) {
+    if (result.refLow === null && result.refHigh === null) continue;
+    const low = result.refLow === null ? null : convertLabValue(result.refLow, result.unit, chosen, ref);
+    const high = result.refHigh === null ? null : convertLabValue(result.refHigh, result.unit, chosen, ref);
+    if ((result.refLow === null || low !== null) && (result.refHigh === null || high !== null)) {
       band = { low, high };
       bandFrom = result;
       break;
