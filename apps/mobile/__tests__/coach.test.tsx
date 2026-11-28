@@ -185,6 +185,7 @@ describe('coach memory', () => {
     await controller.load();
     await render(withCoach(<CoachMemoryScreen />, controller));
     expect(screen.getByTestId('coach-memory-empty')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('coach-memory-add-lifestyle'));
     await fireEvent.press(screen.getByTestId('coach-memory-add'));
     expect(screen.getByText(/between 1 and 200/)).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('coach-memory-input'), 'I train on Tuesdays');

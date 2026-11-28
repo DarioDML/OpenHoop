@@ -28,6 +28,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import CoachScreen from '@/app/coach/index';
+import CoachMemoryScreen from '@/app/coach/memory';
 import CoachSettingsScreen from '@/app/coach/settings';
 
 const days = createFixtureDays(FIXTURE_NOW);
@@ -204,5 +205,48 @@ describe('coach chat', () => {
     expect(screen.getByTestId('coach-input').props.value).toBe('How was my HRV?');
     expect(screen.getByTestId('coach-send')).toBeTruthy();
     jest.restoreAllMocks();
+  });
+});
+
+describe('coach memory groups', () => {
+  it('sorts notes into goals, lifestyle, preferences and events, with older notes guessed or under Other', async () => {
+    const repo = memoryRepo();
+    await repo.addMemory('Run a sub-50 10K in spring', 'coach', 1);
+    await repo.addMemory('Desk job, sits most of the day', 'user', 2);
+    await repo.addMemory('Bench 80 kg', 'user', 3);
+    const { controller } = makeController({ repo });
+    await controller.load();
+    const bench = controller.getState().memory[2];
+    if (!bench) throw new Error('missing note');
+    await render(withCoach(<CoachMemoryScreen />, controller, { userData: userData() }));
+    expect(screen.getByTestId('coach-memory-group-goals')).toHaveTextContent(/Run a sub-50 10K/);
+    expect(screen.getByTestId('coach-memory-group-lifestyle')).toHaveTextContent(/Desk job/);
+    expect(screen.getByTestId('coach-memory-group-other')).toHaveTextContent(/Bench 80 kg/);
+    expect(screen.getByTestId('coach-memory-group-events')).toBeTruthy();
+    expect(screen.getByText('Added by the coach')).toBeTruthy();
+  });
+
+  it('stores the group of a new note and moves a note to another group', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const repo = memoryRepo();
+    await repo.addMemory('Bench 80 kg', 'user', 3);
+    const { controller } = makeController({ repo });
+    await controller.load();
+    const bench = controller.getState().memory[0];
+    if (!bench) throw new Error('missing note');
+    await render(withCoach(<CoachMemoryScreen />, controller, { userData: userData(), updateUserData }));
+    await fireEvent.press(screen.getByTestId('coach-memory-add-events'));
+    await fireEvent.changeText(screen.getByTestId('coach-memory-input'), 'Race on 4 May');
+    await fireEvent.press(screen.getByTestId('coach-memory-add'));
+    const added = await waitFor(() => {
+      const note = controller.getState().memory.find((n) => n.text === 'Race on 4 May');
+      if (!note) throw new Error('not added yet');
+      return note;
+    });
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith({ coach: { ...defaultCoachPrefs(), memoryCategories: { [`${added.id}@${added.createdAt}`]: 'events' } } }));
+    await fireEvent.press(screen.getByTestId(`coach-memory-edit-button-${bench.id}`));
+    await fireEvent.press(screen.getByTestId('coach-memory-category-goals'));
+    await fireEvent.press(screen.getByTestId('coach-memory-edit-save'));
+    await waitFor(() => expect(updateUserData).toHaveBeenLastCalledWith({ coach: expect.objectContaining({ memoryCategories: expect.objectContaining({ [`${bench.id}@${bench.createdAt}`]: 'goals' }) }) }));
   });
 });
