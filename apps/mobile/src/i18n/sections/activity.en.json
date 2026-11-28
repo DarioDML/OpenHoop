@@ -400,5 +400,12 @@
   "activity.share.privacyRoute": "Only what you switch on is drawn on the image. The time of day is never added, and the route only when Route is on. The image is made on your phone; you choose the folder or app it goes to.",
   "activity.share.save": "Save image",
   "activity.share.saved": "The image is saved in the folder you picked.",
-  "activity.share.saveError": "The image could not be saved there. Pick another folder and try again."
+  "activity.share.saveError": "The image could not be saved there. Pick another folder and try again.",
+  "activity.edit.typeRow": "Activity type",
+  "activity.edit.time": "Time",
+  "activity.edit.save": "Save changes",
+  "activity.edit.deleteHint": "Delete works right away, no need to save first. You can undo for {seconds} seconds.",
+  "activity.edit.sliderNeedsTimes": "Fill in a valid start and end below to use the time slider.",
+  "activity.edit.dragStart": "Start time, drag to change",
+  "activity.edit.dragEnd": "End time, drag to change"
 }

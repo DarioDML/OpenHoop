@@ -400,5 +400,12 @@
   "activity.share.privacyRoute": "Alleen wat je aanzet, komt op de afbeelding. Het tijdstip komt er nooit op, en de route alleen als Route aan staat. De afbeelding wordt op je telefoon gemaakt; jij kiest naar welke map of app ze gaat.",
   "activity.share.save": "Bewaar afbeelding",
   "activity.share.saved": "De afbeelding staat in de map die je koos.",
-  "activity.share.saveError": "De afbeelding kon daar niet bewaard worden. Kies een andere map en probeer opnieuw."
+  "activity.share.saveError": "De afbeelding kon daar niet bewaard worden. Kies een andere map en probeer opnieuw.",
+  "activity.edit.typeRow": "Soort activiteit",
+  "activity.edit.time": "Tijd",
+  "activity.edit.save": "Wijzigingen bewaren",
+  "activity.edit.deleteHint": "Verwijderen werkt meteen, je hoeft niet eerst te bewaren. Je kunt het {seconds} seconden ongedaan maken.",
+  "activity.edit.sliderNeedsTimes": "Vul hieronder een geldig begin en einde in om de tijdschuif te gebruiken.",
+  "activity.edit.dragStart": "Begintijd, sleep om te wijzigen",
+  "activity.edit.dragEnd": "Eindtijd, sleep om te wijzigen"
 }

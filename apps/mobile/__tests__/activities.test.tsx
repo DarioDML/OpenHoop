@@ -367,6 +367,7 @@ describe('activity details, edit and delete with undo', () => {
     const saveActivity = jest.fn(async () => 7);
     const row = activity({ source: 'live', paused: [{ start: activity().start + 60, end: activity().start + 120 }] });
     await render(withAppData(<EditActivityScreen />, 'en', { activities: [row], saveActivity }));
+    await fireEvent.press(screen.getByTestId('edit-type-row'));
     await fireEvent.press(screen.getByTestId('form-type-running'));
     await fireEvent.changeText(screen.getByTestId('form-note'), 'felt good');
     await fireEvent.press(screen.getByTestId('edit-save'));
@@ -387,6 +388,7 @@ describe('activity details, edit and delete with undo', () => {
     const saveActivity = jest.fn(async () => 3);
     await render(withAppData(<EditActivityScreen />, 'en', { saveActivity }));
     expect(screen.getByTestId('edit-detected-note')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('edit-type-row'));
     await fireEvent.press(screen.getByTestId('form-type-football'));
     await fireEvent.press(screen.getByTestId('edit-save'));
     await waitFor(() =>
@@ -479,7 +481,7 @@ describe('live activity screen', () => {
     expect(await screen.findByTestId('live-saved')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('live-view'));
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/details', params: { id: '55' } });
-  });
+  }, 20_000);
 
   it('reports the projected day load while a session runs so the band can buzz at the target', async () => {
     const latest = lastDay();

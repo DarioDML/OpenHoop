@@ -1,6 +1,6 @@
 import type { WorkoutRecord } from '@openhoop/core';
 import { useLocalSearchParams, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { ACTIVITY_TYPES, resolveWorkout } from '@/data/activityDerived';
@@ -120,9 +120,10 @@ interface FormProps {
   onChange: (form: ActivityForm) => void;
   error: FormError | null;
   showType?: boolean;
+  beforeTimes?: ReactNode;
 }
 
-export function ActivityFormFields({ form, onChange, error, showType = true }: FormProps) {
+export function ActivityFormFields({ form, onChange, error, showType = true, beforeTimes }: FormProps) {
   const { t } = useT();
   const { colors } = useTheme();
   const set = (patch: Partial<ActivityForm>): void => onChange({ ...form, ...patch });
@@ -151,6 +152,7 @@ export function ActivityFormFields({ form, onChange, error, showType = true }: F
         error={error === 'date'}
         testID="form-date"
       />
+      {beforeTimes}
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <View style={{ flex: 1 }}>
           <Field
