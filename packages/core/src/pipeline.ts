@@ -1,5 +1,6 @@
 import {
   ALGO,
+  BED_LEAD_IN_MAX_S,
   DEFAULT_CALIBRATION,
   LOAD_MIN_VALID_MINUTES,
   READINESS_CALIBRATING_NIGHTS,
@@ -27,6 +28,7 @@ import {
   sleepNeedMs,
   sleepPeriods,
   sleepScore,
+  withBedTime,
   withStillLeadIn,
   withoutAwakeTails,
   zoneSeconds,
@@ -249,9 +251,10 @@ function withoutOffWristSleep(ctx: Context, samples: Sample[]): Sample[] {
   return samples.map((s) => (s.state === 'SLEEP' && lookup(s.t) === 'off' ? { ...s, state: null } : s));
 }
 
-function mergedPeriods(ctx: Context, samples: Sample[], from: number, to: number): MergedSleepPeriod[] {
+function mergedPeriods(ctx: Context, samples: Sample[], from: number, to: number, before: Sample[] = []): MergedSleepPeriod[] {
   const guarded = withoutOffWristSleep(ctx, samples);
-  const detected = withStillLeadIn(withoutAwakeTails(sleepPeriods(guarded), guarded), guarded);
+  const sleep = withStillLeadIn(withoutAwakeTails(sleepPeriods(guarded), guarded), guarded);
+  const detected = withBedTime(sleep, before.length === 0 ? guarded : [...before, ...guarded]);
   return applySleepEdits(detected, editsTouching(ctx.edits, from, to), guarded);
 }
 
@@ -399,7 +402,8 @@ async function computeDay(
 
   const key = formatDayIndex(index);
   const scanned = await mainNightOf(ctx, index);
-  const periods = mergedPeriods(ctx, samples, start, end).filter((p) => p.onset >= start && p.onset < end);
+  const { samples: before } = await readWindow(ctx, start - BED_LEAD_IN_MAX_S, start);
+  const periods = mergedPeriods(ctx, samples, start, end, before).filter((p) => p.onset >= start && p.onset < end);
   const main = scanned === null ? null : pickMainNight(nightsOf(periods), index, tz);
   const periodRecords: SleepPeriodRecord[] = periods.map((p) => ({
     onset: p.onset,
@@ -409,6 +413,7 @@ async function computeDay(
     nap: main === null || !main.periods.includes(p),
     source: p.source,
     editId: p.editId,
+    ...(p.bedOnset === undefined || p.bedOffset === undefined ? {} : { bedOnset: p.bedOnset, bedOffset: p.bedOffset }),
   }));
 
   const previous = history[history.length - 1] ?? null;

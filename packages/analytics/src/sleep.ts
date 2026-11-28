@@ -15,6 +15,7 @@ export const AWAKE_HR_RISE = 8;
 export const AWAKE_MIN_HR_RISE = 5;
 export const AWAKE_HR_MINUTES = 3;
 export const STILL_LEAD_IN_MAX_S = 3600;
+export const BED_LEAD_IN_MAX_S = 3600;
 const MINUTE_S = 60;
 const MINUTE_MIN_HR_S = 10;
 
@@ -178,7 +179,8 @@ export function withoutAwakeTails(periods: readonly SleepPeriod[], samples: read
       continue;
     }
     if (wake - period.onset < SLEEP_MIN_DURATION_S) continue;
-    out.push({ ...summarize(rows, lowerBound(rows, period.onset), period.onset, wake - 1).period, inBedS: period.inBedS });
+    const trimmed = summarize(rows, lowerBound(rows, period.onset), period.onset, wake - 1).period;
+    out.push({ ...trimmed, inBedS: period.inBedS, bedOffset: period.bedOffset ?? period.offset });
   }
   return out;
 }
@@ -243,5 +245,39 @@ export function withStillLeadIn(periods: readonly SleepPeriod[], samples: readon
       if ((lead.restless[k] ?? 0) >= RESTLESS_MIN_S || raised) asleepFrom = Math.min(period.onset, start + (k + 1) * MINUTE_S);
     }
     return { ...period, onset: start, asleepS: period.asleepS + period.onset - asleepFrom, inBedS: period.inBedS + period.onset - start };
+  });
+}
+
+function bedSince(rows: readonly Sample[], onset: number, after: number, reportsSkinTemp: boolean): number {
+  let earliest = onset;
+  let later: Sample | null = null;
+  let counted = false;
+  for (let i = lowerBound(rows, onset) - 1; i >= 0; i--) {
+    const r = rows[i];
+    if (r === undefined || r.t <= after || onset - r.t > BED_LEAD_IN_MAX_S || earliest - r.t > MINUTE_S) break;
+    if (reportsSkinTemp && r.skinTempC === null) break;
+    if (r.steps !== null) {
+      if (later !== null && later.steps !== r.steps) return later.t + 1;
+      later = r;
+      counted = true;
+    }
+    earliest = r.t;
+  }
+  return counted ? earliest : onset;
+}
+
+// Before lying still the wearer is often already in bed, on the phone: the band says WAKE but counts no more steps.
+// Time in bed starts after the last steps before the night (at most an hour earlier) and ends when the band saw the
+// wearer get up. Neither end adds sleep.
+export function withBedTime(periods: readonly SleepPeriod[], samples: readonly Sample[]): SleepPeriod[] {
+  if (periods.length === 0) return [];
+  const rows = sortedUnique(samples);
+  const reportsSkinTemp = rows.some((r) => r.skinTempC !== null);
+  let previousEnd = -Infinity;
+  return periods.map((period) => {
+    const bedOffset = period.bedOffset ?? period.onset + period.inBedS - 1;
+    const bedOnset = Math.min(period.onset, bedSince(rows, period.onset, previousEnd, reportsSkinTemp));
+    previousEnd = bedOffset;
+    return { ...period, bedOnset, bedOffset, inBedS: bedOffset - bedOnset + 1 };
   });
 }
