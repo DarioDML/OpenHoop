@@ -119,3 +119,5 @@ export { PHENO_AGE, fitnessAge, fitnessAgeAt, fitnessAnchors, phenotypicAge } fr
 export type { FitnessAge, FitnessAgePoint, FitnessAnchor, PhenoAgeEstimate, PhenoAgeInputs, PhenoAgeReason, PhenoAgeResult } from './bodyAge';
 export { SLEEP_STAGES, STAGE_EPOCH_S, STAGE_MIN_COVERAGE, STAGE_VALIDATION, classifyRecentStages, classifyStages, stageTrace } from './stages';
 export type { RecentStageEpoch, SleepStage, StageEpoch, StageProbabilities, StageSpan, StageTotals, StageTrace, StagedNight } from './stages';
+export { STRENGTH_MOTION, analyseBout, findBouts, lastBoutBefore, tempoFactor } from './strengthMotion';
+export type { Bout, MotionSecond, SetMotion } from './strengthMotion';
