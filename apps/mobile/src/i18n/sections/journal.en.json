@@ -156,5 +156,10 @@
   "journal.b.coldWeather": "Cold weather",
   "journal.b.highAltitude": "High altitude",
   "journal.b.poorAir": "Poor air quality",
-  "journal.b.highPollen": "High pollen count"
+  "journal.b.highPollen": "High pollen count",
+  "journal.voiceRow": "Or just say what happened…",
+  "journal.less": "Less",
+  "journal.more": "More",
+  "journal.notesTitle": "Notes for this day",
+  "journal.noQuestions": "No questions are switched on. Add behaviours under Customize questions."
 }

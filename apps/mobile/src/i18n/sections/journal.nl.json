@@ -156,5 +156,10 @@
   "journal.b.coldWeather": "Koud weer",
   "journal.b.highAltitude": "Op grote hoogte",
   "journal.b.poorAir": "Slechte luchtkwaliteit",
-  "journal.b.highPollen": "Veel pollen"
+  "journal.b.highPollen": "Veel pollen",
+  "journal.voiceRow": "Of vertel gewoon wat er gebeurde…",
+  "journal.less": "Minder",
+  "journal.more": "Meer",
+  "journal.notesTitle": "Notities bij deze dag",
+  "journal.noQuestions": "Er staan geen vragen aan. Voeg gewoontes toe via Vragen aanpassen."
 }
