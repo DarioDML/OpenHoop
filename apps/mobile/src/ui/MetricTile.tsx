@@ -66,7 +66,7 @@ export function MetricTile({ label, value, level, unit, reason = null, decimals 
         {target ? (
           <MetricName target={target} label={label} testID={testID ? `${testID}-name` : undefined} />
         ) : (
-          <AppText variant="capSmall" muted numberOfLines={1} style={{ flexShrink: 1 }}>
+          <AppText variant="capSmall" muted numberOfLines={2} style={{ flexShrink: 1 }}>
             {href ? `${label} ›` : label}
           </AppText>
         )}
