@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
+import { HC_ONBOARDING_TYPES } from '@/data/healthConnectSwitch';
 import { isGranted } from '@/data/healthConnectSync';
 import { useT } from '@/i18n/useT';
 import { HC_EXPORT_TYPES } from '@/lib/healthConnectMapping';
@@ -21,8 +22,9 @@ export default function PermissionsScreen() {
   const { colors } = useTheme();
   const notifications = useNotificationSwitch();
   const location = useLocationSwitch();
-  const { healthConnect, refreshHealthConnect, setHealthConnectTypes, installHealthConnect, openHealthConnectSettings } = useAppData();
+  const { healthConnect, refreshHealthConnect, setHealthConnectTypes, setHealthConnectAfterSync, installHealthConnect, openHealthConnectSettings } = useAppData();
   const [hcBusy, setHcBusy] = useState(false);
+  const [hcDenied, setHcDenied] = useState(false);
 
   useEffect(() => {
     void refreshHealthConnect();
@@ -34,9 +36,23 @@ export default function PermissionsScreen() {
   const missing = availability === 'available' ? HC_EXPORT_TYPES.filter((type) => state.export[type] && !isGranted(granted, type)) : [];
   const needsInstall = availability === 'not-installed' || availability === 'update-required';
 
+  const switchHealthConnect = async (next: boolean): Promise<void> => {
+    setHcDenied(false);
+    if (!next) {
+      await setHealthConnectTypes(HC_EXPORT_TYPES, false);
+      return;
+    }
+    const on = await setHealthConnectTypes(HC_ONBOARDING_TYPES, true);
+    if (on.length === 0) {
+      setHcDenied(true);
+      return;
+    }
+    if (!state.afterBandSync) await setHealthConnectAfterSync(true);
+  };
+
   const toggleHealthConnect = (next: boolean): void => {
     setHcBusy(true);
-    void setHealthConnectTypes(HC_EXPORT_TYPES, next).finally(() => setHcBusy(false));
+    void switchHealthConnect(next).finally(() => setHcBusy(false));
   };
 
   const hcSubtitle =
@@ -132,6 +148,16 @@ export default function PermissionsScreen() {
           onPress={() => void installHealthConnect()}
           testID="permission-health-connect-install"
         />
+      ) : null}
+      {availability === 'available' ? (
+        <AppText variant="caption" muted testID="permission-health-connect-when">
+          {exportOn && !state.afterBandSync ? t('onboarding.permissions.healthConnectManual') : t('onboarding.permissions.healthConnectWhen')}
+        </AppText>
+      ) : null}
+      {hcDenied ? (
+        <AppText variant="label" color={colors.warning} testID="permission-health-connect-denied">
+          {t('onboarding.permissions.healthConnectDenied')}
+        </AppText>
       ) : null}
       {exportOn && missing.length > 0 ? (
         <View style={{ gap: spacing.xs }}>

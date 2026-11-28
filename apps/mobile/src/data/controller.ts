@@ -200,6 +200,7 @@ import {
   type HealthConnectState,
 } from './healthConnectState';
 import { runHealthConnectSync } from './healthConnectSync';
+import { switchHealthConnectTypes } from './healthConnectSwitch';
 import { removeLeftoverReports } from './reportFiles';
 import { removeLeftoverEcgFiles } from './ecgShare';
 import {
@@ -2023,26 +2024,14 @@ export class AppController {
       return granted.has(key);
     }, false);
 
-  setHealthConnectTypes = (types: readonly HcDataType[], enabled: boolean): Promise<boolean> =>
+  setHealthConnectTypes = (types: readonly HcDataType[], enabled: boolean): Promise<HcDataType[]> =>
     this.healthConnectTask(async () => {
-      const current = this.snapshot.healthConnect.state;
-      const state: HealthConnectState = { ...current, export: { ...current.export }, import: { ...current.import } };
-      for (const type of types) {
-        if (isExportType(type)) state.export[type] = enabled;
-        else state.import[type] = enabled;
-      }
-      if (!enabled && types.includes('steps')) {
-        state.steps = [];
-        state.lastStepsImportS = null;
-      }
-      await this.saveHealthConnectState(state);
-      if (!enabled || this.snapshot.healthConnect.availability !== 'available') return true;
-      const missing = types.map(permissionFor).filter((permission) => !this.snapshot.healthConnect.granted.includes(permissionKey(permission)));
-      if (missing.length === 0) return true;
-      const granted = await this.healthConnect.requestPermissions(missing);
-      this.patchHealthConnect({ granted: [...granted] });
-      return missing.every((permission) => granted.has(permissionKey(permission)));
-    }, false);
+      const view = this.snapshot.healthConnect;
+      const result = await switchHealthConnectTypes(this.healthConnect, { state: view.state, granted: view.granted, availability: view.availability, types, enabled });
+      await this.saveHealthConnectState(result.state);
+      this.patchHealthConnect({ granted: result.granted });
+      return result.on;
+    }, []);
 
   setHealthConnectAfterSync = (enabled: boolean): Promise<void> =>
     this.healthConnectTask(async () => {

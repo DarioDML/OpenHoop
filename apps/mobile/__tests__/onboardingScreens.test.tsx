@@ -16,7 +16,8 @@ import SetupScreen from '@/app/onboarding/setup';
 import WearGuideScreen from '@/app/onboarding/wear';
 import { buildSnapshot, serializeSnapshot } from '@/data/bandConfig';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
-import { HC_EXPORT_TYPES } from '@/lib/healthConnectMapping';
+import { HC_ONBOARDING_TYPES } from '@/data/healthConnectSwitch';
+import { HC_EXPORT_TYPES, type HcDataType } from '@/lib/healthConnectMapping';
 
 import { fixtureAppData, withAppData } from './support/appData';
 
@@ -166,12 +167,36 @@ describe('Goals (A4)', () => {
 });
 
 describe('Permissions (A5)', () => {
-  it('switches Health Connect on for measured values through one permission request', async () => {
-    const setHealthConnectTypes = jest.fn(async () => true);
-    await render(withAppData(<PermissionsScreen />, 'en', { setHealthConnectTypes }));
+  it('switches Health Connect on for the default measured values and writes after the next band sync', async () => {
+    const setHealthConnectTypes = jest.fn(async (): Promise<HcDataType[]> => ['heartRate', 'sleep']);
+    const setHealthConnectAfterSync = jest.fn(async () => undefined);
+    await render(withAppData(<PermissionsScreen />, 'en', { setHealthConnectTypes, setHealthConnectAfterSync }));
     expect(screen.getByTestId('permission-bluetooth')).toHaveTextContent(/Required/);
+    expect(screen.getByTestId('permission-health-connect')).toHaveTextContent(/Heart rate, resting heart rate, sleep and workouts go to other apps through Health Connect/);
+    expect(screen.getByTestId('permission-health-connect-when')).toHaveTextContent('Nothing is written until the next band sync. Add other data under Integrations.');
     await fireEvent(screen.getByTestId('permission-health-connect-toggle'), 'valueChange', true);
-    expect(setHealthConnectTypes).toHaveBeenCalledWith(HC_EXPORT_TYPES, true);
+    await waitFor(() => expect(setHealthConnectAfterSync).toHaveBeenCalledWith(true));
+    expect(setHealthConnectTypes).toHaveBeenCalledWith(HC_ONBOARDING_TYPES, true);
+  });
+
+  it('says so when Health Connect gives no permission and leaves the switch off', async () => {
+    const setHealthConnectTypes = jest.fn(async (): Promise<HcDataType[]> => []);
+    const setHealthConnectAfterSync = jest.fn(async () => undefined);
+    await render(withAppData(<PermissionsScreen />, 'en', { setHealthConnectTypes, setHealthConnectAfterSync }));
+    await fireEvent(screen.getByTestId('permission-health-connect-toggle'), 'valueChange', true);
+    expect(await screen.findByTestId('permission-health-connect-denied')).toBeTruthy();
+    expect(setHealthConnectAfterSync).not.toHaveBeenCalled();
+    expect(screen.getByTestId('permission-health-connect-toggle').props.value).toBe(false);
+  });
+
+  it('switches every written type off', async () => {
+    const base = fixtureAppData();
+    const setHealthConnectTypes = jest.fn(async (): Promise<HcDataType[]> => []);
+    const state = { ...defaultHealthConnectState(), afterBandSync: false, export: { ...defaultHealthConnectState().export, hrv: true } };
+    await render(withAppData(<PermissionsScreen />, 'en', { setHealthConnectTypes, healthConnect: { ...base.healthConnect, state, granted: [] } }));
+    expect(screen.getByTestId('permission-health-connect-when')).toHaveTextContent(/until you sync it under Integrations/);
+    await fireEvent(screen.getByTestId('permission-health-connect-toggle'), 'valueChange', false);
+    await waitFor(() => expect(setHealthConnectTypes).toHaveBeenCalledWith(HC_EXPORT_TYPES, false));
   });
 
   it('says which permissions Health Connect left out', async () => {
