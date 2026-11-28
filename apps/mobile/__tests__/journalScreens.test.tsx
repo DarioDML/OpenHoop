@@ -72,6 +72,13 @@ describe('journal day screen', () => {
     expect(mockPush).toHaveBeenCalledWith('/journal/trends');
   });
 
+  it('also shows answers saved for behaviours that are not in the journal, such as voice entries', async () => {
+    const today = todayIso(new Date());
+    await render(withAppData(<JournalScreen />, 'en', { userData: { ...base, journal: { [today]: { caffeine: 2 } } } }));
+    expect(screen.getByTestId('journal-q-caffeine')).toBeTruthy();
+    expect(screen.getByTestId('journal-caffeine-count')).toHaveTextContent('2');
+  });
+
   it('asks new catalogue behaviours as questions', async () => {
     await render(withAppData(<JournalScreen />, 'nl', { userData: { ...base, journalQuestions: ['cold-plunge'] } }));
     expect(screen.getByText('IJsbad?')).toBeTruthy();

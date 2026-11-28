@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { useAppData } from '@/data/context';
 import { addDays } from '@/data/derived';
 import { notesForDay } from '@/data/journalNotes';
-import { activeQuestions } from '@/data/journalQuestions';
+import { JOURNAL_QUESTIONS, activeQuestions } from '@/data/journalQuestions';
 import type { JournalAnswer } from '@/data/userData';
 import { formatShortDay, todayIso } from '@/lib/format';
 import { useT } from '@/i18n/useT';
@@ -36,7 +36,11 @@ export default function JournalScreen() {
   const stored = userData.journal[day];
   const [draft, setDraft] = useState<Draft>(stored ?? {});
   const [saved, setSaved] = useState(false);
-  const questions = useMemo(() => activeQuestions(userData.journalQuestions), [userData.journalQuestions]);
+  const questions = useMemo(() => {
+    const active = activeQuestions(userData.journalQuestions);
+    const asked = new Set(active.map((q) => q.id));
+    return [...active, ...JOURNAL_QUESTIONS.filter((q) => !asked.has(q.id) && stored?.[q.id] !== undefined)];
+  }, [userData.journalQuestions, stored]);
 
   useEffect(() => {
     setDraft(userData.journal[day] ?? {});
