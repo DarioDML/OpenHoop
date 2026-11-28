@@ -244,7 +244,7 @@ export function withStillLeadIn(periods: readonly SleepPeriod[], samples: readon
       const raised = sleepingHr !== null && (lead.hr[k] ?? Number.NaN) - sleepingHr >= AWAKE_MIN_HR_RISE;
       if ((lead.restless[k] ?? 0) >= RESTLESS_MIN_S || raised) asleepFrom = Math.min(period.onset, start + (k + 1) * MINUTE_S);
     }
-    return { ...period, onset: start, asleepS: period.asleepS + period.onset - asleepFrom, inBedS: period.inBedS + period.onset - start };
+    return { ...period, onset: start, sleepOnset: asleepFrom, asleepS: period.asleepS + period.onset - asleepFrom, inBedS: period.inBedS + period.onset - start };
   });
 }
 
@@ -278,6 +278,6 @@ export function withBedTime(periods: readonly SleepPeriod[], samples: readonly S
     const bedOffset = period.bedOffset ?? period.onset + period.inBedS - 1;
     const bedOnset = Math.min(period.onset, bedSince(rows, period.onset, previousEnd, reportsSkinTemp));
     previousEnd = bedOffset;
-    return { ...period, bedOnset, bedOffset, inBedS: bedOffset - bedOnset + 1 };
+    return { ...period, bedOnset, bedOffset, sleepOnset: period.sleepOnset ?? period.onset, inBedS: bedOffset - bedOnset + 1 };
   });
 }

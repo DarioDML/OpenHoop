@@ -110,6 +110,7 @@ export interface SleepPeriodRecord {
   editId: number | null;
   bedOnset?: number;
   bedOffset?: number;
+  sleepOnset?: number;
 }
 
 export interface SleepEdit {

@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { useAppData } from '@/data/context';
 import { formatHm, formatLongDay, indexOfDay, isDayString, mainNightSpan, singleParam } from '@/data/dailyDerived';
 import { baselineAt } from '@/data/derived';
-import { nightEvents, restorativePct } from '@/data/sleepDerived';
+import { fallAsleepS, nightEvents, restorativePct } from '@/data/sleepDerived';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -73,6 +73,7 @@ export default function LastNightScreen() {
   const respChip = rangeChip(resp, baselineAt(days, index, 'respiratoryRate'), 1);
   const totals = day.sleep.stages?.totals ?? null;
   const events = night !== null && epochs.length > 0 ? nightEvents(epochs, night.onset) : null;
+  const latencyS = fallAsleepS(day.sleep.periods) ?? events?.latencyS ?? null;
   const stageReason = staged ? (epochsLoaded ? 'missing-signal' : null) : (day.sleep.stages?.reason ?? 'no-sleep');
   const restorative = restorativePct(totals);
   const edited = day.sleep.periods.some((p) => !p.nap && p.source === 'edited');
@@ -182,7 +183,7 @@ export default function LastNightScreen() {
           testID="kpi-latency"
           explain={{ term: 'latency', index }}
           label={t('term.latency.name')}
-          value={events === null ? null : Math.round(events.latencyS / 60)}
+          value={latencyS === null ? null : Math.round(latencyS / 60)}
           reason={stageReason}
           unit={t('lastNight.minUnit')}
           caption={t('lastNight.latencyHint')}

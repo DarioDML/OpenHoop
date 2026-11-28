@@ -414,6 +414,7 @@ async function computeDay(
     source: p.source,
     editId: p.editId,
     ...(p.bedOnset === undefined || p.bedOffset === undefined ? {} : { bedOnset: p.bedOnset, bedOffset: p.bedOffset }),
+    ...(p.sleepOnset === undefined ? {} : { sleepOnset: p.sleepOnset }),
   }));
 
   const previous = history[history.length - 1] ?? null;

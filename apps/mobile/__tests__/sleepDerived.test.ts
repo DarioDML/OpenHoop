@@ -25,6 +25,7 @@ import {
   typicalStageRanges,
   weakestContributor,
   windDownAt,
+  fallAsleepS,
 } from '@/data/sleepDerived';
 
 import { FIXTURE_NOW } from './support/appData';
@@ -119,6 +120,14 @@ describe('night events', () => {
   it('measures latency and counts wake bouts between sleep', () => {
     const night = [epoch(0, 'wake'), epoch(1, 'wake'), epoch(2, 'light'), epoch(3, 'wake'), epoch(4, 'deep'), epoch(5, 'wake'), epoch(6, 'wake'), epoch(7, 'rem'), epoch(8, 'wake')];
     expect(nightEvents(night, 10_000)).toEqual({ latencyS: 60, disturbances: 2 });
+  });
+
+  it('measures the time to fall asleep from getting into bed when the night knows both', () => {
+    const period = { onset: 20_000, offset: 50_000, asleepS: 29_000, inBedS: 32_000, nap: false, source: 'detected' as const, editId: null };
+    expect(fallAsleepS([{ ...period, bedOnset: 19_000, sleepOnset: 20_180 }])).toBe(1_180);
+    expect(fallAsleepS([{ ...period, nap: true, bedOnset: 19_000, sleepOnset: 20_180 }])).toBeNull();
+    expect(fallAsleepS([period])).toBeNull();
+    expect(fallAsleepS([{ ...period, bedOnset: 20_000, sleepOnset: 20_000 }])).toBeNull();
   });
 
   it('gives nothing for a night without sleep epochs', () => {

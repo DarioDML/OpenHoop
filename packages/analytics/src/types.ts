@@ -26,6 +26,7 @@ export interface SleepPeriod {
   hrMean: number | null;
   bedOnset?: number;
   bedOffset?: number;
+  sleepOnset?: number;
 }
 
 export interface Night<P extends SleepPeriod = SleepPeriod> {
