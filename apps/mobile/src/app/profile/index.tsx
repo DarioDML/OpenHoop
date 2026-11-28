@@ -164,7 +164,7 @@ export default function ProfileScreen() {
         />
       </StatGrid>
       <AppText variant="caption" muted>
-        {t('profile.lifetimeNote', { days: stats.daysTracked })}
+        {stats.daysTracked === 1 ? t('profile.lifetimeNoteOne') : t('profile.lifetimeNote', { days: stats.daysTracked })}
       </AppText>
 
       <ListGroup>

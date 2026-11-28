@@ -212,5 +212,19 @@
   "plan.notice.sleepTitle": "Je slaapdoel is veranderd",
   "plan.notice.sleepBody": "Het telt nu nachten met een slaapscore van {min}% of meer, in plaats van nachten waarin je je slaapbehoefte haalde. Je doel blijft {count} nachten. De score pas je aan bij Plan bewerken.",
   "plan.notice.dismiss": "Begrepen",
-  "plan.report.weekSoFar": "Deze week tot nu toe, maandag tot vandaag"
+  "plan.report.weekSoFar": "Deze week tot nu toe, maandag tot vandaag",
+  "plan.weekOne": "Dag {elapsed} van 7 · nog 1 dag",
+  "plan.weekLastDay": "Dag {elapsed} van 7 · laatste dag",
+  "plan.goal.loadDays.targetOne": "1 dag met een belasting van {threshold} of meer",
+  "plan.goal.sleepScore.targetOne": "{min}% of hoger, 1 nacht",
+  "plan.notice.sleepBodyOne": "Het telt nu nachten met een slaapscore van {min}% of meer, in plaats van nachten waarin je je slaapbehoefte haalde. Je doel blijft 1 nacht. De score pas je aan bij Plan bewerken.",
+  "plan.report.tooFewOne": "Er is in deze periode maar 1 dag data. Voor een rapport zijn er minstens {needed} nodig.",
+  "plan.month.load.headlineOne": "1 belastingsdag op {total} dagen.",
+  "profile.lifetimeNoteOne": "Geteld over 1 dag data op deze telefoon.",
+  "profile.achOne.streak": "1 dag met data",
+  "profile.achOne.nights": "1 nacht slaap vastgelegd",
+  "profile.achOne.workouts": "1 workout vastgelegd",
+  "profile.achOne.steps10k": "1 dag met {steps} stappen of meer",
+  "profile.achOne.highLoad": "1 dag met een belasting van {load} of meer",
+  "profile.achOne.readyStreak": "1 dag met een paraatheid van {readiness} of meer"
 }

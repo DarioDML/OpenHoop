@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { enoughForReport, formatWeekday, MIN_REPORT_DAYS, periodStats, periodWindows } from '@/data/activityDerived';
+import { enoughForReport, formatWeekday, periodStats, periodWindows } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { formatHm } from '@/data/dailyDerived';
 import { visibleReadiness } from '@/data/derived';
@@ -26,7 +26,7 @@ import { GridTile, StatGrid } from '../StatGrid';
 import { radius, spacing, useTheme } from '../theme';
 import { goBack, IconButton, TopBar } from '../TopBar';
 import { formatDayRange } from './goals';
-import { ChangeRows, LoadDaysCard } from './reportParts';
+import { ChangeRows, LoadDaysCard, tooFewText } from './reportParts';
 import { ReportShareSheet } from './ReportShareSheet';
 
 const PAGES = 5;
@@ -119,7 +119,7 @@ export function MonthlyReport({ testID }: { testID: string }): ReactElement {
     headlineText(t, monthHeadline(days, MONTH)),
     cur.readiness === null ? t('plan.month.readiness.none') : t('plan.month.readiness.headline', { value: fmt(cur.readiness) }),
     cur.sleepH === null ? t('plan.month.sleep.none') : t('plan.month.sleep.headline', { time: formatHm(cur.sleepH * 3600) }),
-    t('plan.month.load.headline', { count: cur.loadDays, total: current.length }),
+    cur.loadDays === 1 ? t('plan.month.load.headlineOne', { total: current.length }) : t('plan.month.load.headline', { count: cur.loadDays, total: current.length }),
     t('plan.month.compare.headline'),
   ];
   const headline = headlines[page] ?? headlines[0] ?? '';
@@ -275,7 +275,7 @@ export function MonthlyReport({ testID }: { testID: string }): ReactElement {
       {!enough ? (
         <Card testID="report-few">
           <AppText variant="body" muted>
-            {t('plan.report.tooFew', { count: current.length, needed: MIN_REPORT_DAYS })}
+            {tooFewText(t, current.length)}
           </AppText>
         </Card>
       ) : (

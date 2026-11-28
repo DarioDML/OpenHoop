@@ -669,5 +669,9 @@
   "import.use.historyNoStart": "Er is nog geen 'gedragen sinds'-datum, dus alles in het bestand wordt geïmporteerd. Stel de datum in onder Gegevens en privacy om alleen dagen vanaf dan te importeren.",
   "dev.exportSessionsNote": "Deelt alleen de bewaarde sessiebestanden, zonder de database. De bestanden bevatten de ruwe bytes die de band stuurde.",
   "dev.recordFull": "De opname is vol bij {limit} pakketten. Stop ze om te bewaren wat erin zit.",
-  "dev.recordLeave": "Dit scherm verlaten stopt de opname en bewaart ze."
+  "dev.recordLeave": "Dit scherm verlaten stopt de opname en bewaart ze.",
+  "aboutx.accuracy.eyebrowOne": "Jouw gegevens · 1 nacht",
+  "aboutx.accuracy.vsOfficialOne": "vs officiële app · 1 nacht",
+  "aboutx.accuracy.summaryNoTargetOne": "1 waarde vergeleken",
+  "import.importOneDay": "1 dag importeren"
 }

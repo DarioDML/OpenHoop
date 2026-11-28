@@ -669,5 +669,9 @@
   "import.use.historyNoStart": "No worn-since date is set yet, so everything in the file is imported. Set the date under Data & privacy to import only days from then on.",
   "dev.exportSessionsNote": "Shares only the saved session files, without the database. The files hold the raw bytes the band sent.",
   "dev.recordFull": "The recording is full at {limit} packets. Stop it to save what it holds.",
-  "dev.recordLeave": "Leaving this screen stops the recording and saves it."
+  "dev.recordLeave": "Leaving this screen stops the recording and saves it.",
+  "aboutx.accuracy.eyebrowOne": "Your data · 1 night",
+  "aboutx.accuracy.vsOfficialOne": "vs official app · 1 night",
+  "aboutx.accuracy.summaryNoTargetOne": "1 metric compared",
+  "import.importOneDay": "Import 1 day"
 }

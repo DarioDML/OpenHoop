@@ -28,7 +28,8 @@ export function badgeName(t: TFunction, a: Achievement, language: Language): str
 }
 
 export function badgeDescription(t: TFunction, a: Achievement, language: Language): string {
-  return t(`profile.ach.${a.group}`, { count: a.target, ...thresholds(language) });
+  const params = { count: a.target, ...thresholds(language) };
+  return a.target === 1 ? t(`profile.achOne.${a.group}`, params) : t(`profile.ach.${a.group}`, params);
 }
 
 export function badgePoints(t: TFunction, a: Achievement): string {

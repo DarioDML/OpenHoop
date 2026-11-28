@@ -212,5 +212,19 @@
   "plan.notice.sleepTitle": "Your sleep goal changed",
   "plan.notice.sleepBody": "It now counts nights with a sleep score of {min}% or more, instead of nights that met your sleep need. Your target stays at {count} nights. You can change the score in Edit plan.",
   "plan.notice.dismiss": "Got it",
-  "plan.report.weekSoFar": "This week so far, Monday to today"
+  "plan.report.weekSoFar": "This week so far, Monday to today",
+  "plan.weekOne": "Day {elapsed} of 7 · 1 day left",
+  "plan.weekLastDay": "Day {elapsed} of 7 · last day",
+  "plan.goal.loadDays.targetOne": "1 day with a load of {threshold} or more",
+  "plan.goal.sleepScore.targetOne": "{min}% or higher, 1 night",
+  "plan.notice.sleepBodyOne": "It now counts nights with a sleep score of {min}% or more, instead of nights that met your sleep need. Your target stays at 1 night. You can change the score in Edit plan.",
+  "plan.report.tooFewOne": "There is only 1 day of data in this period. A report needs at least {needed}.",
+  "plan.month.load.headlineOne": "1 load day in {total} days.",
+  "profile.lifetimeNoteOne": "Counted over 1 day of data on this phone.",
+  "profile.achOne.streak": "1 day of data",
+  "profile.achOne.nights": "1 night of sleep recorded",
+  "profile.achOne.workouts": "1 workout recorded",
+  "profile.achOne.steps10k": "1 day with {steps} steps or more",
+  "profile.achOne.highLoad": "1 day with a load of {load} or more",
+  "profile.achOne.readyStreak": "1 day with a readiness of {readiness} or more"
 }

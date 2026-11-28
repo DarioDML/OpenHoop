@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
 
-import { trendOf, type PeriodStats, type Trend } from '@/data/activityDerived';
+import { MIN_REPORT_DAYS, trendOf, type PeriodStats, type Trend } from '@/data/activityDerived';
 import type { TranslationKey } from '@/i18n';
-import { useT } from '@/i18n/useT';
+import { useT, type TFunction } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 
 import { AppText } from '../AppText';
@@ -11,6 +11,10 @@ import { Card } from '../Card';
 import { Chip } from '../Chip';
 import { Section } from '../Section';
 import { spacing } from '../theme';
+
+export function tooFewText(t: TFunction, count: number): string {
+  return count === 1 ? t('plan.report.tooFewOne', { needed: MIN_REPORT_DAYS }) : t('plan.report.tooFew', { count, needed: MIN_REPORT_DAYS });
+}
 
 export type RowId = 'readiness' | 'load' | 'sleep' | 'hrv' | 'restingHr';
 

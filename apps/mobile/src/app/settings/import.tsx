@@ -182,7 +182,7 @@ export default function ImportExportScreen() {
       {picked !== null && preview !== null ? (
         <View style={{ gap: spacing.sm }}>
           <Button
-            label={busy ? t('import.importing') : t('import.importDays', { count: preview.days })}
+            label={busy ? t('import.importing') : preview.days === 1 ? t('import.importOneDay') : t('import.importDays', { count: preview.days })}
             icon="import"
             onPress={() => void runImport()}
             disabled={busy || preview.days === 0}

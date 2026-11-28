@@ -157,11 +157,14 @@ export default function AccuracyScreen() {
   const measured = new Set<string>([...comparisons.filter((comparison) => comparison.meanAbsError !== null).map((comparison) => comparison.metric), 'stages']);
   const stagesKappa = formatNumber(STAGE_VALIDATION.kappa, 2, language);
   const stagesPass = STAGE_VALIDATION.kappa >= STAGES_KAPPA_TARGET;
+  const vsOfficial = (pairs: number): string => (pairs === 1 ? t('aboutx.accuracy.vsOfficialOne') : t('aboutx.accuracy.vsOfficial', { count: pairs }));
   const title =
     summary.withTarget > 0
       ? t('aboutx.accuracy.summary', { passing: summary.passing, total: summary.withTarget })
       : summary.measured > 0
-        ? t('aboutx.accuracy.summaryNoTarget', { count: summary.measured })
+        ? summary.measured === 1
+          ? t('aboutx.accuracy.summaryNoTargetOne')
+          : t('aboutx.accuracy.summaryNoTarget', { count: summary.measured })
         : t('aboutx.accuracy.summaryNone');
 
   const share = (): void => {
@@ -169,7 +172,7 @@ export default function AccuracyScreen() {
       const result =
         comparison.meanAbsError === null
           ? t('aboutx.accuracy.reportNotMeasured')
-          : `${errorText(t, language, comparison.metric, comparison.meanAbsError, units)} (${t('aboutx.accuracy.vsOfficial', { count: comparison.pairs })})`;
+          : `${errorText(t, language, comparison.metric, comparison.meanAbsError, units)} (${vsOfficial(comparison.pairs)})`;
       return `${t(METRIC_LABEL[comparison.metric])}: ${result}`;
     });
     lines.push(`${t('stage.title')}: κ ${stagesKappa} (${t('aboutx.accuracy.vsLab', { people: STAGE_VALIDATION.subjects })})`);
@@ -181,7 +184,7 @@ export default function AccuracyScreen() {
       <TopBar title={t('aboutx.accuracy.title')} right={<IconButton icon="share" label={t('aboutx.accuracy.share')} onPress={share} color={colors.text} testID="accuracy-share" />} />
       <View style={{ gap: spacing.sm }} testID="accuracy-hero">
         <AppText variant="capLarge" soft>
-          {summary.nights > 0 ? t('aboutx.accuracy.eyebrow', { nights: summary.nights }) : t('aboutx.accuracy.eyebrowNone')}
+          {summary.nights === 0 ? t('aboutx.accuracy.eyebrowNone') : summary.nights === 1 ? t('aboutx.accuracy.eyebrowOne') : t('aboutx.accuracy.eyebrow', { nights: summary.nights })}
         </AppText>
         <AppText variant="h1" accessibilityRole="header" testID="accuracy-summary">
           {title}
@@ -206,7 +209,7 @@ export default function AccuracyScreen() {
             subtitle={
               comparison.meanAbsError === null
                 ? t('aboutx.accuracy.vsOfficialFew', { count: comparison.pairs, min: MIN_PAIRS })
-                : t('aboutx.accuracy.vsOfficial', { count: comparison.pairs })
+                : vsOfficial(comparison.pairs)
             }
             value={comparison.meanAbsError === null ? null : errorText(t, language, comparison.metric, comparison.meanAbsError, units)}
             pass={comparison.pass}
