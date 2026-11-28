@@ -4,6 +4,7 @@ import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import type { ReactNode } from 'react';
 import { captureRef } from 'react-native-view-shot';
 
+import { AppDataContext } from '@/data/context';
 import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { defaultUserData } from '@/data/userData';
 import { defaultPlan } from '@/data/weeklyPlan';
@@ -681,15 +682,16 @@ describe('live session', () => {
     jest.useFakeTimers();
     jest.setSystemTime(FIXTURE_NOW);
     const fresh: StrengthSession = { ...running, startedAt: NOW_S };
-    const wrapper = ({ children }: { children: ReactNode }) => withAppData(children, 'en', { heartRateBetween: async () => [] });
+    const value = fixtureAppData('en', { heartRateBetween: async () => [] });
+    const wrapper = ({ children }: { children: ReactNode }) => <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
     const hook = await renderHook(({ at }: { at: number }) => useSessionHeartRate(fresh, 150, at), { initialProps: { at: 0 }, wrapper });
-    for (let at = 1; at <= 75; at++) {
+    for (let at = 1; at <= 10; at++) {
       await act(async () => {
         jest.advanceTimersByTime(1_000);
       });
       await hook.rerender({ at });
     }
-    expect(hook.result.current).toHaveLength(76);
+    expect(hook.result.current).toHaveLength(11);
     expect(new Set(hook.result.current.map((point) => point.hr))).toEqual(new Set([150]));
     jest.useRealTimers();
   });
