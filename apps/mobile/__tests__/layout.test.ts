@@ -1,4 +1,4 @@
-import { COMPACT_GUTTER, GUTTER, estimateWordWidth, heroRingSize, layoutFor, wordFitScale } from '@/ui/layout';
+import { COMPACT_GUTTER, GUTTER, breaksMidWord, heroRingSize, layoutFor } from '@/ui/layout';
 
 describe('layoutFor', () => {
   it('keeps the roomy layout on a wide phone at normal text size', () => {
@@ -41,26 +41,24 @@ describe('heroRingSize', () => {
   });
 });
 
-describe('wordFitScale', () => {
-  const label = { fontSize: 13, bold: true };
-
-  it('lets a short word grow with the system text size', () => {
-    expect(wordFitScale('Log', 80, label)).toBeGreaterThan(1.3);
+describe('breaksMidWord', () => {
+  it('accepts lines that break at spaces', () => {
+    expect(breaksMidWord(['Log ', 'symptoms'])).toBe(false);
+    expect(breaksMidWord(['Sleep planner ', '& alarm'])).toBe(false);
   });
 
-  it('shrinks a label so its longest word fits a narrow S24 action tile', () => {
-    const scale = wordFitScale('Log symptoms', 77, label);
-    expect(scale).toBeLessThan(1.3);
-    expect(estimateWordWidth('symptoms', { ...label, fontSize: 13 * scale })).toBeLessThanOrEqual(77.01);
+  it('accepts a break after a hyphen or slash', () => {
+    expect(breaksMidWord(['Heart-', 'rate'])).toBe(false);
+    expect(breaksMidWord(['in/', 'out'])).toBe(false);
   });
 
-  it('counts letter spacing and capitals for cap labels', () => {
-    const plain = estimateWordWidth('battery', { fontSize: 11 });
-    const caps = estimateWordWidth('battery', { fontSize: 11, uppercase: true, letterSpacing: 1.5 });
-    expect(caps).toBeGreaterThan(plain + 7 * 1.5);
+  it('spots a word split across two lines', () => {
+    expect(breaksMidWord(['Log sym', 'ptoms'])).toBe(true);
+    expect(breaksMidWord(['RESTI', 'NG HR'])).toBe(true);
   });
 
-  it('never shrinks below the minimum scale', () => {
-    expect(wordFitScale('Supercalifragilistic', 20, label)).toBe(0.7);
+  it('treats one line as fine', () => {
+    expect(breaksMidWord(['Breathing'])).toBe(false);
+    expect(breaksMidWord([])).toBe(false);
   });
 });

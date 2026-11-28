@@ -40,14 +40,14 @@ export default function ConnectProviderScreen() {
   return (
     <Screen header={header} tint="neutral" testID="connect-provider">
       <ListGroup>
-        <ListRow icon={tile(colors, 'drop', 'positive')} title={t('appSettings.provider.labs')} subtitle={t('appSettings.provider.labsBody')} right={none} chevron={false} testID="provider-labs" />
-        <ListRow icon={tile(colors, 'user', 'plain')} title={t('appSettings.provider.clinician')} subtitle={t('appSettings.provider.clinicianBody')} right={none} chevron={false} testID="provider-clinician" />
-        <ListRow icon={tile(colors, 'journal', 'plain')} title={t('appSettings.provider.records')} subtitle={t('appSettings.provider.recordsBody')} right={none} chevron={false} testID="provider-records" />
+        <ListRow icon={tile(colors, 'drop', 'positive')} title={t('appSettings.provider.labs')} subtitle={t('appSettings.provider.labsBody')} chip={none} chevron={false} testID="provider-labs" />
+        <ListRow icon={tile(colors, 'user', 'plain')} title={t('appSettings.provider.clinician')} subtitle={t('appSettings.provider.clinicianBody')} chip={none} chevron={false} testID="provider-clinician" />
+        <ListRow icon={tile(colors, 'journal', 'plain')} title={t('appSettings.provider.records')} subtitle={t('appSettings.provider.recordsBody')} chip={none} chevron={false} testID="provider-records" />
         <ListRow
           icon={tile(colors, 'community', 'gold')}
           title={t('appSettings.provider.teams')}
           subtitle={t('appSettings.provider.teamsBody')}
-          right={<Chip label={t('appSettings.provider.plugin')} tone="warning" small />}
+          chip={<Chip label={t('appSettings.provider.plugin')} tone="warning" small />}
           onPress={() => setExplained('teams')}
           testID="provider-teams"
         />
@@ -67,7 +67,7 @@ export default function ConnectProviderScreen() {
           icon={tile(colors, 'load', 'warning')}
           title={t('appSettings.integrations.strava')}
           subtitle={t('strava.integrationsBody')}
-          right={<Chip small label={t(`strava.status.${status}`)} tone={status === 'connected' ? 'positive' : status === 'reconnect' ? 'warning' : 'neutral'} />}
+          chip={<Chip small label={t(`strava.status.${status}`)} tone={status === 'connected' ? 'positive' : status === 'reconnect' ? 'warning' : 'neutral'} />}
           href="/settings/strava"
           testID="provider-strava"
         />

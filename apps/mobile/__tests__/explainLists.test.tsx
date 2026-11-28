@@ -68,11 +68,11 @@ describe('explain on lists', () => {
     await fireEvent.press(screen.getByTestId('vital-hrv-name'));
     expect(screen.getByTestId('about-sheet')).toBeTruthy();
   });
-  it('gives All metrics one-liners and an info button', async () => {
+  it('keeps All metrics rows compact and moves the one-liner into the About sheet', async () => {
     await render(wrap(<MetricsScreen />));
-    expect(within(screen.getByTestId('metric-hrv')).getByText('How much the time between heartbeats varies. Above your usual means rested.')).toBeTruthy();
+    expect(within(screen.getByTestId('metric-hrv')).queryByText('How much the time between heartbeats varies. Above your usual means rested.')).toBeNull();
     await fireEvent.press(screen.getByTestId('metric-hrv-about'));
-    expect(screen.getByTestId('about-sheet')).toBeTruthy();
+    expect(within(screen.getByTestId('about-sheet')).getByText('Heart rate variability')).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
   });
 });

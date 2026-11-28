@@ -7,13 +7,14 @@ import type { ParityLevel } from '@/data/types';
 import { formatNumber } from '@/lib/format';
 import { useT } from '@/i18n/useT';
 
-import { AppText } from './AppText';
+import { AppText, WordFitText } from './AppText';
 import { Card } from './Card';
 import { Chip, type ChipTone } from './Chip';
 import { useExplain, useMissing, type ExplainTarget } from './explain/ExplainProvider';
 import { MetricName } from './explain/MetricName';
 import { missingStatus } from './explain/whyText';
 import { Icon } from './Icon';
+import { useLayout } from './layout';
 import { Num } from './Num';
 import { ParityBadge } from './ParityBadge';
 import { spacing, useTheme } from './theme';
@@ -57,6 +58,7 @@ export function MissingValue({ target, testID }: MissingValueProps): ReactElemen
 export function MetricTile({ label, value, level, unit, reason = null, decimals = 0, format, caption, chip, href, explain, size = 44, style, testID }: Props) {
   const { language, reason: reasonLabel } = useT();
   const { colors } = useTheme();
+  const { compact } = useLayout();
   const hasValue = value !== null;
   const shownValue = hasValue ? (format ? format(value) : formatNumber(value, decimals, language)) : null;
   const target: ExplainTarget | null = explain ? { term: explain.term, index: explain.index, shown: { value: shownValue, unit: unit ?? null, reason } } : null;
@@ -66,33 +68,40 @@ export function MetricTile({ label, value, level, unit, reason = null, decimals 
         {target ? (
           <MetricName target={target} label={label} testID={testID ? `${testID}-name` : undefined} />
         ) : (
-          <AppText variant="capSmall" muted numberOfLines={2} style={{ flexShrink: 1 }}>
-            {href ? `${label} ›` : label}
-          </AppText>
+          <View style={{ flexShrink: 1 }}>
+            <WordFitText variant="capSmall" muted numberOfLines={2}>
+              {href ? `${label} ›` : label}
+            </WordFitText>
+          </View>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          <ParityBadge level={level} />
+          {compact ? null : <ParityBadge level={level} />}
           {target && href ? <Icon name="chevronRight" size={14} color={colors.textMuted} /> : null}
         </View>
       </View>
-      {shownValue !== null ? (
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-          <Num size={size} testID={testID ? `${testID}-value` : undefined} adjustsFontSizeToFit style={{ flexShrink: 1 }}>
-            {shownValue}
-          </Num>
-          {unit ? (
-            <AppText variant="cardTitle" muted numberOfLines={1} style={{ fontWeight: '400', flexShrink: 1 }}>
-              {unit}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+        <View style={{ flexShrink: 1 }}>
+          {shownValue !== null ? (
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+              <Num size={size} testID={testID ? `${testID}-value` : undefined} adjustsFontSizeToFit style={{ flexShrink: 1 }}>
+                {shownValue}
+              </Num>
+              {unit ? (
+                <AppText variant="cardTitle" muted numberOfLines={1} style={{ fontWeight: '400', flexShrink: 1 }}>
+                  {unit}
+                </AppText>
+              ) : null}
+            </View>
+          ) : target ? (
+            <MissingValue target={target} testID={testID} />
+          ) : (
+            <AppText variant="bodyStrong" muted testID={testID ? `${testID}-reason` : undefined} style={{ minHeight: 32 }}>
+              {reasonLabel(reason)}
             </AppText>
-          ) : null}
+          )}
         </View>
-      ) : target ? (
-        <MissingValue target={target} testID={testID} />
-      ) : (
-        <AppText variant="bodyStrong" muted testID={testID ? `${testID}-reason` : undefined} style={{ minHeight: 32 }}>
-          {reasonLabel(reason)}
-        </AppText>
-      )}
+        {compact ? <ParityBadge level={level} /> : null}
+      </View>
       {chip && hasValue ? <Chip label={chip.label} tone={chip.tone} /> : null}
       {caption ? (
         <AppText variant="caption" muted>
