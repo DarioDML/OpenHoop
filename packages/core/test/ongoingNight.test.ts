@@ -33,6 +33,16 @@ describe('nightNow', () => {
     expect(night.awake).toBe(true);
   });
 
+  it('calls the wearer awake while the band still flags lying awake in bed as SLEEP', () => {
+    const lyingAwake: Sample[] = [];
+    for (let t = NOW - 15 * 60; t < NOW; t++) lyingAwake.push(sample(t, 'SLEEP', 72, (t - NOW) % 60 === 0 ? 0.3 : 0.005));
+    const samples = [...stretch(NOW - 7 * 3600, NOW - 15 * 60, 'SLEEP', 52), ...lyingAwake];
+    const night = nightNow(samples, NOW);
+    expect(night.awake).toBe(true);
+    expect(night.onset).not.toBeNull();
+    expect(night.asleepS ?? Infinity).toBeLessThanOrEqual(7 * 3600 - 14 * 60);
+  });
+
   it('does not call a gap without readings awake', () => {
     expect(awakeNow(stretch(NOW - 120, NOW, 'WAKE'), NOW)).toBe(false);
     expect(awakeNow([], NOW)).toBe(false);
