@@ -5,6 +5,9 @@ import MetricDetailScreen from '@/app/recovery/metric/[metric]';
 import MetricsScreen from '@/app/health/metrics';
 import VitalsScreen from '@/app/health/vitals';
 import { createFixtureDevice } from '@/data/fixtureSource';
+import { CATALOGUE } from '@/data/healthDerived';
+import { TERMS, termLine } from '@/data/terms';
+import { translate } from '@/i18n';
 import type { Language } from '@/data/types';
 import { StatRow } from '@/ui/daily/bits';
 import { MetricTile } from '@/ui/MetricTile';
@@ -70,9 +73,22 @@ describe('explain on lists', () => {
   });
   it('keeps All metrics rows compact and moves the one-liner into the About sheet', async () => {
     await render(wrap(<MetricsScreen />));
-    expect(within(screen.getByTestId('metric-hrv')).queryByText('How much the time between heartbeats varies. Above your usual means rested.')).toBeNull();
+    expect(within(screen.getByTestId('metric-hrv')).queryByText(translate('en', termLine('hrv')))).toBeNull();
     await fireEvent.press(screen.getByTestId('metric-hrv-about'));
-    expect(within(screen.getByTestId('about-sheet')).getByText('Heart rate variability')).toBeTruthy();
+    expect(within(screen.getByTestId('about-sheet')).getByText(translate('en', 'metricDetail.meaning.hrv'))).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+  it('reaches the full description of every All metrics row with a term from its About sheet', async () => {
+    await render(withAppData(<MetricsScreen />, 'en'));
+    const rows = CATALOGUE.flatMap((item) => (item.term === null ? [] : [{ id: item.id, term: item.term }]));
+    expect(rows.length).toBeGreaterThan(10);
+    for (const row of rows) {
+      expect(within(screen.getByTestId(`metric-${row.id}`)).queryByText(translate('en', termLine(row.term)))).toBeNull();
+      await fireEvent.press(screen.getByTestId(`metric-${row.id}-about`));
+      expect(within(screen.getByTestId('about-sheet')).getAllByText(translate('en', TERMS[row.term].body)).length).toBeGreaterThan(0);
+      await fireEvent.press(screen.getByTestId('about-sheet-close'));
+      expect(screen.queryByTestId('about-sheet')).toBeNull();
+    }
     expect(mockPush).not.toHaveBeenCalled();
   });
 });
