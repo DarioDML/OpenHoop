@@ -151,6 +151,26 @@ describe('store', () => {
     }
   });
 
+  it('skewedChunkIds lists the device chunks in an id range whose clock offset exceeds the limit', async () => {
+    const other = await store.upsertDevice({ ...DEVICE, bleId: 'OTHER' });
+    const commit = (deviceId: number, clockOffsetS: number | null, t: number): Promise<number> =>
+      store.commitChunk(
+        { deviceId, endToken: null, frames: [new Uint8Array([t & 0xff])], clockOffsetS, receivedAt: 1 },
+        [sample(deviceId, t)],
+        { events: [], console: [], unknownFrames: 0, syncState: syncState(deviceId) },
+      );
+    const ahead = await commit(device.id, 600, 1_000);
+    const close = await commit(device.id, 120, 1_001);
+    const unknown = await commit(device.id, null, 1_002);
+    const behind = await commit(device.id, -121, 1_003);
+    const foreign = await commit(other.id, 900, 1_004);
+    const later = await commit(device.id, 700, 1_005);
+    expect(await store.skewedChunkIds(device.id, ahead, behind, 120)).toEqual([ahead, behind]);
+    expect(await store.skewedChunkIds(device.id, close, unknown, 120)).toEqual([]);
+    expect(await store.skewedChunkIds(device.id, ahead, later, 120)).toEqual([ahead, behind, later]);
+    expect(await store.skewedChunkIds(other.id, foreign, foreign, 120)).toEqual([foreign]);
+  });
+
   it('commitChunk then readChunkFrames returns identical frames', async () => {
     const frames = [new Uint8Array([0xaa, 1, 2]), new Uint8Array(0), new Uint8Array(3_000).fill(7)];
     const id = await store.commitChunk(
