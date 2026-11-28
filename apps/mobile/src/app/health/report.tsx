@@ -28,6 +28,7 @@ import {
   labValue,
   missingText,
   renderReportHtml,
+  labSpan,
   rowRange,
   rowValue,
   sectionTitle,
@@ -42,6 +43,7 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { CheckChip } from '@/ui/Chip';
 import { Button, Field, Segmented } from '@/ui/controls';
+import { buttonPairFits } from '@/ui/health/buttonPair';
 import { HealthPage } from '@/ui/health/HealthPage';
 import { ToggleRow } from '@/ui/manage/rows';
 import { useLayout } from '@/ui/layout';
@@ -86,7 +88,7 @@ function PreviewRow({ row, text }: { row: ReportRow; text: ReportText }) {
             {row.average === null ? '' : rowValue(row, row.average, text)}
           </AppText>
           <AppText variant="caption" muted numeric>
-            {`${rowRange(row, text) ?? ''} · ${trendText(row.trend, t)}`}
+            {[rowRange(row, text), trendText(row.trend, t)].filter((part): part is string => part !== null && part !== '').join(' · ')}
           </AppText>
         </>
       )}
@@ -112,7 +114,7 @@ function PreviewLab({ lab, text }: { lab: ReportLab; text: ReportText }) {
         {t('health.report.labs.latest', { value: labValue(lab.latest.value, lab.latest.unit, language), day: lab.latest.day })}
       </AppText>
       <AppText variant="caption" muted numeric>
-        {`${labValue(lab.min, lab.unit, language)} – ${labValue(lab.max, lab.unit, language)} · ${trendText(lab.trend, t)}`}
+        {`${labSpan(lab, language)} · ${trendText(lab.trend, t)}`}
       </AppText>
       <AppText variant="caption" muted>
         {labRange(lab, text)}
@@ -221,7 +223,8 @@ function StatRow({ stat, text, last }: { stat: ReportStat; text: ReportText; las
 export default function ReportScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const { narrow } = useLayout();
+  const layout = useLayout();
+  const { narrow } = layout;
   const { days, bodyMeasurements, labResults, userData, profile, ecgRecordings, cycle } = useAppData();
   const today = todayIso(new Date(Date.now()));
   const [period, setPeriod] = useState<PeriodChoice>('30');
@@ -258,6 +261,9 @@ export default function ReportScreen() {
   const stats = reportStats(model);
   const rangeInvalid = range !== null && !range.ok;
   const blocked = busy !== null || model.sections.length === 0 || rangeInvalid;
+  const preparing = t('health.report.action.preparing');
+  const longer = (a: string, b: string): string => ([...a].length >= [...b].length ? a : b);
+  const actionsStacked = narrow || !buttonPairFits([longer(t('health.report.action.export'), preparing), longer(t('health.report.action.shareShort'), preparing)], layout);
 
   const toggleSection = (id: ReportSectionId, on: boolean): void => {
     setSelected((current) => (on ? [...current, id] : current.filter((item) => item !== id)));
@@ -363,14 +369,14 @@ export default function ReportScreen() {
           {t('health.report.saved', { name: saved })}
         </AppText>
       ) : null}
-      <View style={{ flexDirection: narrow ? 'column' : 'row', gap: spacing.md }}>
+      <View style={{ flexDirection: actionsStacked ? 'column' : 'row', gap: spacing.md }} testID="report-actions">
         <Button
           label={busy === 'export' ? t('health.report.action.preparing') : t('health.report.action.export')}
           icon="download"
           variant="soft"
           onPress={() => void run('export')}
           disabled={blocked}
-          style={{ flex: narrow ? undefined : 1 }}
+          style={{ flex: actionsStacked ? undefined : 1 }}
           testID="report-export"
         />
         <Button
@@ -378,7 +384,7 @@ export default function ReportScreen() {
           icon="share"
           onPress={() => void run('share')}
           disabled={blocked}
-          style={{ flex: narrow ? undefined : 1 }}
+          style={{ flex: actionsStacked ? undefined : 1 }}
           testID="report-share"
         />
       </View>
