@@ -673,5 +673,6 @@
   "aboutx.accuracy.eyebrowOne": "Jouw gegevens · 1 nacht",
   "aboutx.accuracy.vsOfficialOne": "vs officiële app · 1 nacht",
   "aboutx.accuracy.summaryNoTargetOne": "1 waarde vergeleken",
-  "import.importOneDay": "1 dag importeren"
+  "import.importOneDay": "1 dag importeren",
+  "appSettings.presetLabel": "Hoeveel meldingen"
 }

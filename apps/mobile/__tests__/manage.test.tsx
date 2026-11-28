@@ -348,6 +348,14 @@ describe('Battery pack', () => {
 });
 
 describe('App settings', () => {
+  it('labels the notification level and explains both data sources without calling the band untested', async () => {
+    await render(withAppData(<AppSettingsScreen />));
+    expect(screen.getByTestId('notification-preset-label')).toHaveTextContent('How many notifications');
+    expect(screen.getByTestId('source-hint-band')).toHaveTextContent(/Bluetooth/);
+    expect(screen.getByTestId('source-hint-demo')).toHaveTextContent(/simulation/);
+    expect(screen.queryByText(/untested|not arrived/i)).toBeNull();
+  });
+
   it('switches language', async () => {
     const updateSettings = jest.fn(async () => undefined);
     await render(withAppData(<AppSettingsScreen />, 'en', { updateSettings }));

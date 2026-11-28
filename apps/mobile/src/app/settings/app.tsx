@@ -134,6 +134,9 @@ export default function AppSettingsScreen() {
           </View>
         ) : null}
       </ListGroup>
+      <AppText variant="capSmall" muted testID="notification-preset-label">
+        {t('appSettings.presetLabel')}
+      </AppText>
       <Segmented<NotificationPreset | 'custom'>
         testID="notification-preset"
         value={preset ?? 'custom'}
@@ -238,14 +241,12 @@ export default function AppSettingsScreen() {
           { value: 'band', label: t('settings.source.band') },
         ]}
       />
-      <AppText variant="label" muted>
+      <AppText variant="label" muted testID="source-hint-band">
+        {t('settings.sourceBand')}
+      </AppText>
+      <AppText variant="label" muted testID="source-hint-demo">
         {t('settings.sourceHint')}
       </AppText>
-      {settings.dataSource === 'band' ? (
-        <AppText variant="label" muted>
-          {t('settings.sourceUntested')}
-        </AppText>
-      ) : null}
     </SettingsPage>
   );
 }
