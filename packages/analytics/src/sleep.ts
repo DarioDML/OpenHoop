@@ -150,6 +150,7 @@ function wakeAt(rows: readonly Sample[], period: SleepPeriod): number {
 // so a night synced before that ended at the newest sample. Walking back from the end of each period, a minute is awake
 // when its heart rate is raised above the period's sleeping rate and stays raised over the next two minutes (by less
 // when the wrist moves), and five calm minutes are sleep. A turn in sleep raises the rate only for its own minute.
+// The period then ends at the wake-up, while its time in bed still runs until the band saw the wearer get up.
 export function withoutAwakeTails(periods: readonly SleepPeriod[], samples: readonly Sample[]): SleepPeriod[] {
   if (periods.length === 0) return [];
   const rows = sortedUnique(samples);
@@ -161,7 +162,7 @@ export function withoutAwakeTails(periods: readonly SleepPeriod[], samples: read
       continue;
     }
     if (wake - period.onset < SLEEP_MIN_DURATION_S) continue;
-    out.push(summarize(rows, lowerBound(rows, period.onset), period.onset, wake - 1).period);
+    out.push({ ...summarize(rows, lowerBound(rows, period.onset), period.onset, wake - 1).period, inBedS: period.inBedS });
   }
   return out;
 }

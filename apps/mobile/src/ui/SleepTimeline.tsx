@@ -44,20 +44,21 @@ export function SleepTimeline({ periods, tzOffsetS }: Props) {
 
   return (
     <View style={{ gap: spacing.md }}>
-      <View onLayout={onLayout} style={{ gap: 6 }}>
+      <View testID="sleep-timeline" onLayout={onLayout} style={{ gap: 6 }}>
         {width > 0 ? (
           <Svg width={width} height={height}>
             {periods.map((p, i) => {
               const y = i * (ROW_H + 6);
               const x = px(p.onset);
               const w = Math.max(4, px(p.offset) - x);
-              const ratio = p.inBedS > 0 ? Math.min(1, p.asleepS / p.inBedS) : 0;
+              const drawnS = p.offset - p.onset + 1;
+              const ratio = drawnS > 0 ? Math.min(1, p.asleepS / drawnS) : 0;
               const innerW = w * ratio;
               const base = p.nap ? colors.zones[1] : colors.accent;
               return (
                 <G key={p.onset}>
-                  <Rect x={x} y={y} width={w} height={ROW_H} rx={radius.sm} fill={base} opacity={0.28} />
-                  <Rect x={x + (w - innerW) / 2} y={y + 5} width={innerW} height={ROW_H - 10} rx={radius.sm - 3} fill={base} />
+                  <Rect testID={`sleep-timeline-bed-${i}`} x={x} y={y} width={w} height={ROW_H} rx={radius.sm} fill={base} opacity={0.28} />
+                  <Rect testID={`sleep-timeline-asleep-${i}`} x={x + (w - innerW) / 2} y={y + 5} width={innerW} height={ROW_H - 10} rx={radius.sm - 3} fill={base} />
                 </G>
               );
             })}
