@@ -19,6 +19,8 @@ jest.mock('expo-router', () => ({
   Link: ({ children }: { children: ReactNode }) => children,
 }));
 
+jest.mock('expo-speech-recognition', () => jest.requireActual<{ speechRecognitionMock: object }>('./support/speech').speechRecognitionMock);
+
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -78,7 +80,8 @@ describe('coach chat', () => {
     await render(withCoach(<CoachScreen />, controller));
     expect(screen.getByTestId('coach-state-network-off')).toBeTruthy();
     expect(screen.getByTestId('coach-chips')).toBeTruthy();
-    expect(screen.getByTestId('coach-send')).toBeDisabled();
+    expect(screen.queryByTestId('coach-send')).toBeNull();
+    expect(screen.getByTestId('coach-input').props.editable).toBe(false);
     await fireEvent.press(screen.getByText('Open privacy settings'));
     expect(router.push).toHaveBeenCalledWith('/settings/privacy');
     expect(send).not.toHaveBeenCalled();

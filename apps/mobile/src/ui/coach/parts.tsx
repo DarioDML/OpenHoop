@@ -2,8 +2,12 @@ import { router } from 'expo-router';
 import { View } from 'react-native';
 
 import { useCoach } from '@/coach/CoachContext';
+import type { DayRecord } from '@openhoop/core';
+
+import { chipStatus, type ChipStatus } from '@/coach/chipStatus';
 import type { CheckIn } from '@/coach/checkIns';
 import { COACH_METRIC_SPECS, type CoachMetric } from '@/coach/metrics';
+import type { CheckInReplyKind } from '@/coach/prefs';
 import type { ResolvedChip } from '@/coach/reply';
 import { useAppData } from '@/data/context';
 import type { Language } from '@/data/types';
@@ -16,7 +20,7 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/controls';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { StateCard } from '@/ui/StateCard';
-import { radius, spacing, useTheme } from '@/ui/theme';
+import { radius, spacing, useTheme, type ColorTokens } from '@/ui/theme';
 
 export type CoachGate = 'loading' | 'coach-off' | 'network-off' | 'no-key' | 'ready';
 
@@ -79,33 +83,60 @@ export function GateState({ gate }: { gate: CoachGate }) {
   return null;
 }
 
-export function MetricChips({ chips, testID }: { chips: readonly ResolvedChip[]; testID?: string }) {
+function deltaText(language: Language, status: ChipStatus): string {
+  const delta = status.delta;
+  if (delta === null || Math.round(delta.value) === 0) return '';
+  const arrow = delta.value > 0 ? '↑' : '↓';
+  return ` ${arrow}${formatNumber(Math.abs(delta.value), 0, language)}${delta.kind === 'pct' ? '%' : ''}`;
+}
+
+function toneColors(colors: ColorTokens, status: ChipStatus): { fg: string; bg: string } {
+  if (status.tone === 'better') return { fg: colors.positive, bg: colors.positiveSoft };
+  if (status.tone === 'worse') return { fg: colors.warning, bg: colors.warningSoft };
+  return { fg: colors.textSoft, bg: colors.surface };
+}
+
+export function MetricChips({ chips, days, testID }: { chips: readonly ResolvedChip[]; days?: readonly DayRecord[]; testID?: string }) {
   const { t, language } = useT();
   const { colors } = useTheme();
   if (chips.length === 0) return null;
+  const latest = days?.[days.length - 1]?.day ?? null;
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }} testID={testID}>
-      {chips.map((chip) => (
-        <View
-          key={`${chip.metric}:${chip.day}`}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.surface }}>
-          <AppText variant="label" soft numeric>
-            {`${t(COACH_METRIC_SPECS[chip.metric].labelKey)} ${formatMetric(t, language, chip.metric, chip.value)} · ${formatShortDay(chip.day, language)}`}
-          </AppText>
-          <ParityBadge level={COACH_METRIC_SPECS[chip.metric].level} />
-        </View>
-      ))}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} testID={testID}>
+      {chips.map((chip) => {
+        const status: ChipStatus = days === undefined ? { tone: 'unknown', delta: null } : chipStatus(days, chip.metric, chip.day, chip.value);
+        const tone = toneColors(colors, status);
+        const day = chip.day === latest ? '' : ` · ${formatShortDay(chip.day, language)}`;
+        const label = `${t(COACH_METRIC_SPECS[chip.metric].labelKey)} ${formatMetric(t, language, chip.metric, chip.value)}${deltaText(language, status)}${day}`;
+        return (
+          <View
+            key={`${chip.metric}:${chip.day}`}
+            accessible
+            accessibilityLabel={`${label}, ${t(`coach.chipTone.${status.tone}`)}`}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: tone.bg }}>
+            <AppText variant="label" color={tone.fg} numeric style={{ fontWeight: '600' }}>
+              {label}
+            </AppText>
+            <ParityBadge level={COACH_METRIC_SPECS[chip.metric].level} />
+          </View>
+        );
+      })}
     </View>
   );
 }
 
 export function checkInQuestion(t: TFunction, language: Language, checkIn: CheckIn): string {
-  return t('coach.checkIn.question', {
+  const params = {
     metric: t(COACH_METRIC_SPECS[checkIn.metric].labelKey),
     day: formatShortDay(checkIn.day, language),
     value: formatMetric(t, language, checkIn.metric, checkIn.value),
     usual: formatMetric(t, language, checkIn.metric, checkIn.usual),
-  });
+  };
+  return checkIn.kind === 'week' ? t('coach.checkIn.weekQuestion', params) : t('coach.checkIn.question', params);
+}
+
+export function replyQuestion(t: TFunction, language: Language, checkIn: CheckIn, reply: Exclude<CheckInReplyKind, 'later'>): string {
+  return `${checkInQuestion(t, language, checkIn)} ${t(`coach.checkIn.replyAsk.${reply}`)}`;
 }
 
 interface CheckInCardProps {
@@ -120,13 +151,17 @@ export function CheckInCard({ checkIn, onAsk, onDismiss }: CheckInCardProps) {
   const label = t(spec.labelKey);
   return (
     <Card style={{ gap: spacing.md }} testID={`check-in-${checkIn.id}`}>
-      <AppText variant="bodyStrong">{t(checkIn.direction === 'up' ? 'coach.checkIn.up' : 'coach.checkIn.down', { metric: label })}</AppText>
+      <AppText variant="bodyStrong">
+        {checkIn.kind === 'week' ? t('coach.checkIn.weekTitle', { metric: label }) : t(checkIn.direction === 'up' ? 'coach.checkIn.up' : 'coach.checkIn.down', { metric: label })}
+      </AppText>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
         <AppText variant="title" numeric>
           {formatMetric(t, language, checkIn.metric, checkIn.value)}
         </AppText>
         <AppText variant="label" muted numeric>
-          {t('coach.checkIn.usual', { value: formatMetric(t, language, checkIn.metric, checkIn.usual) })}
+          {checkIn.kind === 'week'
+            ? t('coach.checkIn.weekUsual', { value: formatMetric(t, language, checkIn.metric, checkIn.usual) })
+            : t('coach.checkIn.usual', { value: formatMetric(t, language, checkIn.metric, checkIn.usual) })}
         </AppText>
         <ParityBadge level={spec.level} />
       </View>
