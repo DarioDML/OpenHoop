@@ -85,7 +85,7 @@ describe('blood pressure screen', () => {
   it('keeps the log off by default and says the band makes no blood pressure value', async () => {
     const updateUserData = jest.fn(async () => true);
     await render(withAppData(<BloodPressureScreen />, 'en', { updateUserData, cuffReadings: [READING] }));
-    expect(screen.getByTestId('not-offered')).toBeTruthy();
+    expect(screen.getByTestId('not-offered')).toHaveTextContent(/Not part of OpenHoop/);
     expect(screen.queryByTestId('cuff-readings')).toBeNull();
     expect(screen.getByTestId('cuff-hidden')).toBeTruthy();
     await fireEvent(screen.getByTestId('cuff-log-toggle'), 'valueChange', true);

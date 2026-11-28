@@ -1535,7 +1535,7 @@ export class AppController {
         if (patch.theme !== undefined) setThemePreference(next.theme);
         if (retentionChanged(patch)) void this.exclusive(() => this.pruneRaw());
         if (patch.notifications !== undefined || patch.weeklyPlan !== undefined || patch.windDown !== undefined) void this.refreshNotifications();
-        if (patch.widgetValues !== undefined) void this.refreshWidgets();
+        if (patch.widgetValues !== undefined || patch.pregnancyPrefs !== undefined) void this.refreshWidgets();
         if (patch.jetLagShiftAlarm !== undefined || (patch.jetLagPlan !== undefined && next.jetLagShiftAlarm)) void this.reapplyAlarm();
         return true;
       } catch (error) {
@@ -1737,19 +1737,29 @@ export class AppController {
 
   removeSymptom = (id: number): Promise<boolean> => this.runCycleChange((driver) => deleteSymptom(driver, id), false);
 
-  savePregnancy = (dueDay: string): Promise<boolean> =>
-    this.runCycleChange(async (driver) => {
+  savePregnancy = async (dueDay: string): Promise<boolean> => {
+    const saved = await this.runCycleChange(async (driver) => {
       await setPregnancy(driver, dueDay, nowSeconds());
       return true;
     }, false);
+    void this.refreshWidgets();
+    return saved;
+  };
 
-  removePregnancy = (): Promise<boolean> => this.runCycleChange((driver) => clearPregnancy(driver), false);
+  removePregnancy = async (): Promise<boolean> => {
+    const removed = await this.runCycleChange((driver) => clearPregnancy(driver), false);
+    void this.refreshWidgets();
+    return removed;
+  };
 
-  removeAllCycleData = (): Promise<boolean> =>
-    this.runCycleChange(async (driver) => {
+  removeAllCycleData = async (): Promise<boolean> => {
+    const removed = await this.runCycleChange(async (driver) => {
       await deleteAllCycleData(driver);
       return true;
     }, false);
+    void this.refreshWidgets();
+    return removed;
+  };
 
   private readonly strengthActionSet: StrengthActions = this.strengthActions();
 

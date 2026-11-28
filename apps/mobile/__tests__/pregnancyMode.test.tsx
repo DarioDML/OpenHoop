@@ -23,6 +23,7 @@ jest.mock('react-native-safe-area-context', () => ({
 import LoadScreen from '@/app/load/index';
 import LoadTargetScreen from '@/app/load/target';
 import LoadTrendsScreen from '@/app/load/trends';
+import StartActivityScreen from '@/app/activity/start';
 import PregnancyScreen from '@/app/health/pregnancy';
 import RecoveryScreen from '@/app/recovery/index';
 
@@ -100,6 +101,11 @@ describe('hidden Load targets', () => {
     await render(withAppData(<LoadTrendsScreen />, 'en', { cycle: PREGNANT, userData: HIDDEN }));
     expect(screen.getByTestId('trend-ontarget-hidden')).toBeTruthy();
     expect(screen.getByTestId('trend-ontarget-note')).toHaveTextContent(/hidden while pregnancy mode is on/);
+  });
+
+  it('say the start buzz is paused instead of waiting for a target', async () => {
+    await render(withAppData(<StartActivityScreen />, 'en', { cycle: PREGNANT, userData: HIDDEN }));
+    expect(screen.getByText('Paused: Load targets are hidden in pregnancy mode.')).toBeTruthy();
   });
 
   it('leave Readiness without a target', async () => {

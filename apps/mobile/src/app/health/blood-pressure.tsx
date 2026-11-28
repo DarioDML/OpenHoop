@@ -12,8 +12,10 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/controls';
 import { Callout } from '@/ui/health/Callout';
+import { CenteredIntro } from '@/ui/health/CenteredIntro';
 import { CheckList } from '@/ui/health/CheckList';
 import { HealthPage } from '@/ui/health/HealthPage';
+import { Icon } from '@/ui/Icon';
 import { LevelNote } from '@/ui/LevelNote';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
 import { ToggleRow } from '@/ui/manage/rows';
@@ -64,6 +66,14 @@ export default function BloodPressureScreen() {
 
   return (
     <HealthPage title={t('health.bloodPressure.title')} tint="heart" testID="health-blood-pressure">
+      <CenteredIntro
+        icon="lock"
+        iconColor={colors.pink}
+        iconBackground={colors.pinkSoft}
+        heading={t('health.notOffered.title')}
+        body={t('health.bloodPressure.notOffered')}
+        testID="not-offered"
+      />
       <Card testID="cuff-log-card">
         <ToggleRow
           title={t('health.bloodPressure.logTitle')}
@@ -74,9 +84,7 @@ export default function BloodPressureScreen() {
         />
       </Card>
 
-      <View testID="not-offered">
-        <Callout icon="info" title={t('health.bloodPressure.noEstimateTitle')} body={t('health.bloodPressure.notOffered')} />
-      </View>
+      <Callout icon="info" title={t('health.bloodPressure.noEstimateTitle')} body={t('health.bloodPressure.noEstimateBody')} testID="cuff-no-estimate" />
 
       {on ? (
         <View style={{ gap: spacing.sm }} testID="cuff-readings">
@@ -97,6 +105,7 @@ export default function BloodPressureScreen() {
                   title={when(reading)}
                   subtitle={`${detail(reading)} · ${t('health.bloodPressure.ownEntry')}`}
                   onPress={() => askRemove(reading)}
+                  right={<Icon name="trash" color={colors.textMuted} size={18} />}
                   chevron={false}
                 />
               ))}
