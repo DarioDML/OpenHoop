@@ -165,7 +165,8 @@ import { alertText } from '@/lib/notificationText';
 import { buildWidgetFile } from '@/lib/widgetSnapshot';
 import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
 import { setNetworkPrefs } from '@/net';
-import { featureEnabled, strictestPrefs } from '@/net/features';
+import { coachActive } from '@/coach/prefs';
+import { strictestPrefs } from '@/net/features';
 
 import { applyConfigWrite, buildSnapshot, carryOver, changeFor, parseBandConfig, recordOriginal, serializeSnapshot, type ConfigKind, type WritableValue } from './bandConfig';
 import { hrBroadcastKey, parseHrBroadcast, serializeHrBroadcast, type HrBroadcastState } from './hrBroadcast';
@@ -1903,7 +1904,7 @@ export class AppController {
             fresh,
             windDown: wind,
             steps: stepsGoalFacts(this.snapshot.days, userData.stepsGoal, now),
-            coachReady: featureEnabled(userData.network, 'coach'),
+            coachReady: coachActive(userData.coach, userData.network),
           })
         : [];
       this.patch({ notificationPermission: permission });

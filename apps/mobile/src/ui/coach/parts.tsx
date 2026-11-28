@@ -18,11 +18,12 @@ import { ParityBadge } from '@/ui/ParityBadge';
 import { StateCard } from '@/ui/StateCard';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
-export type CoachGate = 'loading' | 'network-off' | 'no-key' | 'ready';
+export type CoachGate = 'loading' | 'coach-off' | 'network-off' | 'no-key' | 'ready';
 
 export function useCoachGate(): CoachGate {
   const { userData } = useAppData();
   const { state } = useCoach();
+  if (!userData.coach.enabled) return 'coach-off';
   if (!featureEnabled(userData.network, 'coach')) return 'network-off';
   if (!state.ready) return 'loading';
   return state.hasKey ? 'ready' : 'no-key';
@@ -36,6 +37,19 @@ export function formatMetric(t: TFunction, language: Language, metric: CoachMetr
 
 export function GateState({ gate }: { gate: CoachGate }) {
   const { t } = useT();
+  if (gate === 'coach-off') {
+    return (
+      <StateCard
+        icon="coach"
+        tone="purple"
+        title={t('coach.coachOffTitle')}
+        body={t('coach.coachOffBody')}
+        actionLabel={t('coach.coachOffAction')}
+        onAction={() => router.push('/coach/settings')}
+        testID="coach-state-off"
+      />
+    );
+  }
   if (gate === 'network-off') {
     return (
       <StateCard
