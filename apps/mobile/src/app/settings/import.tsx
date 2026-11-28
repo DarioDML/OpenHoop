@@ -116,7 +116,7 @@ export default function ImportExportScreen() {
           <PickedFileCard picked={picked} usable={found.days > 0} />
           <CapHeader title={t('import.found')} />
           <BigStatRow>
-            <BigStatTile label={t('import.found.recoveries')} value={String(found.cycles)} testID="found-cycles" />
+            <BigStatTile label={t('score.readiness')} value={String(found.cycles)} testID="found-cycles" />
             <BigStatTile label={t('import.found.sleeps')} value={String(found.sleeps)} testID="found-sleeps" />
           </BigStatRow>
           <BigStatRow>
@@ -141,29 +141,30 @@ export default function ImportExportScreen() {
             </AppText>
           ) : null}
 
-          <CapHeader title={t('import.useFor')} />
-          <ListGroup>
-            <ToggleRow
-              title={t('import.use.accuracy')}
-              subtitle={t('import.use.accuracyBody')}
-              value={use.accuracy}
-              onChange={(accuracy) => void updateUserData({ vendorUse: { ...use, accuracy } })}
-              testID="use-accuracy"
-            />
-            <ToggleRow
-              title={t('import.use.history')}
-              subtitle={t('import.use.historyBody')}
-              value={use.history}
-              onChange={(history) => void updateUserData({ vendorUse: { ...use, history } })}
-              testID="use-history"
-            />
-          </ListGroup>
-          {fromDay !== null ? (
-            <AppText variant="caption" muted testID="import-from-day">
-              {t('import.use.historyOff', { day: fromDay })}
-            </AppText>
-          ) : null}
         </>
+      )}
+
+      <CapHeader title={t('import.useFor')} />
+      <ListGroup>
+        <ToggleRow
+          title={t('import.use.accuracy')}
+          subtitle={t('import.use.accuracyBody')}
+          value={use.accuracy}
+          onChange={(accuracy) => void updateUserData({ vendorUse: { ...use, accuracy } })}
+          testID="use-accuracy"
+        />
+        <ToggleRow
+          title={t('import.use.history')}
+          subtitle={t('import.use.historyBody')}
+          value={use.history}
+          onChange={(history) => void updateUserData({ vendorUse: { ...use, history } })}
+          testID="use-history"
+        />
+      </ListGroup>
+      {use.history ? null : (
+        <AppText variant="caption" muted testID="import-from-day">
+          {settings.ownerSince === null ? t('import.use.historyNoStart') : t('import.use.historyOff', { day: settings.ownerSince })}
+        </AppText>
       )}
 
       <Card style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: colors.positiveSoft }}>

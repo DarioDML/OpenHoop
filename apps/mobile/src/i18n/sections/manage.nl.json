@@ -716,7 +716,6 @@
   "import.picked": "Gekozen uit Bestanden · {size} {unit}",
   "import.pickedMany": "{count} bestanden",
   "import.found": "Gevonden in het bestand",
-  "import.found.recoveries": "Herstelwaarden",
   "import.found.sleeps": "Slaapsessies",
   "import.found.workouts": "Trainingen",
   "import.found.journal": "Dagboekdagen",
@@ -770,5 +769,6 @@
   "bandConfig.putBackNone": "OpenHoop heeft geen enkele waarde op deze band veranderd.",
   "bandConfig.putBackTitle": "Terugzetten wat OpenHoop veranderde",
   "bandConfig.putBackBody": "Dit schrijft de vorige waarde terug naar {keys}, één sleutel per keer. Als een schrijfactie mislukt, worden de volgende niet verstuurd. Typ {word} om verder te gaan.",
-  "bandConfig.putBackPartial": "{restored} van {total} teruggezet. De rest heeft nog de waarde die OpenHoop schreef."
+  "bandConfig.putBackPartial": "{restored} van {total} teruggezet. De rest heeft nog de waarde die OpenHoop schreef.",
+  "import.use.historyNoStart": "Er is nog geen 'gedragen sinds'-datum, dus alles in het bestand wordt geïmporteerd. Stel de datum in onder Gegevens en privacy om alleen dagen vanaf dan te importeren."
 }

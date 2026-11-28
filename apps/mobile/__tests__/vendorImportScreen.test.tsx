@@ -123,6 +123,16 @@ describe('import screen', () => {
     expect(screen.getByTestId('import-file-1').props.children).toBe('notes.pdf: is not a ZIP or CSV file');
   });
 
+  it('shows the use-it-for switches before a file is chosen and says what happens without a start date', async () => {
+    const base = fixtureAppData();
+    const userData = { ...base.userData, vendorUse: { accuracy: true, history: false } };
+    const settings = { ...base.settings, ownerSince: null };
+    await render(withAppData(<ImportExportScreen />, 'en', { userData, settings }));
+    expect(screen.getByTestId('use-accuracy')).toBeTruthy();
+    expect(screen.getByTestId('use-history')).toBeTruthy();
+    expect(screen.getByTestId('import-from-day')).toHaveTextContent(/No worn-since date is set yet/);
+  });
+
   it('does nothing when the picker is cancelled', async () => {
     pick.mockResolvedValue({ picked: false });
     const importVendorFiles = jest.fn(async () => outcome);

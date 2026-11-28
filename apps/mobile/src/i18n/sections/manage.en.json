@@ -716,7 +716,6 @@
   "import.picked": "Picked from Files · {size} {unit}",
   "import.pickedMany": "{count} files",
   "import.found": "Found in the file",
-  "import.found.recoveries": "Recoveries",
   "import.found.sleeps": "Sleeps",
   "import.found.workouts": "Workouts",
   "import.found.journal": "Journal days",
@@ -770,5 +769,6 @@
   "bandConfig.putBackNone": "OpenHoop has not changed any value on this band.",
   "bandConfig.putBackTitle": "Put back what OpenHoop changed",
   "bandConfig.putBackBody": "This writes the earlier value back to {keys}, one key at a time. If one write fails, the ones after it are not sent. Type {word} to continue.",
-  "bandConfig.putBackPartial": "Put back {restored} of {total}. The rest still have the value OpenHoop wrote."
+  "bandConfig.putBackPartial": "Put back {restored} of {total}. The rest still have the value OpenHoop wrote.",
+  "import.use.historyNoStart": "No worn-since date is set yet, so everything in the file is imported. Set the date under Data & privacy to import only days from then on."
 }
