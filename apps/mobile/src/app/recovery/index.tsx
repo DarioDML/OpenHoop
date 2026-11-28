@@ -6,7 +6,7 @@ import { loadTargetBand } from '@/data/activityDerived';
 import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { useAppData } from '@/data/context';
 import { sliceEndingAt } from '@/data/dailyDerived';
-import { pastDayOf, useDayIndex, withDay } from '@/ui/daily/useDayParam';
+import { pastDayOf, useDayIndex, withDay, type DayRoute } from '@/ui/daily/useDayParam';
 import { baselineAt, shownLoad, visibleReadiness, type MetricKey } from '@/data/derived';
 import { buildingProgress, remaining } from '@/data/progress';
 import { contributorDelta, loadAimRange, readinessVerdict, type ContributorDelta, type ContributorId } from '@/data/readinessDerived';
@@ -40,7 +40,7 @@ interface ContributorSpec {
   key: MetricKey;
   decimals: number;
   unit: TranslationKey | null;
-  href: string;
+  href: DayRoute;
   pick: (day: DayRecord) => Derived;
 }
 

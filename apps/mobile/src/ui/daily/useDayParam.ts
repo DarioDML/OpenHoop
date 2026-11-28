@@ -18,8 +18,10 @@ export function pastDayOf(days: readonly DayRecord[], index: number): string | n
   return days[index]?.day ?? null;
 }
 
-export function withDay(path: string, pastDay: string | null): Href {
+type MetricSlug = 'hrv' | 'rhr' | 'resp' | 'spo2' | 'temp';
+export type DayRoute = '/recovery' | '/load' | '/sleep' | `/recovery/metric/${MetricSlug}`;
+
+export function withDay(path: DayRoute, pastDay: string | null): Href {
   if (pastDay === null) return path;
-  const separator = path.includes('?') ? '&' : '?';
-  return `${path}${separator}day=${encodeURIComponent(pastDay)}`;
+  return `${path}?day=${encodeURIComponent(pastDay)}`;
 }
