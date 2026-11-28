@@ -201,5 +201,15 @@
   "journal.trends.perWeek": "Times per week",
   "journal.trends.weekShort": "W{week}",
   "journal.trends.weekA11y": "Week {week}",
-  "journal.trends.overview": "All behaviours"
+  "journal.trends.overview": "All behaviours",
+  "journal.insights.tab.sleep": "Sleep",
+  "journal.insights.metric.readiness": "readiness",
+  "journal.insights.metric.sleepScore": "sleep score",
+  "journal.insights.metric.hrv": "HRV",
+  "journal.insights.introMetric": "Your {metric} the morning after, on days with and without each behaviour, ranked by the difference.",
+  "journal.insights.method": "Effects compare the morning after days with and without each behaviour.",
+  "journal.insights.needsTitle": "Needs more data",
+  "journal.insights.needsWith": "{have} of {need} days logged",
+  "journal.insights.needsWithout": "{have} of {need} days without it logged",
+  "journal.insights.rowA11y": "{name}: {value} {metric}, {count} logged days, {confidence}"
 }

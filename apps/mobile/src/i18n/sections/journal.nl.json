@@ -201,5 +201,15 @@
   "journal.trends.perWeek": "Keer per week",
   "journal.trends.weekShort": "W{week}",
   "journal.trends.weekA11y": "Week {week}",
-  "journal.trends.overview": "Alle gewoontes"
+  "journal.trends.overview": "Alle gewoontes",
+  "journal.insights.tab.sleep": "Slaap",
+  "journal.insights.metric.readiness": "readiness",
+  "journal.insights.metric.sleepScore": "slaapscore",
+  "journal.insights.metric.hrv": "HRV",
+  "journal.insights.introMetric": "Je {metric} de ochtend erna, op dagen met en zonder elke gewoonte, gerangschikt op het verschil.",
+  "journal.insights.method": "Effecten vergelijken de ochtend na dagen met en zonder elke gewoonte.",
+  "journal.insights.needsTitle": "Meer gegevens nodig",
+  "journal.insights.needsWith": "{have} van {need} dagen ingevuld",
+  "journal.insights.needsWithout": "{have} van {need} dagen zonder ingevuld",
+  "journal.insights.rowA11y": "{name}: {value} {metric}, {count} ingevulde dagen, {confidence}"
 }

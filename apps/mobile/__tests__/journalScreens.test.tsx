@@ -3,13 +3,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 
 import JournalCustomizeScreen from '@/app/journal/customize';
 import JournalScreen from '@/app/journal/index';
+import JournalInsightsScreen from '@/app/journal/insights';
 import JournalTrendsScreen from '@/app/journal/trends';
 import { addDays } from '@/data/derived';
 import { JOURNAL_QUESTIONS } from '@/data/journalQuestions';
 import { defaultUserData } from '@/data/userData';
 import { todayIso } from '@/lib/format';
 
-import { withAppData } from './support/appData';
+import { FIXTURE_NOW, withAppData } from './support/appData';
+import { createFixtureDays } from '@/data/fixtureSource';
 
 const mockPush = jest.fn();
 
@@ -152,5 +154,37 @@ describe('behaviour trends screen', () => {
     await render(withAppData(<JournalTrendsScreen />, 'en', { userData: base }));
     expect(screen.getByTestId('trends-empty')).toBeTruthy();
     expect(screen.queryByTestId('trend-stats')).toBeNull();
+  });
+});
+
+describe('behaviour insights screen', () => {
+  const days = createFixtureDays(FIXTURE_NOW);
+
+  function journal(): Record<string, Record<string, boolean>> {
+    const out: Record<string, Record<string, boolean>> = {};
+    days.slice(0, -1).forEach((day, index) => {
+      out[day.day] = { sauna: index % 2 === 0, ...(index >= days.length - 4 ? { 'cold-plunge': true } : {}) };
+    });
+    return out;
+  }
+
+  it('ranks behaviours by effect and lists the ones that need more logs', async () => {
+    await render(withAppData(<JournalInsightsScreen />, 'en', { days, userData: { ...base, journal: journal() } }));
+    expect(screen.getByTestId('insights-ranked')).toBeTruthy();
+    expect(screen.getByTestId('insight-sauna-effect')).toHaveTextContent(/%$/);
+    expect(screen.getByTestId('insight-sauna-bar')).toBeTruthy();
+    expect(screen.getByTestId('insight-needs-cold-plunge')).toHaveTextContent(/3 of 5 days logged/);
+    expect(screen.getByText(/Needs more entries/)).toBeTruthy();
+    expect(screen.getByText(/the morning after days with and without/)).toBeTruthy();
+  });
+
+  it('switches the outcome between readiness, sleep and HRV', async () => {
+    await render(withAppData(<JournalInsightsScreen />, 'en', { days, userData: { ...base, journal: journal() } }));
+    const readiness = String(screen.getByTestId('insight-sauna').props.accessibilityLabel);
+    expect(readiness).toContain('readiness');
+    await fireEvent.press(screen.getByTestId('insights-tab-hrv'));
+    expect(String(screen.getByTestId('insight-sauna').props.accessibilityLabel)).toContain('HRV');
+    await fireEvent.press(screen.getByTestId('insights-tab-sleepScore'));
+    expect(String(screen.getByTestId('insight-sauna').props.accessibilityLabel)).toContain('sleep score');
   });
 });
