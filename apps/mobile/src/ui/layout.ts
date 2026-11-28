@@ -36,3 +36,8 @@ export function heroRingSize(layout: Layout, columns = 3, gap = 8, max = 104): n
 export function breaksMidWord(lines: readonly string[]): boolean {
   return lines.slice(0, -1).some((line, i) => /[\p{L}\p{N}]$/u.test(line) && /^[\p{L}\p{N}]/u.test(lines[i + 1] ?? ''));
 }
+
+export function fitArt(available: number | null, fallback: number, min: number, max: number): number {
+  const wanted = available === null || !Number.isFinite(available) ? fallback : available;
+  return Math.round(Math.max(min, Math.min(max, wanted)));
+}

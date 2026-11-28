@@ -73,7 +73,7 @@ export function Screen({
   const insets = useSafeAreaInsets();
   const { gutter } = useLayout();
   const [scrolled, setScrolled] = useState(false);
-  const bottom = insets.bottom + (withTabBar ? TAB_BAR_SPACE : spacing.xxl);
+  const bottom = footer ? spacing.lg : insets.bottom + (withTabBar ? TAB_BAR_SPACE : spacing.xxl);
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
     const next = event.nativeEvent.contentOffset.y > 4;
     setScrolled((current) => (current === next ? current : next));

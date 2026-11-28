@@ -12,7 +12,9 @@ import {
   computeCycleStats,
   cycleWheel,
   estimateNextPeriod,
+  deviationGap,
   latestDeviation,
+  tempDirection,
   parseTimelineRange,
   periodLengthDays,
   tempFitsPhase,
@@ -220,7 +222,8 @@ export default function CycleScreen() {
           label={t('health.cycle.tile.temp')}
           value={temp === null ? null : temp.value}
           unit={temp?.unit}
-          missing={t('health.cycle.tile.noTemp')}
+          missing={deviationGap(days, today, RECENT_TEMP_DAYS) === 'learning' ? t('health.cycle.tile.tempLearning') : t('health.cycle.tile.noTemp')}
+          caption={deviation === null ? undefined : t(`health.cycle.tile.tempDir.${tempDirection(deviation.value)}`)}
           header={
             <MetricName
               target={{ term: 'skinTempChange', index: deviationIndex, shown: temp === null ? null : { value: temp.value, unit: temp.unit, reason: null } }}

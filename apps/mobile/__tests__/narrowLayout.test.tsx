@@ -33,6 +33,7 @@ import DatePickerScreen from '@/app/home/date-picker';
 import AccuracyScreen from '@/app/settings/accuracy';
 import SafetyLockScreen from '@/app/settings/safety-lock';
 import LoadScreen from '@/app/load/index';
+import WelcomeScreen from '@/app/onboarding/index';
 import ConnectProviderScreen from '@/app/settings/connect-provider';
 import VitalsScreen from '@/app/health/vitals';
 
@@ -137,5 +138,15 @@ describe('small labels at S24 size', () => {
   it('keeps them side by side on a roomy screen', async () => {
     await render(withAppData(<LoadScreen />));
     expect(screen.getByTestId('load-ready-actions')).toHaveStyle({ flexDirection: 'row' });
+  });
+});
+
+describe('welcome at S24 size', () => {
+  it('shows both chips and lets the ring take only the space that is left', async () => {
+    s24();
+    await render(withAppData(<WelcomeScreen />));
+    expect(screen.getByTestId('welcome-chip-bands')).toHaveTextContent('Works with 5.0 and MG');
+    expect(screen.getByTestId('welcome-chip-open')).toBeTruthy();
+    expect(screen.getByTestId('welcome-ring', { includeHiddenElements: true })).toHaveStyle({ flex: 1 });
   });
 });

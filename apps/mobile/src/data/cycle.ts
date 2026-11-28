@@ -367,6 +367,26 @@ export function latestDeviation(days: readonly DayRecord[], today: string, maxAg
   return null;
 }
 
+export type DeviationGap = 'learning' | 'no-night';
+
+export function deviationGap(days: readonly DayRecord[], today: string, maxAgeDays: number): DeviationGap {
+  const from = shiftIsoDay(today, -maxAgeDays);
+  for (let i = days.length - 1; i >= 0; i--) {
+    const record = days[i];
+    if (record === undefined || record.day > today) continue;
+    if (record.day < from) return 'no-night';
+    if (record.skinTempDeviationC.reason === 'needs-history' && record.skinTempC.value !== null) return 'learning';
+  }
+  return 'no-night';
+}
+
+export type TempDirection = 'same' | 'above' | 'below';
+
+export function tempDirection(deviationC: number): TempDirection {
+  if (Math.abs(deviationC) < 0.05) return 'same';
+  return deviationC > 0 ? 'above' : 'below';
+}
+
 export type TempFit = 'typical' | 'different';
 
 export const TEMP_FIT_C = 0.1;

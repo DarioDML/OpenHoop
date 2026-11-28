@@ -35,6 +35,8 @@ function gapText(t: TFunction, reason: (value: string | null) => string, gap: We
   return parts.join(', ');
 }
 
+const EMPTY_MARK = '·';
+
 export default function LoadWeekScreen() {
   const { days } = useAppData();
   const { t, language, reason } = useT();
@@ -143,28 +145,28 @@ export default function LoadWeekScreen() {
                   style={{
                     height: 36,
                     borderRadius: radius.sm - 2,
-                    backgroundColor: readinessValue === null ? 'transparent' : readinessColor(colors, readinessValue),
+                    backgroundColor: readinessValue === null ? colors.surfaceAlt : readinessColor(colors, readinessValue),
                     borderWidth: readinessValue === null ? 1 : 0,
-                    borderColor: colors.border,
+                    borderColor: colors.borderStrong,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                  <AppText variant="label" color={colors.primaryOn} style={{ fontWeight: '700' }} maxFontSizeMultiplier={1.2}>
-                    {readinessValue === null ? '' : fmt(readinessValue, 0)}
+                  <AppText variant="label" color={readinessValue === null ? colors.textFaint : colors.primaryOn} style={{ fontWeight: '700' }} maxFontSizeMultiplier={1.2} testID={`week-readiness-text-${i}`}>
+                    {readinessValue === null ? EMPTY_MARK : fmt(readinessValue, 0)}
                   </AppText>
                 </View>
                 <View
                   style={{
                     height: 36,
                     borderRadius: radius.sm - 2,
-                    backgroundColor: loadValue === null ? 'transparent' : colors.tint.load,
+                    backgroundColor: loadValue === null ? colors.surfaceAlt : colors.tint.load,
                     borderWidth: loadValue === null ? 1 : 0,
-                    borderColor: colors.border,
+                    borderColor: colors.borderStrong,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                  <AppText variant="label" style={{ fontWeight: '700' }} maxFontSizeMultiplier={1.2} testID={`week-load-${i}`}>
-                    {loadValue === null ? '' : fmt(loadValue)}
+                  <AppText variant="label" color={loadValue === null ? colors.textFaint : undefined} style={{ fontWeight: '700' }} maxFontSizeMultiplier={1.2} testID={`week-load-${i}`}>
+                    {loadValue === null ? EMPTY_MARK : fmt(loadValue)}
                   </AppText>
                 </View>
                 <AppText variant="caption" muted style={{ textAlign: 'center' }}>
@@ -183,7 +185,7 @@ export default function LoadWeekScreen() {
                 {blocks}
               </Pressable>
             ) : (
-              <View key={date} testID={`week-day-${i}`} accessible accessibilityLabel={`${formatWeekday(date, language, 'long')} ${formatShortDay(date, language)}: ${t('loadx.week.noData')}`} style={{ flex: 1, minWidth: 0, gap: 4, opacity: 0.6 }}>
+              <View key={date} testID={`week-day-${i}`} accessible accessibilityLabel={`${formatWeekday(date, language, 'long')} ${formatShortDay(date, language)}: ${t('loadx.week.noData')}`} style={{ flex: 1, minWidth: 0, gap: 4, opacity: 0.8 }}>
                 {blocks}
               </View>
             );

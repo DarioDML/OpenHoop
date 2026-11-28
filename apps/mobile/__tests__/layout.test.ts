@@ -1,4 +1,4 @@
-import { COMPACT_GUTTER, GUTTER, breaksMidWord, heroRingSize, layoutFor } from '@/ui/layout';
+import { COMPACT_GUTTER, GUTTER, breaksMidWord, fitArt, heroRingSize, layoutFor } from '@/ui/layout';
 
 describe('layoutFor', () => {
   it('keeps the roomy layout on a wide phone at normal text size', () => {
@@ -60,5 +60,17 @@ describe('breaksMidWord', () => {
   it('treats one line as fine', () => {
     expect(breaksMidWord(['Breathing'])).toBe(false);
     expect(breaksMidWord([])).toBe(false);
+  });
+});
+
+describe('fitArt', () => {
+  it('fills the space that is left, between the limits', () => {
+    expect(fitArt(150, 200, 96, 220)).toBe(150);
+    expect(fitArt(400, 200, 96, 220)).toBe(220);
+    expect(fitArt(40, 200, 96, 220)).toBe(96);
+  });
+
+  it('uses the fallback before the first layout', () => {
+    expect(fitArt(null, 780 * 0.22, 96, 220)).toBe(172);
   });
 });

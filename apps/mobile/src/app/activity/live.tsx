@@ -147,7 +147,12 @@ export default function LiveActivityScreen() {
       ) : null}
 
       <Card testID="live-target">
-        <AppText variant="cardTitle">{t('activity.live.target.title')}</AppText>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }} testID="live-target-header">
+          <AppText variant="cardTitle" style={{ flex: 1, minWidth: 0 }}>
+            {t('activity.live.target.title')}
+          </AppText>
+          <ParityBadge level={PARITY.load} />
+        </View>
         {targetsHidden ? (
           <AppText variant="label" muted testID="live-target-hidden">
             {t('loadTarget.hidden.body')}
@@ -179,7 +184,6 @@ export default function LiveActivityScreen() {
           </>
         )}
         {targetsHidden ? null : <BuzzChip prefs={userData.loadBuzz} aim={aimAt(days, days.length - 1)} todayKey={unixToIsoDate(now, deviceTzOffsetS(new Date(now * 1000)))} testID="live-buzz" />}
-        <ParityBadge level={PARITY.load} />
       </Card>
 
       {save.kind === 'saving' ? (

@@ -8,7 +8,9 @@ import {
   cycleWheel,
   dayFlow,
   fertileWindow,
+  deviationGap,
   latestDeviation,
+  tempDirection,
   tempFitsPhase,
   dayOfCycle,
   daysBetween,
@@ -291,6 +293,29 @@ describe('cycle phases (estimates)', () => {
     expect(tempFitsPhase('follicular', -0.1)).toBe('typical');
     expect(tempFitsPhase('menstrual', 0.4)).toBe('different');
     expect(tempFitsPhase('ovulation', 0.4)).toBeNull();
+  });
+});
+
+describe('skin temperature tile', () => {
+  const days = createFixtureDays(FIXTURE_NOW);
+  const last = days[days.length - 1];
+
+  it('names the direction so 0.0 reads as "same as usual"', () => {
+    expect(tempDirection(0)).toBe('same');
+    expect(tempDirection(-0.04)).toBe('same');
+    expect(tempDirection(0.3)).toBe('above');
+    expect(tempDirection(-0.2)).toBe('below');
+  });
+
+  it('says the range is still being learned when a night exists without a deviation', () => {
+    if (last === undefined) throw new Error('no fixture day');
+    const learning = { ...last, skinTempC: { ...last.skinTempC, value: 33.4 }, skinTempDeviationC: { ...last.skinTempDeviationC, value: null, reason: 'needs-history' as const } };
+    expect(deviationGap([...days.slice(0, -1), learning], last.day, 3)).toBe('learning');
+  });
+
+  it('says there is no recent night when the nights are too old', () => {
+    expect(deviationGap(days, '2030-01-01', 3)).toBe('no-night');
+    expect(deviationGap([], '2030-01-01', 3)).toBe('no-night');
   });
 });
 

@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -6,8 +7,12 @@ import { useAppData } from '@/data/context';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Chip } from '@/ui/Chip';
+import { fitArt, useLayout } from '@/ui/layout';
 import { OnboardingPage } from '@/ui/manage/OnboardingPage';
 import { fonts, spacing, useTheme } from '@/ui/theme';
+
+const RING_MIN = 96;
+const RING_MAX = 220;
 
 interface RingSpec {
   r: number;
@@ -19,6 +24,9 @@ export default function WelcomeScreen() {
   const { t } = useT();
   const { colors } = useTheme();
   const { updateSettings, updateUserData } = useAppData();
+  const { height } = useLayout();
+  const [ringArea, setRingArea] = useState<number | null>(null);
+  const ringSize = fitArt(ringArea, height * 0.22, RING_MIN, RING_MAX);
 
   const startDemo = async (): Promise<void> => {
     try {
@@ -50,8 +58,16 @@ export default function WelcomeScreen() {
         <AppText variant="title" style={{ fontFamily: fonts.bold, letterSpacing: -0.2 }} testID="welcome-wordmark">
           Open<AppText variant="title" style={{ fontFamily: fonts.medium }}>Hoop</AppText>
         </AppText>
-        <View style={{ alignItems: 'center', paddingVertical: spacing.xl }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Svg width={220} height={220} viewBox="0 0 220 220">
+        <View
+          style={{ flex: 1, minHeight: RING_MIN, alignItems: 'center', justifyContent: 'center' }}
+          onLayout={(event) => {
+            const next = Math.floor(event.nativeEvent.layout.height);
+            if (next > 0 && next !== ringArea) setRingArea(next);
+          }}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          testID="welcome-ring">
+          <Svg width={ringSize} height={ringSize} viewBox="0 0 220 220">
             {rings.map((ring) => {
               const c = 2 * Math.PI * ring.r;
               return [
