@@ -67,7 +67,7 @@ export default function JournalScreen() {
         accessibilityLabel={direction === 'prev' ? t('health.hr.prevDay') : t('health.hr.nextDay')}
         disabled={disabled}
         onPress={() => setOffset((o) => (direction === 'prev' ? Math.min(WINDOW_DAYS, o + 1) : Math.max(0, o - 1)))}
-        style={{ width: 44, height: 36, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : 1 }}>
+        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : 1 }}>
         <Icon name={direction === 'prev' ? 'back' : 'chevronRight'} color={colors.textMuted} size={18} />
       </Pressable>
     );
@@ -78,6 +78,7 @@ export default function JournalScreen() {
       title={t('journal.title')}
       tint="coach"
       testID="journal"
+      footer={<Button label={saved ? t('common.saved') : t('journal.save')} onPress={() => void save()} disabled={answered === 0} testID="journal-save" />}
       right={<IconButton icon="edit" label={t('journal.customize.title')} onPress={() => router.push('/journal/customize')} testID="journal-edit" />}
       hero={
         <View style={{ gap: spacing.sm }}>
@@ -147,7 +148,6 @@ export default function JournalScreen() {
           ))}
         </Card>
       )}
-      <Button label={saved ? t('common.saved') : t('journal.save')} onPress={() => void save()} disabled={answered === 0} testID="journal-save" />
       <Pressable
         testID="journal-customize"
         accessibilityRole="link"

@@ -70,7 +70,7 @@ function DetectionChip({ label, selected, onPress, testID }: ChipProps) {
       accessibilityState={{ checked: selected }}
       onPress={onPress}
       style={({ pressed }) => ({
-        minHeight: 40,
+        minHeight: 44,
         paddingHorizontal: spacing.lg,
         borderRadius: radius.pill,
         borderWidth: 1,
