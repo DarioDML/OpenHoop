@@ -92,25 +92,48 @@ From research on 2026-11-28; sources are in the PR.
    - When it is on and a strength session is live in the app, the app streams motion live for the whole session and stores it per second. **(owner: live only)**
    - A session can also switch on **Record on band** (off by default), for when the phone stays in a locker. **(owner)** It runs the on-band raw session for the length of the session. The screen states the cost: band memory, and about 13 extra minutes of sync per hour.
 4. **Per-set motion metrics.**
-   - Each logged set covers the time from the previous set's `done_at` (or the session start) to its own `done_at`.
-   - From the motion in that window the app derives:
+   - Each logged set is matched to its **active bout**: the last contiguous stretch of lifting movement before its `done_at`, searched within the 120 s before it. The rest period before the bout (walking, loading plates, the phone) is never analysed. **(owner review)**
+   - From the bout the app derives:
      - reps detected;
-     - time under tension (active movement time);
-     - rep intensity (mean peak dynamic acceleration per rep, in g).
-   - Detected reps pre-fill the next set's reps field. The user can edit them.
+     - time under tension (the bout's movement time);
+     - mean rep duration (tempo);
+     - velocity loss, the drop in peak dynamic acceleration from the first to the last reps, as a fatigue sign.
+   - Detected reps never overwrite the reps field, which the plan or the previous set already fills. They show as a one-tap suggestion ("Band counted 7 · Use"). **(owner review)**
+   - Some exercises barely move the wrist, such as the leg press, machine calf raises or isometric holds. When a bout has fewer than 2 reps or stays under the noise floor, the set shows "motion not readable for this exercise", uses factor 1 and gets no suggestion.
 5. **Motion-weighted muscular load.** **(owner)**
-   - A set's load is its volume (reps × weight) times an intensity factor: the set's rep intensity divided by the user's own median rep intensity for that exercise over earlier sets with motion, clamped to 0.7–1.3.
-   - A set without motion, or the first sets of an exercise with no reference yet, uses factor 1, so it stays plain volume.
+   - A set's load is its volume (reps × weight) times an intensity factor.
+   - Peak acceleration falls on heavy, near-failure sets and rises on light, fast ones, so it would weight sets the wrong way round. **(owner review)** The factor therefore comes from **tempo**: the set's mean rep duration divided by the user's own median rep duration for that exercise over earlier readable sets, clamped to 0.7–1.3. Slower reps mean a heavier relative load or fatigue, so they weigh more.
+   - Velocity loss is stored and shown, but does not change the factor in `strength.motion@1`.
+   - Factor 1 (plain volume) applies to:
+     - sets without readable motion;
+     - every set until the exercise has 3 earlier readable sets as a reference.
    - The strength summary says which sets had motion. It carries level D and a method sheet.
-6. **ECG movement line.** If an ECG reading has R21 records for its time, its result shows how much the wrist moved during the reading, as a reason for a noisy trace. This is a fact, not a verdict.
-7. **Safety:**
+   - **Validation before the factor counts:** the owner logs one light and one heavy working set of the same exercise and checks, from the Developer CSV and the summary, that the heavy set gets the higher factor. Until that check passes, the build shows the factor but computes load as plain volume. One constant switches it on.
+6. **ECG movement line.**
+   - The band saves R21 during an ECG reading, and a sync brings it in. After that sync, the reading's wrist movement (the RMS of dynamic acceleration, in g) is computed once and **stored on the ECG record**, so it survives pruning of the raw motion. **(owner review)**
+   - The result shows it as a reason for a noisy trace. It is a fact, not a verdict.
+7. **Post-sync recompute.** **(owner review)** After every sync that stores new motion rows, the app recomputes:
+   - `strength_set_motion` for each strength session that overlaps the new rows and still has sets without readable motion. This is what makes "Record on band" fill in a workout afterwards.
+   - the ECG movement value for readings that don't have one yet.
+8. **Logging sets after the fact.**
+   - With the phone in a locker, sets may be logged after the lifting, so `done_at` no longer lines up with the bouts. The search before `done_at` then finds no bout for most sets.
+   - In that case the session's bouts are found from motion alone. If their number equals the number of logged sets, they are assigned in order. Otherwise those sets show "motion recorded, but it couldn't be matched to your sets".
+9. **Safety:**
    - Every stream the app starts is also stopped:
      - when its screen or session ends;
      - after a 10-minute cap on Developer streams;
+     - after a 4-hour cap on live workout motion;
      - on app close where possible;
      - on the next connect, through a cleanup flag set while streaming, as the ECG already does.
+   - **Reconnect during a workout.** **(owner review)** On every connect the controller first asks whether a stream owner is active in memory (the strength live screen with high-rate motion, or the Developer tab):
+     - if one is, it re-sends that owner's switch-on (106 or 108 `[01 01]`) and leaves the flag set;
+     - only with no owner does it send the flagged switch-offs.
    - **Fail-safe:** a live R20 or R21 arriving while the app runs no stream is answered with stream-off, at most once every 30 s.
+     - It ignores packets for 3 s after the app's own stop, because of in-flight records. **(owner review)**
+     - It only reacts to packets on OpenHoop's own connection.
+     - It is off during an ECG reading and during a sync.
    - The app never sends `TOGGLE_PERSISTENT_R20/R21` (153/154). The community links them to a stuck LED and battery drain, and they write nonvolatile state.
+10. **Retention.** "Raw 7 d" and "Raw 30 d" also delete `imu_blocks` and `optical_bursts` rows by their own time `t` < cutoff, whatever their `chunk_id`, so live workout rows are pruned too. "Keep all", the default, deletes nothing. Derived values stay: `strength_set_motion`, the ECG movement value, and detected reps. **(owner)**
 
 ## Non-goals
 - Muscular load counting toward the daily Load score. Daily Load stays heart-rate based and calibrated. Muscular load is shown next to it. **(owner)** The Load screen's note "Muscular load is not included yet" stays true and stays.
@@ -136,7 +159,8 @@ These would make it a failure even if it technically works:
     - adds a `layout` column to `optical_bursts`, holding 20 or 26;
     - removes any duplicates (the tables have had no writer, so they should be empty);
     - adds unique indexes on `imu_blocks (device_id, t)` and `optical_bursts (device_id, t, layout)`, so live and history copies of the same second do not double;
-    - creates `strength_set_motion`.
+    - creates `strength_set_motion`;
+    - adds `movement_g` to `ecg_recordings`.
   - Layouts must hold at 360 dp with font scale 1.3.
   - New metric names get `terms.ts` entries (en + nl) and explain in place.
   - UI proposals go on the Claude Design canvas before building.
@@ -191,33 +215,59 @@ These would make it a failure even if it technically works:
   - Live motion runs only while the strength live screen's session is open and the setting is on.
   - Live seconds are written to `imu_blocks` with `chunk_id` NULL.
   - "Record on band" sends 81 revision 2 with duration = 3 h at the session start, and 82 at the session end.
-- **Rep detection:**
-  - Remove gravity with a 1 s moving average per axis.
-  - Project onto the window's principal axis of dynamic acceleration.
-  - Band-pass 0.25–2.5 Hz.
-  - Count peaks at least 0.6 s apart whose prominence is at least 35 % of the window's 90th-percentile amplitude.
-  - Intensity = mean of the per-rep peak dynamic |a|.
-  - Time under tension = total time with dynamic |a| above 0.05 g, merged across gaps under 0.5 s.
-  - Thresholds are a first version, named in one constants object, algo id `strength.motion@1`.
+- **Bout segmentation:**
+  - Remove gravity with a **3 s** moving average per axis. A 1 s average would cut slow 3–5 s reps before the band-pass. **(owner review)**
+  - The energy envelope is the 0.5 s RMS of dynamic |a| plus |gyro|.
+  - The active bout is the last stretch before `done_at`, within 120 s, where the envelope stays above an activity threshold, merged across gaps under 2 s.
+  - The threshold is relative: 3 × the median envelope of the quiet seconds in the same 120 s.
+- **Rep detection, run on the bout only:**
+  - Project onto the bout's principal axis of dynamic acceleration.
+  - Band-pass 0.15–2.5 Hz.
+  - Count peaks at least 0.6 s apart whose prominence is at least 35 % of the **bout's** 90th-percentile amplitude.
+- **Per-set values:**
+  - Tempo = bout duration / reps.
+  - Time under tension = the bout's duration.
+  - Velocity loss = 1 − (mean peak of the last 2 reps / mean peak of the first 2 reps).
+  - Readable = at least 2 reps, and a bout amplitude of at least 0.03 g.
+  - Coverage is measured against the bout, not the rest interval. Readable needs at least 80 % of the bout's seconds present.
+- Thresholds are a first version, named in one constants object, algo id `strength.motion@1`.
 
 These were settled after the builder check. **(my call)**
 - **Writes:**
   - Rows are written with `INSERT OR IGNORE`, so the first copy of a second wins. A live copy and a band-saved copy of the same second carry the same samples.
   - `t` is the record's band unix second, as in `samples_1hz`.
   - Each R26 record is one second (25 samples), so a 40-second window is 40 rows with layout 26.
-- **Backfill:** a `SAMPLE_DECODER_VERSION` bump re-decodes the stored chunks once through the existing `rebuildStaleSamples` path. R26 decoding is cheap, and earlier bumps of the same path re-ran all chunks.
+- **Backfill:** a `SAMPLE_DECODER_VERSION` bump re-decodes the stored chunks once through the existing `rebuildStaleSamples` path.
+  - It runs in the background (`redecodeStoredSamples` is not awaited at startup) and shows the existing progress line. R26 decoding is cheap.
+  - The rows are inserted per chunk, so a run cut short repeats harmlessly through `INSERT OR IGNORE`.
 - **Cleanup flag:** it records which of motion, optical and the on-band recording were on. The next connect sends 106 off, 108 off and 82 for exactly those. The 3-hour duration also caps an on-band recording orphaned by a dead app.
 - **Fail-safe:** it only reacts to packets on OpenHoop's own connection, and it is off during an ECG reading and during a sync.
 - **Set timing:**
   - Set windows are in phone time, and they are converted to band time with the session's measured clock offset (`Session.clockOffsetS`).
   - A set counts as having motion when at least 80 % of its window's seconds have a motion row. Otherwise it shows "no motion" and uses factor 1.
 - **Per-set results:**
-  - They are stored in `strength_set_motion`, with columns `set_id` (key → `strength_sets` on delete cascade), `reps_detected`, `tut_s`, `intensity_g`, `coverage` and `algo`.
+  - They are stored in `strength_set_motion`, with these columns:
+    - `set_id` (key → `strength_sets`, on delete cascade);
+    - `status` (`readable`, `unreadable`, `unmatched` or `none`);
+    - `reps_detected`, `tut_s`, `tempo_s`, `velocity_loss`, `coverage`, `factor` and `algo`.
   - The personal reference median is computed from that table, so muscular load survives when raw motion is pruned.
+  - The ECG movement value is a nullable column `movement_g` on `ecg_recordings`, in the same migration.
 - **Sample rate:** the R21 rate byte is used when it is not 0; otherwise the rate is the sample count per one-second record.
 
-## Open question for the owner
-- **Retention.** "Raw 7 d" and "Raw 30 d" today delete only the band's raw bytes; decoded values stay. Should they also delete stored optical and motion signals older than the cutoff? My recommendation: yes. The setting says "raw", and the signals are the bulk of the data. Derived values (detected reps, muscular load, the ECG movement line) stay either way. "Keep all", the default, deletes nothing.
+## Owner review, 2026-11-28
+The owner approved the design ("a very solid design") and asked for these fixes, now in Goals 4–10 and Decided:
+- active-bout segmentation instead of the whole rest interval;
+- a 3 s gravity window;
+- a tempo-based factor instead of peak acceleration, validated on a light and a heavy set before it counts;
+- reconnect during a workout re-asserts the stream instead of cleaning it up;
+- a post-sync recompute for "Record on band" and for the ECG movement value;
+- matching sets logged after the fact;
+- suggestions instead of overwriting planned reps;
+- a 3 s fail-safe grace and a 4-hour live cap;
+- the ECG movement value stored on the record;
+- retention by time.
+
+Retention answer: yes, prune by `t`.
 
 ## Left to the builder
 - Exact strings (en + nl), chart styling within the canvas design, and how traces are downsampled for drawing.
