@@ -103,13 +103,16 @@ describe('screens at S24 size', () => {
     expect(within(screen.getByTestId('vital-resp')).getByText('Breathing')).toBeTruthy();
   });
 
-  it('keeps the whole unit beside the value and the level badge on its own row', async () => {
+  it('keeps the whole unit beside the value and gives the label the full tile width', async () => {
     s24();
     await render(withAppData(<VitalsScreen />));
     const unit = screen.getByTestId('vital-resp-unit');
     expect(unit).toHaveTextContent('/min');
     expect(unit).toHaveStyle({ flexShrink: 0 });
-    expect(within(screen.getByTestId('vital-resp-status')).getByText('B')).toBeTruthy();
+    const icons = screen.getByTestId('vital-resp-icons');
+    expect(within(icons).getByText('B')).toBeTruthy();
+    expect(within(icons).queryByTestId('vital-resp-name')).toBeNull();
+    expect(within(screen.getByTestId('vital-resp-label')).getByTestId('vital-resp-name')).toBeTruthy();
   });
 });
 
@@ -160,7 +163,14 @@ describe('small labels at S24 size', () => {
     expect(screen.getByTestId('load-buzz-label').props.numberOfLines).toBe(2);
   });
 
-  it('keeps them side by side on a roomy screen', async () => {
+  it('stacks them on a 360dp phone at normal text size too', async () => {
+    Object.assign(mockWindow, { width: 360, height: 780, fontScale: 1 });
+    await render(withAppData(<LoadScreen />));
+    expect(screen.getByTestId('load-ready-actions')).toHaveStyle({ flexDirection: 'column' });
+  });
+
+  it('keeps them side by side on a tablet-wide screen', async () => {
+    Object.assign(mockWindow, { width: 600, height: 960, fontScale: 1 });
     await render(withAppData(<LoadScreen />));
     expect(screen.getByTestId('load-ready-actions')).toHaveStyle({ flexDirection: 'row' });
   });

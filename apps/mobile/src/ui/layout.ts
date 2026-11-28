@@ -33,7 +33,12 @@ export function heroRingSize(layout: Layout, columns = 3, gap = 8, max = 104): n
   return Math.max(72, Math.min(max, Math.floor(available / columns) - 4));
 }
 
-const WORD_CHAR = /[\p{L}\p{N}]/u;
+export function fitsSideBySide(layout: Layout, inset: number, minEach: number, count = 2, gap = 8): boolean {
+  const available = layout.width - layout.gutter * 2 - inset * 2 - gap * (count - 1);
+  return available / count >= minEach * layout.fontScale;
+}
+
+const WORD_CHAR =/[\p{L}\p{N}]/u;
 
 export function breaksMidWord(text: string, lines: readonly string[]): boolean {
   const source = text.toLowerCase();
