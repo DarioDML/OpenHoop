@@ -407,9 +407,9 @@ export function applyDayFlow(periods: readonly PeriodEntry[], day: string, choic
   const cover = periodOn(periods, day, today);
   if (choice === 0) {
     if (cover === null) return { kind: 'none' };
-    const end = cover.endDay ?? day;
-    if (cover.startDay === day && (cover.endDay === null || end === day)) return { kind: 'delete', id: cover.id };
-    if (cover.endDay === null || end === day) return checked({ startDay: cover.startDay, endDay: shiftIsoDay(day, -1), flow: cover.flow }, cover.id, periods, today);
+    const last = coverEnd(cover, today);
+    if (cover.startDay === day && last === day) return { kind: 'delete', id: cover.id };
+    if (last === day) return checked({ startDay: cover.startDay, endDay: shiftIsoDay(day, -1), flow: cover.flow }, cover.id, periods, today);
     if (cover.startDay === day) return checked({ startDay: shiftIsoDay(day, 1), endDay: cover.endDay, flow: cover.flow }, cover.id, periods, today);
     return { kind: 'inside' };
   }

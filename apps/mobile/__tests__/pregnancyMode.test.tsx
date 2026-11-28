@@ -22,6 +22,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import LoadScreen from '@/app/load/index';
 import LoadTargetScreen from '@/app/load/target';
+import LoadTrendsScreen from '@/app/load/trends';
 import PregnancyScreen from '@/app/health/pregnancy';
 import RecoveryScreen from '@/app/recovery/index';
 
@@ -93,6 +94,12 @@ describe('hidden Load targets', () => {
     await render(withAppData(<LoadTargetScreen />, 'en', { cycle: PREGNANT, userData: HIDDEN }));
     expect(screen.getByTestId('target-hidden')).toBeTruthy();
     expect(screen.queryByTestId('target-today')).toBeNull();
+  });
+
+  it('leave the Load trends without days on target', async () => {
+    await render(withAppData(<LoadTrendsScreen />, 'en', { cycle: PREGNANT, userData: HIDDEN }));
+    expect(screen.getByTestId('trend-ontarget-hidden')).toBeTruthy();
+    expect(screen.getByTestId('trend-ontarget-note')).toHaveTextContent(/hidden while pregnancy mode is on/);
   });
 
   it('leave Readiness without a target', async () => {

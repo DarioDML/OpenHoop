@@ -184,6 +184,14 @@ describe('ECG result screen', () => {
     expect(setSymptoms).toHaveBeenLastCalledWith(4, ['none']);
   });
 
+  it('takes a tag back off when storing it fails', async () => {
+    const setSymptoms = jest.fn(async () => false);
+    await render(withAppData(<EcgResultScreen />, 'en', { ecgRecordings: [RECORDING], ecgActions: { ...fixtureEcgActions(), setSymptoms } }));
+    await fireEvent.press(screen.getByTestId('ecg-feel-dizzy'));
+    await waitFor(() => expect(screen.getByTestId('ecg-feel-dizzy').props.accessibilityState).toMatchObject({ checked: false }));
+    expect(setSymptoms).toHaveBeenCalledWith(4, ['dizzy']);
+  });
+
   it('exports the trace as a PDF and the raw samples as CSV', async () => {
     const samples = jest.fn(async () => Array.from({ length: 1280 }, (_, i) => (i % 128 === 40 ? 900 : 0)));
     await render(withAppData(<EcgResultScreen />, 'en', { ecgRecordings: [{ ...RECORDING, symptoms: ['dizzy'] }], ecgActions: { ...fixtureEcgActions(), samples } }));

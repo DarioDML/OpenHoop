@@ -1,6 +1,6 @@
 import type { EcgSummary, EcgSymptom } from '@openhoop/core';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
@@ -67,6 +67,7 @@ export default function EcgResultScreen() {
   const [loaded, setLoaded] = useState<{ id: number; samples: number[] | null; avgHr: number | null } | null>(null);
   const [exporting, setExporting] = useState<'pdf' | 'csv' | null>(null);
   const [tags, setTags] = useState<{ id: number; symptoms: EcgSymptom[] } | null>(null);
+  const tagWrites = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     if (selected === null) return;
@@ -88,8 +89,11 @@ export default function EcgResultScreen() {
   const feel = (symptom: EcgSymptom): void => {
     if (selected === null) return;
     const next = toggleEcgSymptom(symptoms, symptom);
-    setTags({ id: selected.id, symptoms: next });
-    void ecgActions.setSymptoms(selected.id, next);
+    const id = selected.id;
+    setTags({ id, symptoms: next });
+    tagWrites.current = tagWrites.current.then(async () => {
+      if (!(await ecgActions.setSymptoms(id, next))) setTags((current) => (current !== null && current.id === id && current.symptoms === next ? null : current));
+    });
   };
 
   const summaryRows = (recording: EcgSummary, avgHr: number | null): Array<{ label: string; value: string }> => [

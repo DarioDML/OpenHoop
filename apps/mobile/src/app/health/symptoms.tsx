@@ -1,6 +1,6 @@
 import type { Intensity, Symptom } from '@openhoop/core';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
@@ -70,6 +70,7 @@ export default function SymptomsScreen() {
   const [flow, setFlow] = useState<FlowChoice | null>(null);
   const [problem, setProblem] = useState<Problem>(null);
   const [saving, setSaving] = useState(false);
+  const busy = useRef(false);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
 
@@ -101,6 +102,7 @@ export default function SymptomsScreen() {
   };
 
   const submit = async (): Promise<void> => {
+    if (busy.current) return;
     const chosenDay = day.trim();
     if (!validDay) {
       setProblem('day');
@@ -116,16 +118,21 @@ export default function SymptomsScreen() {
       setProblem(action.kind === 'inside' ? 'flowInside' : 'flowInvalid');
       return;
     }
+    busy.current = true;
     setSaving(true);
     let ok = true;
-    for (const symptom of selected) {
-      const result = validateSymptomDraft({ day: chosenDay, symptom, intensity: picked[symptom] ?? 1 }, today);
-      if (result.ok) ok = (await saveSymptom(result.value)) && ok;
+    try {
+      for (const symptom of selected) {
+        const result = validateSymptomDraft({ day: chosenDay, symptom, intensity: picked[symptom] ?? 1 }, today);
+        if (result.ok) ok = (await saveSymptom(result.value)) && ok;
+      }
+      if (action.kind === 'insert') ok = (await savePeriod(null, action.input)) && ok;
+      if (action.kind === 'update') ok = (await savePeriod(action.id, action.input)) && ok;
+      if (action.kind === 'delete') ok = (await removePeriod(action.id)) && ok;
+    } finally {
+      busy.current = false;
+      setSaving(false);
     }
-    if (action.kind === 'insert') ok = (await savePeriod(null, action.input)) && ok;
-    if (action.kind === 'update') ok = (await savePeriod(action.id, action.input)) && ok;
-    if (action.kind === 'delete') ok = (await removePeriod(action.id)) && ok;
-    setSaving(false);
     if (ok) {
       setPicked({});
       setFlow(null);

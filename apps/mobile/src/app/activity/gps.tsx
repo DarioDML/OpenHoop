@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatElapsed, parseActivityType } from '@/data/activityDerived';
 import { aimAt } from '@/data/loadDerived';
+import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { useAppData } from '@/data/context';
 import {
@@ -57,7 +58,8 @@ const ZONE_KEYS = ['zone.1', 'zone.2', 'zone.3', 'zone.4', 'zone.5'] as const;
 const SPLITS_SHOWN = 3;
 
 export default function GpsActivityScreen() {
-  const { notice, userData, days } = useAppData();
+  const { notice, userData, days, cycle } = useAppData();
+  const targetsHidden = loadTargetsHidden(userData.pregnancyPrefs, cycle);
   const { t, language } = useT();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -263,7 +265,7 @@ export default function GpsActivityScreen() {
               </View>
 
               <ZoneStrip zone={heartRate === null ? null : zone} testID="gps-zones" />
-              <BuzzChip prefs={userData.loadBuzz} aim={aimAt(days, days.length - 1)} todayKey={unixToIsoDate(now, deviceTzOffsetS(new Date(now * 1000)))} testID="gps-buzz" />
+              {targetsHidden ? null : <BuzzChip prefs={userData.loadBuzz} aim={aimAt(days, days.length - 1)} todayKey={unixToIsoDate(now, deviceTzOffsetS(new Date(now * 1000)))} testID="gps-buzz" />}
 
               {lastSplits.length > 0 ? (
                 <View style={{ gap: spacing.sm }} testID="gps-splits">

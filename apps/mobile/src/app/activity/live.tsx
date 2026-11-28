@@ -178,7 +178,7 @@ export default function LiveActivityScreen() {
             </AppText>
           </>
         )}
-        <BuzzChip prefs={userData.loadBuzz} aim={aimAt(days, days.length - 1)} todayKey={unixToIsoDate(now, deviceTzOffsetS(new Date(now * 1000)))} testID="live-buzz" />
+        {targetsHidden ? null : <BuzzChip prefs={userData.loadBuzz} aim={aimAt(days, days.length - 1)} todayKey={unixToIsoDate(now, deviceTzOffsetS(new Date(now * 1000)))} testID="live-buzz" />}
         <ParityBadge level={PARITY.load} />
       </Card>
 

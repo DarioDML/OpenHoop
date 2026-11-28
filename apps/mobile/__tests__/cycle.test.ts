@@ -315,7 +315,9 @@ describe('flow for one day', () => {
 
   it('ends or removes a period when the day has no flow, and leaves the middle of one alone', () => {
     expect(applyDayFlow([ongoing], TODAY, 0, TODAY)).toEqual({ kind: 'update', id: 5, input: { startDay: '2026-11-23', endDay: '2026-11-24', flow: 2 } });
-    expect(applyDayFlow([ongoing], '2026-11-23', 0, TODAY)).toEqual({ kind: 'delete', id: 5 });
+    expect(applyDayFlow([ongoing], '2026-11-23', 0, TODAY)).toEqual({ kind: 'update', id: 5, input: { startDay: '2026-11-24', endDay: null, flow: 2 } });
+    expect(applyDayFlow([ongoing], '2026-11-24', 0, TODAY)).toEqual({ kind: 'inside' });
+    expect(applyDayFlow([period(7, TODAY)], TODAY, 0, TODAY)).toEqual({ kind: 'delete', id: 7 });
     expect(applyDayFlow([done], '2026-10-24', 0, TODAY)).toEqual({ kind: 'update', id: 6, input: { startDay: '2026-10-20', endDay: '2026-10-23', flow: 1 } });
     expect(applyDayFlow([done], '2026-10-20', 0, TODAY)).toEqual({ kind: 'update', id: 6, input: { startDay: '2026-10-21', endDay: '2026-10-24', flow: 1 } });
     expect(applyDayFlow([done], '2026-10-22', 0, TODAY)).toEqual({ kind: 'inside' });

@@ -86,6 +86,15 @@ describe('lab CSV parsing', () => {
     expect(parsed.candidates.map((c) => c.biomarker)).toEqual(['glucose', 'ldl']);
   });
 
+  it('keeps a quoted cell that spans lines and reads headers with a unit in brackets', () => {
+    const text = 'Analyte,Value (mmol/L),Unit,Reference range [lab]\n"Glucose\nfasting",5.2,mmol/L,3.9-5.6\nLDL,3.1,mmol/L,<3.0';
+    const parsed = parseLabCsv(text, TODAY);
+    expect(parsed.candidates.map((c) => [c.name, c.value, c.refHigh])).toEqual([
+      ['Glucose fasting', 5.2, 5.6],
+      ['LDL', 3.1, 3],
+    ]);
+  });
+
   it('finds nothing in an empty file', () => {
     expect(parseLabCsv('', TODAY)).toEqual({ candidates: [], day: null });
   });

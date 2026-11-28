@@ -21,14 +21,21 @@ const DELIMITERS = [',', ';', '\t'] as const;
 const VALUE = /^(<=?|>=?)?\s*(\d{1,7}(?:[.,]\d{1,4})?)\s*(.*)$/;
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 
-export function splitCsvLine(line: string, delimiter: string): string[] {
-  const cells: string[] = [];
+export function csvRecords(text: string, delimiter: string, maxRecords: number): string[][] {
+  const records: string[][] = [];
+  let cells: string[] = [];
   let cell = '';
   let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i] ?? '';
+  const endRecord = (): void => {
+    cells.push(cell.replace(/\s+/g, ' ').trim());
+    if (cells.some((value) => value !== '')) records.push(cells);
+    cells = [];
+    cell = '';
+  };
+  for (let i = 0; i < text.length && records.length < maxRecords; i++) {
+    const char = text[i] ?? '';
     if (quoted) {
-      if (char === '"' && line[i + 1] === '"') {
+      if (char === '"' && text[i + 1] === '"') {
         cell += '"';
         i++;
       } else if (char === '"') quoted = false;
@@ -37,12 +44,19 @@ export function splitCsvLine(line: string, delimiter: string): string[] {
       quoted = true;
       cell = '';
     } else if (char === delimiter) {
-      cells.push(cell.trim());
+      cells.push(cell.replace(/\s+/g, ' ').trim());
       cell = '';
+    } else if (char === '\n' || char === '\r') {
+      if (char === '\r' && text[i + 1] === '\n') i++;
+      endRecord();
     } else cell += char;
   }
-  cells.push(cell.trim());
-  return cells;
+  if (records.length < maxRecords && (cell !== '' || cells.length > 0)) endRecord();
+  return records;
+}
+
+export function splitCsvLine(line: string, delimiter: string): string[] {
+  return csvRecords(line, delimiter, 1)[0] ?? [''];
 }
 
 export function detectDelimiter(line: string): string {
@@ -59,7 +73,12 @@ export function detectDelimiter(line: string): string {
 }
 
 function headerKey(cell: string): string {
-  return cell.toLowerCase().replace(/[_.\-()]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return cell
+    .toLowerCase()
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+    .replace(/[_.-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function columnsOf(header: readonly string[]): Partial<Record<Column, number>> {
@@ -101,16 +120,11 @@ function rowCandidate(cells: readonly string[], columns: Partial<Record<Column, 
 }
 
 export function parseLabCsv(text: string, today: string): LabParseResult {
-  const lines = text
-    .replace(/^\uFEFF/, '')
-    .split(/\r?\n/)
-    .filter((line) => line.trim() !== '')
-    .slice(0, IMPORT_LIMITS.maxLines)
-    .map((line) => line.slice(0, IMPORT_LIMITS.maxLineLength * 2));
-  const first = lines[0];
+  const body = text.replace(/^\uFEFF/, '');
+  const first = body.split(/\r?\n/).find((line) => line.trim() !== '');
   if (first === undefined) return { candidates: [], day: null };
   const delimiter = detectDelimiter(first);
-  const rows = lines.map((line) => splitCsvLine(line, delimiter));
+  const rows = csvRecords(body, delimiter, IMPORT_LIMITS.maxLines).map((cells) => cells.map((cell) => cell.slice(0, IMPORT_LIMITS.maxLineLength)));
   const columns = columnsOf(rows[0] ?? []);
   if (columns.name === undefined || columns.value === undefined) {
     return parseLabText(

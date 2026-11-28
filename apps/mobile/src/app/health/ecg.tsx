@@ -1,6 +1,6 @@
 import type { Wrist } from '@openhoop/protocol';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 
 import { useAppData, useEcgLive } from '@/data/context';
@@ -39,23 +39,33 @@ export default function EcgScreen() {
   const { device, ecgActions, ecgRecordings, ecgWrist } = useAppData();
   const live = useEcgLive();
   const [wrist, setWrist] = useState<Wrist>(ecgWrist);
-  const cancelled = useRef(false);
+  const run = useRef(0);
+  const cancelledRun = useRef<number | null>(null);
+  const mounted = useRef(true);
   const isMg = device.model === 'MG';
   const busy = device.connection === 'syncing' || device.connection === 'connecting';
 
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   const start = async (): Promise<void> => {
-    cancelled.current = false;
+    run.current += 1;
+    const mine = run.current;
     const id = await ecgActions.start(wrist);
     if (id === null) return;
-    if (cancelled.current) {
+    if (cancelledRun.current === mine) {
       await ecgActions.remove(id);
       return;
     }
-    router.push({ pathname: '/health/ecg-result', params: { id: String(id) } });
+    if (mounted.current && run.current === mine) router.push({ pathname: '/health/ecg-result', params: { id: String(id) } });
   };
 
   const cancel = (): void => {
-    cancelled.current = true;
+    cancelledRun.current = run.current;
     ecgActions.stop();
   };
 
