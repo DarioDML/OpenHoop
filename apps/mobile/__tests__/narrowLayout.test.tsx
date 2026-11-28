@@ -1,5 +1,6 @@
-import { render, screen, within } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
 
 import { Chip } from '@/ui/Chip';
 import { ListRow } from '@/ui/ListGroup';
@@ -148,7 +149,25 @@ describe('welcome at S24 size', () => {
     await render(withAppData(<WelcomeScreen />));
     expect(screen.getByTestId('welcome-chip-bands')).toHaveTextContent('Works with 5.0 and MG');
     expect(screen.getByTestId('welcome-chip-open')).toBeTruthy();
-    expect(screen.getByTestId('welcome-ring', { includeHiddenElements: true })).toHaveStyle({ flex: 1 });
+    const ring = (): number => Number(StyleSheet.flatten(screen.getByTestId('welcome-ring', { includeHiddenElements: true }).props.style).height);
+    expect(ring()).toBe(172);
+    await fireEvent(screen.getByTestId('screen-scroll'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 520 } } });
+    await fireEvent(screen.getByTestId('screen-scroll'), 'contentSizeChange', 360, 600);
+    expect(ring()).toBe(91);
+    await fireEvent(screen.getByTestId('welcome-space'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 328, height: 12 } } });
+    expect(ring()).toBe(91);
+    await fireEvent(screen.getByTestId('welcome-space'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 328, height: 40 } } });
+    expect(ring()).toBe(145);
+    await fireEvent(screen.getByTestId('screen-scroll'), 'contentSizeChange', 360, 2000);
+    expect(ring()).toBe(64);
+  });
+
+  it('keeps the chips under the rings and the rings at most 220 dp', async () => {
+    await render(withAppData(<WelcomeScreen />));
+    const ids = testIdsInOrder(screen.toJSON());
+    expect(ids.indexOf('welcome-chips')).toBeGreaterThan(ids.indexOf('welcome-ring'));
+    await fireEvent(screen.getByTestId('welcome-space'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 380, height: 400 } } });
+    expect(StyleSheet.flatten(screen.getByTestId('welcome-ring', { includeHiddenElements: true }).props.style).height).toBe(220);
   });
 });
 

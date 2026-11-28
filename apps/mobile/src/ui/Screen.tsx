@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Platform, RefreshControl, ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -53,6 +53,7 @@ interface Props {
   footer?: ReactNode;
   testID?: string;
   scrollEnabled?: boolean;
+  onOverflow?: (overflow: number) => void;
 }
 
 export function Screen({
@@ -68,11 +69,17 @@ export function Screen({
   footer,
   testID,
   scrollEnabled = true,
+  onOverflow,
 }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { gutter } = useLayout();
   const [scrolled, setScrolled] = useState(false);
+  const sizes = useRef({ viewport: 0, content: 0 });
+  const report = (): void => {
+    const { viewport, content } = sizes.current;
+    if (onOverflow !== undefined && viewport > 0 && content > 0) onOverflow(content - viewport);
+  };
   const bottom = footer ? spacing.lg : insets.bottom + (withTabBar ? TAB_BAR_SPACE : spacing.xxl);
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
     const next = event.nativeEvent.contentOffset.y > 4;
@@ -124,6 +131,14 @@ export function Screen({
           automaticallyAdjustKeyboardInsets
           testID="screen-scroll"
           scrollEnabled={scrollEnabled}
+          onLayout={(event) => {
+            sizes.current.viewport = event.nativeEvent.layout.height;
+            report();
+          }}
+          onContentSizeChange={(_, height) => {
+            sizes.current.content = height;
+            report();
+          }}
           onScroll={onScroll}
           scrollEventThrottle={32}
           refreshControl={
