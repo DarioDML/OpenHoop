@@ -111,7 +111,7 @@ export default function WearGuideScreen() {
           </AppText>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
             {GARMENT_LOCATIONS.map((item) => (
-              <CheckPill key={item} role="radio" label={t(`onboarding.wear.${item}`)} selected={location === item} onPress={() => choose(item)} testID={`wear-${item}`} />
+              <CheckPill key={item} role="radio" label={t(`device.wear.${item}`)} selected={location === item} onPress={() => choose(item)} testID={`wear-${item}`} />
             ))}
           </View>
         </View>

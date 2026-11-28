@@ -154,14 +154,14 @@ export default function PairScanScreen() {
               right={
                 <Button
                   label={t('onboarding.pair.pair')}
-                  variant={index === 0 ? 'primary' : 'secondary'}
+                  variant={index === 0 ? 'primary' : 'soft'}
+                  compact
                   onPress={() => {
                     setFailure(null);
                     setSelected(band);
                   }}
                   disabled={bonding}
                   accessibilityLabel={t('onboarding.pair.pairLabel', { name: band.name })}
-                  style={[{ minHeight: 40, paddingHorizontal: 18 }, index === 0 ? null : { borderWidth: 0, backgroundColor: colors.surfaceAlt }]}
                   testID={`pair-${band.id}`}
                 />
               }
