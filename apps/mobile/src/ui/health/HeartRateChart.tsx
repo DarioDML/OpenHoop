@@ -109,12 +109,16 @@ export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS
         onLayout={onLayout}
         style={{ height }}
         testID={testID ? `${testID}-touch` : undefined}
-        onStartShouldSetResponder={() => scrubbing}
-        onResponderGrant={pick}
-        onResponderMove={pick}
-        onResponderRelease={() => setActive(null)}
-        onResponderTerminate={() => setActive(null)}
-        onResponderTerminationRequest={() => true}>
+        {...(scrubbing
+          ? {
+              onStartShouldSetResponder: () => true,
+              onResponderGrant: pick,
+              onResponderMove: pick,
+              onResponderRelease: () => setActive(null),
+              onResponderTerminate: () => setActive(null),
+              onResponderTerminationRequest: () => true,
+            }
+          : {})}>
         {width > 0 ? (
           <Svg width={width} height={height}>
             {bands.map((band, index) => {

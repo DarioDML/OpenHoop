@@ -289,6 +289,7 @@ export default function HeartRateScreen() {
                 bucketS={BUCKET_S}
                 emptyLabel={t('health.hr.noData')}
                 scrubLabel={scrubLabel}
+                area
               />
             )}
           </Card>
