@@ -122,3 +122,61 @@ export function latestPhenoAge(labResults: readonly LabResult[], profile: Profil
   const result = phenotypicAge(inputs);
   return { ...view, result: result.ok ? result : { ok: false, reason: result.reason } };
 }
+
+export type BodyAgeSource = 'pheno' | 'fitness';
+
+export type BodyAgeHeadline =
+  | { kind: 'age'; source: BodyAgeSource; age: number; ownAge: number | null; day: string | null }
+  | { kind: 'bound'; source: 'fitness'; direction: 'younger-than' | 'older-than'; age: number; ownAge: number | null; day: string | null }
+  | { kind: 'none'; reason: 'no-vo2' | FitnessAgeReason };
+
+export function bodyAgeHeadline(fitness: FitnessAgeView, pheno: PhenoAgeView): BodyAgeHeadline {
+  if (pheno.result.ok) return { kind: 'age', source: 'pheno', age: pheno.result.value.phenoAge, ownAge: pheno.ageYears, day: pheno.newestDay };
+  if (!fitness.vo2.ok) return { kind: 'none', reason: 'no-vo2' };
+  if (fitness.fitness === null) return { kind: 'none', reason: fitness.reason ?? 'out-of-range' };
+  const { point } = fitness.fitness;
+  if (point.kind === 'age') return { kind: 'age', source: 'fitness', age: point.age, ownAge: fitness.ageYears, day: fitness.day };
+  return { kind: 'bound', source: 'fitness', direction: point.kind, age: point.age, ownAge: fitness.ageYears, day: fitness.day };
+}
+
+export function yearsDifference(headline: BodyAgeHeadline): number | null {
+  if (headline.kind !== 'age' || headline.ownAge === null) return null;
+  return headline.ownAge - headline.age;
+}
+
+export interface PhenoPoint {
+  day: string;
+  phenoAge: number;
+}
+
+export function phenoAgeHistory(labResults: readonly LabResult[], profile: Profile): PhenoPoint[] {
+  const drawDays = [...new Set(labResults.map((r) => r.day))].sort();
+  const points: PhenoPoint[] = [];
+  for (const day of drawDays) {
+    const view = latestPhenoAge(
+      labResults.filter((r) => r.day <= day),
+      profile,
+    );
+    if (view.result.ok && view.newestDay === day) points.push({ day, phenoAge: view.result.value.phenoAge });
+  }
+  return points;
+}
+
+export const PACE_MIN_DAYS = 180;
+export const PACE_SCALE = { min: -1, max: 3 } as const;
+const DAYS_PER_YEAR = 365.25;
+
+export type PaceOfAging = { ok: true; pace: number; from: PhenoPoint; to: PhenoPoint } | { ok: false; reason: 'needs-two-draws' | 'too-close'; draws: number };
+
+function dayNumber(day: string): number {
+  return Date.parse(`${day}T00:00:00Z`) / 86_400_000;
+}
+
+export function paceOfAging(history: readonly PhenoPoint[]): PaceOfAging {
+  const from = history[0];
+  const to = history[history.length - 1];
+  if (from === undefined || to === undefined || history.length < 2) return { ok: false, reason: 'needs-two-draws', draws: history.length };
+  const span = dayNumber(to.day) - dayNumber(from.day);
+  if (!(span >= PACE_MIN_DAYS)) return { ok: false, reason: 'too-close', draws: history.length };
+  return { ok: true, pace: (to.phenoAge - from.phenoAge) / (span / DAYS_PER_YEAR), from, to };
+}
