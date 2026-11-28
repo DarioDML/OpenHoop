@@ -20,7 +20,7 @@ export default function GoalsScreen() {
   };
 
   const next = async (): Promise<void> => {
-    await updateUserData({ goals: selected });
+    if (!(await updateUserData({ goals: selected }))) return;
     router.push('/onboarding/permissions');
   };
 

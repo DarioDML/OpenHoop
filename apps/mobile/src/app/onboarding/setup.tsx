@@ -15,7 +15,6 @@ import { Icon } from '@/ui/Icon';
 import { ListGroup } from '@/ui/ListGroup';
 import { DoneBadge } from '@/ui/manage/DoneBadge';
 import { OnboardingPage } from '@/ui/manage/OnboardingPage';
-import { NoticeCard } from '@/ui/NoticeCard';
 import { Num } from '@/ui/Num';
 import { Ring } from '@/ui/Ring';
 import { radius, spacing, useTheme } from '@/ui/theme';
@@ -121,7 +120,6 @@ export default function SetupScreen() {
 
   return (
     <OnboardingPage screen="setup" hideBack title={t('onboarding.setup.title')} subtitle={t('onboarding.setup.subtitle')} primary={primary}>
-      <NoticeCard />
       <View style={{ alignItems: 'center' }}>
         <Ring fraction={fraction} color={colors.accent} size={180} strokeWidth={10} testID="setup-ring">
           <Num size={64} unit={fraction === null ? undefined : '%'} unitSize={28} testID="setup-percent">

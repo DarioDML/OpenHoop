@@ -450,7 +450,8 @@ describe('Wear guide (A9)', () => {
     expect(screen.getByTestId('wear-bicep').props.accessibilityState).toEqual({ selected: true });
     expect(screen.getByTestId('wear-note')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('wear-garment'));
-    expect(updateUserData).toHaveBeenLastCalledWith({ wearLocation: 'torso' });
+    expect(updateUserData).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('wear-garment-where')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('wear-waist'));
     expect(updateUserData).toHaveBeenLastCalledWith({ wearLocation: 'waist' });
     expect(screen.getByTestId('wear-garment').props.accessibilityState).toEqual({ selected: true });
@@ -482,5 +483,53 @@ describe('Calibration (A10)', () => {
   it('says the normal range is ready after four nights', async () => {
     await render(withAppData(<CalibrationScreen />));
     expect(screen.getByTestId('calibration-status')).toHaveTextContent('Your normal range is ready');
+  });
+});
+
+describe('saving during onboarding', () => {
+  const failed = (): jest.Mock<Promise<boolean>, []> => jest.fn(async () => false);
+
+  it('stays on the page and shows the notice when a save fails', async () => {
+    const notice = { key: 'error.disconnected' as const };
+    const updateUserData = failed();
+    await render(withAppData(<GoalsScreen />, 'en', { updateUserData, notice }));
+    expect(screen.getByTestId('notice-card')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalled());
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('does not move on from profile after a failed save', async () => {
+    const updateUserData = failed();
+    await render(withAppData(<ProfileScreen />, 'en', { updateUserData }));
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalled());
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('puts the official app choice back and stays when it could not be saved', async () => {
+    const base = fixtureAppData();
+    const updateUserData = failed();
+    await render(withAppData(<OfficialAppScreen />, 'en', { updateUserData, userData: { ...base.userData, officialAppMode: null } }));
+    await fireEvent.press(screen.getByTestId('official-switch'));
+    await waitFor(() => expect(screen.getByTestId('official-only').props.accessibilityState).toEqual({ selected: true, disabled: false }));
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledTimes(2));
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('does not finish onboarding when it could not be saved', async () => {
+    const updateUserData = failed();
+    await render(withAppData(<CalibrationScreen />, 'en', { updateUserData }));
+    await fireEvent.press(screen.getByTestId('calibration-finish'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalled());
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('puts the wear pick back when it could not be saved', async () => {
+    const updateUserData = failed();
+    await render(withAppData(<WearGuideScreen />, 'en', { updateUserData }));
+    await fireEvent.press(screen.getByTestId('wear-bicep'));
+    await waitFor(() => expect(screen.getByTestId('wear-bicep').props.accessibilityState).toEqual({ selected: false }));
   });
 });

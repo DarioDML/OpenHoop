@@ -5,6 +5,7 @@ import { onboardingStage, type OnboardingScreen } from '@/data/onboarding';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/controls';
+import { NoticeCard } from '@/ui/NoticeCard';
 import { Screen } from '@/ui/Screen';
 import { radius, spacing, useTheme } from '@/ui/theme';
 import { TopBar } from '@/ui/TopBar';
@@ -81,6 +82,7 @@ export function OnboardingPage({ screen, title, subtitle, children, primary, sec
           </AppText>
         ) : null}
       </View>
+      <NoticeCard />
       {children}
     </Screen>
   );

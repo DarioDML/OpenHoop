@@ -18,12 +18,15 @@ export default function OfficialAppScreen() {
   const [mode, setMode] = useState<OfficialAppMode>(userData.officialAppMode ?? 'only');
 
   const choose = (next: OfficialAppMode): void => {
+    const before = mode;
     setMode(next);
-    void updateUserData({ officialAppMode: next });
+    void updateUserData({ officialAppMode: next }).then((saved) => {
+      if (!saved) setMode(before);
+    });
   };
 
   const next = async (): Promise<void> => {
-    if (userData.officialAppMode !== mode) await updateUserData({ officialAppMode: mode });
+    if (userData.officialAppMode !== mode && !(await updateUserData({ officialAppMode: mode }))) return;
     router.push('/onboarding/pair');
   };
 

@@ -29,7 +29,7 @@ export default function CalibrationScreen() {
   const left = MIN_BASELINE_NIGHTS - done;
 
   const finish = async (): Promise<void> => {
-    await updateUserData({ onboardingDone: true });
+    if (!(await updateUserData({ onboardingDone: true }))) return;
     router.replace('/');
   };
 

@@ -25,7 +25,7 @@ export default function ProfileScreen() {
 
   const next = async (): Promise<void> => {
     const trimmed = name.trim();
-    await updateUserData({ name: trimmed === '' ? null : trimmed.slice(0, 40) });
+    if (!(await updateUserData({ name: trimmed === '' ? null : trimmed.slice(0, 40) }))) return;
     router.push('/onboarding/body');
   };
 
