@@ -124,12 +124,12 @@ interface CapHeaderProps {
 
 export function CapHeader({ title, action, onAction }: CapHeaderProps) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.sm }}>
-      <AppText variant="capLarge" muted>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm }}>
+      <AppText variant="capLarge" muted style={{ flex: 1, minWidth: 0 }}>
         {title}
       </AppText>
       {action && onAction ? (
-        <Pressable accessibilityRole="button" onPress={onAction} hitSlop={10} style={{ minHeight: 44, justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" onPress={onAction} hitSlop={10} style={{ minHeight: 44, justifyContent: 'center', flexShrink: 0 }}>
           <AppText variant="cap" muted>
             {action}
           </AppText>
