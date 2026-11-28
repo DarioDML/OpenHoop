@@ -56,9 +56,10 @@ function StepIcon({ status, step }: { status: SetupStepStatus; step: SetupStepId
 export default function SetupScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const { sync, readBandConfig, clearNotice, notice, device } = useAppData();
+  const { sync, readBandConfig, clearNotice, notice, device, settings } = useAppData();
   const syncProgress = useSyncProgress();
-  const [run, setRun] = useState<Run>('backup');
+  const demo = settings.dataSource === 'demo';
+  const [run, setRun] = useState<Run>(demo ? 'sync' : 'backup');
   const [startedS, setStartedS] = useState<number | null>(null);
   const [reachedBand, setReachedBand] = useState(false);
   const started = useRef(false);
@@ -66,9 +67,11 @@ export default function SetupScreen() {
   const start = async (): Promise<void> => {
     setReachedBand(false);
     setStartedS(Math.floor(Date.now() / 1000));
-    setRun('backup');
-    await readBandConfig();
-    clearNotice();
+    if (!demo) {
+      setRun('backup');
+      await readBandConfig();
+      clearNotice();
+    }
     setRun('sync');
     await sync();
     setRun('ended');
@@ -130,7 +133,7 @@ export default function SetupScreen() {
         </Ring>
       </View>
       <ListGroup>
-        {SETUP_STEPS.map((step) => {
+        {(demo ? SETUP_STEPS.filter((step) => step !== 'backup') : SETUP_STEPS).map((step) => {
           const status = statuses[step];
           const subtitle =
             step === 'history' && status === 'active' && pages !== null

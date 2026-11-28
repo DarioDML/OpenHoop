@@ -354,6 +354,8 @@ describe('Pair connected (A7)', () => {
 });
 
 describe('Setup (A8)', () => {
+  const bandSettings = { ...fixtureAppData().settings, dataSource: 'band' as const };
+
   const freshSnapshot = (): string => serializeSnapshot(buildSnapshot(Math.floor(Date.now() / 1000) + 3_600, 'band', [{ key: 'enable_sig12', valueText: '2', valueHex: null }], []));
 
   it('backs up the band configuration before reading history', async () => {
@@ -365,7 +367,7 @@ describe('Setup (A8)', () => {
       order.push('sync');
     });
     const base = fixtureAppData();
-    await render(withAppData(<SetupScreen />, 'en', { readBandConfig, sync, device: { ...base.device, configSnapshot: freshSnapshot() } }));
+    await render(withAppData(<SetupScreen />, 'en', { readBandConfig, sync, settings: bandSettings, device: { ...base.device, configSnapshot: freshSnapshot() } }));
     expect(await screen.findByTestId('setup-continue')).toBeTruthy();
     expect(order).toEqual(['backup', 'sync']);
     expect(screen.getByTestId('setup-step-backup').props.accessibilityState).toEqual({ busy: false, checked: true });
@@ -375,10 +377,21 @@ describe('Setup (A8)', () => {
 
   it('says when the configuration could not be backed up and carries on', async () => {
     const clearNotice = jest.fn();
-    await render(withAppData(<SetupScreen />, 'en', { readBandConfig: jest.fn(async () => undefined), sync: jest.fn(async () => undefined), clearNotice }));
+    await render(withAppData(<SetupScreen />, 'en', { readBandConfig: jest.fn(async () => undefined), sync: jest.fn(async () => undefined), clearNotice, settings: bandSettings }));
     expect(await screen.findByTestId('setup-continue')).toBeTruthy();
     expect(clearNotice).toHaveBeenCalled();
     expect(screen.getByTestId('setup-step-backup-detail')).toHaveTextContent(/Band configuration/);
+  });
+
+  it('skips the configuration backup for the demo band', async () => {
+    const readBandConfig = jest.fn(async () => undefined);
+    const sync = jest.fn(async () => undefined);
+    await render(withAppData(<SetupScreen />, 'en', { readBandConfig, sync }));
+    expect(await screen.findByTestId('setup-continue')).toBeTruthy();
+    expect(readBandConfig).not.toHaveBeenCalled();
+    expect(sync).toHaveBeenCalled();
+    expect(screen.queryByTestId('setup-step-backup')).toBeNull();
+    expect(screen.getByTestId('setup-step-history').props.accessibilityState).toEqual({ busy: false, checked: true });
   });
 
   it('shows the page progress and lets the sync run in the background', async () => {

@@ -63,7 +63,8 @@ describe('found bands', () => {
 
 describe('history progress', () => {
   it('counts pages from processed records and never passes the total', () => {
-    expect(pagesRead(0, 9400)).toBe(0);
+    expect(pagesRead(0, 9400)).toBeNull();
+    expect(pagesRead(5, 9400)).toBe(1);
     expect(pagesRead(6016 * RECORDS_PER_PAGE + 3, 9400)).toBe(6016);
     expect(pagesRead(10_000 * RECORDS_PER_PAGE, 9400)).toBe(9400);
     expect(pagesRead(100, null)).toBeNull();

@@ -62,8 +62,8 @@ export function modelFromName(name: string): BandModel | null {
 export const RECORDS_PER_PAGE = 14;
 
 export function pagesRead(processedRecords: number, pagesTotal: number | null): number | null {
-  if (pagesTotal === null || pagesTotal <= 0 || !Number.isFinite(processedRecords) || processedRecords < 0) return null;
-  return Math.min(pagesTotal, Math.floor(processedRecords / RECORDS_PER_PAGE));
+  if (pagesTotal === null || pagesTotal <= 0 || !Number.isFinite(processedRecords) || processedRecords <= 0) return null;
+  return Math.min(pagesTotal, Math.max(1, Math.floor(processedRecords / RECORDS_PER_PAGE)));
 }
 
 const DAY_S = 86_400;
