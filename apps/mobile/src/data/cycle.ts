@@ -52,6 +52,10 @@ function validDay(day: string): boolean {
   return parts !== null && parts.y >= MIN_YEAR;
 }
 
+export function isLogDay(day: string, today: string): boolean {
+  return validDay(day) && day <= today;
+}
+
 function roundTo(value: number, decimals: number): number {
   const factor = 10 ** decimals;
   return Math.round(value * factor) / factor;
@@ -380,10 +384,13 @@ export type FlowAction =
   | { kind: 'insert'; input: PeriodInput }
   | { kind: 'update'; id: number; input: PeriodInput }
   | { kind: 'delete'; id: number }
+  | { kind: 'newPeriod'; input: PeriodInput }
   | { kind: 'inside' }
   | { kind: 'invalid' };
 
-function coverEnd(period: PeriodEntry, today: string): string {
+export const FLOW_JOIN_GAP_DAYS = 2;
+
+export function coverEnd(period: PeriodEntry, today: string): string {
   if (period.endDay !== null) return period.endDay;
   const longest = shiftIsoDay(period.startDay, CYCLE_LIMITS.maxPeriodDays - 1);
   return longest < today ? longest : today;
@@ -417,9 +424,15 @@ export function applyDayFlow(periods: readonly PeriodEntry[], day: string, choic
     if (cover.flow === choice) return { kind: 'none' };
     return checked({ startDay: cover.startDay, endDay: cover.endDay, flow: choice }, cover.id, periods, today);
   }
-  const before = periods.find((period) => period.endDay === shiftIsoDay(day, -1));
-  if (before !== undefined) return checked({ startDay: before.startDay, endDay: day, flow: choice }, before.id, periods, today);
-  const after = periods.find((period) => period.startDay === shiftIsoDay(day, 1));
+  const joins = (gap: number): boolean => gap >= 0 && gap <= FLOW_JOIN_GAP_DAYS;
+  const before = periods
+    .filter((period) => period.startDay < day && joins(daysBetween(coverEnd(period, today), day) - 1) && daysBetween(period.startDay, day) + 1 <= CYCLE_LIMITS.maxPeriodDays)
+    .sort((a, b) => (a.startDay < b.startDay ? 1 : -1))[0];
+  if (before !== undefined) return checked({ startDay: before.startDay, endDay: day === today ? null : day, flow: choice }, before.id, periods, today);
+  const after = periods.find(
+    (period) => period.startDay > day && joins(daysBetween(day, period.startDay) - 1) && daysBetween(day, coverEnd(period, today)) + 1 <= CYCLE_LIMITS.maxPeriodDays,
+  );
   if (after !== undefined) return checked({ startDay: day, endDay: after.endDay, flow: choice }, after.id, periods, today);
-  return checked({ startDay: day, endDay: day === today ? null : day, flow: choice }, null, periods, today);
+  const fresh = checked({ startDay: day, endDay: day === today ? null : day, flow: choice }, null, periods, today);
+  return fresh.kind === 'insert' ? { kind: 'newPeriod', input: fresh.input } : fresh;
 }

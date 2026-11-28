@@ -1,4 +1,4 @@
-import type { Intensity, Symptom } from '@openhoop/core';
+import type { Intensity, PeriodInput, Symptom } from '@openhoop/core';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { View } from 'react-native';
@@ -14,12 +14,14 @@ import {
   estimateNextPeriod,
   fertileWindow,
   groupSymptomsByDay,
+  isLogDay,
+  periodOn,
   validateSymptomDraft,
   type FlowChoice,
 } from '@/data/cycle';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
-import { parseIsoDate, todayIsoDate } from '@/lib/dates';
+import { todayIsoDate } from '@/lib/dates';
 import { formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
@@ -70,6 +72,7 @@ export default function SymptomsScreen() {
   const [flow, setFlow] = useState<FlowChoice | null>(null);
   const [problem, setProblem] = useState<Problem>(null);
   const [saving, setSaving] = useState(false);
+  const [pendingNew, setPendingNew] = useState<PeriodInput | null>(null);
   const busy = useRef(false);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -78,7 +81,8 @@ export default function SymptomsScreen() {
   const groups = groupSymptomsByDay(cycle.symptoms);
   const shown = showAll ? groups : groups.slice(0, SHOWN_DAYS);
   const selected = SYMPTOM_OPTIONS.filter((symptom) => picked[symptom] !== undefined);
-  const validDay = parseIsoDate(day.trim()) !== null && day.trim() <= today;
+  const validDay = isLogDay(day.trim(), today);
+  const covering = validDay ? periodOn(cycle.periods, day.trim(), today) : null;
   const loggedFlow = validDay ? dayFlow(cycle.periods, day.trim(), today) : 0;
   const shownFlow = flow ?? loggedFlow;
   const pregnant = cycle.pregnancy !== null;
@@ -101,7 +105,7 @@ export default function SymptomsScreen() {
     if (level !== undefined) setPicked((current) => ({ ...current, [symptom]: level }));
   };
 
-  const submit = async (): Promise<void> => {
+  const submit = async (confirmNew = false): Promise<void> => {
     if (busy.current) return;
     const chosenDay = day.trim();
     if (!validDay) {
@@ -118,6 +122,11 @@ export default function SymptomsScreen() {
       setProblem(action.kind === 'inside' ? 'flowInside' : 'flowInvalid');
       return;
     }
+    if (action.kind === 'newPeriod' && !confirmNew) {
+      setPendingNew(action.input);
+      return;
+    }
+    setPendingNew(null);
     busy.current = true;
     setSaving(true);
     let ok = true;
@@ -126,7 +135,7 @@ export default function SymptomsScreen() {
         const result = validateSymptomDraft({ day: chosenDay, symptom, intensity: picked[symptom] ?? 1 }, today);
         if (result.ok) ok = (await saveSymptom(result.value)) && ok;
       }
-      if (action.kind === 'insert') ok = (await savePeriod(null, action.input)) && ok;
+      if (action.kind === 'insert' || action.kind === 'newPeriod') ok = (await savePeriod(null, action.input)) && ok;
       if (action.kind === 'update') ok = (await savePeriod(action.id, action.input)) && ok;
       if (action.kind === 'delete') ok = (await removePeriod(action.id)) && ok;
     } finally {
@@ -209,12 +218,29 @@ export default function SymptomsScreen() {
             const choice = FLOW_CHOICES.find((candidate) => `${candidate}` === value);
             if (choice !== undefined) setFlow(choice);
             setProblem(null);
+            setPendingNew(null);
           }}
           options={FLOW_CHOICES.map((choice) => ({ value: `${choice}`, label: t(FLOW_LABEL[choice]), testID: `symptom-flow-${choice}` }))}
         />
-        <AppText variant="caption" muted>
-          {t('health.symptoms.flowHint')}
-        </AppText>
+        {covering === null ? (
+          <AppText variant="caption" muted testID="symptom-flow-hint">
+            {t('health.symptoms.flowHint')}
+          </AppText>
+        ) : (
+          <AppText variant="caption" muted testID="symptom-flow-period">
+            {t('health.symptoms.flowPeriod', {
+              from: shortDay(covering.startDay),
+              to: covering.endDay === null ? t('health.cycle.entries.ongoing') : shortDay(covering.endDay),
+            })}
+          </AppText>
+        )}
+        {pendingNew !== null ? (
+          <Card testID="symptom-new-period">
+            <AppText variant="body">{t('health.symptoms.newPeriod', { day: shortDay(pendingNew.startDay) })}</AppText>
+            <Button label={t('health.symptoms.newPeriodConfirm')} onPress={() => void submit(true)} disabled={saving} testID="symptom-new-confirm" />
+            <Button label={t('common.cancel')} variant="tertiary" onPress={() => setPendingNew(null)} testID="symptom-new-cancel" />
+          </Card>
+        ) : null}
       </View>
 
       <Card testID="symptom-predictions">
@@ -251,6 +277,7 @@ export default function SymptomsScreen() {
           onChangeText={(value) => {
             setDay(value);
             setFlow(null);
+            setPendingNew(null);
             setProblem(null);
           }}
           autoCapitalize="none"

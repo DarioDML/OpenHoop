@@ -305,12 +305,21 @@ describe('flow for one day', () => {
   });
 
   it('starts a period, extends one that ended the day before, or changes its flow', () => {
-    expect(applyDayFlow([], TODAY, 3, TODAY)).toEqual({ kind: 'insert', input: { startDay: TODAY, endDay: null, flow: 3 } });
-    expect(applyDayFlow([], '2026-11-10', 1, TODAY)).toEqual({ kind: 'insert', input: { startDay: '2026-11-10', endDay: '2026-11-10', flow: 1 } });
+    expect(applyDayFlow([], TODAY, 3, TODAY)).toEqual({ kind: 'newPeriod', input: { startDay: TODAY, endDay: null, flow: 3 } });
+    expect(applyDayFlow([], '2026-11-10', 1, TODAY)).toEqual({ kind: 'newPeriod', input: { startDay: '2026-11-10', endDay: '2026-11-10', flow: 1 } });
     expect(applyDayFlow([done], '2026-10-25', 1, TODAY)).toEqual({ kind: 'update', id: 6, input: { startDay: '2026-10-20', endDay: '2026-10-25', flow: 1 } });
     expect(applyDayFlow([done], '2026-10-19', 2, TODAY)).toEqual({ kind: 'update', id: 6, input: { startDay: '2026-10-19', endDay: '2026-10-24', flow: 2 } });
     expect(applyDayFlow([ongoing], TODAY, 3, TODAY)).toEqual({ kind: 'update', id: 5, input: { startDay: '2026-11-23', endDay: null, flow: 3 } });
     expect(applyDayFlow([ongoing], TODAY, 2, TODAY)).toEqual({ kind: 'none' });
+  });
+
+  it('joins a day after a skipped day or two to the period instead of starting a new one', () => {
+    const firstDays = period(8, '2026-10-01', '2026-10-03', 2);
+    expect(applyDayFlow([firstDays], '2026-10-05', 2, TODAY)).toEqual({ kind: 'update', id: 8, input: { startDay: '2026-10-01', endDay: '2026-10-05', flow: 2 } });
+    expect(applyDayFlow([firstDays], '2026-10-06', 2, TODAY)).toEqual({ kind: 'update', id: 8, input: { startDay: '2026-10-01', endDay: '2026-10-06', flow: 2 } });
+    expect(applyDayFlow([firstDays], '2026-10-07', 2, TODAY)).toEqual({ kind: 'newPeriod', input: { startDay: '2026-10-07', endDay: '2026-10-07', flow: 2 } });
+    expect(applyDayFlow([period(9, '2026-10-12', '2026-10-14')], '2026-10-10', 1, TODAY)).toEqual({ kind: 'update', id: 9, input: { startDay: '2026-10-10', endDay: '2026-10-14', flow: 1 } });
+    expect(applyDayFlow([period(10, '2026-10-01', '2026-10-13')], '2026-10-15', 2, TODAY)).toEqual({ kind: 'newPeriod', input: { startDay: '2026-10-15', endDay: '2026-10-15', flow: 2 } });
   });
 
   it('ends or removes a period when the day has no flow, and leaves the middle of one alone', () => {

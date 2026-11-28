@@ -218,6 +218,9 @@ describe('symptoms screen', () => {
     await fireEvent.press(within(screen.getByTestId('symptom-intensity-fatigue')).getByText('Strong'));
     await fireEvent.press(screen.getByTestId('symptom-flow-3'));
     await fireEvent.press(screen.getByTestId('symptom-save-top'));
+    expect(screen.getByTestId('symptom-new-period')).toHaveTextContent(/starts a new period/);
+    expect(save).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('symptom-new-confirm'));
     expect(save).toHaveBeenCalledWith({ day: '2026-11-25', symptom: 'cramps', intensity: 1 });
     expect(save).toHaveBeenCalledWith({ day: '2026-11-25', symptom: 'fatigue', intensity: 3 });
     expect(savePeriod).toHaveBeenCalledWith(null, { startDay: '2026-11-25', endDay: null, flow: 3 });
@@ -230,6 +233,28 @@ describe('symptoms screen', () => {
     await fireEvent.press(screen.getByTestId('symptom-flow-0'));
     await fireEvent.press(screen.getByTestId('symptom-save'));
     expect(removePeriod).toHaveBeenCalledWith(5);
+  });
+
+  it('shows the period a day belongs to and joins a day after a skipped one', async () => {
+    const savePeriod = jest.fn<Promise<boolean>, [number | null, PeriodInput]>(async () => true);
+    await render(withAppData(<SymptomsScreen />, 'en', { cycle: cycleData({ periods: [period(6, '2026-11-20', '2026-11-22')] }), savePeriod }));
+    await fireEvent.changeText(screen.getByTestId('symptom-input-day'), '2026-11-21');
+    expect(screen.getByTestId('symptom-flow-period')).toHaveTextContent(/whole period/);
+    await fireEvent.changeText(screen.getByTestId('symptom-input-day'), '2026-11-24');
+    expect(screen.getByTestId('symptom-flow-hint')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('symptom-flow-1'));
+    await fireEvent.press(screen.getByTestId('symptom-save'));
+    expect(savePeriod).toHaveBeenCalledWith(6, { startDay: '2026-11-20', endDay: '2026-11-24', flow: 1 });
+  });
+
+  it('says so when the day is before 2015 instead of dropping it', async () => {
+    const save = jest.fn<Promise<boolean>, [SymptomInput]>(async () => true);
+    await render(withAppData(<SymptomsScreen />, 'en', { saveSymptom: save }));
+    await fireEvent.press(screen.getByTestId('symptom-chip-cramps'));
+    await fireEvent.changeText(screen.getByTestId('symptom-input-day'), '2014-05-01');
+    await fireEvent.press(screen.getByTestId('symptom-save'));
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.getByTestId('symptom-problem')).toBeTruthy();
   });
 
   it('will not cut a day out of the middle of a period', async () => {
