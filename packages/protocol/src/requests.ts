@@ -192,3 +192,24 @@ export function labradorSwitchBody(on: boolean): Uint8Array {
 export function labradorGenerationBody(operation: LabradorOperation): Uint8Array {
   return Uint8Array.of(REVISION_1, LABRADOR_OPERATION[operation]);
 }
+
+const RAW_SESSION_REVISION = 2;
+export const RAW_SESSION_MAX_MS = 86_400_000;
+
+export function streamSwitchBody(on: boolean): Uint8Array {
+  return Uint8Array.of(REVISION_1, on ? 1 : 0);
+}
+
+export function rawSessionBody(durationMs: number): Uint8Array {
+  if (!Number.isInteger(durationMs) || durationMs < 1 || durationMs > RAW_SESSION_MAX_MS) {
+    throw new RangeError(`raw session duration must be 1 to ${RAW_SESSION_MAX_MS} ms`);
+  }
+  const out = new Uint8Array(5);
+  out[0] = RAW_SESSION_REVISION;
+  new DataView(out.buffer).setUint32(1, durationMs, true);
+  return out;
+}
+
+export function rawStopBody(): Uint8Array {
+  return Uint8Array.of(REVISION_1);
+}

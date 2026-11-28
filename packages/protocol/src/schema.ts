@@ -211,6 +211,7 @@ export const schema = {
     blockFields: indexFields(records['20'].block_fields),
     slotARel: records['20'].slot_a_rel,
     slotBRel: records['20'].slot_b_rel,
+    rateOffset: records['20'].rate_offset,
   },
   imu: {
     length: records['21'].length,
@@ -219,6 +220,8 @@ export const schema = {
     accelOffsets: records['21'].accel_xyz_offsets,
     gyroOffsets: records['21'].gyro_xyz_offsets,
     capacity: records['21'].capacity,
+    rateOffset: records['21'].rate_offset,
+    gyroInvalid: records['21'].gyro_invalid,
   },
   compactOptical: {
     length: records['26'].length,

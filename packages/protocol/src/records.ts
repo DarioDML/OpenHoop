@@ -40,8 +40,8 @@ export type RecordBody =
   | ({ type: 'biometric' } & Biometric)
   | { type: 'ecgRaw'; quality: number; samples: number[]; leadI: number[]; leadQ: number[] }
   | { type: 'ecgFiltered'; quality: number; samples: number[] }
-  | { type: 'optical'; blocks: OpticalBlock[] }
-  | { type: 'imu'; accel: [number[], number[], number[]]; gyro: [number[], number[], number[]] }
+  | { type: 'optical'; rateHz: number; blocks: OpticalBlock[] }
+  | { type: 'imu'; rateHz: number; accel: [number[], number[], number[]]; gyro: [number[], number[], number[]] }
   | { type: 'compactOptical'; samples: number[]; acceptanceRaw: number; onWristRaw: number; burstCounter?: number }
   | { type: 'queued'; innerVersion: number; channel?: number; sampleBits?: number[] }
   | { type: 'unknown'; reason: 'layout' | 'length' };
@@ -57,6 +57,8 @@ export const RECORD_LENGTHS: ReadonlyMap<number, number> = new Map([
 ]);
 
 const LENGTH_ERROR: RecordBody = { type: 'unknown', reason: 'length' };
+
+export const GYRO_INVALID: number = schema.imu.gyroInvalid;
 
 function readArray(r: ByteReader, offset: number, count: number, size: 2 | 4): number[] {
   const out: number[] = [];
@@ -137,7 +139,7 @@ function decodeOptical(r: ByteReader): RecordBody {
       slotB: readArray(r, base + schema.optical.slotBRel, count, 4),
     });
   }
-  return { type: 'optical', blocks };
+  return { type: 'optical', rateHz: Math.max(0, ...blocks.map((b) => b.count)), blocks };
 }
 
 function decodeImu(r: ByteReader): RecordBody {
@@ -148,9 +150,11 @@ function decodeImu(r: ByteReader): RecordBody {
   const [gx, gy, gz] = schema.imu.gyroOffsets;
   if (ax === undefined || ay === undefined || az === undefined) throw new Error('schema accel offsets');
   if (gx === undefined || gy === undefined || gz === undefined) throw new Error('schema gyro offsets');
+  const rateByte = r.u8(schema.imu.rateOffset);
   return {
     type: 'imu',
-    accel: [readArray(r, ax, na, 2), readArray(r, ay, na, 2), readArray(r, az, na, 2)],
+    rateHz: rateByte === 0 ? na : rateByte,
+    accel:[readArray(r, ax, na, 2), readArray(r, ay, na, 2), readArray(r, az, na, 2)],
     gyro: [readArray(r, gx, ng, 2), readArray(r, gy, ng, 2), readArray(r, gz, ng, 2)],
   };
 }

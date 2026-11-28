@@ -92,6 +92,9 @@
       "123": "01, input u8",
       "107": "01, on u8",
       "108": "01, on u8",
+      "106": "01, on u8",
+      "81": "rev1: 01 | rev2: 02, durationMs u32 (the band saves R20 and R21 to history from ~5 s before the start until 82 or the duration ends; live switches 106/108 keep running after it ends)",
+      "82": "01",
       "AlarmHapticsPattern": "waveformEffect1..8 u8, loopControlForEffects u16, overallWaveformLoopControl u8, alarmDurationInSeconds u8 (12 bytes)"
     },
     "evidence": ["apk", "noop"]
@@ -245,7 +248,8 @@
         {"name": "millivolts", "offset": 5, "type": "u16"}
       ], "evidence": ["corpus"]}
     },
-    "own_names": {"61": "BOOT_DEVICE_INFO", "62": "BOOT_COUNTER", "110": "CHARGER_STATUS_REPORT", "112": "REBOOT_REASON", "117": "CHARGER_STATUS_CHANGED", "120": "WEAR_DETECT_STATE"},
+    "own_names": {"61": "BOOT_DEVICE_INFO", "62": "BOOT_COUNTER", "110": "CHARGER_STATUS_REPORT", "112": "REBOOT_REASON", "117": "CHARGER_STATUS_CHANGED", "120": "WEAR_DETECT_STATE", "124": "RAW_SESSION_STATE"},
+    "raw_session_state_note": "Event 124 arrives 4 times when START_RAW_DATA (81) starts an on-band raw session and twice when it stops or its duration ends; the 12-byte payload is not decoded.",
     "own_names_note": "OpenHoop's descriptive names for events the vendor app does not name. Each layout below was matched against the band's own console log on an MG band (50.43.2.0).",
     "own_payloads": {
       "61": {"length": 40, "fields": [
@@ -448,7 +452,10 @@
       "slot_a_rel": 21,
       "slot_b_rel": 221,
       "sample_type": "i32",
-      "evidence": ["noop", "corpus"]
+      "rate_offset": 23,
+      "rate_type": "u16",
+      "live": "TOGGLE_OPTICAL_MODE (108) [01 01] streams one packet-43 R20 per second until [01 00]; blocks 0, 3 and 4 carry 25 samples each live, 50 during an ECG. Block 0 (source 1 on detector 3, source 4 on detector 4) carries the strongest pulse, likely green; block 3 has every drive at 0, the dark reference; block 4 (source 2 at drive 200) has a high baseline and a weak pulse, likely the IR wear check; blocks 1 (source 3) and 2 (source 2 at drive 5300) stay empty, likely the red/IR SpO2 pair. Wavelengths are inferred, not read.",
+      "evidence": ["noop", "corpus", "own"]
     },
     "21": {
       "name": "imu_six_axis",
@@ -459,8 +466,12 @@
       "gyro_xyz_offsets": [640, 840, 1040],
       "capacity": 100,
       "sample_type": "i16",
+      "rate_offset": 22,
+      "rate_type": "u8",
+      "gyro_invalid": -32768,
       "candidate_scale": {"accel_g_per_lsb": 0.000244140625, "gyro_dps_per_lsb": 0.06103515625, "rate_hz": 100},
-      "evidence": ["noop"]
+      "live": "TOGGLE_IMU_MODE (106) [01 01] streams one packet-43 R21 per second (100 accelerometer and 100 gyro samples per axis) until [01 00]. The first record can have no gyro samples and the next one all -32768 while the gyro starts. A still wrist read |a| = 1.003-1.004 g at 1/4096 g per LSB.",
+      "evidence": ["noop", "own"]
     },
     "26": {
       "name": "compact_optical_window",
