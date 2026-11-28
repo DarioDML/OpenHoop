@@ -11,7 +11,9 @@ export const WAKE_CALM_MINUTES = 5;
 export const RESTLESS_MOTION_RATIO = 3;
 export const RESTLESS_MOTION_FLOOR_G = 0.015;
 export const RESTLESS_MIN_S = 3;
-export const AWAKE_HR_RISE = 10;
+export const AWAKE_HR_RISE = 8;
+export const AWAKE_MIN_HR_RISE = 5;
+export const AWAKE_HR_MINUTES = 3;
 const MINUTE_S = 60;
 const MINUTE_MIN_HR_S = 10;
 
@@ -89,6 +91,18 @@ function summarize(rows: readonly Sample[], from: number, start: number, end: nu
   return { period, seconds, warmSeconds, next: j };
 }
 
+function heldHr(minuteHr: readonly number[], k: number): number {
+  let sum = 0;
+  let count = 0;
+  for (let j = k; j > k - AWAKE_HR_MINUTES && j >= 0; j--) {
+    const v = minuteHr[j] ?? Number.NaN;
+    if (Number.isNaN(v)) continue;
+    sum += v;
+    count++;
+  }
+  return count > 0 ? sum / count : Number.NaN;
+}
+
 function wakeAt(rows: readonly Sample[], period: SleepPeriod): number {
   const from = lowerBound(rows, period.onset);
   const to = lowerBound(rows, period.offset + 1);
@@ -118,8 +132,10 @@ function wakeAt(rows: readonly Sample[], period: SleepPeriod): number {
   let wake = period.offset + 1;
   let calm = 0;
   for (let k = 0; k < minutes && calm < WAKE_CALM_MINUTES; k++) {
-    const hr = minuteHr[k] ?? Number.NaN;
-    const awake = (restless[k] ?? 0) >= RESTLESS_MIN_S || (sleepingHr !== null && hr >= sleepingHr + AWAKE_HR_RISE);
+    const own = sleepingHr === null ? Number.NaN : (minuteHr[k] ?? Number.NaN) - sleepingHr;
+    const held = sleepingHr === null ? Number.NaN : heldHr(minuteHr, k) - sleepingHr;
+    const raised = held >= AWAKE_HR_RISE || ((restless[k] ?? 0) >= RESTLESS_MIN_S && held >= AWAKE_MIN_HR_RISE);
+    const awake = own >= AWAKE_MIN_HR_RISE && raised;
     if (awake) {
       calm = 0;
       wake = Math.max(period.onset, period.offset - (k + 1) * MINUTE_S + 1);
@@ -131,8 +147,9 @@ function wakeAt(rows: readonly Sample[], period: SleepPeriod): number {
 }
 
 // The MG band (50.43.2.0) keeps flagging SLEEP while its wearer lies awake in bed and only switches once they get up,
-// so a night synced before that ended at the newest sample. Walking back from the end of each period, a minute with
-// restless seconds or a heart rate well above the period's sleeping rate is awake, and five calm minutes are sleep.
+// so a night synced before that ended at the newest sample. Walking back from the end of each period, a minute is awake
+// when its heart rate is raised above the period's sleeping rate and stays raised over the next two minutes (by less
+// when the wrist moves), and five calm minutes are sleep. A turn in sleep raises the rate only for its own minute.
 export function withoutAwakeTails(periods: readonly SleepPeriod[], samples: readonly Sample[]): SleepPeriod[] {
   if (periods.length === 0) return [];
   const rows = sortedUnique(samples);

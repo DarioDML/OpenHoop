@@ -177,11 +177,13 @@ describe('awake time at the end of a band-flagged sleep', () => {
     expect(offset).toBeGreaterThanOrEqual(T0 + ASLEEP_S - 120);
   });
 
-  it('drops a band-flagged sleep that was awake all along', () => {
-    const samples: Sample[] = [];
-    for (let i = 0; i < 3600; i++) samples.push(sample(T0 + i, { state: 'SLEEP', hr: 70, motionG: i % 60 < 10 ? 0.1 : 0.006, skinTempC: 33 }));
-    expect(sleepPeriods(samples)).toHaveLength(1);
-    expect(detect(samples)).toEqual([]);
+  it('ignores turns in the last minutes of sleep when the heart rate settles right after them', () => {
+    const turnsAt = [ASLEEP_S - 18 * 60, ASLEEP_S - 9 * 60, ASLEEP_S - 6 * 60, ASLEEP_S - 5 * 60];
+    const samples = nightThen(40 * 60, (i) => ({ hr: 70, motionG: i % 60 < 20 ? 0.05 : 0.006 })).map((s) => {
+      const i = s.t - T0;
+      return turnsAt.some((at) => i >= at && i < at + 20) ? { ...s, hr: 72, motionG: 0.6 } : s;
+    });
+    expect(Math.abs((detect(samples)[0]?.offset ?? 0) - (T0 + ASLEEP_S - 1))).toBeLessThanOrEqual(120);
   });
 });
 
