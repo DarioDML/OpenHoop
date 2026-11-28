@@ -1,4 +1,5 @@
 import type { ActiveMinutes, SleepStage, StageTotals, StressDay } from '@openhoop/analytics';
+import type { EncodedChunk } from './chunkCodec';
 
 export type SqlValue = string | number | null | Uint8Array;
 
@@ -56,7 +57,8 @@ export interface HeartRateBucket {
 export interface ChunkInput {
   deviceId: number;
   endToken: Uint8Array | null;
-  frames: Uint8Array[];
+  frames: readonly Uint8Array[];
+  encoded?: EncodedChunk;
   clockOffsetS: number | null;
   receivedAt: number;
 }
@@ -248,6 +250,7 @@ export interface Store {
   listPackEvents(deviceId: number, limit: number): Promise<PackEventRow[]>;
   readChunkFrames(chunkId: number): Promise<Uint8Array[]>;
   getChunkMeta(chunkId: number): Promise<{ deviceId: number; clockOffsetS: number | null; receivedAt: number } | null>;
+  skewedChunkIds(deviceId: number, firstId: number, lastId: number, limitS: number): Promise<number[]>;
   listChunkIds(deviceId: number): Promise<number[]>;
   insertSamples(samples: SampleRow[]): Promise<number>;
   samplesBetween(deviceId: number, from: number, to: number): Promise<SampleRow[]>;

@@ -395,6 +395,28 @@ describe('pipeline', () => {
       expect(records.map((r) => r.flags)).toEqual([['clock-offset'], ['clock-offset']]);
     });
 
+    it('looks up chunk clock offsets with one query per day, not one per chunk', async () => {
+      const queries: string[] = [];
+      const inner = openStrictDriver();
+      const counted = await openStore({ ...inner, all: (sql, params) => (queries.push(sql), inner.all(sql, params)) });
+      const id = (await counted.upsertDevice(DEVICE)).id;
+      const rows = simulateDays(id, { days: 2 });
+      const { from, to } = range(rows);
+      const skewedHour = localMidnight(1) + 10 * HOUR_S;
+      for (let start = from; start < to; start += HOUR_S) {
+        await counted.commitChunk(
+          { deviceId: id, endToken: null, frames: [], clockOffsetS: start === skewedHour ? 600 : 5, receivedAt: 1 },
+          rows.filter((r) => r.t >= start && r.t < start + HOUR_S),
+          { events: [], console: [], unknownFrames: 0, syncState: syncState(id) },
+        );
+      }
+      queries.length = 0;
+      const records = await recomputeDays(counted, { deviceId: id, from, to, profile: PROFILE, tzOffsetS: TZ_S });
+      expect(records.map((r) => r.flags.includes('clock-offset'))).toEqual([false, true]);
+      expect(queries.filter((sql) => sql.includes('raw_chunks')).length).toBeLessThanOrEqual(records.length);
+      await counted.driver.close();
+    });
+
     it('flags partial-day for a day with six hours of data', async () => {
       const rows = awakeSamples(deviceId, localMidnight(0) + 8 * HOUR_S, 6 * HOUR_S, { workout: { offsetS: HOUR_S, durationS: 1_800, hr: 150 } });
       await store.insertSamples(rows);

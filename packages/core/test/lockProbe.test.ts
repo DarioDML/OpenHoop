@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GATT, encodeBiometric, encodeMetadata, encodeRealtimeHr } from '@openhoop/protocol';
-import { CHUNK_END_WAIT_MS, HISTORY_WAIT_MS, LINK_QUIET_MAX_MS, LINK_QUIET_MS, Session, probeLock } from '../src/index';
+import { CHUNK_END_WAIT_MS, HISTORY_WAIT_MS, LINK_QUIET_MAX_MS, LINK_QUIET_MS, Session, needsLockProbe, probeLock } from '../src/index';
 import type { BandScript, Emit, Outgoing } from './fakeTransport';
 import { FakeTransport, VirtualClock, reply, scriptBand } from './fakeTransport';
 
@@ -188,5 +188,24 @@ describe('probeLock', () => {
     expect(result.state).toBe('open');
     expect(result.waitedMs).toBeGreaterThanOrEqual(LINK_QUIET_MAX_MS);
     expect(result.waitedMs).toBeLessThan(LINK_QUIET_MAX_MS + 1_000);
+  });
+});
+
+describe('needsLockProbe', () => {
+  it('skips the probe for a band already found open on the same firmware', () => {
+    expect(needsLockProbe('open', '50.43.2.0', '50.43.2.0')).toBe(false);
+  });
+
+  it('probes again after a firmware change, since new firmware may lock the data', () => {
+    expect(needsLockProbe('open', '50.43.2.0', '50.44.0.0')).toBe(true);
+  });
+
+  it('probes when the firmware before or now is unknown', () => {
+    expect(needsLockProbe('open', null, '50.43.2.0')).toBe(true);
+    expect(needsLockProbe('open', '50.43.2.0', null)).toBe(true);
+  });
+
+  it('probes whenever the band was not found open', () => {
+    for (const state of ['locked', 'no-data', 'unknown'] as const) expect(needsLockProbe(state, '50.43.2.0', '50.43.2.0')).toBe(true);
   });
 });

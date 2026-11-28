@@ -28,6 +28,49 @@ export function encodeChunk(frames: readonly Uint8Array[]): EncodedChunk {
   return { blob: deflateSync(raw), sha256: sha256(raw), frameCount: frames.length };
 }
 
+const LENGTH_PREFIX = 4;
+
+function lengthPrefix(length: number): Uint8Array {
+  const prefix = new Uint8Array(LENGTH_PREFIX);
+  new DataView(prefix.buffer).setUint32(0, length, true);
+  return prefix;
+}
+
+// Hashes each frame as it is added, so encoding a finished chunk only has to deflate it.
+export class ChunkBuilder {
+  private readonly list: Uint8Array[] = [];
+  private readonly hash = sha256.create();
+  private total = 0;
+  private result: EncodedChunk | null = null;
+
+  get frames(): readonly Uint8Array[] {
+    return this.list;
+  }
+
+  add(frame: Uint8Array): void {
+    if (this.result !== null) throw new Error('This chunk is already encoded; start a new one');
+    const copy = frame.slice();
+    this.list.push(copy);
+    this.hash.update(lengthPrefix(copy.length));
+    this.hash.update(copy);
+    this.total += LENGTH_PREFIX + copy.length;
+  }
+
+  encode(): EncodedChunk {
+    if (this.result !== null) return this.result;
+    const raw = new Uint8Array(this.total);
+    const view = new DataView(raw.buffer);
+    let offset = 0;
+    for (const frame of this.list) {
+      view.setUint32(offset, frame.length, true);
+      raw.set(frame, offset + LENGTH_PREFIX);
+      offset += LENGTH_PREFIX + frame.length;
+    }
+    this.result = { blob: deflateSync(raw), sha256: this.hash.digest(), frameCount: this.list.length };
+    return this.result;
+  }
+}
+
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;

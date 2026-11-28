@@ -313,7 +313,10 @@ export function bindStore(driver: SqlDriver): Store {
     },
 
     async commitChunk(chunk, samples, extras) {
-      const encoded = encodeChunk(chunk.frames);
+      const encoded = chunk.encoded ?? encodeChunk(chunk.frames);
+      if (encoded.frameCount !== chunk.frames.length) {
+        throw new Error(`Encoded chunk holds ${encoded.frameCount} frames, but ${chunk.frames.length} were given`);
+      }
       return driver.transaction(async (tx) => {
         const existing =
           encoded.frameCount === 0
@@ -378,6 +381,14 @@ export function bindStore(driver: SqlDriver): Store {
       return row === undefined
         ? null
         : { deviceId: row.device_id, clockOffsetS: row.clock_offset_s, receivedAt: row.received_at };
+    },
+
+    async skewedChunkIds(deviceId, firstId, lastId, limitS) {
+      const rows = await driver.all<{ id: number }>(
+        'SELECT id FROM raw_chunks WHERE device_id = ? AND id BETWEEN ? AND ? AND ABS(clock_offset_s) > ? ORDER BY id',
+        [deviceId, firstId, lastId, limitS],
+      );
+      return rows.map((r) => r.id);
     },
 
     async listChunkIds(deviceId) {

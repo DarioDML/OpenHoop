@@ -1,6 +1,7 @@
 import { Command, isDataLockFirmware, toHex } from '@openhoop/protocol';
 import type { DataRange, Packet } from '@openhoop/protocol';
 import type { HeldChunk } from './lockProbe';
+import { ChunkBuilder } from './store/chunkCodec';
 import { packEventFromPacket, sampleFromPacket } from './mapping';
 import type { Session } from './session';
 import { CommandFailedError, DisconnectedError, LINK_QUIET_MAX_MS, LINK_QUIET_MS } from './session';
@@ -123,7 +124,7 @@ class EventQueue {
 }
 
 interface ChunkTally {
-  frames: Uint8Array[];
+  chunk: ChunkBuilder;
   samples: SampleRow[];
   events: EventRow[];
   packEvents: PackEventRow[];
@@ -136,7 +137,7 @@ interface ChunkTally {
 
 function emptyTally(): ChunkTally {
   return {
-    frames: [],
+    chunk: new ChunkBuilder(),
     samples: [],
     events: [],
     packEvents: [],
@@ -157,9 +158,9 @@ function isMeta(packet: Packet, name: string): packet is Extract<Packet, { kind:
 }
 
 function addFrame(tally: ChunkTally, deviceId: number, ownerFloor: number | null, packet: Packet, raw: Uint8Array): void {
-  const before = tally.frames.length;
+  const before = tally.chunk.frames.length;
   addFrameKind(tally, deviceId, ownerFloor, packet, raw);
-  if (tally.frames.length === before) return;
+  if (tally.chunk.frames.length === before) return;
   if (!isChunkMarker(packet)) tally.content += 1;
   if (packet.kind === 'event' || packet.kind === 'console') tally.spontaneous.push({ packet, raw });
 }
@@ -177,7 +178,7 @@ function addFrameKind(tally: ChunkTally, deviceId: number, ownerFloor: number | 
         tally.discarded += 1;
         return;
       }
-      tally.frames.push(raw);
+      tally.chunk.add(raw);
       if (packet.record.type === 'unknown') tally.unknownFrames += 1;
       const sample = sampleFromPacket(deviceId, packet);
       if (sample !== null) tally.samples.push({ ...sample, source: 'history' });
@@ -185,7 +186,7 @@ function addFrameKind(tally: ChunkTally, deviceId: number, ownerFloor: number | 
     }
     case 'event':
       if (ownerFloor !== null && packet.unixS < ownerFloor) return;
-      tally.frames.push(raw);
+      tally.chunk.add(raw);
       tally.events.push({
         deviceId,
         t: packet.unixS,
@@ -196,22 +197,22 @@ function addFrameKind(tally: ChunkTally, deviceId: number, ownerFloor: number | 
       return;
     case 'packEvent': {
       if (ownerFloor !== null && packet.unixS < ownerFloor) return;
-      tally.frames.push(raw);
+      tally.chunk.add(raw);
       const row = packEventFromPacket(deviceId, packet);
       if (row !== null) tally.packEvents.push(row);
       return;
     }
     case 'console':
       if (ownerFloor !== null && packet.unixS < ownerFloor) return;
-      tally.frames.push(raw);
+      tally.chunk.add(raw);
       tally.console.push({ deviceId, t: packet.unixS, sequence: packet.consoleSequence, text: packet.text });
       return;
     case 'unknown':
-      tally.frames.push(raw);
+      tally.chunk.add(raw);
       tally.unknownFrames += 1;
       return;
     default:
-      tally.frames.push(raw);
+      tally.chunk.add(raw);
   }
 }
 
@@ -284,7 +285,8 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
       {
         deviceId,
         endToken,
-        frames: tally.frames,
+        frames: tally.chunk.frames,
+        encoded: tally.chunk.encode(),
         clockOffsetS: session.clockOffsetS(),
         receivedAt: Math.floor(session.clock.now() / 1000),
       },
@@ -299,7 +301,7 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
     );
     newestSampleT = candidateNewest;
     if (endToken !== null) lastEndToken = endToken;
-    totals.frames += tally.frames.length;
+    totals.frames += tally.chunk.frames.length;
     totals.samples += tally.samples.length;
     totals.unknownFrames += tally.unknownFrames;
   };

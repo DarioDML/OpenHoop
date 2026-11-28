@@ -46,6 +46,15 @@ function holdFirstChunk(session: Session): { held: () => HeldChunk | null; stop:
   return { held: () => held, stop };
 }
 
+// A sync still detects a lock on its own: no history from data-lock firmware ends it as 'locked'.
+export function needsLockProbe(
+  saved: LockProbeResult['state'] | 'unknown',
+  firmwareBefore: string | null,
+  firmwareNow: string | null,
+): boolean {
+  return !(saved === 'open' && firmwareBefore !== null && firmwareBefore === firmwareNow);
+}
+
 export const HISTORY_WAIT_MS = 8_000;
 export const REALTIME_WAIT_MS = 6_000;
 export const CHUNK_END_WAIT_MS = 10_000;

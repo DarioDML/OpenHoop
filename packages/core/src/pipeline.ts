@@ -94,7 +94,6 @@ interface Context {
   last: number;
   edits: SleepEdit[];
   mains: Map<number, Night<MergedSleepPeriod> | null>;
-  clockFlags: Map<number, boolean>;
   blocks: Map<number, Block>;
   wear: WearChange[];
 }
@@ -348,13 +347,18 @@ export function stepsPerHour(samples: readonly Pick<Sample, 't' | 'steps'>[], tz
   return [...hours.entries()].sort((a, b) => a[0] - b[0]).map(([t, steps]) => ({ t, steps }));
 }
 
-async function clockOffsetFlagged(ctx: Context, chunkId: number): Promise<boolean> {
-  const cached = ctx.clockFlags.get(chunkId);
-  if (cached !== undefined) return cached;
-  const meta = await ctx.store.getChunkMeta(chunkId);
-  const flagged = meta !== null && meta.clockOffsetS !== null && Math.abs(meta.clockOffsetS) > CLOCK_OFFSET_LIMIT_S;
-  ctx.clockFlags.set(chunkId, flagged);
-  return flagged;
+async function clockOffsetFlagged(ctx: Context, chunkIds: number[]): Promise<boolean> {
+  if (chunkIds.length === 0) return false;
+  let first = Number.POSITIVE_INFINITY;
+  let last = Number.NEGATIVE_INFINITY;
+  for (const id of chunkIds) {
+    first = Math.min(first, id);
+    last = Math.max(last, id);
+  }
+  const skewed = await ctx.store.skewedChunkIds(ctx.deviceId, first, last, CLOCK_OFFSET_LIMIT_S);
+  if (skewed.length === 0) return false;
+  const inDay = new Set(chunkIds);
+  return skewed.some((id) => inDay.has(id));
 }
 
 function mainNightSpan(day: DayRecord): { onset: number; offset: number } | null {
@@ -569,12 +573,7 @@ async function computeDay(
   }
 
   const flags: string[] = [];
-  for (const id of chunkIds) {
-    if (await clockOffsetFlagged(ctx, id)) {
-      flags.push('clock-offset');
-      break;
-    }
-  }
+  if (await clockOffsetFlagged(ctx, chunkIds)) flags.push('clock-offset');
   if (samples.length < PARTIAL_DAY_SAMPLES) flags.push('partial-day');
   const stages = nightStages(samples, main);
 
@@ -645,7 +644,6 @@ export async function recomputeDays(store: Store, opts: RecomputeOptions): Promi
     last,
     edits,
     mains: new Map(),
-    clockFlags: new Map(),
     blocks: new Map(),
     wear: await loadWearChanges(store, deviceId),
   };

@@ -1,6 +1,6 @@
 export { bindStore, openStore } from './store';
 export { DatabaseTooNewError, SCHEMA_VERSION, copySchemaVersion } from './migrations';
-export { encodeChunk, decodeChunk, ChunkIntegrityError } from './chunkCodec';
+export { ChunkBuilder, encodeChunk, decodeChunk, ChunkIntegrityError } from './chunkCodec';
 export type { EncodedChunk } from './chunkCodec';
 export { driverContract } from './contract';
 export type { ContractCheck } from './contract';
