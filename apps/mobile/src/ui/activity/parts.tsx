@@ -9,6 +9,7 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { Num } from '@/ui/Num';
+import { useLayout } from '@/ui/layout';
 import { NotBuilt, type IssueKey } from '@/ui/NotBuilt';
 import { Screen } from '@/ui/Screen';
 import { TopBar } from '@/ui/TopBar';
@@ -150,6 +151,7 @@ interface StepperProps {
 
 export function Stepper({ label, hint, value, min, max, onChange, step = 1, format, testID }: StepperProps) {
   const { colors } = useTheme();
+  const { narrow } = useLayout();
   const { t } = useT();
   const button = (delta: number, name: 'minus' | 'plus') => {
     const next = value + delta;
@@ -175,23 +177,38 @@ export function Stepper({ label, hint, value, min, max, onChange, step = 1, form
       </Pressable>
     );
   };
+  const text = (
+    <View style={{ flex: narrow ? undefined : 1, gap: 2 }}>
+      <AppText variant="cardTitle">{label}</AppText>
+      <AppText variant="label" muted>
+        {hint}
+      </AppText>
+    </View>
+  );
+  const controls = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, justifyContent: narrow ? 'space-between' : undefined }}>
+      {button(-step, 'minus')}
+      <View style={{ minWidth: 36, alignItems: 'center', flexShrink: 1 }}>
+        <Num size={format ? 30 : 40} testID={`${testID}-value`} adjustsFontSizeToFit={format !== undefined}>
+          {format ? format(value) : String(value)}
+        </Num>
+      </View>
+      {button(step, 'plus')}
+    </View>
+  );
   return (
     <Card>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <AppText variant="cardTitle">{label}</AppText>
-          <AppText variant="label" muted>
-            {hint}
-          </AppText>
+      {narrow ? (
+        <View style={{ gap: spacing.md }}>
+          {text}
+          {controls}
         </View>
-        {button(-step, 'minus')}
-        <View style={{ minWidth: 36, alignItems: 'center', flexShrink: 1 }}>
-          <Num size={format ? 30 : 40} testID={`${testID}-value`} adjustsFontSizeToFit={format !== undefined}>
-            {format ? format(value) : String(value)}
-          </Num>
+      ) : (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          {text}
+          {controls}
         </View>
-        {button(step, 'plus')}
-      </View>
+      )}
     </Card>
   );
 }

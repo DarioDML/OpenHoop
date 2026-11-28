@@ -7,6 +7,7 @@ import { AppText } from '@/ui/AppText';
 import { Chip, type ChipTone } from '@/ui/Chip';
 import { useExplain, type ExplainTarget } from '@/ui/explain/ExplainProvider';
 import { Icon } from '@/ui/Icon';
+import { useLayout } from '@/ui/layout';
 import { MissingValue } from '@/ui/MetricTile';
 import { Num } from '@/ui/Num';
 import { spacing, useTheme } from '@/ui/theme';
@@ -27,6 +28,8 @@ export function ContributorRow({ name, caption, value, unit, chip, href, explain
   const { colors } = useTheme();
   const { t } = useT();
   const { about } = useExplain();
+  const { narrow } = useLayout();
+  const chipView = chip ? <Chip label={chip.label} tone={chip.tone} testID={`${testID}-chip`} /> : null;
   return (
     <Pressable
       testID={testID}
@@ -45,7 +48,7 @@ export function ContributorRow({ name, caption, value, unit, chip, href, explain
       })}>
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          <AppText variant="cap" numberOfLines={1} style={{ flexShrink: 1 }}>
+          <AppText variant="cap" numberOfLines={2} style={{ flexShrink: 1 }}>
             {`${name} ›`}
           </AppText>
           <Pressable
@@ -61,8 +64,9 @@ export function ContributorRow({ name, caption, value, unit, chip, href, explain
         <AppText variant="caption" muted testID={`${testID}-caption`}>
           {caption}
         </AppText>
+        {narrow && chipView ? <View style={{ alignSelf: 'flex-start', marginTop: spacing.xs }}>{chipView}</View> : null}
       </View>
-      {chip ? <Chip label={chip.label} tone={chip.tone} testID={`${testID}-chip`} /> : null}
+      {narrow ? null : chipView}
       {value === null ? (
         <View style={{ maxWidth: '40%' }}>
           <MissingValue target={explain} testID={testID} />

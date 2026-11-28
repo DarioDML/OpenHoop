@@ -61,7 +61,7 @@ export function GridTile({ label, value, missing, unit, chip = null, caption, hr
   const body = (
     <>
       {header ?? (
-        <AppText variant="capSmall" muted numberOfLines={1}>
+        <AppText variant="capSmall" muted numberOfLines={2}>
           {pressable ? `${label} ›` : label}
         </AppText>
       )}
