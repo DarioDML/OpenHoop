@@ -35,6 +35,7 @@ import { tile } from '@/ui/manage/tiles';
 import { Num } from '@/ui/Num';
 import { PARITY } from '@/ui/parity';
 import { radius, spacing, useTheme } from '@/ui/theme';
+import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 
 const BEHAVIOUR_NAME: Readonly<Record<string, TranslationKey>> = {
   alcohol: 'evening.b.alcohol',
@@ -114,7 +115,7 @@ function BehaviourRow({ tile: style, title, sub, right, first, onPress, testID }
 }
 
 export default function EveningReviewScreen() {
-  const { days, userData, alarm } = useAppData();
+  const { days, userData, alarm, cycle } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const units = useUnits();
@@ -122,7 +123,7 @@ export default function EveningReviewScreen() {
   const day = days[index];
   if (!day) return <NoDataPage title={t('home.evening')} body={t('empty.body')} />;
 
-  const load = loadReview(days, index);
+  const load = loadReview(days, index, loadTargetsHidden(userData.pregnancyPrefs, cycle));
   const steps = stepsReview(day.steps, userData.stepsGoal);
   const rows = journalRows(userData.journal, day.day, userData.journalQuestions);
   const summary = eveningSummary(load, steps, rows);

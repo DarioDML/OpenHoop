@@ -111,7 +111,7 @@ export function ReadyCard({ today }: { today: LoadToday }): ReactElement {
   const advice = readyAdvice(today.value, today.aim, today.trainingHr, today.ref);
   const band = readinessBand(today.readiness);
   const title = band === null ? t('loadScreen.ready.today') : band === 'low' ? t('loadScreen.ready.easy') : t('loadScreen.ready.perform');
-  const usual = loadTargetBand(days);
+  const usual = today.targetsHidden ? null : loadTargetBand(days);
   const status = rangeStatus(today.value, usual);
   const fmt = (v: number): string => formatNumber(v, 1, language);
 

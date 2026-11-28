@@ -148,6 +148,7 @@ export function morningPlan(
   index: number,
   journal: Record<string, Record<string, JournalAnswer>>,
   selectedQuestions: readonly string[] | null,
+  targetsHidden = false,
 ): PlanItem[] {
   const day = days[index];
   if (!day) return [];
@@ -160,7 +161,7 @@ export function morningPlan(
   if (readinessText !== null || hrvText !== null) {
     const readiness = visibleReadiness(day).value;
     const band = readinessText !== null && readiness !== null ? readinessBand(readiness) : null;
-    const target = loadTargetBand(days.slice(0, index + 1));
+    const target = targetsHidden ? null : loadTargetBand(days.slice(0, index + 1));
     items.push({
       id: readinessText !== null ? 'readiness' : 'hrv',
       title: readinessText !== null ? readinessTitle(t, band) : t('brief.plan.hrv'),

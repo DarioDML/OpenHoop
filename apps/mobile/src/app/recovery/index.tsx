@@ -3,6 +3,7 @@ import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { loadTargetBand } from '@/data/activityDerived';
+import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { useAppData } from '@/data/context';
 import { sliceEndingAt } from '@/data/dailyDerived';
 import { baselineAt, shownLoad, visibleReadiness, type MetricKey } from '@/data/derived';
@@ -53,7 +54,7 @@ const CONTRIBUTORS: readonly ContributorSpec[] = [
 const BAND_TINT: Readonly<Record<'high' | 'medium' | 'low', Tint>> = { high: 'recoveryHigh', medium: 'recovery', low: 'recoveryLow' };
 
 export default function ReadinessScreen() {
-  const { days } = useAppData();
+  const { days, userData, cycle } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const units = useUnits();
@@ -78,7 +79,8 @@ export default function ReadinessScreen() {
       : verdict.band === 'high'
         ? t('readinessScreen.verdict.high')
         : `${verdict.driver === null ? t(`readinessScreen.verdict.plain.${verdict.band}`) : t(`readinessScreen.verdict.driver.${verdict.driver}`)} ${t(`readinessScreen.verdict.advice.${verdict.band}`)}`;
-  const aim = loadAimRange(loadTargetBand(days), value);
+  const targetsHidden = loadTargetsHidden(userData.pregnancyPrefs, cycle);
+  const aim = targetsHidden ? null : loadAimRange(loadTargetBand(days), value);
 
   const deltaChip = (delta: ContributorDelta | null, format: (amount: number, percent: boolean) => string): { label: string; tone: ChipTone } | null => {
     if (delta === null) return null;
@@ -156,7 +158,7 @@ export default function ReadinessScreen() {
       }>
       <FlagNotice flags={day.flags} />
 
-      <LoadTargetCard aim={aim} load={shownLoad(days, index).value} testID="card-load-target" />
+      <LoadTargetCard aim={aim} hidden={targetsHidden} load={shownLoad(days, index).value} testID="card-load-target" />
 
       <CapRow title={t('readinessScreen.contributors')} links={[{ label: t('readinessScreen.impactsLink'), onPress: () => router.push('/recovery/impacts'), testID: 'link-impacts' }]} />
       <Card testID="card-vs-baseline" style={{ gap: 0, paddingVertical: spacing.xs }}>

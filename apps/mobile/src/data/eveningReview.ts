@@ -14,11 +14,11 @@ export interface LoadReview {
   weekAverage: number | null;
 }
 
-export function loadReview(days: readonly DayRecord[], index: number): LoadReview | null {
+export function loadReview(days: readonly DayRecord[], index: number, targetsHidden = false): LoadReview | null {
   const day = days[index];
   const value = day?.load.value ?? null;
   if (!day || value === null) return null;
-  const band = loadTargetBand(days.slice(0, index + 1));
+  const band = targetsHidden ? null : loadTargetBand(days.slice(0, index + 1));
   const recent = days
     .slice(Math.max(0, index - 7), index)
     .map((d) => d.load.value)

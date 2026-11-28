@@ -4,6 +4,7 @@ import type { DayRecord } from '@openhoop/core';
 import { useAppData, useLive } from '@/data/context';
 import { shownLoad, visibleReadiness } from '@/data/derived';
 import { setLoadBuzz, type LoadBuzzPrefs, type LoadBuzzThreshold } from '@/data/loadBuzz';
+import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { aimAt, loadTargetView, referenceFor, typicalTrainingHr, type LoadTargetView } from '@/data/loadDerived';
 import type { AimRange } from '@/data/readinessDerived';
 import { useT } from '@/i18n/useT';
@@ -22,13 +23,14 @@ export interface LoadToday {
   readiness: number | null;
   aim: AimRange | null;
   view: LoadTargetView | null;
+  targetsHidden: boolean;
   ref: LoadReference;
   trainingHr: number;
   nowS: number;
 }
 
 export function useLoadToday(): LoadToday | null {
-  const { days, profile } = useAppData();
+  const { days, profile, userData, cycle } = useAppData();
   const live = useLive();
   const nowS = useExplain().nowS();
   const index = days.length - 1;
@@ -38,7 +40,8 @@ export function useLoadToday(): LoadToday | null {
   const shown = shownLoad(days, index);
   const liveValue = isToday && live.active && live.dayLoad !== undefined && live.dayLoad !== null ? live.dayLoad : null;
   const value = liveValue ?? shown.value;
-  const aim = aimAt(days, index);
+  const targetsHidden = loadTargetsHidden(userData.pregnancyPrefs, cycle);
+  const aim = targetsHidden ? null : aimAt(days, index);
   const ref = referenceFor(days, profile, nowS);
   return {
     day,
@@ -51,6 +54,7 @@ export function useLoadToday(): LoadToday | null {
     readiness: visibleReadiness(day).value,
     aim,
     view: loadTargetView(value, aim),
+    targetsHidden,
     ref,
     trainingHr: typicalTrainingHr(days, ref, nowS),
     nowS,
@@ -75,8 +79,9 @@ export function useLoadBuzz(today: LoadToday): LoadBuzzControl {
   };
   const synced =
     device.lastSyncAt === null ? t('loadBuzz.notSynced') : t('loadBuzz.lastSync', { time: formatClock(device.lastSyncAt, deviceTzOffsetS(new Date(device.lastSyncAt * 1000))) });
-  const availability =
-    today.aim === null
+  const availability = today.targetsHidden
+    ? t('loadTarget.hidden.buzz')
+    : today.aim === null
       ? t('loadBuzz.calibrating')
       : settings.dataSource === 'demo'
         ? `${t('loadBuzz.when')} ${t('loadBuzz.demo')}`

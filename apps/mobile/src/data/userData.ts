@@ -7,6 +7,7 @@ import { isValidTimeZone } from '@/lib/timeZones';
 import { defaultAutoSharePrefs, parseAutoSharePrefs, type AutoSharePrefs } from '@/strava/autoShare';
 
 import { defaultLoadBuzzPrefs, type LoadBuzzPrefs, parseLoadBuzzPrefs } from './loadBuzz';
+import { defaultPregnancyPrefs, parsePregnancyPrefs, type PregnancyPrefs } from './pregnancyPrefs';
 import { parseWeeklyPlan, type WeeklyPlan } from './weeklyPlan';
 
 export const USER_DATA_KEY = 'user.data';
@@ -99,6 +100,7 @@ export interface UserData {
   vendorUse: VendorUse;
   officialAppMode: OfficialAppMode | null;
   cuffLog: boolean;
+  pregnancyPrefs: PregnancyPrefs;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -137,6 +139,7 @@ export function defaultUserData(): UserData {
     vendorUse: { accuracy: true, history: true },
     officialAppMode: null,
     cuffLog: false,
+    pregnancyPrefs: defaultPregnancyPrefs(),
   };
 }
 
@@ -287,6 +290,7 @@ export function parseUserData(raw: string | null): UserData {
     },
     officialAppMode: oneOf(parsed.officialAppMode, OFFICIAL_APP_MODES),
     cuffLog: parsed.cuffLog === true,
+    pregnancyPrefs: parsePregnancyPrefs(parsed.pregnancyPrefs),
   };
 }
 

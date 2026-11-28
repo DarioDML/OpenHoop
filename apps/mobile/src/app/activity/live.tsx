@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
 import { formatElapsed, loadTargetBand, parseActivityType } from '@/data/activityDerived';
+import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { useAppData } from '@/data/context';
 import { rangeStatus } from '@/data/derived';
 import { caloriesForActivity } from '@/data/energyDerived';
@@ -31,7 +32,7 @@ const ZONE_KEYS = ['zone.1', 'zone.2', 'zone.3', 'zone.4', 'zone.5'] as const;
 const HR_RING = 236;
 
 export default function LiveActivityScreen() {
-  const { days, notice, userData, profile } = useAppData();
+  const { days, notice, userData, profile, cycle } = useAppData();
   const { t, language, reason } = useT();
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ type?: string; start?: string; live?: string }>();
@@ -49,7 +50,8 @@ export default function LiveActivityScreen() {
 
   const zone = hud.zone;
   const zoneColor = zone !== null && zone > 0 ? colors.zones[zone - 1] : undefined;
-  const band = loadTargetBand(days);
+  const targetsHidden = loadTargetsHidden(userData.pregnancyPrefs, cycle);
+  const band = targetsHidden ? null : loadTargetBand(days);
   const calories = caloriesForActivity(hud.activeMinutes, session.startedAt ?? now, userData, profile);
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
   const noHr = t('activity.live.noHrYet');
@@ -146,7 +148,11 @@ export default function LiveActivityScreen() {
 
       <Card testID="live-target">
         <AppText variant="cardTitle">{t('activity.live.target.title')}</AppText>
-        {band === null ? (
+        {targetsHidden ? (
+          <AppText variant="label" muted testID="live-target-hidden">
+            {t('loadTarget.hidden.body')}
+          </AppText>
+        ) : band === null ? (
           <>
             <Chip tone="warning" label={t('range.calibrating')} />
             <AppText variant="label" muted>

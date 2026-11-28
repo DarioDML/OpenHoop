@@ -229,6 +229,7 @@ import { summariseImport, type VendorImportResult } from './vendorExport/summary
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { buzzIfConnected } from './bandBuzz';
 import { LoadBuzzRunner } from './loadBuzzRunner';
+import { loadTargetsHidden } from './pregnancyPrefs';
 import { changesAppData } from './liveData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, storeProfile } from './settingsCodec';
 import { analyticsProfileOf, emptyProfile, mergeProfile } from './profile';
@@ -429,7 +430,7 @@ export class AppController {
     connected: () => this.conn !== null && this.conn.session.isConnected,
     syncing: () => this.syncRun !== null,
     days: () => this.snapshot.days,
-    prefs: () => this.snapshot.userData.loadBuzz,
+    prefs: () => (loadTargetsHidden(this.snapshot.userData.pregnancyPrefs, this.snapshot.cycle) ? { ...this.snapshot.userData.loadBuzz, atTarget: false, overTop: false } : this.snapshot.userData.loadBuzz),
     buzz: (kind) => this.bandActionSet.buzz(kind),
     save: (last) => this.updateUserData({ loadBuzz: { ...this.snapshot.userData.loadBuzz, ...last } }),
     nowMs: () => Date.now(),
@@ -1924,7 +1925,7 @@ export class AppController {
           syncedAt: this.lastSyncAt,
           language: settings.language,
           readinessNightsLeft: readinessNightsLeft(days, days.length - 1),
-          loadTarget: loadTargetBand(days),
+          loadTarget: loadTargetsHidden(userData.pregnancyPrefs, this.snapshot.cycle) ? null : loadTargetBand(days),
         }),
       );
     });

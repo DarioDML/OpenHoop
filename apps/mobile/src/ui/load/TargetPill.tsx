@@ -9,7 +9,8 @@ import { formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
-export function targetPillText(t: TFunction, language: Language, view: LoadTargetView | null): string {
+export function targetPillText(t: TFunction, language: Language, view: LoadTargetView | null, hidden = false): string {
+  if (hidden) return t('loadTarget.hidden.pill');
   if (view === null) return t('loadScreen.pill.calibrating');
   const low = formatNumber(view.aim.low, 1, language);
   const high = formatNumber(view.aim.high, 1, language);
@@ -21,15 +22,16 @@ export function targetPillText(t: TFunction, language: Language, view: LoadTarge
 
 interface Props {
   view: LoadTargetView | null;
+  hidden?: boolean;
   marker?: boolean;
   onPress?: () => void;
   testID?: string;
 }
 
-export function TargetPill({ view, marker = false, onPress, testID }: Props): ReactElement {
+export function TargetPill({ view, hidden = false, marker = false, onPress, testID }: Props): ReactElement {
   const { colors } = useTheme();
   const { t, language } = useT();
-  const text = targetPillText(t, language, view);
+  const text = targetPillText(t, language, view, hidden);
   const body = (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
       {marker && view !== null ? <View style={{ width: 16, height: 3, borderRadius: radius.pill, backgroundColor: colors.metric.loadBright }} /> : null}

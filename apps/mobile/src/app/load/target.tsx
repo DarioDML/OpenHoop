@@ -32,7 +32,7 @@ export default function LoadTargetScreen() {
   const today = useLoadToday();
   if (today === null) return <NoDataScreen title={t('loadx.target.screen')} />;
 
-  const band = loadTargetBand(days);
+  const band = today.targetsHidden ? null : loadTargetBand(days);
   const status = rangeStatus(today.day.load.value, band);
   const advice = targetAdvice(today.readiness);
   const fmt = (v: number): string => formatNumber(v, 1, language);
@@ -42,8 +42,9 @@ export default function LoadTargetScreen() {
   const explainTarget: ExplainTarget = { term: 'loadTarget', index: today.index, shown: view === null ? null : { value: `${fmt(view.aim.low)}–${fmt(view.aim.high)}`, unit: null, reason: null } };
   const minutes = view !== null && view.status === 'below' && today.value !== null ? minutesToLoad(today.value, view.aim.low, today.trainingHr, today.ref) : null;
 
-  const progressText =
-    view === null
+  const progressText = today.targetsHidden
+    ? t('loadTarget.hidden.body')
+    : view === null
       ? t('loadScreen.advice.calibrating')
       : view.status === null
         ? t('loadScreen.advice.noLoad')
@@ -65,7 +66,7 @@ export default function LoadTargetScreen() {
           <TopBar title={t('loadx.target.screen')} />
           <View style={{ alignItems: 'center', gap: 14 }}>
             <LoadRing testID="target-ring" value={today.value} max={LOAD_SCALE_MAX} aim={today.aim} caption={caption} reason={today.reason} numberSize={100} />
-            <TargetPill view={view} testID="target-pill" />
+            <TargetPill view={view} hidden={today.targetsHidden} testID="target-pill" />
           </View>
         </>
       }>
@@ -109,6 +110,10 @@ export default function LoadTargetScreen() {
             </AppText>
             {status ? <Chip tone={status === 'within' ? 'positive' : 'info'} label={t(`range.${status}`, { low: fmt(band.low), high: fmt(band.high) })} /> : null}
           </>
+        ) : today.targetsHidden ? (
+          <AppText variant="label" muted testID="target-hidden">
+            {t('loadTarget.hidden.body')}
+          </AppText>
         ) : (
           <Chip tone="warning" label={t('range.calibrating')} />
         )}
