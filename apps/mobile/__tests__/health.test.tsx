@@ -90,11 +90,34 @@ describe('health screens', () => {
     expect(screen.getAllByText(/within|above|below|Calibrating/i).length).toBeGreaterThan(0);
   });
 
-  it('shows the hub with the metric finder and a vitals summary', async () => {
+  it('shows the hub with the metric finder, live tiles and every former entry', async () => {
     await render(withAppData(<HealthTab />));
     expect(screen.getByTestId('health-find-metric')).toBeTruthy();
-    expect(screen.getByTestId('health-vitals-within')).toBeTruthy();
-    expect(screen.getByTestId('health-entry-ecg')).toBeTruthy();
+    expect(screen.getByTestId('health-tile-vitals-value')).toBeTruthy();
+    expect(screen.getByTestId('health-tile-stress')).toBeTruthy();
+    expect(screen.getByTestId('health-tile-ecg-missing').props.children).toBe('Needs an MG band');
+    expect(screen.getByTestId('health-tile-labs-missing').props.children).toBe('None entered');
+    expect(screen.getByTestId('health-tile-cycle-missing').props.children).toBe('No periods logged');
+    expect(screen.getByTestId('health-tile-body-missing').props.children).toBe('No weight yet');
+    for (const id of ['heart-rate', 'blood-pressure', 'report', 'breathing', 'journal', 'pillars']) {
+      expect(screen.getByTestId(`health-entry-${id}`)).toBeTruthy();
+    }
+    expect(screen.getByTestId('health-report-button')).toBeTruthy();
+  });
+
+  it('fills the hub tiles from logged labs, periods and weight', async () => {
+    await render(
+      withAppData(<HealthTab />, 'en', {
+        labResults: [
+          { id: 1, biomarker: 'glucose', value: 5, unit: 'mmol/L', day: '2026-11-01', refLow: 3.9, refHigh: 5.6, note: null, createdAt: 0 },
+        ],
+        bodyMeasurements: [{ id: 1, day: '2026-11-20', weightKg: 78, bodyFatPct: null, createdAt: 0, source: 'manual', origin: null }],
+        cycle: { periods: [{ id: 1, startDay: '2026-11-10', endDay: '2026-11-14', flow: 2, createdAt: 0 }], symptoms: [], pregnancy: null },
+      }),
+    );
+    expect(screen.getByTestId('health-tile-labs-value')).toHaveTextContent('1/1');
+    expect(screen.getByTestId('health-tile-body-value')).toHaveTextContent('78.0 kg');
+    expect(screen.getByTestId('health-tile-cycle-value')).toBeTruthy();
   });
 
   it('shows 24h heart rate stats from the day record and requests the 5-minute series', async () => {

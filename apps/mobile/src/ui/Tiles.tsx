@@ -76,6 +76,7 @@ interface MetricLinkTileProps {
   iconBackground: string;
   label: string;
   value: string | null;
+  missing?: string;
   caption?: string;
   href?: Href;
   onPress?: () => void;
@@ -83,14 +84,14 @@ interface MetricLinkTileProps {
   testID?: string;
 }
 
-export function MetricLinkTile({ icon, iconColor, iconBackground, label, value, caption, href, onPress, badge, testID }: MetricLinkTileProps): ReactElement {
+export function MetricLinkTile({ icon, iconColor, iconBackground, label, value, missing, caption, href, onPress, badge, testID }: MetricLinkTileProps): ReactElement {
   const { colors } = useTheme();
   const press = onPress ?? (href === undefined ? undefined : () => router.push(href));
   return (
     <Pressable
       testID={testID}
       accessibilityRole={press === undefined ? undefined : 'button'}
-      accessibilityLabel={[label, value, caption].filter((part): part is string => typeof part === 'string' && part.length > 0).join(', ')}
+      accessibilityLabel={[label, value ?? missing, caption].filter((part): part is string => typeof part === 'string' && part.length > 0).join(', ')}
       disabled={press === undefined}
       onPress={press}
       style={({ pressed }) => ({
@@ -109,11 +110,11 @@ export function MetricLinkTile({ icon, iconColor, iconBackground, label, value, 
         {label}
       </AppText>
       {value === null ? (
-        <AppText variant="label" muted>
-          –
+        <AppText variant={missing === undefined ? 'label' : 'bodyStrong'} muted testID={testID === undefined ? undefined : `${testID}-missing`}>
+          {missing ?? '–'}
         </AppText>
       ) : (
-        <Num size={30} adjustsFontSizeToFit>
+        <Num size={30} adjustsFontSizeToFit testID={testID === undefined ? undefined : `${testID}-value`}>
           {value}
         </Num>
       )}
