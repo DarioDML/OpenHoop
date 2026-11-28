@@ -335,5 +335,13 @@
   "loadWeek.gap.openSoFar": "load still open, {value} so far",
   "loadWeek.gap.load": "load: {reason}",
   "loadWeek.gap.calibrating": "readiness calibrating",
-  "loadWeek.gap.readiness": "readiness: {reason}"
+  "loadWeek.gap.readiness": "readiness: {reason}",
+  "loadScreen.advice.belowOpen": "At {readiness}% readiness, about {low} min in zone 2–3 gets you into today's target; the top is more than {hours} h away.",
+  "loadScreen.advice.belowOpenNoReadiness": "About {low} min in zone 2–3 gets you into your usual range; the top is more than {hours} h away.",
+  "loadScreen.advice.far": "Today's target is more than {hours} h in zone 2–3 away. Every bit of activity still counts.",
+  "loadScreen.usual.range": "Usual range {low}–{high}, before today's readiness",
+  "loadScreen.usual.within": "Today: within your usual range",
+  "loadScreen.usual.above": "Today: above your usual range",
+  "loadScreen.usual.below": "Today: below your usual range",
+  "loadTarget.estimateFar": "More than {hours} h in zone 2–3 gets you there."
 }

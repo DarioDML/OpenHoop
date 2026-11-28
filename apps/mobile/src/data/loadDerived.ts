@@ -1,5 +1,5 @@
 import { loadReference, loadSum, sumFromLoad, type LoadReference } from '@openhoop/analytics';
-import type { DayRecord } from '@openhoop/core';
+import type { DayRecord, HourSteps } from '@openhoop/core';
 
 import { addDays, baselineAt, rangeStatus, visibleReadiness, weekStart, type Baseline, type RangeStatus } from './derived';
 import { analyticsProfileOf } from './profile';
@@ -10,6 +10,8 @@ export const LOAD_SCALE_MAX = 21;
 export const ZONE_23_HRR = { low: 0.6, high: 0.8 } as const;
 export const TYPICAL_HR_DAYS = 28;
 export const MINUTES_STEP = 5;
+export const MAX_ESTIMATE_MIN = 180;
+export const MAX_HOUR_ENTRIES = 48;
 
 export function loadBandAt(days: readonly DayRecord[], index: number): Baseline | null {
   const baseline = baselineAt(days, index, 'load');
@@ -89,7 +91,8 @@ export type ReadyAdvice =
   | { kind: 'noLoad' }
   | { kind: 'above' }
   | { kind: 'within' }
-  | { kind: 'below'; minutesLow: number; minutesHigh: number }
+  | { kind: 'below'; minutesLow: number; minutesHigh: number | null }
+  | { kind: 'far' }
   | { kind: 'noEstimate' };
 
 export function readyAdvice(load: number | null, aim: AimRange | null, hr: number, ref: LoadReference): ReadyAdvice {
@@ -100,8 +103,9 @@ export function readyAdvice(load: number | null, aim: AimRange | null, hr: numbe
   const low = minutesToLoad(load, aim.low, hr, ref);
   const high = minutesToLoad(load, aim.high, hr, ref);
   if (low === null || high === null) return { kind: 'noEstimate' };
+  if (low > MAX_ESTIMATE_MIN) return { kind: 'far' };
   const minutesLow = roundMinutes(low);
-  return { kind: 'below', minutesLow, minutesHigh: Math.max(minutesLow, roundMinutes(high)) };
+  return { kind: 'below', minutesLow, minutesHigh: high > MAX_ESTIMATE_MIN ? null : Math.max(minutesLow, roundMinutes(high)) };
 }
 
 export interface TargetDays {
@@ -139,9 +143,23 @@ export interface HourBar {
 
 const HOUR_S = 3_600;
 
+export function validHourSteps(source: unknown, tzOffsetS: number): source is HourSteps[] {
+  if (!Array.isArray(source) || source.length > MAX_HOUR_ENTRIES) return false;
+  let previous: number | null = null;
+  for (const entry of source as unknown[]) {
+    if (typeof entry !== 'object' || entry === null) return false;
+    const { t, steps } = entry as Record<string, unknown>;
+    if (typeof t !== 'number' || !Number.isInteger(t) || (((t + tzOffsetS) % HOUR_S) + HOUR_S) % HOUR_S !== 0) return false;
+    if (typeof steps !== 'number' || !Number.isFinite(steps) || steps < 0) return false;
+    if (previous !== null && t <= previous) return false;
+    previous = t;
+  }
+  return true;
+}
+
 export function hourlyStepBars(day: DayRecord, nowS: number): HourBar[] | null {
-  const source = day.stepsByHour;
-  if (source === undefined || source === null) return null;
+  const source: unknown = day.stepsByHour;
+  if (!validHourSteps(source, day.tzOffsetS)) return null;
   const hours = source.filter((h) => h.t >= day.start - HOUR_S && h.t < day.end && h.t <= nowS);
   const counted = hours.filter((h) => h.steps > 0);
   const first = counted[0];

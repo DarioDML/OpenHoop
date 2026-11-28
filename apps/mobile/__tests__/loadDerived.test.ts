@@ -16,6 +16,7 @@ import {
   readyAdvice,
   roundMinutes,
   typicalTrainingHr,
+  validHourSteps,
   weekBlockGaps,
 } from '@/data/loadDerived';
 import { loadAimRange } from '@/data/readinessDerived';
@@ -91,6 +92,16 @@ describe('time to target', () => {
     expect(roundMinutes(13)).toBe(15);
   });
 
+  it('caps the estimate at three hours', () => {
+    expect(readyAdvice(0.5, { low: 15, high: 20 }, 120, REF)).toEqual({ kind: 'far' });
+    const open = readyAdvice(4, { low: 7.6, high: 18 }, 130, REF);
+    expect(open.kind).toBe('below');
+    if (open.kind === 'below') {
+      expect(open.minutesHigh).toBeNull();
+      expect(open.minutesLow).toBeLessThanOrEqual(180);
+    }
+  });
+
   it('gives advice from the load and the target', () => {
     const aim = { low: 7.6, high: 15.6 };
     expect(readyAdvice(5, null, 150, REF)).toEqual({ kind: 'calibrating' });
@@ -147,6 +158,29 @@ describe('hourlyStepBars', () => {
       { t: hour(8), hour: 8, steps: null },
       { t: hour(9), hour: 9, steps: 120 },
     ]);
+  });
+
+  it('treats a malformed hourly split as missing', () => {
+    const day = last();
+    const hour = day.start + 7 * 3600;
+    const broken = (value: unknown): DayRecord => ({ ...day, stepsByHour: value as DayRecord['stepsByHour'] });
+    expect(hourlyStepBars(broken('nope'), NOW_S)).toBeNull();
+    expect(hourlyStepBars(broken([{ t: hour, steps: -1 }]), NOW_S)).toBeNull();
+    expect(hourlyStepBars(broken([{ t: hour, steps: Number.NaN }]), NOW_S)).toBeNull();
+    expect(hourlyStepBars(broken([{ t: hour + 60, steps: 3 }]), NOW_S)).toBeNull();
+    expect(hourlyStepBars(broken([{ t: hour + 3600, steps: 3 }, { t: hour, steps: 3 }]), NOW_S)).toBeNull();
+    expect(hourlyStepBars(broken([null]), NOW_S)).toBeNull();
+    expect(hourlyStepBars(broken(Array.from({ length: 49 }, (_, i) => ({ t: hour + i * 3600, steps: 1 }))), NOW_S)).toBeNull();
+    expect(validHourSteps([{ t: hour, steps: 0 }], day.tzOffsetS)).toBe(true);
+  });
+
+  it('keeps every hour of a 25-hour day after a clock change', () => {
+    const day = last();
+    const long = { ...day, end: day.start + 25 * 3600, stepsByHour: Array.from({ length: 25 }, (_, i) => ({ t: day.start + i * 3600, steps: 100 })) };
+    const bars = hourlyStepBars(long, long.end) ?? [];
+    expect(bars).toHaveLength(25);
+    expect(bars.reduce((sum, b) => sum + (b.steps ?? 0), 0)).toBe(2500);
+    expect(bars[24]?.hour).toBe(0);
   });
 
   it('says when there is no hourly split yet', () => {

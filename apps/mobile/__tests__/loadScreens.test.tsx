@@ -70,9 +70,13 @@ describe('Load screen', () => {
   it('gives a time-based advice below the target and plain advice inside or above it', async () => {
     const view = await render(withAppData(<LoadScreen />, 'en', { days: withLoad(1) }));
     expect(screen.getByTestId('load-ready-advice')).toHaveTextContent(/min in zone 2–3 lands you inside/);
+    expect(screen.getByTestId('load-ready-basis')).toHaveTextContent(/^Estimated at \d+ bpm, your usual heart rate in zone 2–3\.$/);
     await view.rerender(withAppData(<LoadScreen />, 'en', { days: withLoad(20.5) }));
     expect(screen.getByTestId('load-ready-advice')).toHaveTextContent("You're past the top of today's target. Keep the rest of the day easy so you recover for tomorrow.");
     expect(screen.getByTestId('load-target-pill-text')).toHaveTextContent(/past the top$/);
+    expect(screen.queryByTestId('load-ready-basis')).toBeNull();
+    expect(screen.getByTestId('load-usual-status')).toHaveTextContent('Today: above your usual range');
+    expect(screen.getByTestId('load-usual-range')).toHaveTextContent(/^Usual range .+, before today's readiness$/);
   });
 
   it('says the target is calibrating with too few days', async () => {

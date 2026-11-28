@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { loadTargetBand } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { rangeStatus } from '@/data/derived';
-import { readyAdvice, type ReadyAdvice } from '@/data/loadDerived';
+import { MAX_ESTIMATE_MIN, readyAdvice, type ReadyAdvice } from '@/data/loadDerived';
 import type { Language } from '@/data/types';
 import type { TFunction } from '@/i18n/useT';
 import { useT } from '@/i18n/useT';
@@ -32,15 +32,19 @@ export function adviceText(t: TFunction, language: Language, advice: ReadyAdvice
       return t('loadScreen.advice.within');
     case 'noEstimate':
       return t('loadScreen.advice.noEstimate', { low: fmt(today.aim?.low ?? 0), high: fmt(today.aim?.high ?? 0) });
+    case 'far':
+      return t('loadScreen.advice.far', { hours: MAX_ESTIMATE_MIN / 60 });
     case 'below': {
-      const one = advice.minutesLow === advice.minutesHigh;
+      const hours = MAX_ESTIMATE_MIN / 60;
+      const low = advice.minutesLow;
+      const high = advice.minutesHigh;
       if (today.readiness === null) {
-        return one ? t('loadScreen.advice.belowOneNoReadiness', { minutes: advice.minutesLow }) : t('loadScreen.advice.belowNoReadiness', { low: advice.minutesLow, high: advice.minutesHigh });
+        if (high === null) return t('loadScreen.advice.belowOpenNoReadiness', { low, hours });
+        return low === high ? t('loadScreen.advice.belowOneNoReadiness', { minutes: low }) : t('loadScreen.advice.belowNoReadiness', { low, high });
       }
       const readiness = Math.round(today.readiness);
-      return one
-        ? t('loadScreen.advice.belowOne', { readiness, minutes: advice.minutesLow })
-        : t('loadScreen.advice.below', { readiness, low: advice.minutesLow, high: advice.minutesHigh });
+      if (high === null) return t('loadScreen.advice.belowOpen', { readiness, low, hours });
+      return low === high ? t('loadScreen.advice.belowOne', { readiness, minutes: low }) : t('loadScreen.advice.below', { readiness, low, high });
     }
   }
 }
@@ -108,7 +112,7 @@ export function ReadyCard({ today }: { today: LoadToday }): ReactElement {
   const band = readinessBand(today.readiness);
   const title = band === null ? t('loadScreen.ready.today') : band === 'low' ? t('loadScreen.ready.easy') : t('loadScreen.ready.perform');
   const usual = loadTargetBand(days);
-  const status = rangeStatus(today.day.load.value, usual);
+  const status = rangeStatus(today.value, usual);
   const fmt = (v: number): string => formatNumber(v, 1, language);
 
   return (
@@ -119,6 +123,11 @@ export function ReadyCard({ today }: { today: LoadToday }): ReactElement {
       <AppText variant="body" soft testID="load-ready-advice">
         {adviceText(t, language, advice, today)}
       </AppText>
+      {advice.kind === 'below' || advice.kind === 'far' ? (
+        <AppText variant="caption" muted testID="load-ready-basis">
+          {t('loadTarget.basis', { hr: Math.round(today.trainingHr) })}
+        </AppText>
+      ) : null}
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs }}>
         <Button label={t('home.startActivity')} onPress={() => router.push('/activity/start')} style={{ flex: 1, minHeight: 48, paddingHorizontal: spacing.md }} testID="load-start" />
         <BuzzCheck today={today} />
@@ -134,10 +143,10 @@ export function ReadyCard({ today }: { today: LoadToday }): ReactElement {
           <AppText variant="bodyStrong">{t('loadx.target.title')}</AppText>
           {usual ? (
             <>
-              <AppText variant="label" muted>
-                {t('loadx.target.usual', { low: fmt(usual.low), high: fmt(usual.high) })}
+              <AppText variant="label" muted testID="load-usual-range">
+                {t('loadScreen.usual.range', { low: fmt(usual.low), high: fmt(usual.high) })}
               </AppText>
-              {status ? <Chip tone={status === 'within' ? 'positive' : 'info'} label={t(`range.${status}`, { low: fmt(usual.low), high: fmt(usual.high) })} small /> : null}
+              {status ? <Chip tone={status === 'within' ? 'positive' : 'info'} label={t(`loadScreen.usual.${status}`)} small testID="load-usual-status" /> : null}
             </>
           ) : (
             <Chip label={t('range.calibrating')} tone="warning" small />

@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { loadTargetBand, targetAdvice } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { rangeStatus } from '@/data/derived';
-import { LOAD_SCALE_MAX, minutesToLoad, roundMinutes } from '@/data/loadDerived';
+import { LOAD_SCALE_MAX, MAX_ESTIMATE_MIN, minutesToLoad, roundMinutes } from '@/data/loadDerived';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 import { NoDataScreen } from '@/ui/activity/parts';
@@ -53,7 +53,9 @@ export default function LoadTargetScreen() {
             ? t('loadTarget.reached', { high: fmt(view.aim.high) })
             : minutes === null
               ? t('loadScreen.advice.noEstimate', { low: fmt(view.aim.low), high: fmt(view.aim.high) })
-              : t('loadTarget.estimate', { minutes: roundMinutes(minutes) });
+              : minutes > MAX_ESTIMATE_MIN
+                ? t('loadTarget.estimateFar', { hours: MAX_ESTIMATE_MIN / 60 })
+                : t('loadTarget.estimate', { minutes: roundMinutes(minutes) });
 
   return (
     <Screen

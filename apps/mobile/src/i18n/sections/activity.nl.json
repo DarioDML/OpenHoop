@@ -335,5 +335,13 @@
   "loadWeek.gap.openSoFar": "belasting loopt nog, {value} tot nu toe",
   "loadWeek.gap.load": "belasting: {reason}",
   "loadWeek.gap.calibrating": "paraatheid kalibreert",
-  "loadWeek.gap.readiness": "paraatheid: {reason}"
+  "loadWeek.gap.readiness": "paraatheid: {reason}",
+  "loadScreen.advice.belowOpen": "Met {readiness}% paraatheid brengt ongeveer {low} min in zone 2–3 je binnen het doel van vandaag; de bovengrens ligt meer dan {hours} u verder.",
+  "loadScreen.advice.belowOpenNoReadiness": "Ongeveer {low} min in zone 2–3 brengt je binnen je gebruikelijke bereik; de bovengrens ligt meer dan {hours} u verder.",
+  "loadScreen.advice.far": "Je doel van vandaag ligt meer dan {hours} u in zone 2–3 verder. Elke activiteit telt toch mee.",
+  "loadScreen.usual.range": "Gebruikelijk bereik {low}–{high}, vóór je paraatheid van vandaag",
+  "loadScreen.usual.within": "Vandaag: binnen je gebruikelijke bereik",
+  "loadScreen.usual.above": "Vandaag: boven je gebruikelijke bereik",
+  "loadScreen.usual.below": "Vandaag: onder je gebruikelijke bereik",
+  "loadTarget.estimateFar": "Meer dan {hours} u in zone 2–3 brengt je er."
 }
