@@ -118,6 +118,9 @@ export function SleepTimeline({ periods, tzOffsetS }: Props) {
                   <AppText variant="bodyStrong" numeric>
                     {formatClock(bedStart(p), tzOffsetS)}–{formatClock(bedEnd(p), tzOffsetS)}
                   </AppText>
+                  <AppText variant="label" muted numeric>
+                    {formatDuration(t, p.inBedS)}
+                  </AppText>
                 </View>
               ) : null}
             </Fragment>

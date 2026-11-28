@@ -39,5 +39,6 @@ describe('SleepTimeline', () => {
     expect(Number(bed.x) + Number(bed.width)).toBeGreaterThan(Number(asleep.x) + Number(asleep.width));
     expect(screen.getByTestId('sleep-timeline-in-bed-0')).toHaveTextContent('In bed', { exact: false });
     expect(screen.getByTestId('sleep-timeline-in-bed-0')).toHaveTextContent('01:04–11:36', { exact: false });
+    expect(screen.getByTestId('sleep-timeline-in-bed-0')).toHaveTextContent('10 h 33 min', { exact: false });
   });
 });
