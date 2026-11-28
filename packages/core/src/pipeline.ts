@@ -27,6 +27,7 @@ import {
   sleepNeedMs,
   sleepPeriods,
   sleepScore,
+  withStillLeadIn,
   withoutAwakeTails,
   zoneSeconds,
 } from '@openhoop/analytics';
@@ -250,7 +251,8 @@ function withoutOffWristSleep(ctx: Context, samples: Sample[]): Sample[] {
 
 function mergedPeriods(ctx: Context, samples: Sample[], from: number, to: number): MergedSleepPeriod[] {
   const guarded = withoutOffWristSleep(ctx, samples);
-  return applySleepEdits(withoutAwakeTails(sleepPeriods(guarded), guarded), editsTouching(ctx.edits, from, to), guarded);
+  const detected = withStillLeadIn(withoutAwakeTails(sleepPeriods(guarded), guarded), guarded);
+  return applySleepEdits(detected, editsTouching(ctx.edits, from, to), guarded);
 }
 
 function wornDerived(ctx: Context, start: number, end: number): Derived {

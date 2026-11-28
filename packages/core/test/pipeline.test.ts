@@ -4,7 +4,7 @@ import type { Profile } from '@openhoop/analytics';
 import { bindStore, dayKey, deleteDataBefore, exportCsv, newestFrameTime, openStore, rebuildFromRaw, recomputeDays, stepsPerHour } from '../src/index';
 import type { DayRecord, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
-import { TZ_S, awakeSamples, decodeRow, localMidnight, lyingAwakeSamples, nightSamples, simulateDays, toFrame } from './sampleFactory';
+import { TZ_S, awakeSamples, decodeRow, localMidnight, lyingAwakeSamples, nightSamples, simulateDays, stillSamples, toFrame } from './sampleFactory';
 
 const HOUR_S = 3_600;
 const PROFILE: Profile = { maxHr: 190, birthYear: null, restingHr: null };
@@ -340,6 +340,23 @@ describe('pipeline', () => {
 
       expect(Math.abs((afterFirst ?? 0) - wokeAt)).toBeLessThanOrEqual(60);
       expect(afterSecond).toBe(afterFirst);
+    });
+
+    it('starts the night when the wearer lay still, before the band flagged sleep', async () => {
+      const stillAt = localMidnight(3) + HOUR_S - 12 * 60;
+      const sleepAt = localMidnight(3) + HOUR_S;
+      const rows = [
+        ...stillSamples(deviceId, stillAt, sleepAt - stillAt),
+        ...nightSamples(deviceId, sleepAt, 8 * HOUR_S, { seed: 5 }),
+        ...awakeSamples(deviceId, sleepAt + 8 * HOUR_S, 4 * HOUR_S),
+      ];
+      await store.insertSamples(rows);
+      const record = (await recompute(rows)).find((d) => d.day === dayKey(sleepAt, TZ_S));
+      const main = record?.sleep.periods.find((p) => !p.nap);
+      expect(main?.onset).toBe(stillAt);
+      expect(record?.start).toBe(stillAt);
+      expect(record?.sleep.inBedS).toBe((main?.offset ?? 0) - stillAt + 1);
+      expect(record?.sleep.asleepS).toBe(record?.sleep.inBedS);
     });
 
     it.each([

@@ -66,6 +66,16 @@ export function nightSamples(deviceId: number, start: number, seconds: number, o
   }));
 }
 
+export function stillSamples(deviceId: number, start: number, seconds: number): SampleRow[] {
+  return Array.from({ length: seconds }, (_, i) => ({
+    ...base(deviceId, start + i),
+    hr: 55,
+    skinTempC: 33.4,
+    state: 'STILL',
+    motionG: 0.01,
+  }));
+}
+
 export function lyingAwakeSamples(deviceId: number, start: number, seconds: number): SampleRow[] {
   return Array.from({ length: seconds }, (_, i) => ({
     ...base(deviceId, start + i),
