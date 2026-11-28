@@ -289,6 +289,17 @@ export default function StrengthBuilderScreen() {
       { key: 'reps' as const, label: t('strength.builder.reps'), decimal: false },
       { key: 'weight' as const, label: t('strength.builder.weight'), decimal: true },
     ];
+    const fieldFor = (field: (typeof fields)[number]): ReactElement => (
+      <Field
+        label={field.label}
+        error={bad.includes(field.key)}
+        suffix={field.key === 'weight' ? labels.unit : undefined}
+        value={row.draft[field.key]}
+        onChangeText={(value) => patchRow(row.localId, draftPatch(field.key, value))}
+        keyboardType={field.decimal ? 'decimal-pad' : 'number-pad'}
+        testID={`builder-${field.key}-${index}`}
+      />
+    );
     return (
       <View testID={`builder-row-${index}`} style={{ paddingVertical: spacing.sm, gap: spacing.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 52 }}>
@@ -312,20 +323,15 @@ export default function StrengthBuilderScreen() {
         {open && !reorder ? (
           <View style={{ gap: spacing.sm }}>
             <View style={{ flexDirection: narrow ? 'column' : 'row', gap: spacing.sm }}>
-              {fields.map((field) => (
+              {fields.slice(0, 2).map((field) => (
                 <View key={field.key} style={narrow ? undefined : { flex: 1 }}>
-                  <Field
-                    label={field.label}
-                    error={bad.includes(field.key)}
-                    suffix={field.key === 'weight' ? labels.unit : undefined}
-                    value={row.draft[field.key]}
-                    onChangeText={(value) => patchRow(row.localId, draftPatch(field.key, value))}
-                    keyboardType={field.decimal ? 'decimal-pad' : 'number-pad'}
-                    testID={`builder-${field.key}-${index}`}
-                  />
+                  {fieldFor(field)}
                 </View>
               ))}
             </View>
+            {fields.slice(2).map((field) => (
+              <View key={field.key}>{fieldFor(field)}</View>
+            ))}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
               <AppText variant="caption" muted style={{ flex: 1 }}>
                 {labels.muscleName(row.base.muscle)}

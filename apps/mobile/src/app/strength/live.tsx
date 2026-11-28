@@ -47,6 +47,7 @@ import { goBack } from '@/ui/TopBar';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
 const HR_REFRESH_MS = 30_000;
+const STACK_BELOW_DP = 380;
 const MAX_BEATS = 6 * 3_600;
 
 function useNowMs(): number {
@@ -128,7 +129,8 @@ function liveLoadMissing(reason: string | null): TranslationKey {
 export default function StrengthLiveScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const { narrow } = useLayout();
+  const { narrow, width } = useLayout();
+  const stackSteppers = narrow || width < STACK_BELOW_DP;
   const { strength, strengthActions, startLive, stopLive, device, bandActions } = useAppData();
   const live = useLive();
   const labels = useStrengthLabels();
@@ -278,7 +280,7 @@ export default function StrengthLiveScreen() {
     const bad = invalid[key] ?? [];
     const upcoming = Math.max(0, item.sets - logged.length - 1);
     const steppers = (value: SetDraft, active: boolean, row: number): ReactElement => (
-      <View style={{ flexDirection: narrow ? 'column' : 'row', gap: spacing.sm, alignItems: narrow ? 'flex-start' : 'center' }}>
+      <View style={{ flexDirection: stackSteppers ? 'column' : 'row', gap: spacing.sm, alignItems: stackSteppers ? 'flex-start' : 'center' }}>
         <NumberStepper
           value={value.reps}
           onChangeText={(reps) => patchDraft(key, draft, { reps })}
