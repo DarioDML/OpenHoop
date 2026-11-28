@@ -50,6 +50,7 @@ export interface ConfigChange {
 export interface BandConfigSnapshot {
   version: 1;
   readAt: number;
+  firstReadAt: number;
   source: ConfigSource;
   flags: ConfigEntry[];
   config: ConfigEntry[];
@@ -114,14 +115,23 @@ function isChangeList(value: unknown): value is ConfigChange[] {
   return value === undefined || (Array.isArray(value) && value.length <= MAX_ENTRIES && value.every(isChange));
 }
 
-interface StoredSnapshot extends Omit<BandConfigSnapshot, 'changes'> {
+interface StoredSnapshot extends Omit<BandConfigSnapshot, 'changes' | 'firstReadAt'> {
   changes?: ConfigChange[];
+  firstReadAt?: number;
 }
 
 function isSnapshot(value: unknown): value is StoredSnapshot {
   if (!isRecord(value)) return false;
-  const { version, readAt, source, flags, config, changes } = value;
-  return version === 1 && isTime(readAt) && isSource(source) && isEntryList(flags) && isEntryList(config) && isChangeList(changes);
+  const { version, readAt, firstReadAt, source, flags, config, changes } = value;
+  return (
+    version === 1 &&
+    isTime(readAt) &&
+    (firstReadAt === undefined || isTime(firstReadAt)) &&
+    isSource(source) &&
+    isEntryList(flags) &&
+    isEntryList(config) &&
+    isChangeList(changes)
+  );
 }
 
 function toEntry(entry: ConfigEntry): ConfigEntry {
@@ -138,10 +148,12 @@ export function buildSnapshot(
   flags: readonly ConfigEntry[],
   config: readonly ConfigEntry[],
   changes: readonly ConfigChange[] = [],
+  firstReadAt: number = readAt,
 ): BandConfigSnapshot {
   return {
     version: 1,
     readAt,
+    firstReadAt: Math.min(firstReadAt, readAt),
     source,
     flags: flags.map(toEntry),
     config: config.map(toEntry),
@@ -170,12 +182,13 @@ export function applyConfigWrite(snapshot: BandConfigSnapshot, kind: ConfigKind,
     kind === 'flag' ? update(snapshot.flags) : snapshot.flags,
     kind === 'config' ? update(snapshot.config) : snapshot.config,
     changes,
+    snapshot.firstReadAt,
   );
 }
 
 export function recordOriginal(snapshot: BandConfigSnapshot, kind: ConfigKind, key: string, original: WritableValue, at: number): BandConfigSnapshot {
   if (changeFor(snapshot, kind, key) !== null) return snapshot;
-  return buildSnapshot(snapshot.readAt, snapshot.source, snapshot.flags, snapshot.config, [...snapshot.changes, { kind, key, original, at }]);
+  return buildSnapshot(snapshot.readAt, snapshot.source, snapshot.flags, snapshot.config, [...snapshot.changes, { kind, key, original, at }], snapshot.firstReadAt);
 }
 
 export function carryOver(previous: BandConfigSnapshot | null, next: BandConfigSnapshot): BandConfigSnapshot {
@@ -184,7 +197,7 @@ export function carryOver(previous: BandConfigSnapshot | null, next: BandConfigS
     const entry = entriesOf(next, change.kind).find((item) => item.key === change.key);
     return entry !== undefined && entry.valueText !== change.original;
   });
-  return buildSnapshot(next.readAt, next.source, next.flags, next.config, changes);
+  return buildSnapshot(next.readAt, next.source, next.flags, next.config, changes, previous.firstReadAt);
 }
 
 export function serializeSnapshot(snapshot: BandConfigSnapshot): string {
@@ -200,7 +213,7 @@ export function parseBandConfig(raw: string | null): BandConfigState {
     return { status: 'malformed' };
   }
   if (!isSnapshot(parsed)) return { status: 'malformed' };
-  const snapshot = buildSnapshot(parsed.readAt, parsed.source, parsed.flags, parsed.config, parsed.changes ?? []);
+  const snapshot = buildSnapshot(parsed.readAt, parsed.source, parsed.flags, parsed.config, parsed.changes ?? [], parsed.firstReadAt ?? parsed.readAt);
   return snapshot.flags.length + snapshot.config.length === 0 ? { status: 'empty', snapshot } : { status: 'ok', snapshot };
 }
 
@@ -253,20 +266,20 @@ export function describeFields(kind: ConfigKind, entries: readonly ConfigEntry[]
   return { known, unknown };
 }
 
-export interface OfficialProfileSummary {
+export interface ChangeSummary {
   total: number;
-  matching: number;
-  differs: ConfigChange[];
+  unchanged: number;
+  changed: ConfigChange[];
 }
 
-export function officialValue(snapshot: BandConfigSnapshot, kind: ConfigKind, entry: ConfigEntry): string | null {
+export function originalValue(snapshot: BandConfigSnapshot, kind: ConfigKind, entry: ConfigEntry): string | null {
   return changeFor(snapshot, kind, entry.key)?.original ?? entry.valueText;
 }
 
-export function officialProfileSummary(snapshot: BandConfigSnapshot): OfficialProfileSummary {
+export function changeSummary(snapshot: BandConfigSnapshot): ChangeSummary {
   const known = [...describeFields('flag', snapshot.flags).known, ...describeFields('config', snapshot.config).known].filter((row) => row.writable);
-  const differs = snapshot.changes.filter((change) => known.some((row) => row.kind === change.kind && row.entry.key === change.key && row.entry.valueText !== change.original));
-  return { total: known.length, matching: known.length - differs.length, differs };
+  const changed = snapshot.changes.filter((change) => known.some((row) => row.kind === change.kind && row.entry.key === change.key && row.entry.valueText !== change.original));
+  return { total: known.length, unchanged: known.length - changed.length, changed };
 }
 
 export interface ConfigSnapshotEntry {
@@ -279,5 +292,5 @@ export interface ConfigSnapshotEntry {
 
 export function configSnapshots(snapshot: BandConfigSnapshot): ConfigSnapshotEntry[] {
   const before: ConfigSnapshotEntry[] = snapshot.changes.map((change) => ({ id: `${change.kind}-${change.key}`, at: change.at, kind: 'before-write', key: change.key, change }));
-  return [{ id: 'read', at: snapshot.readAt, kind: 'read' as const, key: null, change: null }, ...before].sort((a, b) => a.at - b.at);
+  return [{ id: 'read', at: snapshot.firstReadAt, kind: 'read' as const, key: null, change: null }, ...before].sort((a, b) => a.at - b.at);
 }

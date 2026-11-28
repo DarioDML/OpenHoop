@@ -11,8 +11,8 @@ import {
   carryOver,
   changeFor,
   configSnapshots,
-  officialProfileSummary,
-  officialValue,
+  changeSummary,
+  originalValue,
   recordOriginal,
   describeFields,
   parseBandConfig,
@@ -194,16 +194,16 @@ describe('changes made from OpenHoop', () => {
   });
 });
 
-describe('official profile', () => {
+describe('changes by OpenHoop', () => {
   it('counts writable known values that still have the value the band had before OpenHoop wrote', () => {
-    expect(officialProfileSummary(SNAPSHOT)).toEqual({ total: 3, matching: 3, differs: [] });
+    expect(changeSummary(SNAPSHOT)).toEqual({ total: 3, unchanged: 3, changed: [] });
     const changed = applyConfigWrite(SNAPSHOT, 'flag', 'make_hrfm_visible', '2', '1', 50);
-    const summary = officialProfileSummary(changed);
-    expect(summary.matching).toBe(2);
+    const summary = changeSummary(changed);
+    expect(summary.unchanged).toBe(2);
     expect(summary.total).toBe(3);
-    expect(summary.differs.map((change) => change.key)).toEqual(['make_hrfm_visible']);
+    expect(summary.changed.map((change) => change.key)).toEqual(['make_hrfm_visible']);
     const entry = changed.flags.find((item) => item.key === 'make_hrfm_visible');
-    expect(entry === undefined ? null : officialValue(changed, 'flag', entry)).toBe('2');
+    expect(entry === undefined ? null : originalValue(changed, 'flag', entry)).toBe('2');
   });
 
   it('lists the first read and one snapshot before each write, oldest first', () => {
@@ -213,5 +213,16 @@ describe('official profile', () => {
       ['before-write', 'make_hrfm_visible', 1_700_000_100],
       ['before-write', 'enable_rfid', 1_700_000_200],
     ]);
+  });
+
+  it('keeps the time of the first read over later reads of the same band, and reads old snapshots without it', () => {
+    const reread = carryOver(SNAPSHOT, buildSnapshot(1_700_009_000, 'demo', SNAPSHOT.flags, SNAPSHOT.config));
+    expect(reread.readAt).toBe(1_700_009_000);
+    expect(reread.firstReadAt).toBe(1_700_000_000);
+    expect(configSnapshots(reread)[0]).toMatchObject({ kind: 'read', at: 1_700_000_000 });
+    expect(carryOver(SNAPSHOT, buildSnapshot(1_700_009_000, 'band', [], [])).firstReadAt).toBe(1_700_009_000);
+    const { firstReadAt: _first, ...legacy } = reread;
+    const parsed = parseBandConfig(JSON.stringify(legacy));
+    expect(parsed.status === 'ok' ? parsed.snapshot.firstReadAt : null).toBe(1_700_009_000);
   });
 });

@@ -173,23 +173,23 @@ describe('BandConfigScreen', () => {
     expect(restoreConfig).toHaveBeenCalledWith('config', 'enable_rfid');
   });
 
-  it('counts the values that match the official profile and marks each one', async () => {
+  it('counts the values OpenHoop left unchanged and marks each one', async () => {
     const changed = applyConfigWrite(parsedSnapshot(), 'flag', 'make_hrfm_visible', '2', '1', NOW_S - 60);
     await render(withAppData(<BandConfigScreen />, 'en', appData(serializeSnapshot(changed))));
-    expect(screen.getByTestId('config-summary').props.children).toBe('2 of 3 values match the official profile');
-    expect(screen.getByTestId('config-official-enable_r22_v4_packets')).toBeTruthy();
-    expect(screen.queryByTestId('config-official-make_hrfm_visible')).toBeNull();
+    expect(screen.getByTestId('config-summary').props.children).toBe('2 of 3 values unchanged by OpenHoop');
+    expect(screen.getByTestId('config-unchanged-enable_r22_v4_packets')).toBeTruthy();
+    expect(screen.queryByTestId('config-unchanged-make_hrfm_visible')).toBeNull();
     expect(screen.getByTestId('config-changed-make_hrfm_visible')).toBeTruthy();
     expect(screen.getByTestId('snapshot-read')).toBeTruthy();
     expect(screen.getByTestId('snapshot-make_hrfm_visible')).toBeTruthy();
   });
 
-  it('writes the official profile back, one key at a time, after the word is typed', async () => {
+  it('puts back every changed value, one key at a time, after the word is typed', async () => {
     const restoreConfig = jest.fn(async () => true);
     const bandActions = { ...fixtureBandActions(), restoreConfig };
     const changed = applyConfigWrite(applyConfigWrite(parsedSnapshot(), 'flag', 'make_hrfm_visible', '2', '1', NOW_S - 60), 'config', 'enable_rfid', '2', '1', NOW_S - 30);
     await render(withAppData(<BandConfigScreen />, 'en', appData(serializeSnapshot(changed), { bandActions })));
-    await fireEvent.press(screen.getByTestId('write-official'));
+    await fireEvent.press(screen.getByTestId('put-back-all'));
     expect(screen.getByText(/make_hrfm_visible, enable_rfid/)).toBeTruthy();
     expect(restoreConfig).not.toHaveBeenCalled();
     await fireEvent.changeText(screen.getByTestId('danger-input'), 'CHANGE');
@@ -197,6 +197,17 @@ describe('BandConfigScreen', () => {
     await waitFor(() => expect(restoreConfig).toHaveBeenCalledTimes(2));
     expect(restoreConfig).toHaveBeenNthCalledWith(1, 'flag', 'make_hrfm_visible');
     expect(restoreConfig).toHaveBeenNthCalledWith(2, 'config', 'enable_rfid');
+  });
+
+  it('reports a partial put-back when one write fails', async () => {
+    const restoreConfig = jest.fn(async (_kind: string, key: string) => key !== 'enable_rfid');
+    const bandActions = { ...fixtureBandActions(), restoreConfig };
+    const changed = applyConfigWrite(applyConfigWrite(parsedSnapshot(), 'flag', 'make_hrfm_visible', '2', '1', NOW_S - 60), 'config', 'enable_rfid', '2', '1', NOW_S - 30);
+    await render(withAppData(<BandConfigScreen />, 'en', appData(serializeSnapshot(changed), { bandActions })));
+    await fireEvent.press(screen.getByTestId('put-back-all'));
+    await fireEvent.changeText(screen.getByTestId('danger-input'), 'CHANGE');
+    await fireEvent.press(screen.getByTestId('danger-confirm'));
+    expect(await screen.findByText('Put back 1 of 2. The rest still have the value OpenHoop wrote.')).toBeTruthy();
   });
 
   it('puts one value back from its snapshot only after confirming', async () => {
@@ -211,10 +222,10 @@ describe('BandConfigScreen', () => {
     await waitFor(() => expect(restoreConfig).toHaveBeenCalledWith('config', 'enable_rfid'));
   });
 
-  it('keeps Write official profile off when nothing differs', async () => {
+  it('keeps Put back off when nothing was changed', async () => {
     await render(withAppData(<BandConfigScreen />, 'en', appData(SNAPSHOT_JSON)));
-    expect(screen.getByTestId('write-official').props.accessibilityState.disabled).toBe(true);
-    expect(screen.getByTestId('write-official-none')).toBeTruthy();
+    expect(screen.getByTestId('put-back-all').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('put-back-none')).toBeTruthy();
   });
 
   it('renders in Dutch', async () => {

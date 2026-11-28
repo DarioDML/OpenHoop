@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
-import { officialProfileSummary, parseBandConfig } from '@/data/bandConfig';
+import { changeSummary, parseBandConfig } from '@/data/bandConfig';
 import { useAppData, useSyncProgress } from '@/data/context';
 import type { LockState } from '@/data/types';
 import { WEAR_LOCATIONS, type WearLocation } from '@/data/userData';
@@ -76,7 +76,7 @@ export default function DeviceSettingsScreen() {
     .filter((part): part is string => part !== null)
     .join(' · ');
   const connected = device.connection !== 'disconnected';
-  const summary = config.status === 'ok' ? officialProfileSummary(config.snapshot) : null;
+  const summary = config.status === 'ok' ? changeSummary(config.snapshot) : null;
   const hr = device.hrBroadcast;
   const hrStatus =
     hr === null ? t('device.actions.hrUnknown') : t('device.actions.hrLastSet', { state: t(hr.on ? 'bandConfig.on' : 'bandConfig.off'), ago: formatAgo(t, nowS, hr.at) });
@@ -154,7 +154,7 @@ export default function DeviceSettingsScreen() {
         />
         <ListRow
           title={t('device.config')}
-          subtitle={summary === null ? t('device.configNotRead') : t('device.configMatch', { matching: summary.matching, total: summary.total })}
+          subtitle={summary === null ? t('device.configNotRead') : t('device.configMatch', { unchanged: summary.unchanged, total: summary.total })}
           href="/settings/band-config"
           testID="config-row"
         />

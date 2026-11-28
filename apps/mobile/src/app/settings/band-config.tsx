@@ -7,7 +7,7 @@ import {
   configSnapshots,
   describeFields,
   isWritableValue,
-  officialProfileSummary,
+  changeSummary,
   parseBandConfig,
   type BandConfigSnapshot,
   type BandConfigState,
@@ -36,7 +36,7 @@ import { IconButton, TopBar } from '@/ui/TopBar';
 
 type Pending =
   | { kind: 'write'; row: FieldRow; from: WritableValue; to: WritableValue }
-  | { kind: 'official'; changes: ConfigChange[] }
+  | { kind: 'putBack'; changes: ConfigChange[] }
   | { kind: 'restore'; change: ConfigChange };
 
 interface SnapshotProps {
@@ -63,7 +63,7 @@ function Snapshot({ snapshot, onChange, onRestore, disabled }: SnapshotProps) {
         onChange={change}
         onRestore={() => onRestore(row)}
         disabled={disabled}
-        official={row.writable}
+        unchangedMarker={row.writable}
       />
     );
   };
@@ -128,11 +128,12 @@ export default function BandConfigScreen() {
   const [reading, setReading] = useState(false);
   const [writing, setWriting] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [putBack, setPutBack] = useState<{ restored: number; total: number } | null>(null);
   const unknown = t('band.unknown');
   const state = useMemo(() => parseBandConfig(device.configSnapshot), [device.configSnapshot]);
   const busy = reading || writing || device.connection === 'syncing' || device.connection === 'connecting';
   const nowS = Math.floor(Date.now() / 1000);
-  const summary = state.status === 'ok' ? officialProfileSummary(state.snapshot) : null;
+  const summary = state.status === 'ok' ? changeSummary(state.snapshot) : null;
   const snapshots = state.status === 'ok' ? configSnapshots(state.snapshot) : [];
 
   const read = async (): Promise<void> => {
@@ -153,12 +154,15 @@ export default function BandConfigScreen() {
     }
   };
   const restore = (row: FieldRow): Promise<void> => guarded(() => bandActions.restoreConfig(row.kind, row.entry.key));
-  const writeOfficial = (changes: readonly ConfigChange[]): Promise<void> =>
+  const putBackAll = (changes: readonly ConfigChange[]): Promise<void> =>
     guarded(async () => {
+      let restored = 0;
       for (const change of changes) {
-        if (!(await bandActions.restoreConfig(change.kind, change.key))) return false;
+        if (!(await bandActions.restoreConfig(change.kind, change.key))) break;
+        restored += 1;
       }
-      return true;
+      setPutBack({ restored, total: changes.length });
+      return restored === changes.length;
     });
 
   const confirmWord = t('bandConfig.write.word');
@@ -176,8 +180,8 @@ export default function BandConfigScreen() {
         }),
       };
     }
-    if (pending.kind === 'official') {
-      return { title: t('bandConfig.writeOfficialTitle'), body: t('bandConfig.writeOfficialBody', { keys: pending.changes.map((change) => change.key).join(', '), word: confirmWord }) };
+    if (pending.kind === 'putBack') {
+      return { title: t('bandConfig.putBackTitle'), body: t('bandConfig.putBackBody', { keys: pending.changes.map((change) => change.key).join(', '), word: confirmWord }) };
     }
     return {
       title: t('bandConfig.restoreOneTitle', { key: pending.change.key }),
@@ -189,7 +193,7 @@ export default function BandConfigScreen() {
     setPending(null);
     if (target === null) return;
     if (target.kind === 'write') void guarded(() => bandActions.writeConfig(target.row.kind, target.row.entry.key, target.to));
-    else if (target.kind === 'official') void writeOfficial(target.changes);
+    else if (target.kind === 'putBack') void putBackAll(target.changes);
     else void guarded(() => bandActions.restoreConfig(target.change.kind, target.change.key));
   };
   const snapshotTime = (at: number): string => {
@@ -211,11 +215,11 @@ export default function BandConfigScreen() {
           {t('bandConfig.eyebrow', { model: device.model ?? unknown, firmware: device.firmware ?? unknown })}
         </AppText>
         <AppText variant="h1" accessibilityRole="header" testID="config-summary">
-          {summary === null ? t('bandConfig.summaryNotRead') : t('bandConfig.summary', { matching: summary.matching, total: summary.total })}
+          {summary === null ? t('bandConfig.summaryNotRead') : t('bandConfig.summary', { unchanged: summary.unchanged, total: summary.total })}
         </AppText>
         {summary === null ? null : (
           <AppText variant="label" soft>
-            {t('bandConfig.officialExplained')}
+            {t('bandConfig.changesExplained')}
           </AppText>
         )}
       </View>
@@ -271,15 +275,20 @@ export default function BandConfigScreen() {
       {summary !== null ? (
         <>
           <Button
-            label={t('bandConfig.writeOfficial')}
+            label={t('bandConfig.putBackAll')}
             variant="soft"
-            disabled={busy || summary.differs.length === 0}
-            onPress={() => setPending({ kind: 'official', changes: summary.differs })}
-            testID="write-official"
+            disabled={busy || summary.changed.length === 0}
+            onPress={() => setPending({ kind: 'putBack', changes: summary.changed })}
+            testID="put-back-all"
           />
-          {summary.differs.length === 0 ? (
-            <AppText variant="caption" muted testID="write-official-none">
-              {t('bandConfig.writeOfficialNone')}
+          {putBack !== null && putBack.restored < putBack.total ? (
+            <AppText variant="label" color={colors.warning} testID="put-back-partial">
+              {t('bandConfig.putBackPartial', { restored: putBack.restored, total: putBack.total })}
+            </AppText>
+          ) : null}
+          {summary.changed.length === 0 ? (
+            <AppText variant="caption" muted testID="put-back-none">
+              {t('bandConfig.putBackNone')}
             </AppText>
           ) : null}
         </>

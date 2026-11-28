@@ -154,7 +154,7 @@ describe('Device settings', () => {
     expect(updateUserData).toHaveBeenCalledWith({ wearLocation: 'bicep' });
   });
 
-  it('counts the flags that still match the official profile', async () => {
+  it('counts the flags OpenHoop left unchanged', async () => {
     const base = fixtureAppData();
     const snapshot = JSON.stringify({
       version: 1,
@@ -168,7 +168,7 @@ describe('Device settings', () => {
       changes: [{ kind: 'flag', key: 'make_hrfm_visible', original: '1', at: NOW_S - 300 }],
     });
     await render(withAppData(<DeviceSettingsScreen />, 'en', { device: { ...base.device, configSnapshot: snapshot } }));
-    expect(screen.getByText('1 of 2 match the official profile')).toBeTruthy();
+    expect(screen.getByText('1 of 2 unchanged by OpenHoop')).toBeTruthy();
   });
 
   it('says the band does not report the broadcast setting before OpenHoop changed it', async () => {
