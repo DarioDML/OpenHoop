@@ -3,8 +3,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import type { ReactNode } from 'react';
 
 import DeveloperScreen from '@/app/settings/developer';
-import { PACKET_LOG_CAPACITY, PacketLog, describeCommandFrame, describePacket, loggedTransport, packetLog } from '@/ble/packetLog';
-import { rawSessionCsv, rawSessionName, saveRawSession } from '@/data/rawSessions';
+import { PACKET_LOG_CAPACITY, PacketLog, RECORDING_LIMIT, describeCommandFrame, describePacket, loggedTransport, packetLog } from '@/ble/packetLog';
+import { listRawSessions, rawSessionCsv, rawSessionName, saveRawSession } from '@/data/rawSessions';
 
 import { withAppData } from './support/appData';
 
@@ -49,7 +49,7 @@ describe('packet log', () => {
     log.record('tx', 'CMD A', Uint8Array.of(1, 2), 600);
     stop();
     log.record('rx', 'ACK A', Uint8Array.of(3), 700);
-    expect(log.getState().recording).toEqual({ startedAt: 500, count: 2 });
+    expect(log.getState().recording).toEqual({ startedAt: 500, count: 2, full: false });
     const recorded = log.stopRecording();
     expect(recorded?.startedAt).toBe(500);
     expect(recorded?.entries.map((entry) => [entry.direction, entry.summary, entry.hex])).toEqual([
@@ -59,6 +59,14 @@ describe('packet log', () => {
     expect(log.stopRecording()).toBeNull();
     log.record('rx', 'late', Uint8Array.of(1));
     expect(log.getState().entries).toEqual([]);
+  });
+
+  it('marks a recording as full at the limit and keeps the packets it holds', () => {
+    const log = new PacketLog();
+    log.startRecording(1);
+    for (let i = 0; i < RECORDING_LIMIT + 3; i += 1) log.record('rx', 'p', Uint8Array.of(1), i);
+    expect(log.getState().recording).toMatchObject({ count: RECORDING_LIMIT, full: true });
+    expect(log.stopRecording()?.entries).toHaveLength(RECORDING_LIMIT);
   });
 
   it('describes command frames and decoded packets', () => {
@@ -115,6 +123,25 @@ describe('Developer screen (M6)', () => {
     expect(screen.getByText('Stop and save (1 packets)')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('record-raw'));
     await waitFor(() => expect(saveRawSession).toHaveBeenCalledWith(expect.any(Date), [expect.objectContaining({ summary: 'CMD GET_HELLO seq=1' })]));
+  });
+
+  it('stops and saves a running recording when the screen closes', async () => {
+    jest.mocked(saveRawSession).mockClear();
+    await render(withAppData(<DeveloperScreen />));
+    await fireEvent.press(screen.getByTestId('record-raw'));
+    expect(screen.getByTestId('record-leave')).toBeTruthy();
+    await act(async () => packetLog.record('rx', 'ACK GET_HELLO SUCCESS', Uint8Array.of(9)));
+    screen.unmount();
+    await waitFor(() => expect(saveRawSession).toHaveBeenCalledWith(expect.any(Date), [expect.objectContaining({ summary: 'ACK GET_HELLO SUCCESS' })]));
+    expect(packetLog.getState().recording).toBeNull();
+  });
+
+  it('exports only the saved sessions, without the database', async () => {
+    jest.mocked(listRawSessions).mockReturnValueOnce([{ name: 'raw-session-20261125-120000.csv', bytes: 10 }]);
+    const exportData = jest.fn(async () => undefined);
+    await render(withAppData(<DeveloperScreen />, 'en', { exportData }));
+    await fireEvent.press(screen.getByText('Export sessions'));
+    expect(exportData).toHaveBeenCalledWith('sessions');
   });
 
   it('switches live heart rate in Streams and says which streams are not decoded', async () => {

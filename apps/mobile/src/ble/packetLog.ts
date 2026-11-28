@@ -15,7 +15,7 @@ export interface PacketEntry {
 export interface PacketLogState {
   entries: readonly PacketEntry[];
   watching: boolean;
-  recording: { startedAt: number; count: number } | null;
+  recording: { startedAt: number; count: number; full: boolean } | null;
 }
 
 export const PACKET_LOG_CAPACITY = 200;
@@ -108,9 +108,9 @@ export class PacketLog {
     this.nextId += 1;
     const entries = [...this.state.entries.slice(-(PACKET_LOG_CAPACITY - 1)), entry];
     const recording = this.state.recording;
-    if (this.recorded !== null && recording !== null && this.recorded.length < RECORDING_LIMIT) {
-      this.recorded.push(entry);
-      this.publish({ entries, recording: { ...recording, count: this.recorded.length } });
+    if (this.recorded !== null && recording !== null) {
+      if (this.recorded.length < RECORDING_LIMIT) this.recorded.push(entry);
+      this.publish({ entries, recording: { ...recording, count: this.recorded.length, full: this.recorded.length >= RECORDING_LIMIT } });
       return;
     }
     this.publish({ entries });
@@ -119,7 +119,7 @@ export class PacketLog {
   startRecording(at: number = Date.now()): void {
     if (this.recorded !== null) return;
     this.recorded = [];
-    this.publish({ recording: { startedAt: at, count: 0 } });
+    this.publish({ recording: { startedAt: at, count: 0, full: false } });
   }
 
   stopRecording(): { startedAt: number; entries: PacketEntry[] } | null {

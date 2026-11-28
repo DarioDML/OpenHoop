@@ -644,7 +644,7 @@
   "dev.sessions": "Bewaarde sessies",
   "dev.sessionSize": "{size} {unit}",
   "dev.sessionDelete": "{name} verwijderen",
-  "dev.exportSessions": "Exporteren met je gegevens",
+  "dev.exportSessions": "Sessies exporteren",
   "dev.liveStreams": "Live streams",
   "dev.stream.hr": "Live hartslag",
   "dev.stream.hrBody": "Ongeveer 1 Hz, met slag-tot-slagintervallen",
@@ -770,5 +770,8 @@
   "bandConfig.putBackTitle": "Terugzetten wat OpenHoop veranderde",
   "bandConfig.putBackBody": "Dit schrijft de vorige waarde terug naar {keys}, één sleutel per keer. Als een schrijfactie mislukt, worden de volgende niet verstuurd. Typ {word} om verder te gaan.",
   "bandConfig.putBackPartial": "{restored} van {total} teruggezet. De rest heeft nog de waarde die OpenHoop schreef.",
-  "import.use.historyNoStart": "Er is nog geen 'gedragen sinds'-datum, dus alles in het bestand wordt geïmporteerd. Stel de datum in onder Gegevens en privacy om alleen dagen vanaf dan te importeren."
+  "import.use.historyNoStart": "Er is nog geen 'gedragen sinds'-datum, dus alles in het bestand wordt geïmporteerd. Stel de datum in onder Gegevens en privacy om alleen dagen vanaf dan te importeren.",
+  "dev.exportSessionsNote": "Deelt alleen de bewaarde sessiebestanden, zonder de database. De bestanden bevatten de ruwe bytes die de band stuurde.",
+  "dev.recordFull": "De opname is vol bij {limit} pakketten. Stop ze om te bewaren wat erin zit.",
+  "dev.recordLeave": "Dit scherm verlaten stopt de opname en bewaart ze."
 }

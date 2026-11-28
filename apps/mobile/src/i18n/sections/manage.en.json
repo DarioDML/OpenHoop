@@ -644,7 +644,7 @@
   "dev.sessions": "Saved sessions",
   "dev.sessionSize": "{size} {unit}",
   "dev.sessionDelete": "Delete {name}",
-  "dev.exportSessions": "Export with your data",
+  "dev.exportSessions": "Export sessions",
   "dev.liveStreams": "Live streams",
   "dev.stream.hr": "Live heart rate",
   "dev.stream.hrBody": "About 1 Hz, with beat-to-beat intervals",
@@ -770,5 +770,8 @@
   "bandConfig.putBackTitle": "Put back what OpenHoop changed",
   "bandConfig.putBackBody": "This writes the earlier value back to {keys}, one key at a time. If one write fails, the ones after it are not sent. Type {word} to continue.",
   "bandConfig.putBackPartial": "Put back {restored} of {total}. The rest still have the value OpenHoop wrote.",
-  "import.use.historyNoStart": "No worn-since date is set yet, so everything in the file is imported. Set the date under Data & privacy to import only days from then on."
+  "import.use.historyNoStart": "No worn-since date is set yet, so everything in the file is imported. Set the date under Data & privacy to import only days from then on.",
+  "dev.exportSessionsNote": "Shares only the saved session files, without the database. The files hold the raw bytes the band sent.",
+  "dev.recordFull": "The recording is full at {limit} packets. Stop it to save what it holds.",
+  "dev.recordLeave": "Leaving this screen stops the recording and saves it."
 }

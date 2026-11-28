@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { packetClock, packetLog, type PacketEntry } from '@/ble/packetLog';
+import { RECORDING_LIMIT, packetClock, packetLog, type PacketEntry } from '@/ble/packetLog';
 import { useAppData, useLive } from '@/data/context';
 import { deleteRawSession, listRawSessions, saveRawSession, type RawSessionFile } from '@/data/rawSessions';
 import type { DataSource } from '@/data/types';
@@ -64,6 +64,13 @@ function PacketsTab() {
 
   useEffect(() => packetLog.watch(), []);
   useEffect(refresh, [refresh]);
+  useEffect(
+    () => () => {
+      const recorded = packetLog.stopRecording();
+      if (recorded !== null) void saveRawSession(new Date(recorded.startedAt), recorded.entries).catch(() => undefined);
+    },
+    [],
+  );
 
   const toggleRecording = async (): Promise<void> => {
     if (log.recording === null) {
@@ -109,6 +116,16 @@ function PacketsTab() {
       <AppText variant="caption" muted>
         {t('dev.recordBody')}
       </AppText>
+      {log.recording?.full === true ? (
+        <AppText variant="caption" color={colors.warning} testID="record-full">
+          {t('dev.recordFull', { limit: RECORDING_LIMIT })}
+        </AppText>
+      ) : null}
+      {log.recording === null ? null : (
+        <AppText variant="caption" muted testID="record-leave">
+          {t('dev.recordLeave')}
+        </AppText>
+      )}
       {failed ? (
         <AppText variant="caption" color={colors.negative} testID="record-failed">
           {t('dev.recordFailed')}
@@ -116,7 +133,10 @@ function PacketsTab() {
       ) : null}
       {sessions.length > 0 ? (
         <>
-          <CapHeader title={t('dev.sessions')} action={t('dev.exportSessions')} onAction={() => void exportData('all')} />
+          <CapHeader title={t('dev.sessions')} action={t('dev.exportSessions')} onAction={() => void exportData('sessions')} />
+          <AppText variant="caption" muted>
+            {t('dev.exportSessionsNote')}
+          </AppText>
           <ListGroup>
             {sessions.map((session) => {
               const size = sizeParts(session.bytes, language);

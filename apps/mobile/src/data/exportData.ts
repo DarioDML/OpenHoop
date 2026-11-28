@@ -80,7 +80,7 @@ async function writePlaintextCopy(app: AppStore, target: File): Promise<boolean>
   }
 }
 
-export type ExportContent = 'all' | 'csv' | 'json' | 'database';
+export type ExportContent = 'all' | 'csv' | 'json' | 'database' | 'sessions';
 
 export interface ExportOptions {
   content?: ExportContent;

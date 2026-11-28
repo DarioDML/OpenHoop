@@ -2181,19 +2181,19 @@ export class AppController {
   exportData = async (content: ExportContent = 'all'): Promise<void> => {
     const app = this.requireApp();
     try {
-      await this.exclusive(async () =>
-        exportAll(
-          app,
-          exportCsv,
-          {
-            'console_lines.csv': await consoleLinesCsv(app.store),
-            'notifications.json': this.notificationsExport(),
-            'health-connect.json': JSON.stringify(this.snapshot.healthConnect.state, null, 2),
-            ...(await rawSessionExports().catch((): Record<string, string> => ({}))),
-          },
-          { content, jsonFor: exportJson },
-        ),
-      );
+      await this.exclusive(async () => {
+        const sessions = await rawSessionExports().catch((): Record<string, string> => ({}));
+        const extras =
+          content === 'sessions'
+            ? sessions
+            : {
+                'console_lines.csv': await consoleLinesCsv(app.store),
+                'notifications.json': this.notificationsExport(),
+                'health-connect.json': JSON.stringify(this.snapshot.healthConnect.state, null, 2),
+                ...sessions,
+              };
+        return exportAll(app, exportCsv, extras, { content, jsonFor: exportJson });
+      });
     } catch (error) {
       this.fail(error);
     }
