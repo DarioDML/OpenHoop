@@ -1,7 +1,7 @@
 import type { BodyMeasurement, DayRecord, LabResult, StrengthSession } from '@openhoop/core';
 
 import { PACE_MIN_DAYS, bodyAgeHeadline, latestFitnessAge, latestPhenoAge, paceOfAging, phenoAgeHistory, yearsDifference } from '@/data/bodyAgeDerived';
-import { CONTRIBUTOR_IDS, CONTRIBUTOR_WINDOW_DAYS, STEPS_TARGET, bodyAgeContributors, contributorById, statusFor, type ContributorInput } from '@/data/contributors';
+import { CONTRIBUTOR_IDS, CONTRIBUTOR_WINDOW_DAYS, STEPS_TARGET, bodyAgeContributors, contributorById, contributorScale, statusFor, type ContributorInput } from '@/data/contributors';
 import { addDays } from '@/data/derived';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { FITNESS_LEVELS, fitnessLevel, scalePosition } from '@/data/healthspanDerived';
@@ -173,5 +173,23 @@ describe('VO2 max fitness level', () => {
     expect(at(90)).toBe(1);
     expect(at(48)).toBeGreaterThan(0.2);
     expect(at(48)).toBeLessThan(0.4);
+  });
+});
+
+describe('contributor scale', () => {
+  const base = { id: 'zones13' as const, minutes: null, measured: 10, targetReason: null, status: null, reason: null };
+
+  it('puts a two-sided target in the middle third', () => {
+    const scale = contributorScale({ ...base, value: 225, target: { kind: 'range', low: 150, high: 300, basis: 'adults' } });
+    expect(scale?.segments.map((s) => s.zone)).toEqual(['below', 'target', 'above']);
+    expect(scale?.position).toBeCloseTo(0.5, 9);
+    expect(contributorScale({ ...base, value: 0, target: { kind: 'range', low: 150, high: 300, basis: 'adults' } })?.position).toBe(0);
+  });
+
+  it('uses two halves for an at-least target and nothing without a target', () => {
+    const scale = contributorScale({ ...base, id: 'strength', value: 1, target: { kind: 'range', low: 2, high: null, basis: 'adults' } });
+    expect(scale?.segments.map((s) => s.zone)).toEqual(['below', 'target']);
+    expect(scale?.position).toBeCloseTo(0.25, 9);
+    expect(contributorScale({ ...base, value: 20, target: { kind: 'none' } })).toBeNull();
   });
 });

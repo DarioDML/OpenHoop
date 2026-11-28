@@ -2,7 +2,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
+import { CONTRIBUTOR_WINDOW_DAYS, contributorById, contributorScale, isContributorId, type ContributorId, type ScaleZone } from '@/data/contributors';
 import { useAppData } from '@/data/context';
+import { summarizeBiomarkers } from '@/data/labs';
 import {
   PILLAR_IDS,
   PILLAR_MIN_NIGHTS,
@@ -16,17 +18,24 @@ import type { TranslationKey } from '@/i18n';
 import type { TFunction } from '@/i18n/useT';
 import { useT } from '@/i18n/useT';
 import type { Language } from '@/data/types';
-import { formatDuration, formatNumber, formatShortDay } from '@/lib/format';
+import { formatDuration, formatNumber, formatShortDay, todayIso } from '@/lib/format';
+import { useUnits } from '@/lib/units';
 import { StatRow, StatTile } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
+import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
+import { SemiGauge } from '@/ui/Gauge';
+import { CONTRIBUTOR_NAME, contributorReason, contributorTarget, contributorTone, contributorValue, targetBasis } from '@/ui/health/contributorText';
 import { HealthPage } from '@/ui/health/HealthPage';
 import { MethodCard } from '@/ui/health/MethodCard';
 import type { IconName } from '@/ui/Icon';
+import { useLayout } from '@/ui/layout';
+import { LevelNote } from '@/ui/LevelNote';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
+import { Num } from '@/ui/Num';
 import { PARITY } from '@/ui/parity';
-import { spacing, useTheme } from '@/ui/theme';
+import { spacing, useTheme, type ColorTokens } from '@/ui/theme';
 
 const ICONS: Record<PillarId, IconName> = { sleep: 'moon', recovery: 'heart', activity: 'steps', fitness: 'lungs' };
 
@@ -219,11 +228,121 @@ function Detail({ id, pillars }: { id: PillarId; pillars: HealthspanPillars }) {
   );
 }
 
+function zoneColor(colors: ColorTokens, zone: ScaleZone): string {
+  if (zone === 'below') return colors.negative;
+  if (zone === 'target') return colors.positive;
+  return colors.textFaint;
+}
+
+function ContributorDetail({ id }: { id: ContributorId }) {
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  const units = useUnits();
+  const { width, gutter } = useLayout();
+  const { days, profile, userData, labResults, bodyMeasurements, strength } = useAppData();
+  const c = contributorById({ days, profile, sex: userData.sex, sessions: strength.sessions, bodyMeasurements, today: todayIso(new Date(Date.now())) }, id);
+  const text = { t, language, units };
+  const value = contributorValue(c, text);
+  const target = contributorTarget(c, text);
+  const scale = contributorScale(c);
+  const tone = contributorTone(c);
+  const labs = summarizeBiomarkers(labResults);
+  const newest = labs.reduce<string | null>((max, s) => (max === null || s.latest.day > max ? s.latest.day : max), null);
+  const size = Math.min(300, width - gutter * 2 - 40);
+  const status = c.status === null ? (value === null ? null : t('health.contrib.status.none')) : t(`health.contrib.status.${c.status}`);
+
+  return (
+    <HealthPage
+      title={t(CONTRIBUTOR_NAME[id])}
+      testID={`health-contributor-${id}`}
+      hero={
+        <View style={{ gap: spacing.md, alignItems: 'center' }}>
+          {scale === null ? null : (
+            <SemiGauge
+              size={size}
+              stroke={18}
+              gap={0.02}
+              segments={scale.segments.map((s) => ({ from: s.from, to: s.to, color: zoneColor(colors, s.zone) }))}
+              marker={scale.position}
+              testID="contributor-gauge"
+            />
+          )}
+          {value === null ? (
+            <AppText variant="title" muted style={{ textAlign: 'center' }} testID="contributor-reason">
+              {contributorReason(c, t)}
+            </AppText>
+          ) : (
+            <Num size={64} testID="contributor-value" style={{ textAlign: 'center' }}>
+              {value}
+            </Num>
+          )}
+          {status === null ? null : <Chip label={status} tone={tone} testID="contributor-status" />}
+        </View>
+      }>
+      <Card testID="contributor-compare">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+          <AppText variant="body" style={{ flexShrink: 1 }}>
+            {t('health.contrib.you')}
+          </AppText>
+          <AppText variant="bodyStrong" numeric muted={value === null} style={{ flexShrink: 1, textAlign: 'right' }}>
+            {value ?? contributorReason(c, t)}
+          </AppText>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+          <AppText variant="body" style={{ flexShrink: 1 }} testID="contributor-basis">
+            {target === null ? t('health.contrib.status.none') : targetBasis(c, t)}
+          </AppText>
+          {target === null ? null : (
+            <AppText variant="bodyStrong" numeric style={{ textAlign: 'right' }} testID="contributor-target">
+              {target}
+            </AppText>
+          )}
+        </View>
+        {target === null ? (
+          <AppText variant="label" muted testID="contributor-target-reason">
+            {targetBasis(c, t)}
+          </AppText>
+        ) : null}
+        {id === 'strength' && c.minutes !== null ? (
+          <AppText variant="label" muted>
+            {t('health.contrib.strengthMinutes', { value: formatNumber(c.minutes, 0, language) })}
+          </AppText>
+        ) : null}
+        <AppText variant="caption" muted>
+          {t('health.contrib.window', { weeks: CONTRIBUTOR_WINDOW_DAYS / 7 })}
+        </AppText>
+      </Card>
+      <Card testID="contributor-advice">
+        <AppText variant="cardTitle">{t('health.contrib.howTo')}</AppText>
+        <AppText variant="body" soft>
+          {t(`health.contrib.${id}.advice`)}
+        </AppText>
+      </Card>
+      <ListGroup>
+        <ListRow
+          testID="contributor-labs"
+          title={t('health.contrib.linkedLabs')}
+          subtitle={labs.length === 0 || newest === null ? t('health.contrib.labsNone') : t('health.contrib.labsSome', { count: labs.length, day: formatShortDay(newest, language) })}
+          icon={{ icon: 'flask', color: colors.positive, background: colors.positiveSoft }}
+          href="/health/labs"
+        />
+        <ListRow testID="contributor-pillars" title={t('health.pillar.title')} subtitle={t('health.hub.pillarsHint')} icon={{ icon: 'target', color: colors.textSoft, background: colors.surfaceAlt }} href="/health/pillar" />
+      </ListGroup>
+      <LevelNote level={PARITY.pillars} text={t(`health.contrib.${id}.source`)} testID="contributor-source" />
+    </HealthPage>
+  );
+}
+
 export default function PillarScreen() {
+  const params = useLocalSearchParams<{ id?: string; contributor?: string }>();
+  if (isContributorId(params.contributor)) return <ContributorDetail id={params.contributor} />;
+  return <PillarOverview pillarId={params.id} />;
+}
+
+function PillarOverview({ pillarId }: { pillarId: string | undefined }) {
   const { t, language } = useT();
   const { days, profile, userData } = useAppData();
-  const params = useLocalSearchParams<{ id?: string }>();
-  const id = isPillarId(params.id) ? params.id : null;
+  const id = isPillarId(pillarId) ? pillarId : null;
   const pillars = healthspanPillars(days, profile, userData.sex);
   const title = id === null ? t('health.pillar.title') : t(`health.pillar.name.${id}`);
 

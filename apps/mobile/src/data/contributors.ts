@@ -169,3 +169,36 @@ export function contributorById(input: ContributorInput, id: ContributorId): Con
   if (found === undefined) throw new Error(`unknown contributor ${id}`);
   return found;
 }
+
+export type ScaleZone = 'below' | 'target' | 'above';
+
+export interface ContributorScale {
+  segments: Array<{ from: number; to: number; zone: ScaleZone }>;
+  position: number | null;
+}
+
+export function contributorScale(c: Contributor): ContributorScale | null {
+  if (c.target.kind === 'none') return null;
+  const { low, high } = c.target;
+  const clamp = (f: number): number => Math.min(1, Math.max(0, f));
+  if (high === null) {
+    const max = low * 2;
+    return {
+      segments: [
+        { from: 0, to: 0.5, zone: 'below' },
+        { from: 0.5, to: 1, zone: 'target' },
+      ],
+      position: c.value === null || max <= 0 ? null : clamp(c.value / max),
+    };
+  }
+  const width = Math.max(high - low, Number.EPSILON);
+  const min = low - width;
+  return {
+    segments: [
+      { from: 0, to: 1 / 3, zone: 'below' },
+      { from: 1 / 3, to: 2 / 3, zone: 'target' },
+      { from: 2 / 3, to: 1, zone: 'above' },
+    ],
+    position: c.value === null ? null : clamp((c.value - min) / (width * 3)),
+  };
+}

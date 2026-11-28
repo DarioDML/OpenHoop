@@ -11,7 +11,7 @@ import type { DayRecord } from '@openhoop/core';
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
 const mockPush = jest.fn();
-const mockParams: { id?: string } = {};
+const mockParams: { id?: string; contributor?: string } = {};
 
 jest.mock('expo-router', () => ({
   router: { push: (href: unknown) => mockPush(href), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
@@ -213,5 +213,46 @@ describe('Healthspan pillar screen', () => {
     mockParams.id = 'age';
     await render(withAppData(<PillarScreen />, 'en'));
     expect(screen.getByTestId('health-pillar')).toBeTruthy();
+  });
+});
+
+describe('Contributor detail', () => {
+  beforeEach(() => {
+    delete mockParams.id;
+    mockPush.mockClear();
+  });
+
+  it('shows one contributor against the WHO target with advice, labs and the way back to the pillars', async () => {
+    mockParams.contributor = 'zones13';
+    await render(withAppData(<PillarScreen />, 'en', { profile: PROFILE, userData: MAN }));
+    expect(screen.getByTestId('health-contributor-zones13')).toBeTruthy();
+    expect(screen.getByTestId('contributor-gauge')).toBeTruthy();
+    expect(screen.getByTestId('contributor-target')).toHaveTextContent('150–300 min/wk');
+    expect(screen.getByTestId('contributor-basis')).toHaveTextContent('Target for adults');
+    expect(screen.getByTestId('contributor-advice')).toHaveTextContent(/How to move it/);
+    expect(screen.getByTestId('contributor-labs')).toHaveTextContent(/None uploaded/);
+    expect(screen.getByTestId('contributor-source')).toHaveTextContent(/WHO 2020/);
+    await fireEvent.press(screen.getByTestId('contributor-pillars'));
+    expect(mockPush).toHaveBeenCalledWith('/health/pillar');
+  });
+
+  it('says plainly when no target is published and draws no gauge', async () => {
+    mockParams.contributor = 'zones45';
+    await render(withAppData(<PillarScreen />, 'en', { profile: PROFILE, userData: MAN }));
+    expect(screen.queryByTestId('contributor-gauge')).toBeNull();
+    expect(screen.getByTestId('contributor-target-reason')).toHaveTextContent('No published target: follow your own trend');
+  });
+
+  it('explains a missing value', async () => {
+    mockParams.contributor = 'leanMass';
+    await render(withAppData(<PillarScreen />, 'en', { profile: PROFILE, userData: MAN }));
+    expect(screen.getByTestId('contributor-reason')).toHaveTextContent('No body measurement entered yet');
+  });
+
+  it('falls back to the pillar overview for an unknown contributor', async () => {
+    mockParams.contributor = 'nonsense';
+    await render(withAppData(<PillarScreen />, 'en', { profile: PROFILE, userData: MAN }));
+    expect(screen.getByTestId('health-pillar')).toBeTruthy();
+    delete mockParams.contributor;
   });
 });
