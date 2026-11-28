@@ -33,12 +33,12 @@ export default function ProfileScreen() {
 
   return (
     <OnboardingPage
-      step={2}
+      screen="profile"
       title={t('onboarding.profile.title')}
       subtitle={t('onboarding.profile.subtitle')}
       primary={{ label: t('common.continue'), onPress: () => void next() }}>
       <Field label={t('onboarding.profile.nameLabel')} value={name} onChangeText={setName} maxLength={40} autoCapitalize="words" autoCorrect={false} testID="name-input" />
-      <NotBuilt issue="backup" compact body={t('onboarding.profile.accountNotBuilt')} />
+      <NotBuilt issue="backup" compact body={t('onboarding.profile.accountBody')} />
       <Card style={{ gap: spacing.md }}>
         <AppText variant="capLarge" muted>
           {t('onboarding.profile.promiseTitle')}

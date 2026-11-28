@@ -91,6 +91,9 @@ export interface SyncProgressView {
   percent: number | null;
   daysDone: number;
   daysTotal: number;
+  pagesRead?: number | null;
+  pagesTotal?: number | null;
+  historyDays?: number | null;
 }
 
 export interface Notice {
@@ -285,6 +288,7 @@ export interface AppData {
   clearInbox(): Promise<void>;
   refreshHealthConnect(): Promise<void>;
   setHealthConnectType(type: HcDataType, enabled: boolean): Promise<boolean>;
+  setHealthConnectTypes(types: readonly HcDataType[], enabled: boolean): Promise<boolean>;
   setHealthConnectAfterSync(enabled: boolean): Promise<void>;
   requestHealthConnectAccess(): Promise<void>;
   syncHealthConnect(): Promise<void>;

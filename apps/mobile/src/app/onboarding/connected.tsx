@@ -18,7 +18,7 @@ export default function PairConnectedScreen() {
 
   return (
     <OnboardingPage
-      step={8}
+      screen="connected"
       hideBack
       title={t('onboarding.connected.title')}
       subtitle={t('onboarding.connected.subtitle')}

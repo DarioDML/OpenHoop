@@ -17,7 +17,7 @@ export default function PermissionsScreen() {
 
   return (
     <OnboardingPage
-      step={5}
+      screen="permissions"
       title={t('onboarding.permissions.title')}
       subtitle={t('onboarding.permissions.subtitle')}
       primary={{ label: t('common.continue'), onPress: () => router.push('/onboarding/official-app') }}>
@@ -50,7 +50,6 @@ export default function PermissionsScreen() {
           icon={tile(colors, 'map', 'positive')}
           title={t('onboarding.permissions.location')}
           subtitle={t('onboarding.permissions.locationBody')}
-          right={<Chip label={t('onboarding.permissions.optional')} small />}
           chevron={false}
         />
       </ListGroup>

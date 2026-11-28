@@ -72,7 +72,7 @@ export default function SetupScreen() {
 
   return (
     <OnboardingPage
-      step={9}
+      screen="setup"
       hideBack
       title={t('onboarding.setup.title')}
       subtitle={t('onboarding.setup.subtitle')}
@@ -115,7 +115,7 @@ export default function SetupScreen() {
         </Card>
       ) : null}
       <AppText variant="label" muted>
-        {t('onboarding.setup.noFirmware')}
+        {t('onboarding.setup.firmwareUnknown')}
       </AppText>
     </OnboardingPage>
   );

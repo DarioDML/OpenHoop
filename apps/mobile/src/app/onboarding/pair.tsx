@@ -80,7 +80,7 @@ export default function PairScanScreen() {
 
   return (
     <OnboardingPage
-      step={7}
+      screen="pair"
       title={t('onboarding.pair.title')}
       subtitle={t('onboarding.pair.subtitle')}
       primary={

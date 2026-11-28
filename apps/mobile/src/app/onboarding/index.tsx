@@ -38,7 +38,7 @@ export default function WelcomeScreen() {
 
   return (
     <OnboardingPage
-      step={1}
+      screen="welcome"
       hideBack
       testID="onboarding-welcome"
       title={t('onboarding.welcome.title')}

@@ -23,7 +23,7 @@ export default function WearGuideScreen() {
 
   return (
     <OnboardingPage
-      step={10}
+      screen="wear"
       title={t('onboarding.wear.title')}
       subtitle={t('onboarding.wear.subtitle')}
       primary={{ label: t('onboarding.wear.done'), onPress: () => router.push('/onboarding/calibration') }}>

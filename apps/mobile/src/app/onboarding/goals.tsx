@@ -18,6 +18,9 @@ const GOAL_ICONS: Readonly<Record<Goal, IconName>> = {
   stress: 'wind',
   health: 'health',
   performance: 'trophy',
+  longevity: 'sparkle',
+  strength: 'dumbbell',
+  cycle: 'calendar',
 };
 
 export default function GoalsScreen() {
@@ -37,7 +40,7 @@ export default function GoalsScreen() {
 
   return (
     <OnboardingPage
-      step={4}
+      screen="goals"
       title={t('onboarding.goals.title')}
       subtitle={t('onboarding.goals.subtitle')}
       primary={{ label: t('common.continue'), onPress: () => void next() }}>

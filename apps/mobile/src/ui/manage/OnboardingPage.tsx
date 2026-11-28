@@ -1,31 +1,36 @@
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
+import { onboardingStage, type OnboardingScreen } from '@/data/onboarding';
+import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/controls';
 import { Screen } from '@/ui/Screen';
 import { radius, spacing, useTheme } from '@/ui/theme';
 import { TopBar } from '@/ui/TopBar';
 
-export const ONBOARDING_STEPS = 11;
-
 interface DotsProps {
-  step: number;
-  total?: number;
+  screen: OnboardingScreen;
 }
 
-export function StepDots({ step, total = ONBOARDING_STEPS }: DotsProps) {
+export function StepDots({ screen }: DotsProps) {
   const { colors } = useTheme();
+  const { t } = useT();
+  const { part, stage, total } = onboardingStage(screen);
   return (
-    <View accessible accessibilityLabel={`${step} / ${total}`} style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+    <View
+      accessible
+      accessibilityLabel={t(part === 'you' ? 'onboarding.stage.you' : 'onboarding.stage.band', { stage, total })}
+      testID="onboarding-dots"
+      style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
       {Array.from({ length: total }, (_, index) => (
         <View
           key={index}
           style={{
-            width: index + 1 === step ? 22 : 8,
+            width: index + 1 === stage ? 22 : 8,
             height: 8,
             borderRadius: radius.pill,
-            backgroundColor: index + 1 === step ? colors.text : index + 1 < step ? colors.textMuted : colors.surface3,
+            backgroundColor: index + 1 === stage ? colors.text : colors.surface3,
           }}
         />
       ))}
@@ -41,7 +46,7 @@ interface Action {
 }
 
 interface Props {
-  step: number;
+  screen: OnboardingScreen;
   title: string;
   subtitle?: string;
   children?: ReactNode;
@@ -52,7 +57,7 @@ interface Props {
   testID?: string;
 }
 
-export function OnboardingPage({ step, title, subtitle, children, primary, secondary, tertiary, hideBack = false, testID }: Props) {
+export function OnboardingPage({ screen, title, subtitle, children, primary, secondary, tertiary, hideBack = false, testID }: Props) {
   return (
     <Screen
       tint="home"
@@ -65,7 +70,7 @@ export function OnboardingPage({ step, title, subtitle, children, primary, secon
           {tertiary ? <Button label={tertiary.label} variant="tertiary" onPress={tertiary.onPress} disabled={tertiary.disabled} testID={tertiary.testID} /> : null}
         </>
       }>
-      <TopBar back={!hideBack} center={<StepDots step={step} />} />
+      <TopBar back={!hideBack} center={<StepDots screen={screen} />} />
       <View style={{ gap: 10 }}>
         <AppText variant="h1" accessibilityRole="header">
           {title}

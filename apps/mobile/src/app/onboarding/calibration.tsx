@@ -33,7 +33,7 @@ export default function CalibrationScreen() {
 
   return (
     <OnboardingPage
-      step={11}
+      screen="calibration"
       title={t('onboarding.calibration.title', { count: MIN_BASELINE_NIGHTS })}
       subtitle={t('onboarding.calibration.subtitle')}
       primary={{ label: t('onboarding.calibration.home'), onPress: () => void finish(), testID: 'calibration-finish' }}>

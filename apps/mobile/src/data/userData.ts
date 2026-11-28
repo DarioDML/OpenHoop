@@ -21,7 +21,7 @@ export type DashboardTile = (typeof DASHBOARD_TILES)[number];
 export const HOME_SECTIONS = ['summary', 'brief', 'coach', 'live', 'myDay', 'week', 'tonight', 'dashboard'] as const;
 export type HomeSection = (typeof HOME_SECTIONS)[number];
 
-export const GOALS = ['sleep', 'recovery', 'fitness', 'stress', 'health', 'performance'] as const;
+export const GOALS = ['performance', 'sleep', 'longevity', 'stress', 'strength', 'cycle', 'recovery', 'fitness', 'health'] as const;
 export type Goal = (typeof GOALS)[number];
 
 export const SLEEP_GOALS = ['plan', 'peak', 'getBy'] as const;
@@ -36,6 +36,9 @@ export interface VendorUse {
 
 export const WEAR_LOCATIONS = ['wrist', 'bicep', 'torso', 'waist', 'calf'] as const;
 export type WearLocation = (typeof WEAR_LOCATIONS)[number];
+
+export const OFFICIAL_APP_MODES = ['only', 'switch'] as const;
+export type OfficialAppMode = (typeof OFFICIAL_APP_MODES)[number];
 
 export interface NotificationPrefs {
   enabled: boolean;
@@ -94,6 +97,7 @@ export interface UserData {
   stravaAutoShare: AutoSharePrefs;
   rawRetentionDays: RawRetentionDays | null;
   vendorUse: VendorUse;
+  officialAppMode: OfficialAppMode | null;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -130,6 +134,7 @@ export function defaultUserData(): UserData {
     stravaAutoShare: defaultAutoSharePrefs(),
     rawRetentionDays: null,
     vendorUse: { accuracy: true, history: true },
+    officialAppMode: null,
   };
 }
 
@@ -278,6 +283,7 @@ export function parseUserData(raw: string | null): UserData {
       accuracy: !isRecord(parsed.vendorUse) || parsed.vendorUse.accuracy !== false,
       history: !isRecord(parsed.vendorUse) || parsed.vendorUse.history !== false,
     },
+    officialAppMode: oneOf(parsed.officialAppMode, OFFICIAL_APP_MODES),
   };
 }
 

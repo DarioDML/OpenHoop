@@ -50,7 +50,7 @@ export default function BodyScreen() {
 
   return (
     <OnboardingPage
-      step={3}
+      screen="body"
       title={t('onboarding.body.title')}
       subtitle={t('onboarding.body.subtitle')}
       primary={{ label: t('common.continue'), onPress: () => void next() }}>

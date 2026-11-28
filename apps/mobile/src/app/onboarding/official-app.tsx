@@ -14,21 +14,21 @@ export default function OfficialAppScreen() {
 
   return (
     <OnboardingPage
-      step={6}
+      screen="official"
       title={t('onboarding.official.title')}
       subtitle={t('onboarding.official.subtitle')}
       primary={{ label: t('common.continue'), onPress: () => router.push('/onboarding/pair') }}
       secondary={{ label: t('onboarding.official.importAction'), onPress: () => router.push('/settings/import'), testID: 'onboarding-import' }}>
       <Card tone="accent" style={{ gap: 4 }}>
-        <AppText variant="bodyStrong">{t('onboarding.official.onlyTitle')}</AppText>
+        <AppText variant="bodyStrong">{t('onboarding.official.guideOnlyTitle')}</AppText>
         <AppText variant="label" muted>
-          {t('onboarding.official.onlyBody')}
+          {t('onboarding.official.guideOnlyBody')}
         </AppText>
       </Card>
       <Card style={{ gap: 4 }}>
-        <AppText variant="bodyStrong">{t('onboarding.official.switchTitle')}</AppText>
+        <AppText variant="bodyStrong">{t('onboarding.official.guideSwitchTitle')}</AppText>
         <AppText variant="label" muted>
-          {t('onboarding.official.switchBody')}
+          {t('onboarding.official.guideSwitchBody')}
         </AppText>
       </Card>
       <Card style={{ gap: 4 }} testID="onboarding-import-card">
