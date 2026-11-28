@@ -1,4 +1,5 @@
-import { KNOWN_REASONS, allTranslations, reasonKey, reasonText, translate } from '@/i18n';
+import { KNOWN_REASONS, allTranslations, countKey, reasonKey, reasonText, translate } from '@/i18n';
+import { needReasonKey } from '@/ui/sleep/needReason';
 
 const { en, nl } = allTranslations;
 
@@ -47,5 +48,27 @@ describe('reason-to-text mapping', () => {
   it('falls back for null and unknown reasons without leaking the raw code', () => {
     expect(reasonText('en', null)).toBe('No data');
     expect(reasonText('nl', 'something-new')).toBe('Geen waarde beschikbaar');
+  });
+});
+
+describe('countKey', () => {
+  it('picks the singular text only for exactly one', () => {
+    expect(translate('en', countKey(1, 'stage.trendNightsOne', 'stage.trendNights'), { count: 1 })).toBe('1 night');
+    expect(translate('nl', countKey(1, 'stage.trendNightsOne', 'stage.trendNights'), { count: 1 })).toBe('1 nacht');
+    expect(translate('en', countKey(0, 'stage.trendNightsOne', 'stage.trendNights'), { count: 0 })).toBe('0 nights');
+    expect(translate('en', countKey(5, 'sleepx.typicalNeedHintOne', 'sleepx.typicalNeedHint'), { count: 5 })).toBe('Average over the 5 nights before today');
+    expect(translate('en', countKey(1, 'sleepx.typicalNeedHintOne', 'sleepx.typicalNeedHint'), { count: 1 })).not.toMatch(/1 nights/);
+  });
+});
+
+describe('needReasonKey', () => {
+  it('says a missing sleep need waits for a recorded night', () => {
+    expect(translate('en', needReasonKey('no-sleep'))).toBe('Known after a recorded night');
+    expect(translate('nl', needReasonKey('no-sleep'))).toBe('Bekend na een gemeten nacht');
+  });
+
+  it('keeps the general reason for every other cause', () => {
+    expect(needReasonKey('needs-history')).toBe(reasonKey('needs-history'));
+    expect(needReasonKey(null)).toBe(reasonKey(null));
   });
 });

@@ -20,6 +20,7 @@ import { deviceTzOffsetS } from '@/lib/dates';
 import { confirmedAlarm } from '@/data/alarm';
 import type { AlarmView } from '@/data/types';
 import { strengthWeek } from '@/data/strength';
+import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatNumber, todayIso } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -451,8 +452,8 @@ function WeekRow({ label, a11y, children, value, met, caption, testID }: WeekRow
         <AppText variant="cap" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ width: 84 }}>
           {label}
         </AppText>
-        <View style={{ flex: 1 }}>{children}</View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }} testID={`${testID}-trail`}>
           {met ? <GoalSeal label={t('home.week.goalMet')} testID={`${testID}-seal`} /> : null}
           <AppText variant="label" numeric color={met ? colors.positive : colors.textMuted} testID={testID}>
             {value}
@@ -547,13 +548,13 @@ export function WeekCard({ days, index }: DayProps) {
   return (
     <Card href="/plan" testID="card-week" accessibilityLabel={t('home.thisWeek')} style={{ gap: spacing.lg }}>
       <CardHeader title={t('home.thisWeek')} action={`${t('home.weeklyPlan')} ›`} href="/plan" />
-      <WeekRow label={t('score.load')} a11y={t('home.weekActive')} value={t('home.week.daysCount', { count: progress.loadCount })} met={false} testID="week-load">
+      <WeekRow label={t('score.load')} a11y={t('home.weekActive')} value={t(countKey(progress.loadCount, 'home.week.daysCountOne', 'home.week.daysCount'), { count: progress.loadCount })} met={false} testID="week-load">
         <WeekDots dots={progress.loadDots} color={colors.metric.loadBright} />
       </WeekRow>
       <WeekRow
         label={t('home.week.sleep')}
         a11y={t('home.weekSleep')}
-        value={t('home.week.nightsCount', { count: progress.sleepCount })}
+        value={t(countKey(progress.sleepCount, 'home.week.nightsCountOne', 'home.week.nightsCount'), { count: progress.sleepCount })}
         caption={t('home.weekSleep')}
         met={false}
         testID="week-sleep">

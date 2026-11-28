@@ -36,6 +36,7 @@ import { PARITY } from '@/ui/parity';
 import { ScoreRing } from '@/ui/ScoreRing';
 import { ContributorRow } from '@/ui/sleep/ContributorRow';
 import { NeedBar, NeedLegend } from '@/ui/sleep/NeedBar';
+import { needReasonKey } from '@/ui/sleep/needReason';
 import { useNightHeartRate } from '@/ui/sleep/useNightHeartRate';
 import { SleepTimeline } from '@/ui/SleepTimeline';
 import { StageCard } from '@/ui/StageCard';
@@ -137,7 +138,7 @@ export default function SleepScreen() {
           />
           <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', justifyContent: 'center' }}>
             <HeroPill label={t('sleepx.slept')} value={sleep.asleepS === null ? reason('no-sleep') : formatHm(sleep.asleepS)} testID="slept" />
-            <HeroPill label={t('sleepx.needed')} value={need === null ? reason(sleep.need.reason) : formatHm(need)} testID="needed" />
+            <HeroPill label={t('sleepx.needed')} value={need === null ? t(needReasonKey(sleep.need.reason)) : formatHm(need)} testID="needed" />
           </View>
         </View>
       }>
@@ -183,8 +184,8 @@ export default function SleepScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.md }}>
           <AppText variant="cardTitle">{t('metric.need')}</AppText>
           {need === null ? (
-            <AppText variant="label" muted>
-              {reason(sleep.need.reason)}
+            <AppText variant="label" muted testID="need-total-reason">
+              {t(needReasonKey(sleep.need.reason))}
             </AppText>
           ) : (
             <Num size={28} testID="need-total">

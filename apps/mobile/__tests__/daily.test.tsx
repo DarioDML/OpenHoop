@@ -250,9 +250,10 @@ describe('Home', () => {
 
   it('keeps the fixed week rows with a visible sleep definition when there is no plan', async () => {
     await render(withAppData(<HomeScreen />));
-    expect(screen.getByTestId('week-sleep')).toHaveTextContent(/^\d+ nights$/);
+    expect(screen.getByTestId('week-sleep')).toHaveTextContent(/^(1 night|(\d*[02-9]|\d{2,}) nights)$/);
     expect(screen.getByText('Nights at sleep need')).toBeTruthy();
     expect(screen.getByTestId('week-strength')).toHaveTextContent(/× · \d+ min$/);
+    expect(screen.getByTestId('week-strength-trail')).toHaveStyle({ flexShrink: 0 });
   });
 
   it('says the alarm is off on the Tonight card when none is set', async () => {
