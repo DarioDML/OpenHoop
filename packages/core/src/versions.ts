@@ -2,6 +2,6 @@
 export const SAMPLE_DECODER_VERSION = 2;
 
 // Bump when day records gain or change a value, so stored days are recomputed once.
-export const DAY_RECORD_VERSION = 7;
+export const DAY_RECORD_VERSION = 8;
 
 export { SCHEMA_VERSION } from './store/migrations';

@@ -14,6 +14,7 @@ export const RESTLESS_MIN_S = 3;
 export const AWAKE_HR_RISE = 8;
 export const AWAKE_MIN_HR_RISE = 5;
 export const AWAKE_HR_MINUTES = 3;
+export const STILL_LEAD_IN_MAX_S = 3600;
 const MINUTE_S = 60;
 const MINUTE_MIN_HR_S = 10;
 
@@ -103,31 +104,46 @@ function heldHr(minuteHr: readonly number[], k: number): number {
   return count > 0 ? sum / count : Number.NaN;
 }
 
-function wakeAt(rows: readonly Sample[], period: SleepPeriod): number {
-  const from = lowerBound(rows, period.onset);
-  const to = lowerBound(rows, period.offset + 1);
+interface MinuteStats {
+  restless: Int32Array;
+  hr: number[];
+}
+
+function restlessThreshold(rows: readonly Sample[], from: number, to: number): number {
   const motion: number[] = [];
   for (let i = from; i < to; i++) {
     const m = rows[i]?.motionG;
     if (m !== null && m !== undefined && Number.isFinite(m) && m >= 0) motion.push(m);
   }
   const motionMedian = median(motion);
-  const restlessG = motionMedian === null ? Infinity : Math.max(RESTLESS_MOTION_RATIO * motionMedian, RESTLESS_MOTION_FLOOR_G);
-  const minutes = Math.floor((period.offset - period.onset) / MINUTE_S) + 1;
+  return motionMedian === null ? Infinity : Math.max(RESTLESS_MOTION_RATIO * motionMedian, RESTLESS_MOTION_FLOOR_G);
+}
+
+function minuteStats(rows: readonly Sample[], from: number, to: number, minutes: number, minuteOf: (t: number) => number, restlessG: number): MinuteStats {
   const restless = new Int32Array(minutes);
   const hrSum = new Float64Array(minutes);
   const hrCount = new Int32Array(minutes);
   for (let i = from; i < to; i++) {
     const r = rows[i];
     if (r === undefined) continue;
-    const k = Math.floor((period.offset - r.t) / MINUTE_S);
+    const k = minuteOf(r.t);
+    if (k < 0 || k >= minutes) continue;
     if (r.motionG !== null && r.motionG > restlessG) restless[k] = (restless[k] ?? 0) + 1;
     if (isValidHr(r.hr)) {
       hrSum[k] = (hrSum[k] ?? 0) + r.hr;
       hrCount[k] = (hrCount[k] ?? 0) + 1;
     }
   }
-  const minuteHr = Array.from(hrSum, (sum, k) => ((hrCount[k] ?? 0) >= MINUTE_MIN_HR_S ? sum / (hrCount[k] ?? 1) : Number.NaN));
+  const hr = Array.from(hrSum, (sum, k) => ((hrCount[k] ?? 0) >= MINUTE_MIN_HR_S ? sum / (hrCount[k] ?? 1) : Number.NaN));
+  return { restless, hr };
+}
+
+function wakeAt(rows: readonly Sample[], period: SleepPeriod): number {
+  const from = lowerBound(rows, period.onset);
+  const to = lowerBound(rows, period.offset + 1);
+  const restlessG = restlessThreshold(rows, from, to);
+  const minutes = Math.floor((period.offset - period.onset) / MINUTE_S) + 1;
+  const { restless, hr: minuteHr } = minuteStats(rows, from, to, minutes, (t) => Math.floor((period.offset - t) / MINUTE_S), restlessG);
   const sleepingHr = median(minuteHr.filter((v) => !Number.isNaN(v)));
   let wake = period.offset + 1;
   let calm = 0;
@@ -190,4 +206,42 @@ export function groupNights<P extends SleepPeriod>(periods: P[]): Night<P>[] {
     nights.push({ periods: g, onset: first.onset, offset: last.offset, asleepS, inBedS });
   }
   return nights;
+}
+
+function stillSince(rows: readonly Sample[], onset: number, after: number, reportsSkinTemp: boolean): number {
+  let start = onset;
+  for (let i = lowerBound(rows, onset) - 1; i >= 0; i--) {
+    const r = rows[i];
+    if (r === undefined || r.t <= after || r.state !== 'STILL' || onset - r.t > STILL_LEAD_IN_MAX_S || start - r.t > MINUTE_S) break;
+    if (reportsSkinTemp && r.skinTempC === null) break;
+    start = r.t;
+  }
+  return start;
+}
+
+// The band only flags SLEEP after the wearer has lain still for about ten minutes, and calls that stretch STILL. It is
+// time in bed; from the end of its last restless or raised-heart-rate minute it is sleep the band has not flagged yet.
+export function withStillLeadIn(periods: readonly SleepPeriod[], samples: readonly Sample[]): SleepPeriod[] {
+  if (periods.length === 0) return [];
+  const rows = sortedUnique(samples);
+  const reportsSkinTemp = rows.some((r) => r.skinTempC !== null);
+  let previousEnd = -Infinity;
+  return periods.map((period) => {
+    const start = stillSince(rows, period.onset, previousEnd, reportsSkinTemp);
+    previousEnd = Math.max(period.offset, period.onset + period.inBedS - 1);
+    if (start >= period.onset) return period;
+    const from = lowerBound(rows, period.onset);
+    const to = lowerBound(rows, period.offset + 1);
+    const restlessG = restlessThreshold(rows, from, to);
+    const own = minuteStats(rows, from, to, Math.floor((period.offset - period.onset) / MINUTE_S) + 1, (t) => Math.floor((t - period.onset) / MINUTE_S), restlessG);
+    const sleepingHr = median(own.hr.filter((v) => !Number.isNaN(v)));
+    const minutes = Math.ceil((period.onset - start) / MINUTE_S);
+    const lead = minuteStats(rows, lowerBound(rows, start), from, minutes, (t) => Math.floor((t - start) / MINUTE_S), restlessG);
+    let asleepFrom = start;
+    for (let k = 0; k < minutes; k++) {
+      const raised = sleepingHr !== null && (lead.hr[k] ?? Number.NaN) - sleepingHr >= AWAKE_MIN_HR_RISE;
+      if ((lead.restless[k] ?? 0) >= RESTLESS_MIN_S || raised) asleepFrom = Math.min(period.onset, start + (k + 1) * MINUTE_S);
+    }
+    return { ...period, onset: start, asleepS: period.asleepS + period.onset - asleepFrom, inBedS: period.inBedS + period.onset - start };
+  });
 }

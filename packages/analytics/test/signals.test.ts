@@ -11,6 +11,7 @@ import {
   rmssd,
   sleepPeriods,
   spo2Windows,
+  withStillLeadIn,
   withoutAwakeTails,
 } from '../src';
 import type { Sample, SleepPeriod } from '../src';
@@ -184,6 +185,53 @@ describe('awake time at the end of a band-flagged sleep', () => {
       return turnsAt.some((at) => i >= at && i < at + 20) ? { ...s, hr: 72, motionG: 0.6 } : s;
     });
     expect(Math.abs((detect(samples)[0]?.offset ?? 0) - (T0 + ASLEEP_S - 1))).toBeLessThanOrEqual(120);
+  });
+});
+
+describe('lying still before the band flags sleep', () => {
+  const LEAD_S = 15 * 60;
+  const ASLEEP_S = 6 * 3600;
+
+  function night(lead: (i: number) => Partial<Sample>, leadS = LEAD_S): Sample[] {
+    const out: Sample[] = [];
+    for (let i = 0; i < 1800; i++) out.push(sample(T0 + i, { state: 'WAKE', hr: 75, motionG: 0.2, skinTempC: 32 }));
+    for (let i = 0; i < leadS; i++) out.push(sample(T0 + 1800 + i, { state: 'STILL', hr: 56, motionG: 0.006, skinTempC: 33.2, ...lead(i) }));
+    for (let i = 0; i < ASLEEP_S; i++) out.push(sample(T0 + 1800 + leadS + i, { state: 'SLEEP', hr: 54 + (Math.floor(i / 40) % 3), motionG: 0.006, skinTempC: 33.4 }));
+    return out;
+  }
+
+  it('starts the night when the wearer lay still and counts the calm minutes after the last movement as asleep', () => {
+    const samples = night((i) => (Math.floor(i / 60) === 3 && i % 60 < 10 ? { hr: 66, motionG: 0.3 } : {}));
+    const band = sleepPeriods(samples)[0];
+    const [period, ...rest] = withStillLeadIn(sleepPeriods(samples), samples);
+    expect(rest).toEqual([]);
+    expect(period?.onset).toBe(T0 + 1800);
+    expect(period?.offset).toBe(band?.offset);
+    expect(period?.inBedS).toBe((band?.inBedS ?? 0) + LEAD_S);
+    expect(period?.asleepS).toBe((band?.asleepS ?? 0) + LEAD_S - 4 * 60);
+  });
+
+  it('leaves a night alone when the wearer was moving right up to the band flagging sleep', () => {
+    const samples = night(() => ({}), 0);
+    expect(withStillLeadIn(sleepPeriods(samples), samples)).toEqual(sleepPeriods(samples));
+  });
+
+  it('never reaches back into the sleep before it', () => {
+    const samples: Sample[] = [];
+    const state = (i: number): Sample['state'] => (i < 3600 ? 'SLEEP' : i < 3600 + 1500 ? 'STILL' : 'SLEEP');
+    for (let i = 0; i < 3600 + 1500 + 3600; i++) samples.push(sample(T0 + i, { state: state(i), hr: 55, motionG: 0.006, skinTempC: 33.4 }));
+    const periods = withStillLeadIn(sleepPeriods(samples), samples);
+    expect(periods).toHaveLength(2);
+    const [first, second] = periods;
+    expect(second?.onset ?? 0).toBeGreaterThan((first?.onset ?? 0) + (first?.inBedS ?? 0) - 1);
+    expect(second?.onset ?? 0).toBeLessThan(T0 + 3600 + 1500);
+  });
+
+  it('reaches back at most an hour and not over seconds without skin temperature', () => {
+    const long = night(() => ({}), 2 * 3600);
+    expect(withStillLeadIn(sleepPeriods(long), long)[0]?.onset).toBe(T0 + 1800 + 3600);
+    const offWrist = night((i) => (i < 600 ? { skinTempC: null } : {}));
+    expect(withStillLeadIn(sleepPeriods(offWrist), offWrist)[0]?.onset).toBe(T0 + 1800 + 600);
   });
 });
 

@@ -7,7 +7,7 @@ export type { RespiratoryOptions, RespiratoryWindow } from './respiratory';
 export { nightlySpo2, spo2Percent, spo2Windows } from './spo2';
 export type { Spo2Window } from './spo2';
 export { nightlySkinTemp } from './temperature';
-export { SLEEP_MAX_HR, groupNights, isAsleepSample, sleepPeriods, withoutAwakeTails } from './sleep';
+export { SLEEP_MAX_HR, groupNights, isAsleepSample, sleepPeriods, withStillLeadIn, withoutAwakeTails } from './sleep';
 export { lowerBound, sortedUnique } from './series';
 export { DEFAULT_CALIBRATION, effectiveMaxHr } from './calibration';
 export type { Calibration, Profile } from './calibration';
