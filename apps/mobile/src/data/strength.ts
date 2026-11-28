@@ -8,8 +8,13 @@ import type {
   StrengthSet,
 } from '@openhoop/core';
 
+import { activityMetrics, type HrPoint, type LoadReference } from '@openhoop/analytics';
+
+import { formatNumber } from '@/lib/format';
+import { weightIn, weightToKg, weightUnit, type Measure } from '@/lib/units';
+
 import { addDays, weekStart } from './derived';
-import type { HeartRatePoint } from './types';
+import type { HeartRatePoint, Language, Units } from './types';
 
 export const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core'] as const satisfies readonly MuscleGroup[];
 
@@ -57,6 +62,11 @@ export const LIBRARY = [
   { id: 'crunch', muscle: 'core' },
   { id: 'hanging_leg_raise', muscle: 'core' },
   { id: 'cable_crunch', muscle: 'core' },
+  { id: 'kettlebell_swing', muscle: 'glutes' },
+  { id: 'goblet_squat', muscle: 'quads' },
+  { id: 'kettlebell_press', muscle: 'shoulders' },
+  { id: 'kettlebell_row', muscle: 'back' },
+  { id: 'turkish_get_up', muscle: 'core' },
 ] as const satisfies ReadonlyArray<{ id: string; muscle: MuscleGroup }>;
 
 export type LibraryId = (typeof LIBRARY)[number]['id'];
@@ -109,11 +119,19 @@ function parseInteger(text: string, limits: { readonly min: number; readonly max
   return value >= limits.min && value <= limits.max ? value : null;
 }
 
-function parseDecimal(text: string, limits: { readonly min: number; readonly max: number }): number | null {
+export function roundKg(kg: number): number {
+  return Math.round(kg * 1000) / 1000;
+}
+
+function parseWeight(text: string, units: Units): number | null {
   const trimmed = text.trim();
   if (!DECIMAL.test(trimmed)) return null;
-  const value = Number(trimmed.replace(',', '.'));
-  return value >= limits.min && value <= limits.max ? value : null;
+  const kg = roundKg(weightToKg(Number(trimmed.replace(',', '.')), units));
+  return kg >= STRENGTH_LIMITS.weightKg.min && kg <= STRENGTH_LIMITS.weightKg.max ? kg : null;
+}
+
+export function weightInputText(kg: number, units: Units): string {
+  return `${Math.round(weightIn(kg, units) * 100) / 100}`;
 }
 
 function parseRpe(text: string): number | null {
@@ -145,11 +163,11 @@ export interface SetValues {
 
 export type SetValidation = { ok: true; value: SetValues } | { ok: false; invalid: SetField[] };
 
-export function validateSetDraft(draft: SetDraft): SetValidation {
+export function validateSetDraft(draft: SetDraft, units: Units = 'metric'): SetValidation {
   const invalid: SetField[] = [];
   const reps = parseInteger(draft.reps, STRENGTH_LIMITS.reps);
   if (reps === null) invalid.push('reps');
-  const weightKg = parseDecimal(draft.weight, STRENGTH_LIMITS.weightKg);
+  const weightKg = parseWeight(draft.weight, units);
   if (weightKg === null) invalid.push('weight');
   let rpe: number | null = null;
   if (draft.rpe.trim() !== '') {
@@ -176,20 +194,28 @@ export interface TargetValues {
 
 export type TargetValidation = { ok: true; value: TargetValues } | { ok: false; invalid: TargetField[] };
 
-export function validateTargetDraft(draft: TargetDraft): TargetValidation {
+export function validateTargetDraft(draft: TargetDraft, units: Units = 'metric'): TargetValidation {
   const invalid: TargetField[] = [];
   const sets = parseInteger(draft.sets, STRENGTH_LIMITS.sets);
   if (sets === null) invalid.push('sets');
   const reps = parseInteger(draft.reps, STRENGTH_LIMITS.reps);
   if (reps === null) invalid.push('reps');
-  const weightKg = parseDecimal(draft.weight, STRENGTH_LIMITS.weightKg);
+  const weightKg = parseWeight(draft.weight, units);
   if (weightKg === null) invalid.push('weight');
   if (invalid.length > 0 || sets === null || reps === null || weightKg === null) return { ok: false, invalid };
   return { ok: true, value: { sets, reps, weightKg } };
 }
 
-export function targetDraftOf(item: PlannedExercise): TargetDraft {
-  return { sets: `${item.sets}`, reps: `${item.reps}`, weight: `${item.weightKg}` };
+export function targetDraftOf(item: PlannedExercise, units: Units = 'metric'): TargetDraft {
+  return { sets: `${item.sets}`, reps: `${item.reps}`, weight: weightInputText(item.weightKg, units) };
+}
+
+export function stepDraftValue(text: string, delta: number, limits: { readonly min: number; readonly max: number }, decimals: number): string {
+  const parsed = Number(text.trim().replace(',', '.'));
+  const base = Number.isFinite(parsed) && text.trim() !== '' ? parsed : limits.min;
+  const next = Math.min(limits.max, Math.max(limits.min, base + delta));
+  const factor = 10 ** decimals;
+  return `${Math.round(next * factor) / factor}`;
 }
 
 export function setVolumeKg(set: { reps: number; weightKg: number }): number {
@@ -447,10 +473,10 @@ export function strengthWeek(sessions: readonly StrengthSession[], anyDayInWeek:
   return { dots: days.map((day) => inWeek.some((session) => session.day === day)), count: inWeek.length };
 }
 
-export function suggestSet(exercise: Pick<SessionExercise, 'exerciseKey' | 'reps' | 'weightKg'>, sets: readonly StrengthSet[]): SetDraft {
+export function suggestSet(exercise: Pick<SessionExercise, 'exerciseKey' | 'reps' | 'weightKg'>, sets: readonly StrengthSet[], units: Units = 'metric'): SetDraft {
   const last = [...sets].reverse().find((set) => set.exerciseKey === exercise.exerciseKey);
   const source = last ?? exercise;
-  return { reps: `${source.reps}`, weight: `${source.weightKg}`, rpe: '' };
+  return { reps: `${source.reps}`, weight: weightInputText(source.weightKg, units), rpe: '' };
 }
 
 export function setsDone(exercise: Pick<SessionExercise, 'exerciseKey'>, sets: readonly StrengthSet[]): number {
@@ -470,4 +496,180 @@ export function formatClockTimer(totalS: number): string {
   const hours = Math.floor(seconds / 3_600);
   const minutes = Math.floor((seconds % 3_600) / 60);
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds % 60)}` : `${minutes}:${pad(seconds % 60)}`;
+}
+
+function sameWeight(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.005;
+}
+
+export interface DatedSet {
+  reps: number;
+  weightKg: number;
+  day: string;
+}
+
+export interface BestSet extends DatedSet {
+  oneRepMaxKg: number | null;
+}
+
+export function bestSet(history: ExerciseHistory): BestSet | null {
+  let best: BestSet | null = null;
+  for (const entry of [...history.entries].reverse()) {
+    for (const set of entry.sets) {
+      const oneRepMaxKg = epleyOneRepMax(set.weightKg, set.reps);
+      const candidate: BestSet = { reps: set.reps, weightKg: set.weightKg, day: entry.day, oneRepMaxKg };
+      if (best === null || betterSet(candidate, best)) best = candidate;
+    }
+  }
+  return best;
+}
+
+function betterSet(a: BestSet, b: BestSet): boolean {
+  if (a.oneRepMaxKg !== null || b.oneRepMaxKg !== null) return (a.oneRepMaxKg ?? -1) > (b.oneRepMaxKg ?? -1);
+  if (!sameWeight(a.weightKg, b.weightKg)) return a.weightKg > b.weightKg;
+  return a.reps > b.reps;
+}
+
+export interface ExerciseRecords {
+  heaviest: DatedSet | null;
+  mostReps: DatedSet | null;
+  bestVolume: { volumeKg: number; day: string } | null;
+}
+
+function usualWeight(sets: readonly StrengthSet[]): number | null {
+  const counts: Array<{ weightKg: number; count: number }> = [];
+  for (const set of sets) {
+    const found = counts.find((entry) => sameWeight(entry.weightKg, set.weightKg));
+    if (found === undefined) counts.push({ weightKg: set.weightKg, count: 1 });
+    else found.count += 1;
+  }
+  let best: { weightKg: number; count: number } | null = null;
+  for (const entry of counts) {
+    if (best === null || entry.count > best.count || (entry.count === best.count && entry.weightKg > best.weightKg)) best = entry;
+  }
+  return best === null ? null : best.weightKg;
+}
+
+export function exerciseRecords(history: ExerciseHistory): ExerciseRecords {
+  const chronological = [...history.entries].reverse();
+  const all = chronological.flatMap((entry) => entry.sets);
+  const usual = usualWeight(all);
+  let heaviest: DatedSet | null = null;
+  let mostReps: DatedSet | null = null;
+  let bestVolume: ExerciseRecords['bestVolume'] = null;
+  for (const entry of chronological) {
+    for (const set of entry.sets) {
+      if (set.weightKg > 0 && (heaviest === null || set.weightKg > heaviest.weightKg + 0.004 || (sameWeight(set.weightKg, heaviest.weightKg) && set.reps > heaviest.reps))) {
+        heaviest = { weightKg: set.weightKg, reps: set.reps, day: entry.day };
+      }
+      if (usual !== null && sameWeight(set.weightKg, usual) && (mostReps === null || set.reps > mostReps.reps)) {
+        mostReps = { weightKg: usual, reps: set.reps, day: entry.day };
+      }
+    }
+    if (entry.volumeKg > 0 && (bestVolume === null || entry.volumeKg > bestVolume.volumeKg)) bestVolume = { volumeKg: entry.volumeKg, day: entry.day };
+  }
+  return { heaviest, mostReps, bestVolume };
+}
+
+interface RecordBase {
+  exerciseKey: string;
+  exerciseName: string;
+}
+
+export type SessionRecord =
+  | (RecordBase & { kind: 'heaviest'; weightKg: number; reps: number })
+  | (RecordBase & { kind: 'reps'; weightKg: number; reps: number })
+  | (RecordBase & { kind: 'volume'; volumeKg: number });
+
+function mostRepsAt(sets: readonly StrengthSet[], weightKg: number): number | null {
+  let best: number | null = null;
+  for (const set of sets) if (sameWeight(set.weightKg, weightKg) && (best === null || set.reps > best)) best = set.reps;
+  return best;
+}
+
+export function sessionRecords(session: StrengthSession, all: readonly StrengthSession[]): SessionRecord[] {
+  const earlier = finishedSessions(all).filter((other) => other.id !== session.id && other.startedAt < session.startedAt);
+  const records: SessionRecord[] = [];
+  for (const exercise of exerciseVolumes(session.sets)) {
+    const key = exercise.exerciseKey;
+    const before = earlier.map((other) => other.sets.filter((set) => set.exerciseKey === key)).filter((sets) => sets.length > 0);
+    if (before.length === 0) continue;
+    const now = session.sets.filter((set) => set.exerciseKey === key);
+    const base: RecordBase = { exerciseKey: key, exerciseName: exercise.exerciseName };
+    const previous = before.flat();
+    const heaviestNow = Math.max(...now.map((set) => set.weightKg));
+    const heaviestBefore = Math.max(...previous.map((set) => set.weightKg));
+    if (heaviestNow > 0 && heaviestNow > heaviestBefore + 0.004) {
+      records.push({ ...base, kind: 'heaviest', weightKg: heaviestNow, reps: mostRepsAt(now, heaviestNow) ?? 0 });
+    }
+    let repsRecord: { weightKg: number; reps: number } | null = null;
+    for (const set of now) {
+      const earlierBest = mostRepsAt(previous, set.weightKg);
+      if (earlierBest === null || set.reps <= earlierBest) continue;
+      if (repsRecord === null || set.weightKg > repsRecord.weightKg || (sameWeight(set.weightKg, repsRecord.weightKg) && set.reps > repsRecord.reps)) {
+        repsRecord = { weightKg: set.weightKg, reps: set.reps };
+      }
+    }
+    if (repsRecord !== null) records.push({ ...base, kind: 'reps', ...repsRecord });
+    const bestVolumeBefore = Math.max(...before.map((sets) => sessionTotals(sets).volumeKg));
+    if (exercise.volumeKg > 0 && exercise.volumeKg > bestVolumeBefore) records.push({ ...base, kind: 'volume', volumeKg: exercise.volumeKg });
+  }
+  return records;
+}
+
+export const LOAD_BUCKET_S = 1;
+
+export interface SessionLoad {
+  value: number | null;
+  reason: string | null;
+}
+
+export function sessionLoad(points: readonly HeartRatePoint[], window: { start: number; end: number }, ref: LoadReference): SessionLoad {
+  if (!(window.end > window.start)) return { value: null, reason: 'no-data' };
+  const hr: HrPoint[] = points.filter((point) => point.t >= window.start && point.t < window.end).map((point) => ({ t: point.t, hr: point.hr }));
+  const load = activityMetrics(hr, window, [], ref.rest, ref.max, undefined, ref.zoneFloors ?? null).load;
+  return load.ok ? { value: load.value, reason: null } : { value: null, reason: load.reason };
+}
+
+const MIN_TRAINED = 0.15;
+
+export function muscleIntensity(rows: readonly MuscleLoad[]): Partial<Record<MuscleGroup, number>> {
+  const topVolume = Math.max(0, ...rows.map((row) => row.volumeKg));
+  const topSets = Math.max(0, ...rows.map((row) => row.sets));
+  const out: Partial<Record<MuscleGroup, number>> = {};
+  for (const row of rows) {
+    if (row.sets <= 0) continue;
+    const share = topVolume > 0 ? row.volumeKg / topVolume : topSets > 0 ? row.sets / topSets : 0;
+    out[row.muscle] = Math.min(1, Math.max(MIN_TRAINED, share));
+  }
+  return out;
+}
+
+const TEMPLATE_HISTORY = 5;
+
+export function templateMinutes(templateId: number, sessions: readonly StrengthSession[]): number | null {
+  const durations = finishedSessions(sessions)
+    .filter((session) => session.templateId === templateId)
+    .slice(-TEMPLATE_HISTORY)
+    .map((session) => durationS(session, session.startedAt) / 60)
+    .filter((minutes) => minutes >= 1)
+    .sort((a, b) => a - b);
+  if (durations.length === 0) return null;
+  const middle = Math.floor(durations.length / 2);
+  const median = durations.length % 2 === 1 ? (durations[middle] ?? 0) : ((durations[middle - 1] ?? 0) + (durations[middle] ?? 0)) / 2;
+  return Math.max(5, Math.round(median / 5) * 5);
+}
+
+export function percentChange(current: number, previous: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous <= 0) return null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+const BIG_VOLUME = 10_000;
+
+export function formatVolume(kg: number, units: Units, language: Language): Measure {
+  const value = weightIn(kg, units);
+  if (value < BIG_VOLUME) return { value: formatNumber(value, 0, language), unit: weightUnit(units) };
+  const thousands = value / 1000;
+  return { value: formatNumber(thousands, thousands < 100 ? 1 : 0, language), unit: units === 'imperial' ? 'k lb' : 't' };
 }

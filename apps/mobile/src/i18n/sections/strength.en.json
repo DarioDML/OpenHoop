@@ -183,5 +183,10 @@
   "strength.trends.empty": "No finished workouts in this period.",
   "strength.trends.total": "Sessions",
   "strength.trends.average": "Per week",
-  "strength.trends.volumeTotal": "Total volume"
+  "strength.trends.volumeTotal": "Total volume",
+  "strength.ex.kettlebell_swing": "Kettlebell swing",
+  "strength.ex.goblet_squat": "Goblet squat",
+  "strength.ex.kettlebell_press": "Kettlebell press",
+  "strength.ex.kettlebell_row": "Kettlebell row",
+  "strength.ex.turkish_get_up": "Turkish get-up"
 }
