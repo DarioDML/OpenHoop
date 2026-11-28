@@ -212,6 +212,7 @@ import { switchHealthConnectTypes } from './healthConnectSwitch';
 import { removeLeftoverReports } from './reportFiles';
 import { removeLeftoverCuffFiles } from './cuffShare';
 import { removeLeftoverEcgFiles } from './ecgShare';
+import { wipedState } from './wipe';
 import {
   NOTIFICATION_STATE_KEY,
   emptyNotificationState,
@@ -2359,28 +2360,13 @@ export class AppController {
     this.smartWake.cancel();
     await this.notifier.cancelAll().catch(() => undefined);
     this.notificationState = emptyNotificationState();
-    const userData = defaultUserData();
-    setNetworkPrefs(userData.network);
-    setThemePreference(userData.theme);
+    const wiped = wipedState(this.snapshot);
+    setNetworkPrefs(wiped.userData.network);
+    setThemePreference(wiped.userData.theme);
     this.deviceRow = null;
     this.demoBand = null;
     this.connection = 'disconnected';
-    this.patch({
-      userData,
-      settings: { ...this.snapshot.settings, dataSource: 'demo', ownerSince: null, units: 'metric' },
-      profile: { birthYear: null, maxHeartRate: null },
-      bodyMeasurements: [],
-      journalNotes: [],
-      labResults: [],
-      vendorData: emptyVendorData(),
-      cycle: emptyCycleData(),
-      strength: emptyStrengthData(),
-      inbox: [],
-      healthConnect: { ...this.snapshot.healthConnect, state: defaultHealthConnectState() },
-      alarm: { ...this.snapshot.alarm, plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
-      ecgRecordings: [],
-      notice: null,
-    });
+    this.patch(wiped);
     await this.loadActiveDevice();
     void this.refreshWidgets();
     return true;
