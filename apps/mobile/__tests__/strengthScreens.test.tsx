@@ -2,13 +2,16 @@ import type { StrengthData, StrengthSession, StrengthSet, StrengthTemplate } fro
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { createFixtureDays } from '@/data/fixtureSource';
+import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { defaultUserData } from '@/data/userData';
 import { defaultPlan } from '@/data/weeklyPlan';
 import type { HeartRatePoint, StrengthActions } from '@/data/types';
+import { defaultNetworkPrefs } from '@/net/features';
+import type { GatedFetch } from '@/net/gate';
 import { WeekCard } from '@/ui/daily/cards';
 
 import { FIXTURE_NOW, fixtureStrengthActions, withAppData, type AppDataOverrides } from './support/appData';
+import { TEST_KEY, jsonResponse, makeController, messageBody, withCoach } from './support/coach';
 
 let mockParams: Record<string, string | string[] | undefined> = {};
 const mockPush = jest.fn();
@@ -23,6 +26,18 @@ jest.mock('expo-router', () => ({
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
+const mockLoadKey = jest.fn<Promise<string | null>, []>(async () => TEST_KEY);
+const mockNetFetch = jest.fn<Promise<Response>, Parameters<GatedFetch>>(async () => new Response('{}', { status: 500 }));
+
+jest.mock('@/coach/keyStore', () => ({
+  secureKeyStore: { load: () => mockLoadKey(), save: async () => true, remove: async () => undefined },
+  cleanApiKey: (text: string) => text,
+}));
+
+jest.mock('@/net', () => ({
+  netFetch: (...args: Parameters<GatedFetch>) => mockNetFetch(...args),
 }));
 
 import StrengthBuilderScreen from '@/app/strength/builder';
@@ -82,6 +97,8 @@ beforeEach(() => {
   mockParams = {};
   mockPush.mockClear();
   mockReplace.mockClear();
+  mockNetFetch.mockClear();
+  mockLoadKey.mockClear();
   jest.spyOn(Date, 'now').mockReturnValue(FIXTURE_NOW.getTime());
 });
 
@@ -224,6 +241,8 @@ describe('workout builder', () => {
     await fireEvent.changeText(screen.getByTestId('builder-sets-0'), '4');
     await fireEvent.changeText(screen.getByTestId('builder-reps-0'), '6');
     await fireEvent.changeText(screen.getByTestId('builder-weight-0'), '102,5');
+    expect(screen.getByTestId('builder-summary-0')).toHaveTextContent('4 × 6 · 102.5 kg');
+    await fireEvent.press(screen.getByText('Reorder'));
     await fireEvent.press(screen.getByTestId('builder-up-1'));
     await fireEvent.press(screen.getByTestId('builder-save'));
     await waitFor(() => expect(saveTemplate).toHaveBeenCalledTimes(1));
@@ -242,6 +261,9 @@ describe('workout builder', () => {
     const removeTemplate = jest.fn(async () => true);
     await render(withAppData(<StrengthBuilderScreen />, 'en', app(data({ templates: [TEMPLATE] }), actions({ saveTemplate, removeTemplate }))));
     expect(screen.getByTestId('builder-name').props.value).toBe('Push day');
+    expect(screen.getByTestId('builder-summary-0')).toHaveTextContent('3 × 8 · 60 kg');
+    expect(screen.queryByTestId('builder-weight-0')).toBeNull();
+    await fireEvent.press(screen.getByTestId('builder-edit-0'));
     expect(screen.getByTestId('builder-weight-0').props.value).toBe('60');
     await fireEvent.changeText(screen.getByTestId('builder-weight-0'), '62.5');
     await fireEvent.press(screen.getByTestId('builder-save'));
@@ -275,6 +297,110 @@ describe('workout builder', () => {
     mockParams = { id: '99' };
     await render(withAppData(<StrengthBuilderScreen />, 'en', app(data(), actions())));
     expect(screen.getByTestId('builder-missing')).toBeTruthy();
+  });
+
+  it('shows and stores weights in pounds when the person uses imperial units', async () => {
+    mockParams = { id: '7' };
+    const saveTemplate = jest.fn(async () => 7);
+    const settings = { ...createFixtureSettings('en', FIXTURE_NOW), units: 'imperial' as const };
+    const heavy: StrengthTemplate = { ...TEMPLATE, items: TEMPLATE.items.map((item) => ({ ...item, weightKg: 102.058 })) };
+    await render(withAppData(<StrengthBuilderScreen />, 'en', app(data({ templates: [heavy] }), actions({ saveTemplate }), { settings })));
+    expect(screen.getByTestId('builder-summary-0')).toHaveTextContent('3 × 8 · 225 lb');
+    await fireEvent.press(screen.getByTestId('builder-edit-0'));
+    await fireEvent.changeText(screen.getByTestId('builder-weight-0'), '135');
+    await fireEvent.press(screen.getByTestId('builder-save'));
+    await waitFor(() => expect(saveTemplate).toHaveBeenCalledWith(7, { name: 'Push day', items: TEMPLATE.items.map((item) => ({ ...item, weightKg: 61.235 })) }));
+  });
+});
+
+describe('workout builder with the coach', () => {
+  const network = { ...defaultNetworkPrefs(), enabled: true, features: { ...defaultNetworkPrefs().features, coach: true } };
+  const withNetwork = (on: boolean): AppDataOverrides => ({ userData: { ...defaultUserData(), onboardingDone: true, network: on ? network : defaultNetworkPrefs() } });
+  const coachReply = (body: object): Response => jsonResponse(200, messageBody(JSON.stringify(body)));
+
+  it('asks for a coach key when none is set', async () => {
+    const { controller } = makeController({ key: null });
+    await controller.load();
+    await render(withCoach(<StrengthBuilderScreen />, controller, { ...app(data(), actions()), ...withNetwork(true) }));
+    expect(screen.getByTestId('builder-coach-off')).toHaveTextContent(/Add your own Anthropic API key/);
+    await fireEvent.press(screen.getByTestId('builder-coach-settings'));
+    expect(mockPush).toHaveBeenCalledWith('/coach/settings');
+    expect(screen.queryByTestId('builder-describe')).toBeNull();
+  });
+
+  it('says so when network access for the coach is off', async () => {
+    const { controller } = makeController();
+    await controller.load();
+    await render(withCoach(<StrengthBuilderScreen />, controller, { ...app(data(), actions()), ...withNetwork(false) }));
+    expect(screen.getByTestId('builder-coach-off')).toHaveTextContent(/Network access for the coach is off/);
+  });
+
+  it('fills the editor from a description and never saves on its own', async () => {
+    const saveTemplate = jest.fn(async () => 1);
+    mockNetFetch.mockImplementation(async () =>
+      coachReply({
+        name: 'Push A',
+        exercises: [
+          { exercise: 'lib:bench_press', sets: 4, reps: 8, weightKg: 70 },
+          { exercise: 'lib:overhead_press', sets: 3, reps: 8, weightKg: 40 },
+          { exercise: 'lib:unknown', sets: 3, reps: 8, weightKg: 0 },
+        ],
+      }),
+    );
+    const { controller } = makeController();
+    await controller.load();
+    await render(withCoach(<StrengthBuilderScreen />, controller, { ...app(data({ sessions: [DAY_2] }), actions({ saveTemplate })), ...withNetwork(true) }));
+    await fireEvent.changeText(screen.getByTestId('builder-describe'), '45 min push, shoulder-friendly');
+    await fireEvent.press(screen.getByTestId('builder-describe-send'));
+    await waitFor(() => expect(screen.getByTestId('builder-summary-1')).toHaveTextContent('3 × 8 · 40 kg'));
+    expect(screen.getByTestId('builder-summary-0')).toHaveTextContent('4 × 8 · 70 kg');
+    expect(screen.getByTestId('builder-name').props.value).toBe('Push A');
+    expect(screen.getByTestId('builder-coach-status')).toHaveTextContent(/Exercises filled in by the coach: 2.*left out.*: 1\./);
+    expect(saveTemplate).not.toHaveBeenCalled();
+    const [feature, , init] = mockNetFetch.mock.calls[0] ?? [];
+    expect(feature).toBe('coach');
+    expect(String(init?.body)).toContain('45 min push, shoulder-friendly');
+    expect(String(init?.body)).toContain('lib:bench_press: 90 kg × 3 on 2026-11-24');
+    await fireEvent.press(screen.getByTestId('builder-save'));
+    await waitFor(() => expect(saveTemplate).toHaveBeenCalledWith(null, expect.objectContaining({ name: 'Push A' })));
+  });
+
+  it('undoes the coach’s changes', async () => {
+    mockNetFetch.mockImplementation(async () => coachReply({ name: 'Legs', exercises: [{ exercise: 'lib:back_squat', sets: 5, reps: 5, weightKg: 100 }] }));
+    mockParams = { id: '7' };
+    const { controller } = makeController();
+    await controller.load();
+    await render(withCoach(<StrengthBuilderScreen />, controller, { ...app(data({ templates: [TEMPLATE] }), actions()), ...withNetwork(true) }));
+    await fireEvent.changeText(screen.getByTestId('builder-describe'), 'legs please');
+    await fireEvent.press(screen.getByTestId('builder-describe-send'));
+    await waitFor(() => expect(screen.getByTestId('builder-summary-0')).toHaveTextContent('5 × 5 · 100 kg'));
+    expect(screen.getByTestId('builder-name').props.value).toBe('Push day');
+    await fireEvent.press(screen.getByTestId('builder-coach-undo'));
+    expect(screen.getByTestId('builder-summary-0')).toHaveTextContent('3 × 8 · 60 kg');
+  });
+
+  it('shows the coach error and keeps the editor as it was', async () => {
+    mockNetFetch.mockImplementation(async () => jsonResponse(401, {}));
+    const { controller } = makeController();
+    await controller.load();
+    await render(withCoach(<StrengthBuilderScreen />, controller, { ...app(data(), actions()), ...withNetwork(true) }));
+    await fireEvent.press(screen.getByTestId('builder-describe-send'));
+    expect(screen.getByTestId('builder-coach-status')).toHaveTextContent(/3 to 300 characters/);
+    expect(mockNetFetch).not.toHaveBeenCalled();
+    await fireEvent.changeText(screen.getByTestId('builder-describe'), 'full body');
+    await fireEvent.press(screen.getByTestId('builder-describe-send'));
+    await waitFor(() => expect(screen.getByTestId('builder-coach-status')).toHaveTextContent(/did not accept the API key/));
+    expect(screen.getByTestId('builder-items-empty')).toBeTruthy();
+  });
+
+  it('reports a reply it cannot read', async () => {
+    mockNetFetch.mockImplementation(async () => jsonResponse(200, messageBody('not json')));
+    const { controller } = makeController();
+    await controller.load();
+    await render(withCoach(<StrengthBuilderScreen />, controller, { ...app(data(), actions()), ...withNetwork(true) }));
+    await fireEvent.changeText(screen.getByTestId('builder-describe'), 'full body');
+    await fireEvent.press(screen.getByTestId('builder-describe-send'));
+    await waitFor(() => expect(screen.getByTestId('builder-coach-status')).toHaveTextContent(/could not be turned into exercises/));
   });
 });
 
