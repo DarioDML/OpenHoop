@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { Share, View } from 'react-native';
 
 import {
-  FLAG_KEYS,
   changeFor,
   configSnapshots,
   describeFields,
+  flagCoverage,
   isWritableValue,
   changeSummary,
   parseBandConfig,
@@ -51,6 +51,7 @@ function Snapshot({ snapshot, onChange, onRestore, disabled }: SnapshotProps) {
   const flags = describeFields('flag', snapshot.flags);
   const config = describeFields('config', snapshot.config);
   const other = [...flags.unknown, ...config.unknown];
+  const coverage = flagCoverage(snapshot);
   const known = (row: FieldRow) => {
     const original = changeFor(snapshot, row.kind, row.entry.key)?.original ?? null;
     const current = row.entry.valueText;
@@ -76,7 +77,7 @@ function Snapshot({ snapshot, onChange, onRestore, disabled }: SnapshotProps) {
               {t('bandConfig.flagsTitle')}
             </AppText>
             <AppText variant="cap" muted testID="config-flags-count">
-              {t('bandConfig.flagsCount', { shown: flags.known.length, total: FLAG_KEYS.length })}
+              {t('bandConfig.flagsCount', { shown: coverage.read, total: coverage.known })}
             </AppText>
           </View>
           <Card testID="config-flags" style={{ gap: 0 }}>
@@ -218,8 +219,8 @@ export default function BandConfigScreen() {
           {summary === null ? t('bandConfig.summaryNotRead') : t('bandConfig.summary', { unchanged: summary.unchanged, total: summary.total })}
         </AppText>
         {summary === null ? null : (
-          <AppText variant="label" soft>
-            {t('bandConfig.changesExplained')}
+          <AppText variant="label" soft testID="config-summary-explained">
+            {t('bandConfig.changesExplained', { total: summary.total })}
           </AppText>
         )}
       </View>

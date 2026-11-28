@@ -12,6 +12,7 @@ import {
   changeFor,
   configSnapshots,
   changeSummary,
+  flagCoverage,
   originalValue,
   recordOriginal,
   describeFields,
@@ -195,6 +196,12 @@ describe('changes made from OpenHoop', () => {
 });
 
 describe('changes by OpenHoop', () => {
+  it('counts known flags read from the band apart from the values OpenHoop can change', () => {
+    const withUnwritable = buildSnapshot(1_700_000_000, 'band', [flag('enable_r22_v4_packets', '1'), flag('enable_sig12', null, '0102'), flag('mystery', '1')], [flag('enable_rfid', '2')]);
+    expect(flagCoverage(withUnwritable)).toEqual({ read: 2, known: FLAG_KEYS.length });
+    expect(changeSummary(withUnwritable).total).toBe(2);
+  });
+
   it('counts writable known values that still have the value the band had before OpenHoop wrote', () => {
     expect(changeSummary(SNAPSHOT)).toEqual({ total: 3, unchanged: 3, changed: [] });
     const changed = applyConfigWrite(SNAPSHOT, 'flag', 'make_hrfm_visible', '2', '1', 50);

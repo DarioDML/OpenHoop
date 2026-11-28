@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { applyConfigWrite, buildSnapshot, parseBandConfig, serializeSnapshot, type BandConfigSnapshot, type ConfigEntry } from '@/data/bandConfig';
 import { createFixtureDevice } from '@/data/fixtureSource';
@@ -171,6 +172,18 @@ describe('BandConfigScreen', () => {
     expect(screen.queryByTestId('config-change-enable_rfid')).toBeNull();
     await fireEvent.press(screen.getByTestId('config-restore-enable_rfid'));
     expect(restoreConfig).toHaveBeenCalledWith('config', 'enable_rfid');
+  });
+
+  it('labels the flag count as flags read and names what the hero counts', async () => {
+    await render(withAppData(<BandConfigScreen />, 'en', appData(SNAPSHOT_JSON)));
+    expect(screen.getByTestId('config-flags-count')).toHaveTextContent('3 of 16 read');
+    expect(screen.getByTestId('config-summary')).toHaveTextContent('3 of 3 values unchanged by OpenHoop');
+    expect(screen.getByTestId('config-summary-explained')).toHaveTextContent(/^Counts the 3 values OpenHoop can change/);
+  });
+
+  it('lines the change link up with the flag name', async () => {
+    await render(withAppData(<BandConfigScreen />, 'en', appData(SNAPSHOT_JSON)));
+    expect(StyleSheet.flatten(screen.getByTestId('config-change-make_hrfm_visible').props.style).paddingHorizontal).toBe(0);
   });
 
   it('counts the values OpenHoop left unchanged and marks each one', async () => {

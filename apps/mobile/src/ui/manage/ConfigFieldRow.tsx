@@ -7,6 +7,8 @@ import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { spacing } from '@/ui/theme';
 
+const FLUSH_LINK = { paddingHorizontal: 0 } as const;
+
 function labelFor(t: TFunction, row: FieldRow): string | null {
   const { key } = row.entry;
   if (row.kind === 'flag' && isFlagKey(key)) return t(`bandConfig.flag.${key}`);
@@ -82,7 +84,7 @@ export function ConfigFieldRow({ row, original = null, onChange, onRestore, disa
             />
           ) : null}
           {onChange !== undefined && original === null ? (
-            <Button label={t('bandConfig.change')} variant="tertiary" onPress={onChange} disabled={disabled} testID={`config-change-${key}`} />
+            <Button label={t('bandConfig.change')} variant="tertiary" compact onPress={onChange} disabled={disabled} style={FLUSH_LINK} testID={`config-change-${key}`} />
           ) : null}
         </View>
       ) : null}
