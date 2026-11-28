@@ -102,3 +102,49 @@ describe('voice log detection', () => {
     for (const id of VOICE_RULE_IDS) expect(findQuestion(id)).toBeDefined();
   });
 });
+
+describe('voice log edge cases', () => {
+  it('reads zero and alcohol-free drinks as no alcohol', () => {
+    expect(byId(detectBehaviours('0 beers tonight', 'en')).alcohol).toMatchObject({ answer: 0, detail: { kind: 'no' }, confident: true });
+    expect(byId(detectBehaviours('Had an alcohol free beer', 'en')).alcohol).toMatchObject({ answer: 0, detail: { kind: 'no' } });
+    expect(byId(detectBehaviours('Two alcohol-free beers', 'en')).alcohol?.answer).toBe(0);
+    expect(byId(detectBehaviours('Een alcoholvrij biertje', 'nl')).alcohol).toMatchObject({ answer: 0, detail: { kind: 'no' } });
+    expect(byId(detectBehaviours('Nul biertjes', 'nl')).alcohol?.answer).toBe(0);
+    expect(byId(detectBehaviours('Two beers and an alcohol free one', 'en')).alcohol?.answer).toBe(2);
+  });
+
+  it('reads clock times with minutes and am or pm', () => {
+    for (const text of ['Coffee at 4:30pm', 'Coffee at 4.30pm', 'Coffee at 4:30 PM', 'Coffee at 4:30 p.m.']) {
+      expect(byId(detectBehaviours(text, 'en'))['caffeine-late']?.detail).toEqual({ kind: 'time', minutes: 16 * 60 + 30 });
+    }
+    expect(byId(detectBehaviours('Coffee at 10:15am', 'en'))['caffeine-late']).toBeUndefined();
+  });
+
+  it('does not pre-select running or a workout from an unrelated "run"', () => {
+    const team = byId(detectBehaviours('I run a team in the evening', 'en'));
+    expect(team.running?.confident).toBe(false);
+    expect(team['evening-workout']).toBeUndefined();
+    const real = byId(detectBehaviours('Ran 5 km this morning', 'en'));
+    expect(real.running?.confident).toBe(true);
+    expect(real['morning-workout']?.answer).toBe(true);
+    expect(byId(detectBehaviours('Went for a run', 'en')).running?.confident).toBe(true);
+    expect(byId(detectBehaviours('Een uur hardgelopen', 'nl')).running).toMatchObject({ confident: true, detail: { kind: 'duration', minutes: 60 } });
+  });
+
+  it('does not log illness from figures of speech', () => {
+    expect(byId(detectBehaviours("I'm sick of this weather", 'en'))['feeling-ill']).toBeUndefined();
+    expect(byId(detectBehaviours('Ik word er ziek van', 'nl'))['feeling-ill']).toBeUndefined();
+    expect(byId(detectBehaviours("I'm sick", 'en'))['feeling-ill']?.confident).toBe(false);
+    expect(byId(detectBehaviours('Feeling sick today', 'en'))['feeling-ill']?.confident).toBe(true);
+    expect(byId(detectBehaviours('Ik voel me ziek', 'nl'))['feeling-ill']?.confident).toBe(true);
+  });
+
+  it('keeps a time that follows a comma in the same sentence', () => {
+    const en = byId(detectBehaviours('Two coffees, last one at 4pm', 'en'));
+    expect(en['caffeine-late']?.detail).toEqual({ kind: 'time', minutes: 16 * 60 });
+    expect(en.caffeine?.answer).toBe(2);
+    expect(byId(detectBehaviours('Twee koffies, de laatste om 16u', 'nl'))['caffeine-late']?.detail).toEqual({ kind: 'time', minutes: 16 * 60 });
+    expect(byId(detectBehaviours('A coffee, then a run at 7pm', 'en'))['caffeine-late']).toBeUndefined();
+    expect(byId(detectBehaviours('A coffee. At 4pm a walk', 'en'))['caffeine-late']).toBeUndefined();
+  });
+});

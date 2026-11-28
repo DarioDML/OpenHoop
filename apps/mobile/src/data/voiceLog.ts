@@ -22,6 +22,9 @@ interface Rule {
   duration?: boolean;
   requireNumber?: boolean;
   longIf?: number;
+  sure?: readonly string[];
+  excludes?: readonly string[];
+  zeroWhen?: readonly string[];
 }
 
 const MAX_TRANSCRIPT = 4000;
@@ -38,7 +41,7 @@ const GLASSES_PER_BOTTLE = 2;
 const NUMBER_WORDS: Readonly<Record<string, number>> = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
   thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
-  thirty: 30, forty: 40, fifty: 50, couple: 2,
+  thirty: 30, forty: 40, fifty: 50, couple: 2, zero: 0, nul: 0,
   twee: 2, drie: 3, vier: 4, vijf: 5, zes: 6, zeven: 7, acht: 8, negen: 9, tien: 10, elf: 11, twaalf: 12,
   dertien: 13, veertien: 14, vijftien: 15, zestien: 16, zeventien: 17, achttien: 18, negentien: 19, twintig: 20,
   dertig: 30, veertig: 40, vijftig: 50,
@@ -62,13 +65,20 @@ const CAFFEINE_WORDS = [
   'zwarte thee', 'groene thee', 'matcha', 'energy drink*', 'energiedrank*', 'cola', 'red bull', 'caffeine', 'cafeine',
 ];
 const MEAL_WORDS = ['dinner', 'supper', 'meal', 'ate', 'eaten', 'diner', 'avondeten', 'avondmaal', 'gegeten', 'eten'];
+const WEAK_WORKOUT_WORDS = ['ran', 'run', 'running'];
+const RUN_CONTEXT = ['km', 'k', 'mile*', 'kilomet*', 'marathon', '5k', '10k', 'pace'];
 const WORKOUT_WORDS = [
-  'worked out', 'workout', 'trained', 'training', 'gym', 'ran', 'run', 'running', 'jog*', 'cycled', 'swam', 'lifted', 'sport*', 'gesport',
+  'worked out', 'workout', 'trained', 'training', 'gym', 'went running', 'went for a run', 'for a run', 'jog*', 'cycled', 'swam', 'lifted', 'sport*', 'gesport',
   'getraind', 'hardgelopen', 'gefietst', 'gezwommen', 'fitness', 'krachttraining', 'ochtendtraining', 'avondtraining',
 ];
 
 const RULES: readonly Rule[] = [
-  { id: 'alcohol', read: 'count', words: ['alcohol', 'beer*', 'bier*', 'pils*', 'wine*', 'wijn*', 'cocktail*', 'whisk*', 'vodka', 'gin', 'champagne', 'prosecco', 'cava', 'cider', 'rum', 'tequila', 'drinks', 'drankje*', 'borrel*', 'pint*'] },
+  {
+    id: 'alcohol',
+    read: 'count',
+    words: ['alcohol', 'beer*', 'bier*', 'pils*', 'wine*', 'wijn*', 'cocktail*', 'whisk*', 'vodka', 'gin', 'champagne', 'prosecco', 'cava', 'cider', 'rum', 'tequila', 'drinks', 'drankje*', 'borrel*', 'pint*'],
+    zeroWhen: ['alcohol free', 'alcohol-free', 'non-alcoholic', 'non alcoholic', 'alcoholvrij*', 'alcohol vrij', '0.0', '0,0'],
+  },
   { id: 'water', read: 'count', words: ['water'] },
   { id: 'caffeine', read: 'count', words: CAFFEINE_WORDS, requireNumber: true },
   { id: 'skipped-breakfast', read: 'yes', words: ['skipped breakfast', 'no breakfast', 'geen ontbijt', 'ontbijt overgeslagen'], ignoreNegation: true },
@@ -104,7 +114,13 @@ const RULES: readonly Rule[] = [
   { id: 'antihistamine', read: 'yes', words: ['antihistamin*', 'cetirizine', 'loratadine', 'allergy pill*', 'allergiepil*'] },
   { id: 'antibiotics', read: 'yes', words: ['antibiotic*', 'antibiotica'] },
   { id: 'headache', read: 'yes', words: ['headache*', 'hoofdpijn'] },
-  { id: 'feeling-ill', read: 'yes', words: ['sick', 'ill', 'unwell', 'ziek', 'ziekjes'] },
+  {
+    id: 'feeling-ill',
+    read: 'yes',
+    words: ['sick', 'ill', 'unwell', 'ziek', 'ziekjes'],
+    sure: ['unwell', 'feel sick', 'feeling sick', 'felt sick', 'feel ill', 'feeling ill', 'felt ill', 'got sick', 'getting sick', 'ziekjes', 'voel me ziek', 'ben ziek', 'ziek gevoeld', 'word ziek'],
+    excludes: ['sick of', 'sick and tired', 'ziek van'],
+  },
   { id: 'fever', read: 'yes', words: ['fever', 'koorts*'] },
   { id: 'cold-flu', read: 'yes', words: ['caught a cold', 'have a cold', 'got a cold', 'flu', 'griep*', 'verkouden', 'verkoudheid', 'sore throat', 'keelpijn'] },
   { id: 'hangover', read: 'yes', words: ['hungover', 'hangover', 'kater', 'brak'] },
@@ -162,7 +178,15 @@ const RULES: readonly Rule[] = [
   { id: 'morning-light', read: 'yes', words: ['morning sun', 'morning light', 'ochtendzon', 'ochtendlicht'] },
   { id: 'dog-walk', read: 'yes', words: ['walked the dog', 'dog walk', 'hond uitgelaten', 'met de hond'] },
   { id: 'long-walk', read: 'yes', words: ['walk', 'walked', 'wandeling', 'gewandeld', 'wandelen'], needs: ['long', 'lange', 'lang'], duration: true, longIf: 45 },
-  { id: 'running', read: 'yes', words: ['ran', 'run', 'running', 'jog*', 'hardgelopen', 'hardlopen', 'gejogd', 'joggen'], duration: true },
+  {
+    id: 'running',
+    read: 'yes',
+    words: ['ran', 'run', 'running', 'jog*', 'hardgelopen', 'hardlopen', 'gejogd', 'joggen'],
+    sure: ['jog*', 'hardgelopen', 'gejogd', 'went running', 'go running', 'went for a run', 'for a run', 'gaan hardlopen', 'gaan lopen'],
+    needs: RUN_CONTEXT,
+    duration: true,
+    longIf: 1,
+  },
   { id: 'cycling', read: 'yes', words: ['cycled', 'cycling', 'bike ride', 'biked', 'gefietst', 'fietstocht', 'fietsrit'], duration: true },
   { id: 'swimming', read: 'yes', words: ['swam', 'swim', 'swimming', 'gezwommen', 'zwemmen'], duration: true },
   { id: 'strength-training', read: 'yes', words: ['gym', 'weights', 'lifted', 'lifting', 'strength training', 'krachttraining', 'fitness', 'leg day', 'squats', 'deadlift*', 'bench press'], duration: true },
@@ -182,6 +206,7 @@ const RULES: readonly Rule[] = [
 interface Clause {
   tokens: string[];
   index: number;
+  next: string[] | null;
 }
 
 interface Found {
@@ -192,9 +217,9 @@ interface Found {
 function fold(text: string): string {
   return text
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[‘’`]/g, "'");
+    .replace(/[\u2018\u2019`]/g, "'");
 }
 
 function tokenize(text: string): string[] {
@@ -205,17 +230,28 @@ function tokenize(text: string): string[] {
 }
 
 export function splitClauses(text: string): Clause[] {
-  const parts = fold(text.slice(0, MAX_TRANSCRIPT)).split(/(?:[;!?\n]|[.,](?=\s|$))+/);
+  const sentences = fold(text.slice(0, MAX_TRANSCRIPT)).split(/(?:[;!?\n]|\.(?=\s|$))+/);
   const clauses: Clause[] = [];
-  for (const part of parts) {
-    let current: string[] = [];
-    for (const token of tokenize(part)) {
-      if (CONJUNCTIONS.has(token)) {
-        if (current.length > 0) clauses.push({ tokens: current, index: clauses.length });
-        current = [];
-      } else current.push(token);
+  for (const sentence of sentences) {
+    let previous: Clause | null = null;
+    for (const part of sentence.split(/,(?=\s|$)/)) {
+      let current: string[] = [];
+      let first = true;
+      const push = (tokens: string[]): void => {
+        const clause: Clause = { tokens, index: clauses.length, next: null };
+        if (first && previous !== null) previous.next = tokens;
+        first = false;
+        previous = clause;
+        clauses.push(clause);
+      };
+      for (const token of tokenize(part)) {
+        if (CONJUNCTIONS.has(token)) {
+          if (current.length > 0) push(current);
+          current = [];
+        } else current.push(token);
+      }
+      if (current.length > 0) push(current);
     }
-    if (current.length > 0) clauses.push({ tokens: current, index: clauses.length });
   }
   return clauses;
 }
@@ -266,7 +302,7 @@ function amountBefore(tokens: readonly string[], at: number): Amount | null {
     if (BOTTLES.has(token)) unit = 'bottle';
     if (VAGUE.has(token)) return { value: 2, exact: false, unit };
     const value = numberValue(token);
-    if (value !== null && value > 0 && value <= 50) return { value, exact: true, unit };
+    if (value !== null && value >= 0 && value <= 50) return { value, exact: true, unit };
     if (ARTICLES.has(token)) return { value: 1, exact: true, unit };
   }
   return null;
@@ -291,6 +327,11 @@ function clockAt(tokens: readonly string[], i: number, language: Language): { ho
   const token = tokens[i] ?? '';
   const full = /^(\d{1,2})[:.hu](\d{2})$/.exec(token);
   if (full) return { hour: Number(full[1]), minute: Number(full[2]), explicit: Number(full[1]) >= 13 || (full[1] ?? '').length === 2, next: i + 1 };
+  const fullMeridiem = /^(\d{1,2})[:.](\d{2})(am|pm)$/.exec(token);
+  if (fullMeridiem) {
+    const hour = Number(fullMeridiem[1]) % 12 + (fullMeridiem[3] === 'pm' ? 12 : 0);
+    return { hour, minute: Number(fullMeridiem[2]), explicit: true, next: i + 1 };
+  }
   const suffixed = /^(\d{1,2})(am|pm|u|h)$/.exec(token);
   if (suffixed) {
     const hour = Number(suffixed[1]);
@@ -319,7 +360,7 @@ export function findTime(tokens: readonly string[], pmBelow: number, language: L
   const amContext = tokens.some((token) => MORNING.has(token));
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i] ?? '';
-    const standalone = /^\d{1,2}[:.hu]\d{2}$/.test(token) || /^\d{1,2}(am|pm)$/.test(token);
+    const standalone = /^\d{1,2}[:.hu]\d{2}$/.test(token) || /^\d{1,2}([:.]\d{2})?(am|pm)$/.test(token);
     if (!standalone && !TIME_PREPOSITIONS.has(tokens[i - 1] ?? '')) continue;
     const clock = clockAt(tokens, i, language);
     if (clock === null) continue;
@@ -388,10 +429,31 @@ function addFound(found: Map<string, Found>, detection: Detection, position: num
   else if (bYes && aYes && b.detail?.kind === 'time' && a.detail?.kind === 'time' && b.detail.minutes > a.detail.minutes) found.set(b.questionId, { detection: b, position: existing.position });
 }
 
+function mentionsBehaviour(tokens: readonly string[]): boolean {
+  return (
+    RULES.some((rule) => firstMatch(tokens, rule.words) >= 0) ||
+    firstMatch(tokens, CAFFEINE_WORDS) >= 0 ||
+    firstMatch(tokens, MEAL_WORDS) >= 0 ||
+    firstMatch(tokens, WORKOUT_WORDS) >= 0 ||
+    firstMatch(tokens, WEAK_WORKOUT_WORDS) >= 0
+  );
+}
+
+function clauseTime(clause: Clause, pmBelow: number, language: Language): ClockTime | null {
+  const own = findTime(clause.tokens, pmBelow, language);
+  if (own !== null || clause.next === null || mentionsBehaviour(clause.next)) return own;
+  return findTime([...clause.tokens, ...clause.next], pmBelow, language);
+}
+
 function readRule(rule: Rule, clause: Clause, found: Map<string, Found>): void {
   const at = firstMatch(clause.tokens, rule.words);
   if (at < 0) return;
+  if (rule.excludes !== undefined && hasAny(clause.tokens, rule.excludes)) return;
   const position = clause.index * 1000 + at;
+  if (rule.zeroWhen !== undefined && hasAny(clause.tokens, rule.zeroWhen)) {
+    addFound(found, { questionId: rule.id, answer: rule.read === 'count' ? 0 : false, detail: { kind: 'no' }, confident: true }, position);
+    return;
+  }
   const negated = !rule.ignoreNegation && negatedBefore(clause.tokens, at);
   if (rule.read === 'count') {
     if (negated) {
@@ -401,6 +463,10 @@ function readRule(rule: Rule, clause: Clause, found: Map<string, Found>): void {
     }
     const amount = amountBefore(clause.tokens, at);
     if (amount === null && rule.requireNumber) return;
+    if (amount !== null && amount.value === 0) {
+      addFound(found, { questionId: rule.id, answer: 0, detail: { kind: 'no' }, confident: true }, position);
+      return;
+    }
     let value = amount?.value ?? 1;
     let confident = amount?.exact ?? false;
     if (amount?.unit === 'litre') {
@@ -421,9 +487,11 @@ function readRule(rule: Rule, clause: Clause, found: Map<string, Found>): void {
   }
   const duration = rule.duration ? findDuration(clause.tokens) : null;
   const longEnough = rule.longIf !== undefined && duration !== null && duration >= rule.longIf;
+  const sure = rule.sure !== undefined && hasAny(clause.tokens, rule.sure);
+  const needsMet = rule.needs === undefined ? rule.sure === undefined : hasNeeds;
   addFound(
     found,
-    { questionId: rule.id, answer: true, detail: duration === null ? null : { kind: 'duration', minutes: duration }, confident: hasNeeds || longEnough },
+    { questionId: rule.id, answer: true, detail: duration === null ? null : { kind: 'duration', minutes: duration }, confident: sure || needsMet || longEnough },
     position,
   );
 }
@@ -432,7 +500,7 @@ function readLateCaffeine(clause: Clause, language: Language, found: Map<string,
   const at = firstMatch(clause.tokens, CAFFEINE_WORDS);
   if (at < 0) return;
   const position = clause.index * 1000 + at;
-  const time = findTime(clause.tokens, 7, language);
+  const time = clauseTime(clause, 7, language);
   const late = clause.tokens.some((token) => AFTERNOON.has(token) || EVENING.has(token) || token === 'late' || token === 'laat');
   if (negatedBefore(clause.tokens, at)) {
     const scoped = time !== null || late || clause.tokens.includes('after') || clause.tokens.includes('na');
@@ -456,13 +524,16 @@ function readLateMeal(clause: Clause, language: Language, found: Map<string, Fou
     addFound(found, { questionId: 'late-meal', answer: true, detail: null, confident: true }, position);
     return;
   }
-  const time = findTime(clause.tokens, 12, language);
+  const time = clauseTime(clause, 12, language);
   if (time === null || time.minutes < LATE_MEAL_MAYBE) return;
   addFound(found, { questionId: 'late-meal', answer: true, detail: { kind: 'time', minutes: time.minutes }, confident: time.minutes >= LATE_MEAL_SURE }, position);
 }
 
 function readWorkoutTime(clause: Clause, language: Language, found: Map<string, Found>): void {
-  const at = firstMatch(clause.tokens, WORKOUT_WORDS);
+  const strong = firstMatch(clause.tokens, WORKOUT_WORDS);
+  const weak = firstMatch(clause.tokens, WEAK_WORKOUT_WORDS);
+  const weakBacked = weak >= 0 && (findDuration(clause.tokens) !== null || hasAny(clause.tokens, RUN_CONTEXT));
+  const at = strong >= 0 ? strong : weakBacked ? weak : -1;
   if (at < 0 || negatedBefore(clause.tokens, at)) return;
   const position = clause.index * 1000 + at;
   if (clause.tokens.includes('ochtendtraining')) {
@@ -473,7 +544,7 @@ function readWorkoutTime(clause: Clause, language: Language, found: Map<string, 
     addFound(found, { questionId: 'evening-workout', answer: true, detail: null, confident: true }, position);
     return;
   }
-  const time = findTime(clause.tokens, 6, language);
+  const time = clauseTime(clause, 6, language);
   if (time !== null) {
     if (time.minutes >= EVENING_WORKOUT) addFound(found, { questionId: 'evening-workout', answer: true, detail: { kind: 'time', minutes: time.minutes }, confident: true }, position);
     else if (time.minutes < MORNING_WORKOUT) addFound(found, { questionId: 'morning-workout', answer: true, detail: { kind: 'time', minutes: time.minutes }, confident: true }, position);
