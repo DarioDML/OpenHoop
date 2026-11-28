@@ -164,7 +164,7 @@
   "journal.noQuestions": "Er staan geen vragen aan. Voeg gewoontes toe via Vragen aanpassen.",
   "journal.customize.search": "Zoek in {count} gewoontes",
   "journal.customize.searchLabel": "Gewoontes zoeken",
-  "journal.customize.count": "{count} van {max} gewoontes in je dagboek",
+  "journal.customize.count": "{count} in je dagboek · max. {max}",
   "journal.customize.full": "Je dagboek bevat {max} gewoontes, het maximum tegelijk. Verwijder er een om een andere toe te voegen.",
   "journal.customize.noResults": "Geen enkele gewoonte past bij je zoekopdracht.",
   "journal.customize.add": "{name} toevoegen",
@@ -210,5 +210,7 @@
   "journal.insights.needsTitle": "Meer gegevens nodig",
   "journal.insights.needsWith": "{have} van {need} dagen ingevuld",
   "journal.insights.needsWithout": "{have} van {need} dagen zonder ingevuld",
-  "journal.insights.rowA11y": "{name}: {value} {metric}, {count} ingevulde dagen, {confidence}"
+  "journal.insights.rowA11y": "{name}: {value} {metric}, {count} ingevulde dagen, {confidence}",
+  "journal.customize.showAll": "Toon alle {count}",
+  "journal.customize.showFewer": "Toon minder"
 }

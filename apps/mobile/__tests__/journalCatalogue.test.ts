@@ -1,15 +1,5 @@
 import { allTranslations, translate } from '@/i18n';
-import {
-  DEFAULT_JOURNAL_QUESTIONS,
-  JOURNAL_CATEGORIES,
-  JOURNAL_QUESTIONS,
-  MAX_ACTIVE_QUESTIONS,
-  activeQuestions,
-  findQuestion,
-  searchQuestions,
-  trackedQuestions,
-  withQuestion,
-} from '@/data/journalQuestions';
+import { DEFAULT_JOURNAL_QUESTIONS, JOURNAL_CATEGORIES, JOURNAL_QUESTIONS, MAX_ACTIVE_QUESTIONS, activeQuestions, findQuestion, searchQuestions, trackedQuestions, withQuestion, CATALOGUE_PREVIEW, catalogueGroups } from '@/data/journalQuestions';
 import { parseUserData } from '@/data/userData';
 import { questionIcon, questionText } from '@/ui/health/journalLabels';
 
@@ -86,5 +76,39 @@ describe('journal behaviour catalogue', () => {
     expect(questionText(t, alcohol)).toBe('Any alcohol?');
     expect(questionIcon(alcohol)).toBe('glass');
     expect(questionIcon(plunge)).toBe('thermometer');
+  });
+});
+
+describe('catalogueGroups', () => {
+  const entries = JOURNAL_QUESTIONS.map((question) => ({ question, label: question.id }));
+  const nutrition = JOURNAL_QUESTIONS.filter((q) => q.category === 'nutrition');
+
+  it('gives every category its own short group with the active ones kept', () => {
+    const groups = catalogueGroups(entries, '', ['alcohol', 'fish'], new Set());
+    expect(groups.map((g) => g.category)).toEqual([...JOURNAL_CATEGORIES]);
+    const food = groups.find((g) => g.category === 'nutrition');
+    expect(food?.items.length).toBe(CATALOGUE_PREVIEW);
+    expect(food?.items.map((e) => e.question.id)).toEqual(expect.arrayContaining(['alcohol', 'fish']));
+    expect(food?.total).toBe(nutrition.length);
+    expect(food?.hidden).toBe(nutrition.length - CATALOGUE_PREVIEW);
+  });
+
+  it('keeps catalogue order inside a group', () => {
+    const food = catalogueGroups(entries, '', ['fish'], new Set()).find((g) => g.category === 'nutrition');
+    const order = nutrition.map((q) => q.id);
+    const shown = food?.items.map((e) => order.indexOf(e.question.id)) ?? [];
+    expect(shown).toEqual([...shown].sort((a, b) => a - b));
+  });
+
+  it('shows every active behaviour even past the preview', () => {
+    const active = nutrition.slice(0, CATALOGUE_PREVIEW + 2).map((q) => q.id);
+    const food = catalogueGroups(entries, '', active, new Set()).find((g) => g.category === 'nutrition');
+    expect(food?.items.length).toBe(CATALOGUE_PREVIEW + 2);
+  });
+
+  it('opens a group fully when expanded or when searching', () => {
+    expect(catalogueGroups(entries, '', [], new Set(['nutrition'])).find((g) => g.category === 'nutrition')?.hidden).toBe(0);
+    const search = catalogueGroups(entries, 'f', [], new Set());
+    expect(search.every((g) => g.hidden === 0)).toBe(true);
   });
 });
