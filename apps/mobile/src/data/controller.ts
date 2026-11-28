@@ -56,6 +56,7 @@ import {
   emptyCycleData,
   insertPeriod,
   loadCycleData,
+  needsLockProbe,
   probeLock,
   readDeviceInformation,
   latestBandStatus,
@@ -850,8 +851,9 @@ export class AppController {
       this.deviceRow === null && this.snapshot.settings.dataSource === 'demo'
         ? (ownerSinceToUnix(isoDaysAgo(nowSeconds(), DEMO_OWNER_SINCE_DAYS, deviceTzOffsetS(new Date())), deviceTzOffsetS(new Date())))
         : null;
+    const firmwareBefore = this.deviceRow?.bleId === bleId ? this.deviceRow.firmware : null;
     const conn = await this.openConnection(bleId, ownerSince);
-    await this.probe(conn);
+    if (needsLockProbe(this.lockState, firmwareBefore, this.deviceRow?.firmware ?? null)) await this.probe(conn);
     return conn;
   }
 
