@@ -96,6 +96,6 @@
   "network.globalBody": "Standaard uit. Zolang dit uit staat, maakt OpenHoop geen enkele netwerkverbinding.",
   "network.featureOff": "Zet eerst Netwerkfuncties aan.",
   "network.coach.title": "Coach",
-  "network.coach.sends": "Verstuurt: je vraag, het huidige gesprek, de laatste 7 dagen herstel, slaapscore, belasting, HRV en rusthartslag, en je geheugennotities.",
-  "network.coach.to": "Naar: Anthropic (api.anthropic.com), met je eigen API-sleutel. Er gaat niets weg tot je een vraag stelt."
+  "network.coach.sends": "Verstuurt: je vraag, het huidige gesprek, de laatste 7 dagen herstel, slaapscore, belasting, HRV en rusthartslag, en je geheugennotities. Als je een krachtworkout met de coach bouwt: je beschrijving, je oefeningenlijst (met de namen van je eigen oefeningen) en tot 30 recente werkgewichten met hun datum.",
+  "network.coach.to": "Naar: Anthropic (api.anthropic.com), met je eigen API-sleutel. Er gaat niets weg tot je een vraag stelt of een workout beschrijft."
 }
