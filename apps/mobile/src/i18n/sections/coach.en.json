@@ -35,7 +35,7 @@
   "coach.history.title": "History",
   "coach.history.body": "Your conversations with the coach. They are stored only on this phone.",
   "coach.history.search": "Search titles",
-  "coach.history.empty": "No conversations yet.",
+  "coach.history.empty": "No conversations yet",
   "coach.history.noMatch": "No conversation matches.",
   "coach.history.meta": "{count} messages · {date}",
   "coach.history.delete": "Delete conversation",
@@ -195,5 +195,7 @@
   "coach.checkIn.questionPrivateUp": "My {metric} looks higher than usual. What could explain that?",
   "coach.checkIn.weekQuestionPrivateDown": "Can you review my last week? My {metric} looked lower than the week before.",
   "coach.checkIn.weekQuestionPrivateUp": "Can you review my last week? My {metric} looked higher than the week before.",
-  "coach.settings.seesOff": "The coach is switched off, so nothing is sent. This is what a question would send once you switch it on."
+  "coach.settings.seesOff": "The coach is switched off, so nothing is sent. This is what a question would send once you switch it on.",
+  "coach.history.emptyBody": "Ask the coach about your sleep, load or readiness. Each conversation is kept here.",
+  "coach.history.start": "Start a conversation"
 }

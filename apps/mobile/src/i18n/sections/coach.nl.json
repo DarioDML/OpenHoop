@@ -35,7 +35,7 @@
   "coach.history.title": "Geschiedenis",
   "coach.history.body": "Je gesprekken met de coach. Ze staan alleen op deze telefoon.",
   "coach.history.search": "Zoeken in titels",
-  "coach.history.empty": "Nog geen gesprekken.",
+  "coach.history.empty": "Nog geen gesprekken",
   "coach.history.noMatch": "Geen gesprek gevonden.",
   "coach.history.meta": "{count} berichten · {date}",
   "coach.history.delete": "Gesprek verwijderen",
@@ -195,5 +195,7 @@
   "coach.checkIn.questionPrivateUp": "Mijn {metric} lijkt hoger dan gewoonlijk. Wat kan dat verklaren?",
   "coach.checkIn.weekQuestionPrivateDown": "Kun je mijn vorige week overlopen? Mijn {metric} lag lager dan de week ervoor.",
   "coach.checkIn.weekQuestionPrivateUp": "Kun je mijn vorige week overlopen? Mijn {metric} lag hoger dan de week ervoor.",
-  "coach.settings.seesOff": "De coach staat uit, dus er wordt niets verstuurd. Dit zou een vraag versturen zodra je hem aanzet."
+  "coach.settings.seesOff": "De coach staat uit, dus er wordt niets verstuurd. Dit zou een vraag versturen zodra je hem aanzet.",
+  "coach.history.emptyBody": "Vraag de coach naar je slaap, belasting of paraatheid. Elk gesprek wordt hier bewaard.",
+  "coach.history.start": "Begin een gesprek"
 }
