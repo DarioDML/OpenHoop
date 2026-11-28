@@ -18,10 +18,10 @@ type Place = 'wrist' | 'bicep' | 'garment';
 
 const GARMENT_LOCATIONS: readonly WearLocation[] = ['torso', 'waist', 'calf'];
 
-const PLACES: ReadonlyArray<{ place: Place; location: WearLocation; title: TranslationKey; body: TranslationKey }> = [
+const PLACES: ReadonlyArray<{ place: Place; location: WearLocation | null; title: TranslationKey; body: TranslationKey }> = [
   { place: 'wrist', location: 'wrist', title: 'onboarding.wear.wrist', body: 'onboarding.wear.wristBody' },
   { place: 'bicep', location: 'bicep', title: 'onboarding.wear.bicep', body: 'onboarding.wear.bicepBody' },
-  { place: 'garment', location: 'torso', title: 'onboarding.wear.garment', body: 'onboarding.wear.garmentBody' },
+  { place: 'garment', location: null, title: 'onboarding.wear.garment', body: 'onboarding.wear.garmentBody' },
 ];
 
 const TIPS: readonly TranslationKey[] = ['onboarding.wear.tip1', 'onboarding.wear.tip2', 'onboarding.wear.tip3', 'onboarding.wear.tip4', 'onboarding.wear.tip5'];
@@ -54,11 +54,22 @@ export default function WearGuideScreen() {
   const { colors } = useTheme();
   const { userData, updateUserData } = useAppData();
   const [location, setLocation] = useState<WearLocation | null>(userData.wearLocation);
-  const picked = placeOf(location);
+  const [picked, setPicked] = useState<Place | null>(placeOf(userData.wearLocation));
 
   const choose = (next: WearLocation): void => {
+    const before = { location, picked };
     setLocation(next);
-    void updateUserData({ wearLocation: next });
+    setPicked(placeOf(next));
+    void updateUserData({ wearLocation: next }).then((saved) => {
+      if (saved) return;
+      setLocation(before.location);
+      setPicked(before.picked);
+    });
+  };
+
+  const pick = (place: Place, next: WearLocation | null): void => {
+    if (next === null) setPicked(place);
+    else choose(next);
   };
 
   return (
@@ -77,7 +88,7 @@ export default function WearGuideScreen() {
               accessibilityState={{ selected }}
               accessibilityLabel={`${t(item.title)}, ${t(item.body)}`}
               onPress={() => {
-                if (!selected) choose(item.location);
+                if (!selected) pick(item.place, item.location);
               }}
               testID={`wear-${item.place}`}
               style={({ pressed }) => ({
