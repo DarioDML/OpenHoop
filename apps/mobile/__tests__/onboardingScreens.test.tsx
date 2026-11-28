@@ -3,12 +3,14 @@ import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Linking } from 'react-native';
 
-import WelcomeScreen from '@/app/onboarding/index';
 import BodyScreen from '@/app/onboarding/body';
+import PairConnectedScreen from '@/app/onboarding/connected';
 import GoalsScreen from '@/app/onboarding/goals';
+import WelcomeScreen from '@/app/onboarding/index';
+import OfficialAppScreen from '@/app/onboarding/official-app';
+import PairScanScreen from '@/app/onboarding/pair';
 import PermissionsScreen from '@/app/onboarding/permissions';
 import ProfileScreen from '@/app/onboarding/profile';
-
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { HC_EXPORT_TYPES } from '@/lib/healthConnectMapping';
 
@@ -16,10 +18,12 @@ import { fixtureAppData, withAppData } from './support/appData';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockParams,
   Stack: { Screen: () => null },
   Link: ({ children }: { children: ReactNode }) => children,
 }));
+
+let mockParams: Record<string, string> = {};
 
 interface MockPermission {
   granted: boolean;
@@ -35,12 +39,20 @@ jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: () => mockRequestLocation(),
 }));
 
+jest.mock('@openhoop/core', () => ({
+  DisconnectedError: class DisconnectedError extends Error {},
+  CommandTimeoutError: class CommandTimeoutError extends Error {},
+  CommandFailedError: class CommandFailedError extends Error {},
+  OwnerSinceRequiredError: class OwnerSinceRequiredError extends Error {},
+}));
+
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
 });
 
 describe('Welcome (A1)', () => {
@@ -195,5 +207,104 @@ describe('Permissions (A5)', () => {
     mockGetLocation.mockResolvedValueOnce({ granted: false, canAskAgain: false, status: 'denied' });
     await render(withAppData(<PermissionsScreen />));
     expect(await screen.findByTestId('permission-location-blocked')).toBeTruthy();
+  });
+});
+
+describe('Official app (A11)', () => {
+  it('stores the radio choice and shows the guidance for it', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<OfficialAppScreen />, 'en', { updateUserData }));
+    expect(screen.getByTestId('onboarding-dots').props.accessibilityLabel).toBe('Your band, step 1 of 4');
+    expect(screen.getByTestId('official-only').props.accessibilityState).toEqual({ selected: true, disabled: false });
+    expect(screen.getByTestId('official-guide')).toHaveTextContent(/Before you pair/);
+    await fireEvent.press(screen.getByTestId('official-switch'));
+    expect(updateUserData).toHaveBeenCalledWith({ officialAppMode: 'switch' });
+    expect(screen.getByTestId('official-guide')).toHaveTextContent(/Switching back later/);
+    expect(screen.getByTestId('official-firmware')).toHaveTextContent(/update firmware there/);
+    expect(screen.getByTestId('official-firmware-note')).toHaveTextContent('Reading the band was checked on firmware 50.43.2.0 (MG). Your band last reported 50.36.2.0.');
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/pair'));
+  });
+
+  it('remembers an earlier choice', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<OfficialAppScreen />, 'en', { userData: { ...base.userData, officialAppMode: 'switch' }, device: { ...base.device, firmware: null } }));
+    expect(screen.getByTestId('official-switch').props.accessibilityState).toEqual({ selected: true, disabled: false });
+    expect(screen.getByTestId('official-firmware-note')).toHaveTextContent(/Setup records the version/);
+  });
+});
+
+describe('Pair scan (A6)', () => {
+  const BANDS = [
+    { id: 'AA:BB:CC:DD:EE:19', name: 'WHOOP MG', rssi: -71 },
+    { id: '5B:01:3C:44:91:A7', name: 'WHOOP 5.0', rssi: -48 },
+    { id: 'C0:FF:EE:00:00:01', name: 'WHOOP 5.0', rssi: 0 },
+  ];
+
+  it('lists found bands strongest first with their signal and a Pair button each', async () => {
+    const scan = jest.fn(async () => BANDS);
+    await render(withAppData(<PairScanScreen />, 'en', { scan }));
+    expect(screen.getByTestId('pair-illustration')).toBeTruthy();
+    expect(screen.getByTestId('scan-button')).toHaveTextContent(/Search for bands/i);
+    await fireEvent.press(screen.getByTestId('scan-button'));
+    await waitFor(() => expect(screen.getByTestId('band-row-5B:01:3C:44:91:A7')).toBeTruthy());
+    expect(screen.getByTestId('band-row-5B:01:3C:44:91:A7')).toHaveTextContent(/5B01…A7 · strong signal \(-48 dBm\)/);
+    expect(screen.getByTestId('band-row-AA:BB:CC:DD:EE:19')).toHaveTextContent(/AABB…19 · medium signal \(-71 dBm\)/);
+    expect(screen.getByTestId('band-row-C0:FF:EE:00:00:01')).toHaveTextContent(/C0FF…01 · signal unknown/);
+    expect(screen.getAllByText('Pair')).toHaveLength(3);
+    expect(screen.getByTestId('scan-button')).toHaveTextContent(/Scan again/i);
+  });
+
+  it('asks since when the band was worn, then pairs and opens the connected screen with the signal', async () => {
+    const pair = jest.fn(async () => undefined);
+    await render(withAppData(<PairScanScreen />, 'en', { scan: async () => BANDS, pair }));
+    await fireEvent.press(screen.getByTestId('scan-button'));
+    await fireEvent.press(await screen.findByTestId('pair-5B:01:3C:44:91:A7'));
+    expect(screen.getByTestId('since-warning')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('since-input'), '2026-11-01');
+    await fireEvent.press(screen.getByTestId('bond-button'));
+    await waitFor(() => expect(pair).toHaveBeenCalledWith('5B:01:3C:44:91:A7', '2026-11-01'));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/onboarding/connected', params: { id: '5B:01:3C:44:91:A7', rssi: '-48' } });
+  });
+
+  it('keeps the demo band, the help and the other-app note, with the switch guidance when chosen', async () => {
+    const base = fixtureAppData();
+    const updateSettings = jest.fn(async () => undefined);
+    await render(withAppData(<PairScanScreen />, 'en', { updateSettings, userData: { ...base.userData, officialAppMode: 'switch' } }));
+    expect(screen.getByTestId('pair-other-app')).toHaveTextContent(/Paired to another app\?/);
+    expect(screen.getByTestId('pair-switch-note')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('pair-help'));
+    expect(router.push).toHaveBeenCalledWith('/onboarding/official-app');
+    await fireEvent.press(screen.getByTestId('pair-demo'));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/setup'));
+    expect(updateSettings).toHaveBeenCalledWith({ dataSource: 'demo' });
+  });
+
+  it('says when no band was found', async () => {
+    await render(withAppData(<PairScanScreen />));
+    await fireEvent.press(screen.getByTestId('scan-button'));
+    expect(await screen.findByTestId('pair-none')).toBeTruthy();
+  });
+});
+
+describe('Pair connected (A7)', () => {
+  it('shows the success line and the band facts as tiles, with the signal from pairing', async () => {
+    mockParams = { id: '5B:01:3C:44:91:A7', rssi: '-48' };
+    await render(withAppData(<PairConnectedScreen />));
+    expect(screen.getByTestId('connected-success')).toHaveTextContent('Demoband · 5B01…A7 connected');
+    expect(screen.getByTestId('fact-model-value')).toHaveTextContent('5.0');
+    expect(screen.getByTestId('fact-battery-value')).toHaveTextContent(/72/);
+    expect(screen.getByTestId('fact-firmware-value')).toHaveTextContent('50.36.2.0');
+    expect(screen.getByTestId('fact-firmware-chip')).toHaveTextContent('Logged');
+    expect(screen.getByTestId('fact-signal-value')).toHaveTextContent(/-48/);
+    expect(screen.getByTestId('fact-lock')).toBeTruthy();
+    expect(screen.getByTestId('connected-read-only')).toBeTruthy();
+  });
+
+  it('says when the signal is not known and keeps the locked-band warning', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<PairConnectedScreen />, 'en', { device: { ...base.device, lockState: 'locked' } }));
+    expect(screen.getByTestId('fact-signal-missing')).toHaveTextContent('Unknown');
+    expect(screen.getByTestId('connected-locked')).toBeTruthy();
   });
 });
