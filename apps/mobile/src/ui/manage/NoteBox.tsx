@@ -7,7 +7,7 @@ import { radius, spacing, useTheme } from '@/ui/theme';
 
 interface Props {
   icon: IconName;
-  title: string;
+  title?: string;
   body?: string;
   tone?: 'warning' | 'neutral';
   children?: ReactNode;
@@ -24,9 +24,11 @@ export function NoteBox({ icon, title, body, tone = 'neutral', children, testID 
       style={{ flexDirection: 'row', gap: spacing.md, padding: 14, borderRadius: radius.md, backgroundColor: warning ? colors.warningSoft : colors.surfaceAlt }}>
       <Icon name={icon} color={warning ? colors.warning : colors.textSoft} size={20} />
       <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
-        <AppText variant="bodyStrong" color={warning ? colors.warning : colors.textSoft} style={{ fontSize: 14, lineHeight: 19 }}>
-          {title}
-        </AppText>
+        {title === undefined ? null : (
+          <AppText variant="bodyStrong" color={warning ? colors.warning : colors.textSoft} style={{ fontSize: 14, lineHeight: 19 }}>
+            {title}
+          </AppText>
+        )}
         {body ? (
           <AppText variant="label" color={colors.textSoft}>
             {body}

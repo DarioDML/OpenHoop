@@ -296,6 +296,21 @@ describe('Pair scan (A6)', () => {
     expect(router.push).toHaveBeenCalledWith({ pathname: '/onboarding/connected', params: { id: '5B:01:3C:44:91:A7', rssi: '-48' } });
   });
 
+  it('warns under the date, says what goes when it is today, and blocks pairing for a bad or future date', async () => {
+    await render(withAppData(<PairScanScreen />, 'en', { scan: async () => BANDS }));
+    await fireEvent.press(screen.getByTestId('scan-button'));
+    await fireEvent.press(await screen.findByTestId('pair-5B:01:3C:44:91:A7'));
+    expect(screen.getByTestId('since-warning')).toHaveTextContent(/Everything on the band before today will be erased\./);
+    expect(screen.getByTestId('bond-button').props.accessibilityState.disabled).toBe(false);
+    await fireEvent.changeText(screen.getByTestId('since-input'), '2026-13-40');
+    expect(screen.getByTestId('bond-button').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('since-input'), '2999-01-01');
+    expect(screen.getByTestId('bond-button').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('since-input'), '2026-11-01');
+    expect(screen.getByTestId('bond-button').props.accessibilityState.disabled).toBe(false);
+    expect(screen.getByTestId('since-warning')).not.toHaveTextContent(/before today will be erased/);
+  });
+
   it('keeps the demo band, the help and the other-app note, with the switch guidance when chosen', async () => {
     const base = fixtureAppData();
     const updateSettings = jest.fn(async () => undefined);

@@ -57,6 +57,7 @@ export default function PairScanScreen() {
   const [bonding, setBonding] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
 
+  const today = todayIso(new Date());
   const sinceValid = isValidIsoDate(since, new Date());
 
   const runScan = async (): Promise<void> => {
@@ -160,7 +161,7 @@ export default function PairScanScreen() {
                     setFailure(null);
                     setSelected(band);
                   }}
-                  disabled={bonding}
+                  disabled={bonding || scanning}
                   accessibilityLabel={t('onboarding.pair.pairLabel', { name: band.name })}
                   testID={`pair-${band.id}`}
                 />
@@ -209,9 +210,7 @@ export default function PairScanScreen() {
           hint={sinceValid ? undefined : t('pairing.sinceInvalid')}
           testID="since-input"
         />
-        <AppText variant="label" color={colors.warning} testID="since-warning">
-          {t('pairing.sinceWarning')}
-        </AppText>
+        <NoteBox icon="alert" tone="warning" title={since === today ? t('onboarding.pair.sinceToday') : undefined} body={t('pairing.sinceWarning')} testID="since-warning" />
         <AppText variant="caption" muted>
           {t('pairing.bondBody')}
         </AppText>
