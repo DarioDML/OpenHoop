@@ -24,6 +24,7 @@ import { cleanDescription, recentWeights, requestWorkoutPlan, DESCRIPTION_LIMITS
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { moveItem } from '@/lib/reorder';
+import { weightIn } from '@/lib/units';
 import { netFetch } from '@/net';
 import { featureEnabled } from '@/net/features';
 import { AppText } from '@/ui/AppText';
@@ -93,6 +94,8 @@ export default function StrengthBuilderScreen() {
   const [description, setDescription] = useState('');
   const [coachPhase, setCoachPhase] = useState<CoachPhase>({ step: 'idle' });
   const inflight = useRef<AbortController | null>(null);
+  const latest = useRef({ rows, name });
+  latest.current = { rows, name };
   const running = activeSession(strength.sessions) !== null;
   const coachNetwork = featureEnabled(userData.network, 'coach');
   const coachKey = coach?.state.hasKey === true;
@@ -239,10 +242,10 @@ export default function StrengthBuilderScreen() {
       setCoachPhase({ step: 'failed', message: 'strength.coach.nothing' });
       return;
     }
-    const previous = { rows, name };
+    const previous = latest.current;
     setRows(result.items.map((item) => ({ localId: nextId(), base: item, draft: targetDraftOf(item, labels.units) })));
     setExpanded(new Set());
-    if (name.trim() === '' && result.name !== null) setName(result.name);
+    if (previous.name.trim() === '' && result.name !== null) setName(result.name);
     clearErrors();
     setCoachPhase({ step: 'filled', count: result.items.length, dropped: result.dropped, previous });
   };
@@ -271,8 +274,8 @@ export default function StrengthBuilderScreen() {
     setsMax: STRENGTH_LIMITS.sets.max,
     repsMin: STRENGTH_LIMITS.reps.min,
     repsMax: STRENGTH_LIMITS.reps.max,
-    weightMin: labels.kg(STRENGTH_LIMITS.weightKg.min),
-    weightMax: labels.kg(STRENGTH_LIMITS.weightKg.max),
+    weightMin: labels.num(Math.ceil(weightIn(STRENGTH_LIMITS.weightKg.min, labels.units))),
+    weightMax: labels.num(Math.floor(weightIn(STRENGTH_LIMITS.weightKg.max, labels.units))),
     unit: labels.unit,
   });
 

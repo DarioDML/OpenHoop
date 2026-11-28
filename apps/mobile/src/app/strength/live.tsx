@@ -1,10 +1,10 @@
 import type { SessionExercise, StrengthSession } from '@openhoop/core';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData, useLive } from '@/data/context';
-import { REST_IDLE, REST_STEP_S, restJustEnded, restReducer, restView, type RestEvent, type RestTimer } from '@/data/restTimer';
+import { REST_IDLE, REST_STEP_S, restBuzzDue, restReducer, restView, type RestEvent, type RestTimer } from '@/data/restTimer';
 import {
   LOAD_BUCKET_S,
   REST_OPTIONS_S,
@@ -66,12 +66,13 @@ function useRestTimer(onEnd: () => void): { timer: RestTimer; dispatch: (event: 
   ended.current = onEnd;
   useEffect(() => {
     const id = setInterval(() => {
+      const atMs = Date.now();
       const before = latest.current;
-      const after = restReducer(before, { kind: 'tick', atMs: Date.now() });
+      const after = restReducer(before, { kind: 'tick', atMs });
       if (after === before) return;
       latest.current = after;
       setTimer(after);
-      if (restJustEnded(before, after)) ended.current();
+      if (restBuzzDue(before, after, atMs)) ended.current();
     }, 500);
     return () => clearInterval(id);
   }, []);
@@ -83,10 +84,10 @@ function useRestTimer(onEnd: () => void): { timer: RestTimer; dispatch: (event: 
   return { timer, dispatch };
 }
 
-function useSessionHeartRate(session: StrengthSession | null, liveHr: number | null): HeartRatePoint[] {
+function useSessionHeartRate(session: StrengthSession | null, liveHr: number | null, liveAt: number | null): HeartRatePoint[] {
   const { heartRateBetween } = useAppData();
   const [stored, setStored] = useState<HeartRatePoint[]>([]);
-  const beats = useRef<HeartRatePoint[]>([]);
+  const [beats, setBeats] = useState<HeartRatePoint[]>([]);
   const sessionId = session?.id ?? null;
   const startedAt = session?.startedAt ?? 0;
 
@@ -108,16 +109,19 @@ function useSessionHeartRate(session: StrengthSession | null, liveHr: number | n
   useEffect(() => {
     if (liveHr === null || !(liveHr > 0)) return;
     const t = Math.floor(Date.now() / 1000);
-    const list = beats.current;
-    if (list[list.length - 1]?.t === t) list[list.length - 1] = { t, hr: liveHr };
-    else list.push({ t, hr: liveHr });
-    if (list.length > MAX_BEATS) list.splice(0, list.length - MAX_BEATS);
-  }, [liveHr]);
+    setBeats((list) => {
+      const beat = { t, hr: liveHr };
+      const next = list[list.length - 1]?.t === t ? [...list.slice(0, -1), beat] : [...list, beat];
+      return next.length > MAX_BEATS ? next.slice(next.length - MAX_BEATS) : next;
+    });
+  }, [liveHr, liveAt]);
 
-  const merged = new Map<number, number>();
-  for (const point of beats.current) merged.set(point.t, point.hr);
-  for (const point of stored) merged.set(point.t, point.hr);
-  return [...merged.entries()].sort((a, b) => a[0] - b[0]).map(([t, hr]) => ({ t, hr }));
+  return useMemo(() => {
+    const merged = new Map<number, number>();
+    for (const point of beats) merged.set(point.t, point.hr);
+    for (const point of stored) merged.set(point.t, point.hr);
+    return [...merged.entries()].sort((a, b) => a[0] - b[0]).map(([t, hr]) => ({ t, hr }));
+  }, [stored, beats]);
 }
 
 function liveLoadMissing(reason: string | null): TranslationKey {
@@ -152,7 +156,7 @@ export default function StrengthLiveScreen() {
   const { timer, dispatch } = useRestTimer(() => {
     if (buzzWanted.current) void bandActions.buzz('test');
   });
-  const heartRate = useSessionHeartRate(session, live.active ? live.heartRate : null);
+  const heartRate = useSessionHeartRate(session, live.active ? live.heartRate : null, live.active ? live.updatedAt : null);
   const startedLiveHere = useRef(false);
   const stopLiveRef = useRef(stopLive);
   stopLiveRef.current = stopLive;
@@ -411,8 +415,8 @@ export default function StrengthLiveScreen() {
             : `${t('strength.live.limits', {
                 repsMin: STRENGTH_LIMITS.reps.min,
                 repsMax: STRENGTH_LIMITS.reps.max,
-                weightMin: labels.kg(STRENGTH_LIMITS.weightKg.min),
-                weightMax: labels.kg(STRENGTH_LIMITS.weightKg.max),
+                weightMin: labels.num(weightLimits.min),
+                weightMax: labels.num(weightLimits.max),
                 unit: labels.unit,
               })} ${t('strength.live.rpeHint')}`}
         </AppText>
@@ -427,9 +431,14 @@ export default function StrengthLiveScreen() {
       close
       center={
         <View testID="live-elapsed" accessible accessibilityRole="header" accessibilityLabel={`${session.name}, ${t('strength.live.elapsed')} ${formatClockTimer(durationS(session, nowS))}`}>
-          <AppText variant="screenTitle" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-            {t('strength.live.titleElapsed', { name: session.name, time: formatClockTimer(durationS(session, nowS)) })}
-          </AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+            <AppText variant="screenTitle" numberOfLines={1} ellipsizeMode="tail" style={{ flexShrink: 1 }}>
+              {session.name}
+            </AppText>
+            <AppText variant="screenTitle" numberOfLines={1} style={{ flexShrink: 0 }}>
+              {` · ${formatClockTimer(durationS(session, nowS))}`}
+            </AppText>
+          </View>
         </View>
       }
       hero={hero}>

@@ -69,17 +69,19 @@ describe('strength minutes over time', () => {
 });
 
 describe('period totals', () => {
-  it('counts sessions and volume and the period before', () => {
-    expect(periodBounds('1m', TODAY)).toEqual({ start: '2026-11-02', end: '2026-11-29', previousStart: '2026-10-05', previousEnd: '2026-11-01' });
+  it('counts sessions and volume and the same days of the period before', () => {
+    expect(periodBounds('1m', TODAY)).toEqual({ start: '2026-11-02', end: '2026-11-29', elapsedDays: 24, previousStart: '2026-10-05', previousEnd: '2026-10-28' });
+    expect(periodBounds('1w', TODAY)).toEqual({ start: '2026-11-23', end: '2026-11-29', elapsedDays: 3, previousStart: '2026-11-16', previousEnd: '2026-11-18' });
     expect(periodTotals('1m', SESSIONS, TODAY)).toEqual({
       start: '2026-11-02',
       end: '2026-11-29',
+      elapsedDays: 24,
       sessions: 4,
       volumeKg: 7000,
       previousSessions: 1,
       previousVolumeKg: 500,
     });
-    expect(periodBounds('6m', TODAY)).toMatchObject({ previousStart: '2025-12-01', previousEnd: '2026-05-31' });
+    expect(periodBounds('6m', TODAY)).toMatchObject({ elapsedDays: 178, previousStart: '2025-12-01', previousEnd: '2026-05-27' });
   });
 });
 

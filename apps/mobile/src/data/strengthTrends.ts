@@ -80,19 +80,30 @@ export function strengthMinuteBars(range: TrendRange, input: MinutesInput): Minu
 export interface PeriodTotals {
   start: string;
   end: string;
+  elapsedDays: number;
   sessions: number;
   volumeKg: number;
   previousSessions: number;
   previousVolumeKg: number;
 }
 
-export function periodBounds(range: TrendRange, today: string): { start: string; end: string; previousStart: string; previousEnd: string } {
+export interface PeriodBounds {
+  start: string;
+  end: string;
+  elapsedDays: number;
+  previousStart: string;
+  previousEnd: string;
+}
+
+export function periodBounds(range: TrendRange, today: string): PeriodBounds {
   const all = spans(range, today);
   const start = all[0]?.start ?? today;
   const end = all[all.length - 1]?.end ?? today;
-  if (range === '6m') return { start, end, previousStart: monthStart(start, -6), previousEnd: addDays(start, -1) };
-  const length = daysBetween(start, end);
-  return { start, end, previousStart: addDays(start, -length), previousEnd: addDays(start, -1) };
+  const elapsedDays = daysBetween(start, today < end ? today : end);
+  const previousStart = range === '6m' ? monthStart(start, -6) : addDays(start, -daysBetween(start, end));
+  const sameElapsed = addDays(previousStart, elapsedDays - 1);
+  const dayBefore = addDays(start, -1);
+  return { start, end, elapsedDays, previousStart, previousEnd: sameElapsed < dayBefore ? sameElapsed : dayBefore };
 }
 
 export function periodTotals(range: TrendRange, sessions: readonly StrengthSession[], today: string): PeriodTotals {
@@ -104,6 +115,7 @@ export function periodTotals(range: TrendRange, sessions: readonly StrengthSessi
   return {
     start: bounds.start,
     end: bounds.end,
+    elapsedDays: bounds.elapsedDays,
     sessions: now.length,
     volumeKg: sessionTotals(now.flatMap((session) => session.sets)).volumeKg,
     previousSessions: before.length,

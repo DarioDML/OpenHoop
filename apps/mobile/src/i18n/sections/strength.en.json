@@ -243,7 +243,6 @@
   "strength.live.exerciseOf": "Exercise {n} of {total}",
   "strength.live.noExercise": "No exercise yet",
   "strength.live.hrNone": "no live reading",
-  "strength.live.titleElapsed": "{name} · {time}",
   "strength.live.setNumber": "set {n}",
   "strength.live.lessReps": "One rep less",
   "strength.live.moreReps": "One rep more",
@@ -257,7 +256,7 @@
   "strength.live.restLessLabel": "{seconds} seconds less rest",
   "strength.live.restMoreLabel": "{seconds} seconds more rest",
   "strength.live.buzz": "Buzz the band when rest is over",
-  "strength.live.buzzOn": "The band is connected and buzzes once when the countdown ends.",
+  "strength.live.buzzOn": "The band is connected and buzzes once when the countdown ends, while this screen is open.",
   "strength.live.buzzOff": "The band is not connected right now, so it will not buzz. The timer still runs.",
   "strength.live.load": "Live Load",
   "strength.live.loadNote": "From the heart rate of this workout so far.",
@@ -332,6 +331,6 @@
   "strength.trends.changeUp": "↑ {percent}%",
   "strength.trends.changeDown": "↓ {percent}%",
   "strength.trends.changeSame": "± {percent}%",
-  "strength.trends.changeNone": "No volume in the period before to compare with.",
-  "strength.trends.changeNote": "Against the same length of time before."
+  "strength.trends.changeNone": "No volume in the same days of the period before to compare with.",
+  "strength.trends.changeNote": "Against the same number of days in the period before."
 }

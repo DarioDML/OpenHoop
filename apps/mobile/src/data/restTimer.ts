@@ -53,6 +53,12 @@ export function restView(timer: RestTimer, nowMs: number): RestView {
   return { status: 'running', remainingS, fraction };
 }
 
+export const BUZZ_GRACE_MS = 5_000;
+
 export function restJustEnded(before: RestTimer, after: RestTimer): boolean {
   return before.status === 'running' && after.status === 'done';
+}
+
+export function restBuzzDue(before: RestTimer, after: RestTimer, atMs: number, graceMs: number = BUZZ_GRACE_MS): boolean {
+  return before.status === 'running' && after.status === 'done' && atMs - before.endsAtMs <= graceMs;
 }

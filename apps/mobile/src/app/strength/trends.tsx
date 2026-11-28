@@ -48,7 +48,6 @@ export default function StrengthTrendsScreen() {
   const change = percentChange(period.volumeKg, period.previousVolumeKg);
 
   const totalVolume = stats.reduce((sum, week) => sum + week.volumeKg, 0);
-  const totalSessions = stats.reduce((sum, week) => sum + week.sessions, 0);
   const muscleTotals: MuscleLoad[] = MUSCLE_GROUPS.map((muscle: MuscleGroup) => {
     const rows = stats.flatMap((week) => week.byMuscle.filter((row) => row.muscle === muscle));
     return { muscle, sets: rows.reduce((sum, row) => sum + row.sets, 0), volumeKg: rows.reduce((sum, row) => sum + row.volumeKg, 0), share: null };
@@ -157,7 +156,7 @@ export default function StrengthTrendsScreen() {
               label={t('strength.trends.total')}
               value={`${period.sessions}`}
               chip={{ label: t(`strength.trends.period.${range}`), tone: 'neutral' }}
-              caption={t('strength.trends.perWeek', { value: labels.num(totalSessions / weeks, 1) })}
+              caption={t('strength.trends.perWeek', { value: labels.num(period.sessions / Math.max(1, period.elapsedDays / 7), 1) })}
               testID="trends-total"
             />
             <GridTile

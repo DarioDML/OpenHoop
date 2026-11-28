@@ -243,7 +243,6 @@
   "strength.live.exerciseOf": "Oefening {n} van {total}",
   "strength.live.noExercise": "Nog geen oefening",
   "strength.live.hrNone": "geen live meting",
-  "strength.live.titleElapsed": "{name} · {time}",
   "strength.live.setNumber": "set {n}",
   "strength.live.lessReps": "Eén herhaling minder",
   "strength.live.moreReps": "Eén herhaling meer",
@@ -257,7 +256,7 @@
   "strength.live.restLessLabel": "{seconds} seconden minder rust",
   "strength.live.restMoreLabel": "{seconds} seconden meer rust",
   "strength.live.buzz": "Band laten trillen als de rust voorbij is",
-  "strength.live.buzzOn": "De band is verbonden en trilt één keer als het aftellen klaar is.",
+  "strength.live.buzzOn": "De band is verbonden en trilt één keer als het aftellen klaar is, zolang dit scherm open is.",
   "strength.live.buzzOff": "De band is nu niet verbonden en zal dus niet trillen. De timer loopt gewoon door.",
   "strength.live.load": "Live belasting",
   "strength.live.loadNote": "Uit de hartslag van deze workout tot nu toe.",
@@ -332,6 +331,6 @@
   "strength.trends.changeUp": "↑ {percent}%",
   "strength.trends.changeDown": "↓ {percent}%",
   "strength.trends.changeSame": "± {percent}%",
-  "strength.trends.changeNone": "Geen volume in de periode ervoor om mee te vergelijken.",
-  "strength.trends.changeNote": "Tegenover een even lange periode ervoor."
+  "strength.trends.changeNone": "Geen volume in dezelfde dagen van de periode ervoor om mee te vergelijken.",
+  "strength.trends.changeNote": "Tegenover even veel dagen van de periode ervoor."
 }

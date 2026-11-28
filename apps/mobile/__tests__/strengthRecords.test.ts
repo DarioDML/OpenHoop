@@ -1,6 +1,6 @@
 import type { StrengthSession, StrengthSet } from '@openhoop/core';
 
-import { REST_IDLE, REST_MAX_S, restJustEnded, restReducer, restView, type RestTimer } from '@/data/restTimer';
+import { BUZZ_GRACE_MS, REST_IDLE, REST_MAX_S, restBuzzDue, restJustEnded, restReducer, restView, type RestTimer } from '@/data/restTimer';
 import {
   bestSet,
   exerciseHistory,
@@ -217,6 +217,17 @@ describe('rest timer', () => {
     expect(restView(shorter, 10_000)).toMatchObject({ remainingS: 50 });
     const over = restReducer(restReducer(timer, { kind: 'tick', atMs: 50_000 }), { kind: 'adjust', atMs: 50_000, deltaS: -15 });
     expect(over).toEqual({ status: 'done', totalS: 45 });
+  });
+
+  it('buzzes only when the end is noticed in time', () => {
+    const timer = start(60);
+    const done = restReducer(timer, { kind: 'tick', atMs: 60_500 });
+    expect(restBuzzDue(timer, done, 60_500)).toBe(true);
+    const late = restReducer(timer, { kind: 'tick', atMs: 60_000 + BUZZ_GRACE_MS + 1 });
+    expect(restBuzzDue(timer, late, 60_000 + BUZZ_GRACE_MS + 1)).toBe(false);
+    expect(restBuzzDue(done, done, 61_000)).toBe(false);
+    const skipped = restReducer(timer, { kind: 'adjust', atMs: 50_000, deltaS: -15 });
+    expect(restBuzzDue(timer, skipped, 50_000)).toBe(true);
   });
 
   it('caps the length, skips and ignores adjustments when idle', () => {

@@ -662,6 +662,12 @@ describe('live session', () => {
     await waitFor(() => expect(logSet).toHaveBeenCalledWith(3, expect.objectContaining({ weightKg: 104.326 })));
   });
 
+  it('keeps the elapsed time visible next to a long workout name', async () => {
+    const long: StrengthSession = { ...running, name: 'A very long workout name that will not fit on one line at all' };
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [long] }), actions())));
+    expect(within(screen.getByTestId('live-elapsed')).getByText(' · 2:05')).toBeTruthy();
+  });
+
   it('keeps counting time', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(FIXTURE_NOW);
@@ -880,7 +886,7 @@ describe('strength trends', () => {
     expect(screen.getByTestId('trends-volume-tile-chip')).toHaveTextContent('↑ 33%');
     await render(withAppData(<StrengthTrendsScreen />, 'en', app(data({ sessions: [DAY_1, DAY_2] }), actions())));
     expect(screen.queryByTestId('trends-volume-tile-chip')).toBeNull();
-    expect(screen.getByTestId('trends-volume-tile')).toHaveTextContent(/No volume in the period before/);
+    expect(screen.getByTestId('trends-volume-tile')).toHaveTextContent(/No volume in the same days of the period before/);
   });
 
   it('leaves out sessions older than the chosen period', async () => {
