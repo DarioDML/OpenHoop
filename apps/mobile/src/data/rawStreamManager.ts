@@ -104,8 +104,15 @@ export class RawStreamManager {
     return kinds.every((kind) => this.confirmed.has(kind) && this.owners.kindsOf(owner).includes(kind));
   }
 
-  async stop(owner: StreamOwner): Promise<void> {
-    this.clearLive(this.owners.release(owner));
+  async stop(owner: StreamOwner, kinds?: readonly StreamKind[]): Promise<void> {
+    if (kinds === undefined) {
+      this.clearLive(this.owners.release(owner));
+    } else {
+      const before = this.owners.active();
+      this.owners.releaseKinds(owner, kinds);
+      const after = this.owners.active();
+      this.clearLive(before.filter((kind) => !after.includes(kind)));
+    }
     await this.settle();
   }
 

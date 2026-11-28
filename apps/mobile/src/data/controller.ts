@@ -1361,7 +1361,7 @@ export class AppController {
 
   private readonly rawStreamSet: RawStreamActions = {
     start: (owner: StreamOwner, kinds: readonly StreamKind[]) => this.streams.start(owner, kinds),
-    stop: (owner: StreamOwner) => this.streams.stop(owner),
+    stop: (owner: StreamOwner, kinds?: readonly StreamKind[]) => this.streams.stop(owner, kinds),
     setBandRecording: (on: boolean) => this.streams.setBandRecording(on),
     imuSeconds: () => this.streams.imuSeconds(),
     opticalSeconds: () => this.streams.opticalSeconds(),

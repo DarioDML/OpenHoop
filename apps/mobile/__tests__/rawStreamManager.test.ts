@@ -182,6 +182,17 @@ describe('raw stream manager', () => {
     expect(parseFlags(h.settings.get(FLAGS_KEY) ?? null).band).toBe(false);
   });
 
+  it('stopping one kind keeps the other stream of the same owner', async () => {
+    const h = setup();
+    await h.manager.start('developer', ['imu', 'optical']);
+    await h.manager.stop('developer', ['optical']);
+    expect(h.band.opticalOn).toBe(false);
+    expect(h.band.imuOn).toBe(true);
+    expect(h.manager.live().owners.developer).toEqual(['imu']);
+    await h.manager.stop('developer');
+    expect(h.band.imuOn).toBe(false);
+  });
+
   it('releaseAll switches every stream off', async () => {
     const h = setup();
     await h.manager.start('developer', ['imu', 'optical']);

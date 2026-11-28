@@ -203,7 +203,7 @@ export interface EcgActions {
 
 export interface RawStreamActions {
   start(owner: StreamOwner, kinds: readonly StreamKind[]): Promise<boolean>;
-  stop(owner: StreamOwner): Promise<void>;
+  stop(owner: StreamOwner, kinds?: readonly StreamKind[]): Promise<void>;
   setBandRecording(on: boolean): Promise<boolean>;
   imuSeconds(): readonly LiveImuSecond[];
   opticalSeconds(): readonly LiveOpticalSecond[];

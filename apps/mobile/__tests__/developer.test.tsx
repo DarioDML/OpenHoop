@@ -4,9 +4,9 @@ import type { ReactNode } from 'react';
 
 import DeveloperScreen from '@/app/settings/developer';
 import { PACKET_LOG_CAPACITY, PacketLog, RECORDING_LIMIT, describeCommandFrame, describePacket, loggedTransport, packetLog } from '@/ble/packetLog';
-import { listRawSessions, rawSessionCsv, rawSessionName, saveRawSession } from '@/data/rawSessions';
+import { listRawSessions, rawSessionCsv, rawSessionName, saveRawSession, saveRawStream } from '@/data/rawSessions';
 
-import { withAppData } from './support/appData';
+import { fixtureRawStreams, withAppData } from './support/appData';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
@@ -22,6 +22,7 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@/data/rawSessions', () => ({
   ...jest.requireActual<object>('@/data/rawSessions'),
   saveRawSession: jest.fn(async () => ({ name: 'raw-session-20261125-120000.csv', bytes: 10 })),
+  saveRawStream: jest.fn(async () => ({ name: 'raw-imu-20261125-120000.csv', bytes: 10 })),
   listRawSessions: jest.fn(() => []),
   deleteRawSession: jest.fn(),
 }));
@@ -144,14 +145,131 @@ describe('Developer screen (M6)', () => {
     expect(exportData).toHaveBeenCalledWith('sessions');
   });
 
-  it('switches live heart rate in Streams and says which streams are not decoded', async () => {
+  it('switches live heart rate in Streams and offers optical and motion streams', async () => {
     const startLive = jest.fn(async () => undefined);
     await render(withAppData(<DeveloperScreen />, 'en', { startLive }));
     await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
     await fireEvent(screen.getByTestId('stream-hr-toggle'), 'valueChange', true);
     expect(startLive).toHaveBeenCalled();
-    expect(within(screen.getByTestId('stream-ppg')).getByText('Not decoded yet')).toBeTruthy();
-    expect(within(screen.getByTestId('stream-imu')).getByText('Not decoded yet')).toBeTruthy();
+    expect(screen.queryByText('Not decoded yet')).toBeNull();
+    expect(screen.getByTestId('stream-ppg-toggle')).toBeTruthy();
+    expect(screen.getByTestId('stream-imu-toggle')).toBeTruthy();
+  });
+
+  it('switching the motion row on starts a developer motion stream, and off stops it', async () => {
+    const rawStreams = { ...fixtureRawStreams(), start: jest.fn(async () => true), stop: jest.fn(async () => undefined) };
+    await render(withAppData(<DeveloperScreen />, 'en', { rawStreams }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
+    await fireEvent(screen.getByTestId('stream-imu-toggle'), 'valueChange', true);
+    expect(rawStreams.start).toHaveBeenCalledWith('developer', ['imu']);
+  });
+
+  it('leaving the Streams tab stops the developer streams', async () => {
+    const rawStreams = { ...fixtureRawStreams(), stop: jest.fn(async () => undefined) };
+    const rawLive = { owners: { developer: ['imu' as const], workout: [] }, imu: null, optical: null };
+    const view = await render(withAppData(<DeveloperScreen />, 'en', { rawStreams, rawLive }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Versions' }));
+    expect(rawStreams.stop).toHaveBeenCalledWith('developer');
+    rawStreams.stop.mockClear();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
+    await view.unmount();
+    expect(rawStreams.stop).toHaveBeenCalledWith('developer');
+  });
+
+  it('leaving the Streams tab stops the developer streams even before the screen saw them start', async () => {
+    const rawStreams = { ...fixtureRawStreams(), stop: jest.fn(async () => undefined) };
+    await render(withAppData(<DeveloperScreen />, 'en', { rawStreams }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Versions' }));
+    expect(rawStreams.stop).toHaveBeenCalledWith('developer');
+  });
+
+  it('keeps a recording whole when a stream restarts while recording', async () => {
+    const second = (t: number) => ({ t, recordIndex: t, rateHz: 100, accel: [[0], [0], [4096]] as [number[], number[], number[]], gyro: [[0], [0], [0]] as [number[], number[], number[]] });
+    let seconds = [second(1_000), second(1_001), second(1_002)];
+    const rawStreams = { ...fixtureRawStreams(), imuSeconds: () => seconds };
+    const rawLive = { owners: { developer: ['imu' as const], workout: [] }, imu: null, optical: null };
+    await render(withAppData(<DeveloperScreen />, 'en', { rawStreams, rawLive }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
+    await fireEvent.press(screen.getByTestId('record-streams'));
+    seconds = [second(1_010), second(1_011)];
+    await fireEvent.press(screen.getByTestId('record-streams'));
+    await waitFor(() => expect(saveRawStream).toHaveBeenCalled());
+    const csv = String((saveRawStream as jest.Mock).mock.calls.at(-1)?.[2]);
+    expect(csv).toContain('1010000,');
+    expect(csv).toContain('1011000,');
+  });
+
+  it('saves a running recording when the Streams tab is left', async () => {
+    const second = (t: number) => ({ t, recordIndex: t, rateHz: 100, accel: [[0], [0], [4096]] as [number[], number[], number[]], gyro: [[0], [0], [0]] as [number[], number[], number[]] });
+    let seconds = [second(2_000)];
+    const rawStreams = { ...fixtureRawStreams(), imuSeconds: () => seconds };
+    const rawLive = { owners: { developer: ['imu' as const], workout: [] }, imu: null, optical: null };
+    (saveRawStream as jest.Mock).mockClear();
+    await render(withAppData(<DeveloperScreen />, 'en', { rawStreams, rawLive }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
+    await fireEvent.press(screen.getByTestId('record-streams'));
+    seconds = [second(2_000), second(2_001)];
+    await fireEvent.press(screen.getByRole('tab', { name: 'Versions' }));
+    await waitFor(() => expect(saveRawStream).toHaveBeenCalledWith('imu', expect.any(Date), expect.stringContaining('2001000,')));
+  });
+
+  it('marks a channel explanation as expanded', async () => {
+    const rawLive = {
+      owners: { developer: ['optical' as const], workout: [] },
+      imu: null,
+      optical: { rateHz: 25, seconds: 3, channels: [{ block: 0, slot: 'A' as const, source: 1, detector: 3, drive: 2750, role: 'pulse' as const, samples: [1, 2, 3] }] },
+    };
+    await render(withAppData(<DeveloperScreen />, 'en', { rawLive }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
+    const name = screen.getByRole('button', { name: 'What is Pulse · likely green?' });
+    expect(name.props.accessibilityState).toMatchObject({ expanded: false });
+    await fireEvent.press(name);
+    expect(screen.getByRole('button', { name: 'What is Pulse · likely green?' }).props.accessibilityState).toMatchObject({ expanded: true });
+    expect(screen.getByTestId('channel-why-0A')).toBeTruthy();
+  });
+
+  it('a running stream shows its measured rate, traces and likely channel names', async () => {
+    const fill = (v: number): number[] => new Array<number>(500).fill(v);
+    const rawLive = {
+      owners: { developer: ['imu' as const, 'optical' as const], workout: [] },
+      imu: { rateHz: 100, seconds: 42, tail: { ax: fill(0), ay: fill(0), az: fill(1), gx: fill(0), gy: fill(0), gz: fill(0) } },
+      optical: {
+        rateHz: 25,
+        seconds: 42,
+        channels: [
+          { block: 0, slot: 'A' as const, source: 1, detector: 3, drive: 2750, role: 'pulse' as const, samples: fill(200_000) },
+          { block: 3, slot: 'A' as const, source: 2, detector: 3, drive: 0, role: 'dark' as const, samples: fill(190) },
+          { block: 4, slot: 'A' as const, source: 2, detector: 3, drive: 200, role: 'wear' as const, samples: fill(100_000) },
+        ],
+      },
+    };
+    await render(withAppData(<DeveloperScreen />, 'en', { rawLive }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
+    expect(within(screen.getByTestId('stream-imu')).getByText(/100 Hz/)).toBeTruthy();
+    expect(within(screen.getByTestId('stream-ppg')).getByText(/25 Hz/)).toBeTruthy();
+    expect(screen.getByText('Pulse · likely green')).toBeTruthy();
+    expect(screen.getByText('Wear check · likely IR')).toBeTruthy();
+    expect(screen.getByText('Dark reference')).toBeTruthy();
+    expect(screen.getByTestId('imu-accel-trace')).toBeTruthy();
+    expect(screen.getByTestId('imu-gyro-trace')).toBeTruthy();
+  });
+
+  it('records the developer streams to CSV files', async () => {
+    (saveRawStream as jest.Mock).mockClear();
+    const second = { t: 1_000, recordIndex: 1, rateHz: 100, accel: [[0], [0], [4096]] as [number[], number[], number[]], gyro: [[0], [0], [0]] as [number[], number[], number[]] };
+    let seconds = [second];
+    const rawStreams = { ...fixtureRawStreams(), imuSeconds: () => seconds };
+    const rawLive = { owners: { developer: ['imu' as const], workout: [] }, imu: null, optical: null };
+    await render(withAppData(<DeveloperScreen />, 'en', { rawStreams, rawLive }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Streams' }));
+    await fireEvent.press(screen.getByTestId('record-streams'));
+    seconds = [second, { ...second, t: 1_001 }];
+    await fireEvent.press(screen.getByTestId('record-streams'));
+    await waitFor(() => expect(saveRawStream).toHaveBeenCalledTimes(1));
+    expect(saveRawStream).toHaveBeenCalledWith('imu', expect.any(Date), expect.stringContaining('1001000,0.0000,0.0000,1.0000'));
+    expect(String((saveRawStream as jest.Mock).mock.calls[0]?.[2])).not.toContain('\r\n1000000,');
   });
 
   it('lists the algorithm versions and keeps the developer tools', async () => {

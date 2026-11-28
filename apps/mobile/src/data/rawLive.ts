@@ -1,6 +1,8 @@
 import type { LiveImuSecond, LiveOpticalSecond, StreamKind } from '@openhoop/core';
 import { GYRO_INVALID } from '@openhoop/protocol';
 
+import { channelRole, type ChannelRole } from './opticalChannels';
+
 export const TAIL_SECONDS = 5;
 export const ACCEL_LSB_PER_G = 4096;
 export const GYRO_LSB_PER_DPS = 16.384;
@@ -22,6 +24,7 @@ export interface OpticalChannelTail {
   source: number;
   detector: number;
   drive: number;
+  role: ChannelRole;
   samples: number[];
 }
 
@@ -41,7 +44,7 @@ function keep(previous: readonly number[], added: readonly number[], limit: numb
 export function appendImuTail(tail: ImuTail, second: LiveImuSecond): ImuTail {
   const limit = Math.max(1, second.rateHz) * TAIL_SECONDS;
   const g = (axis: readonly number[]): number[] => axis.map((v) => v / ACCEL_LSB_PER_G);
-  const dps = (axis: readonly number[]): number[] => axis.filter((v) => v !== GYRO_INVALID).map((v) => v / GYRO_LSB_PER_DPS);
+  const dps = (axis: readonly number[]): number[] => axis.map((v) => (v === GYRO_INVALID ? Number.NaN : v / GYRO_LSB_PER_DPS));
   return {
     ax: keep(tail.ax, g(second.accel[0]), limit),
     ay: keep(tail.ay, g(second.accel[1]), limit),
@@ -65,6 +68,7 @@ export function opticalChannels(previous: readonly OpticalChannelTail[], second:
         source: slot === 'A' ? b.sourceA : b.sourceB,
         detector: slot === 'A' ? b.detectorA : b.detectorB,
         drive: slot === 'A' ? b.driveA : b.driveB,
+        role: channelRole(b, slot),
         samples: keep(before?.samples ?? [], slot === 'A' ? b.slotA : b.slotB, limit),
       });
     }

@@ -8,13 +8,13 @@ function imu(t: number, n: number, gyroX: number): LiveImuSecond {
   return { t, recordIndex: t, rateHz: 100, accel: [fill(0), fill(-4096), fill(4096)], gyro: [fill(gyroX), fill(16.384 * 10), fill(0)] };
 }
 
-function block(count: number, sourceA: number, driveA: number): OpticalBlock {
+function block(count: number, sourceA: number, driveA: number, driveB = driveA === 0 ? 0 : 5500): OpticalBlock {
   return {
     count,
     sourceA,
     driveA,
     sourceB: 4,
-    driveB: driveA === 0 ? 0 : 5500,
+    driveB,
     detectorA: 3,
     rangeA: 32,
     offsetA: 0,
@@ -37,9 +37,10 @@ describe('live motion tail', () => {
     expect(tail.gy[0]).toBeCloseTo(10, 5);
   });
 
-  it('drops invalid gyro samples instead of drawing -2000 degrees per second', () => {
+  it('keeps invalid gyro samples as gaps so the axes stay aligned', () => {
     const tail = appendImuTail(EMPTY_IMU_TAIL, imu(0, 100, -32768));
-    expect(tail.gx).toEqual([]);
+    expect(tail.gx).toHaveLength(100);
+    expect(tail.gx.every((v) => Number.isNaN(v))).toBe(true);
     expect(tail.gy).toHaveLength(100);
     expect(tail.ax).toHaveLength(100);
   });
@@ -47,12 +48,13 @@ describe('live motion tail', () => {
 
 describe('live optical channels', () => {
   it('lists only channels with samples, with their LED, detector and drive, and keeps five seconds', () => {
-    const second = (t: number): LiveOpticalSecond => ({ t, recordIndex: t, rateHz: 25, blocks: [block(25, 1, 2750), block(0, 3, 12_750), block(0, 2, 5300), block(25, 2, 0), block(25, 2, 200)] });
+    const second = (t: number): LiveOpticalSecond => ({ t, recordIndex: t, rateHz: 25, blocks: [block(25, 1, 2750), block(0, 3, 12_750), block(0, 2, 5300), block(25, 2, 0), block(25, 2, 200, 0)] });
     let channels = opticalChannels([], second(0));
     for (let t = 1; t < 7; t++) channels = opticalChannels(channels, second(t));
     expect(channels.map((c) => `${c.block}${c.slot}`)).toEqual(['0A', '0B', '3A', '3B', '4A', '4B']);
-    expect(channels[0]).toMatchObject({ source: 1, detector: 3, drive: 2750 });
-    expect(channels[1]).toMatchObject({ source: 4, detector: 4, drive: 5500 });
+    expect(channels[0]).toMatchObject({ source: 1, detector: 3, drive: 2750, role: 'pulse' });
+    expect(channels[1]).toMatchObject({ source: 4, detector: 4, drive: 5500, role: 'pulse' });
+    expect(channels.map((c) => c.role)).toEqual(['pulse', 'pulse', 'dark', 'dark', 'wear', 'dark']);
     expect(channels[0]?.samples).toHaveLength(125);
   });
 });

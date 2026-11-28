@@ -1,18 +1,25 @@
 import { ALGO } from '@openhoop/analytics';
 import { DAY_RECORD_VERSION, SAMPLE_DECODER_VERSION, SCHEMA_VERSION } from '@openhoop/core/versions';
 import Constants from 'expo-constants';
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { View } from 'react-native';
+import type { LiveImuSecond, LiveOpticalSecond, StreamKind } from '@openhoop/core';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { Pressable, View } from 'react-native';
 
 import { RECORDING_LIMIT, packetClock, packetLog, type PacketEntry } from '@/ble/packetLog';
-import { useAppData, useLive } from '@/data/context';
-import { deleteRawSession, listRawSessions, saveRawSession, type RawSessionFile } from '@/data/rawSessions';
+import { useAppData, useLive, useRawLive } from '@/data/context';
+import type { ChannelRole } from '@/data/opticalChannels';
+import type { ImuTail, OpticalChannelTail } from '@/data/rawLive';
+import { deleteRawSession, listRawSessions, saveRawSession, saveRawStream, type RawSessionFile } from '@/data/rawSessions';
+import { imuCsv, opticalCsv } from '@/data/signalCsv';
 import type { DataSource } from '@/data/types';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Button, Segmented, Toggle } from '@/ui/controls';
+import { SignalTrace, type TraceSeries } from '@/ui/dev/SignalTrace';
+import { Icon } from '@/ui/Icon';
+import { LevelNote } from '@/ui/LevelNote';
 import { IconButton } from '@/ui/TopBar';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
 import { KeyValueRow } from '@/ui/manage/rows';
@@ -183,11 +190,140 @@ function StreamRow({ title, body, right, testID }: { title: string; body: string
   );
 }
 
+type TraceColor = 'positive' | 'warning' | 'textMuted' | 'negative' | 'purple' | 'info';
+
+const CHANNEL_COLOR: Readonly<Record<ChannelRole, TraceColor>> = {
+  pulse: 'positive',
+  wear: 'warning',
+  dark: 'textMuted',
+  spo2Red: 'negative',
+  spo2Ir: 'purple',
+  unknown: 'info',
+};
+
+function clock(totalS: number): string {
+  const s = Math.max(0, Math.floor(totalS));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function ChannelTrace({ channel }: { channel: OpticalChannelTail }) {
+  const { t } = useT();
+  const { colors } = useTheme();
+  const [open, setOpen] = useState(false);
+  const color = colors[CHANNEL_COLOR[channel.role]];
+  const name = t(`dev.channel.${channel.role}`);
+  return (
+    <View style={{ gap: 6, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }} testID={`channel-${channel.block}${channel.slot}`}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color }} />
+        <Pressable accessibilityRole="button" accessibilityLabel={t('explain.whatIs', { name })} accessibilityState={{ expanded: open }} onPress={() => setOpen((v) => !v)} style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <AppText variant="label" style={{ fontWeight: '500', flexShrink: 1 }}>
+            {name}
+          </AppText>
+          <Icon name="info" color={colors.textFaint} size={14} />
+        </Pressable>
+      </View>
+      <AppText variant="caption" color={colors.textMuted} style={{ fontFamily: fonts.mono }}>
+        {channel.drive === 0 ? t('dev.channel.detailOff', { detector: channel.detector }) : t('dev.channel.detail', { led: channel.source, detector: channel.detector, drive: channel.drive })}
+      </AppText>
+      {open ? (
+        <AppText variant="caption" muted testID={`channel-why-${channel.block}${channel.slot}`}>
+          {t(`dev.channel.why.${channel.role}`)}
+        </AppText>
+      ) : null}
+      <SignalTrace series={[{ values: channel.samples, color }]} label={name} />
+    </View>
+  );
+}
+
+function AxisLegend() {
+  const { colors } = useTheme();
+  const items: [string, string][] = [
+    ['x', colors.info],
+    ['y', colors.warning],
+    ['z', colors.levelC],
+  ];
+  return (
+    <View style={{ flexDirection: 'row', gap: spacing.md }}>
+      {items.map(([axis, color]) => (
+        <View key={axis} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 10, height: 3, borderRadius: 2, backgroundColor: color }} />
+          <AppText variant="caption" muted>
+            {axis}
+          </AppText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function MotionTraces({ tail }: { tail: ImuTail }) {
+  const { t } = useT();
+  const { colors } = useTheme();
+  const block = (title: string, unit: string, series: TraceSeries[], testID: string) => (
+    <View style={{ gap: 6, paddingVertical: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <AppText variant="label" style={{ fontWeight: '500', flex: 1 }}>
+          {title}
+        </AppText>
+        <AppText variant="caption" color={colors.textMuted} style={{ fontFamily: fonts.mono }}>
+          {unit}
+        </AppText>
+      </View>
+      <SignalTrace series={series} height={72} label={title} testID={testID} />
+      <AxisLegend />
+    </View>
+  );
+  return (
+    <>
+      {block(t('dev.imu.accel'), t('dev.imu.accelUnit'), [{ values: tail.ax, color: colors.info }, { values: tail.ay, color: colors.warning }, { values: tail.az, color: colors.levelC }], 'imu-accel-trace')}
+      {block(t('dev.imu.gyro'), t('dev.imu.gyroUnit'), [{ values: tail.gx, color: colors.info }, { values: tail.gy, color: colors.warning }, { values: tail.gz, color: colors.levelC }], 'imu-gyro-trace')}
+    </>
+  );
+}
+
+interface StreamRecording {
+  at: Date;
+  imuLast: LiveImuSecond | null;
+  opticalLast: LiveOpticalSecond | null;
+}
+
+function after<T>(buffer: readonly T[], last: T | null): readonly T[] {
+  if (last === null) return buffer;
+  const index = buffer.indexOf(last);
+  return index < 0 ? buffer : buffer.slice(index + 1);
+}
+
+async function saveRecording(recording: StreamRecording, imu: readonly LiveImuSecond[], optical: readonly LiveOpticalSecond[]): Promise<void> {
+  const imuPart = after(imu, recording.imuLast);
+  const opticalPart = after(optical, recording.opticalLast);
+  if (imuPart.length > 0) await saveRawStream('imu', recording.at, imuCsv(imuPart));
+  if (opticalPart.length > 0) await saveRawStream('ppg', recording.at, opticalCsv(opticalPart));
+}
+
 function StreamsTab() {
   const { t } = useT();
-  const { startLive, stopLive } = useAppData();
+  const { colors } = useTheme();
+  const { startLive, stopLive, rawStreams } = useAppData();
   const live = useLive();
+  const raw = useRawLive();
   const [busy, setBusy] = useState(false);
+  const [rawBusy, setRawBusy] = useState(false);
+  const [recording, setRecording] = useState<StreamRecording | null>(null);
+  const [recordFailed, setRecordFailed] = useState(false);
+  const developer = raw.owners.developer;
+  const recordingRef = useRef<StreamRecording | null>(null);
+  recordingRef.current = recording;
+
+  useEffect(
+    () => () => {
+      const open = recordingRef.current;
+      if (open !== null) void saveRecording(open, rawStreams.imuSeconds(), rawStreams.opticalSeconds()).catch(() => undefined);
+      void rawStreams.stop('developer');
+    },
+    [rawStreams],
+  );
+
   const toggleLive = async (on: boolean): Promise<void> => {
     setBusy(true);
     try {
@@ -196,9 +332,42 @@ function StreamsTab() {
       setBusy(false);
     }
   };
+  const toggleRaw = async (kind: StreamKind, on: boolean): Promise<void> => {
+    setRawBusy(true);
+    try {
+      await (on ? rawStreams.start('developer', [kind]) : rawStreams.stop('developer', [kind]));
+    } finally {
+      setRawBusy(false);
+    }
+  };
+  const toggleRecording = async (): Promise<void> => {
+    if (recording === null) {
+      setRecordFailed(false);
+      setRecording({ at: new Date(), imuLast: rawStreams.imuSeconds().at(-1) ?? null, opticalLast: rawStreams.opticalSeconds().at(-1) ?? null });
+      return;
+    }
+    setRecording(null);
+    try {
+      await saveRecording(recording, rawStreams.imuSeconds(), rawStreams.opticalSeconds());
+    } catch {
+      setRecordFailed(true);
+    }
+  };
+
+  const rateLine = (state: { rateHz: number | null; seconds: number } | null, idle: string): string =>
+    state === null ? idle : state.rateHz === null ? t('dev.stream.measuring', { seconds: state.seconds }) : t('dev.stream.running', { rate: state.rateHz, seconds: state.seconds });
+  const opticalOn = developer.includes('optical');
+  const imuOn = developer.includes('imu');
+  const elapsed = Math.max(opticalOn ? (raw.optical?.seconds ?? 0) : 0, imuOn ? (raw.imu?.seconds ?? 0) : 0);
+
   return (
     <>
       <CapHeader title={t('dev.liveStreams')} />
+      {developer.length > 0 ? (
+        <AppText variant="caption" muted testID="streams-elapsed">
+          {t('dev.stream.elapsed', { elapsed: clock(elapsed) })}
+        </AppText>
+      ) : null}
       <ListGroup>
         <StreamRow
           testID="stream-hr"
@@ -206,10 +375,48 @@ function StreamsTab() {
           body={t('dev.stream.hrBody')}
           right={<Toggle label={t('dev.stream.hr')} value={live.active} disabled={busy} onChange={(on) => void toggleLive(on)} testID="stream-hr-toggle" />}
         />
-        <StreamRow testID="stream-ppg" title={t('dev.stream.ppg')} body={t('dev.stream.ppgBody')} right={<Chip label={t('dev.stream.notDecoded')} tone="pink" small />} />
-        <StreamRow testID="stream-imu" title={t('dev.stream.imu')} body={t('dev.stream.imuBody')} right={<Chip label={t('dev.stream.notDecoded')} tone="pink" small />} />
+        <StreamRow
+          testID="stream-ppg"
+          title={t('dev.stream.ppg')}
+          body={opticalOn ? rateLine(raw.optical, t('dev.stream.starting')) : t('dev.stream.ppgBody')}
+          right={<Toggle label={t('dev.stream.ppg')} value={opticalOn} disabled={rawBusy} onChange={(on) => void toggleRaw('optical', on)} testID="stream-ppg-toggle" />}
+        />
+        {opticalOn && raw.optical !== null ? (
+          <View style={{ paddingBottom: spacing.sm }}>
+            {raw.optical.channels.map((channel) => (
+              <ChannelTrace key={`${channel.block}${channel.slot}`} channel={channel} />
+            ))}
+            <AppText variant="caption" color={colors.textFaint} style={{ paddingTop: spacing.sm }}>
+              {t('dev.channel.note')}
+            </AppText>
+          </View>
+        ) : null}
+        <StreamRow
+          testID="stream-imu"
+          title={t('dev.stream.imu')}
+          body={imuOn ? rateLine(raw.imu, t('dev.stream.starting')) : t('dev.stream.imuBody')}
+          right={<Toggle label={t('dev.stream.imu')} value={imuOn} disabled={rawBusy} onChange={(on) => void toggleRaw('imu', on)} testID="stream-imu-toggle" />}
+        />
+        {imuOn && raw.imu !== null ? <MotionTraces tail={raw.imu.tail} /> : null}
         <StreamRow testID="stream-temp" title={t('dev.stream.temp')} body={t('dev.stream.tempBody')} right={<Chip label={t('dev.stream.always')} small />} />
       </ListGroup>
+      <Button
+        label={recording === null ? t('dev.recordStreams') : t('dev.recordStreamsStop')}
+        icon={recording === null ? 'import' : 'stop'}
+        variant="soft"
+        disabled={developer.length === 0 && recording === null}
+        onPress={() => void toggleRecording()}
+        testID="record-streams"
+      />
+      <AppText variant="caption" muted>
+        {t('dev.recordStreamsBody')}
+      </AppText>
+      {recordFailed ? (
+        <AppText variant="caption" color={colors.negative} testID="record-streams-failed">
+          {t('dev.recordStreamsFailed')}
+        </AppText>
+      ) : null}
+      <LevelNote level="D" text={t('dev.streamsLevel')} testID="streams-level" />
     </>
   );
 }
