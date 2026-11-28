@@ -221,7 +221,7 @@ function DetailsBody({ resolved }: { resolved: ResolvedEntry }) {
       <RouteSection activityId={entry.id} activeS={m.activeS} type={entry.type} route={route} />
       <StravaUploadCard entry={entry} title={title} tzOffsetS={tzOffsetS} />
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
-        <Button label={t('activity.details.editShort')} icon="edit" variant="secondary" onPress={() => router.push({ pathname: '/activity/edit', params: query })} style={{ flex: 1 }} testID="detail-edit" />
+        <Button label={t('activity.details.editShort')} accessibilityLabel={t('activity.details.edit')} icon="edit" variant="secondary" onPress={() => router.push({ pathname: '/activity/edit', params: query })} style={{ flex: 1 }} testID="detail-edit" />
         <Button label={t('activity.share.title')} icon="share" onPress={share} style={{ flex: 1 }} testID="detail-share" />
       </View>
       <Button label={t('activity.delete')} icon="trash" variant="danger" disabled={deleting} onPress={() => void remove()} testID="detail-delete" />

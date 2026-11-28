@@ -165,6 +165,11 @@ function ShareBody({ resolved }: { resolved: ResolvedEntry }) {
           <ToggleChip key={field} label={labelOf(field)} value={selection[field]} onChange={(on) => setSelection((current) => toggleField(current, field, on))} testID={`share-toggle-${field}`} />
         ))}
       </View>
+      {fields.includes('name') ? (
+        <AppText variant="caption" muted testID="share-name-hint">
+          {t('activity.share.nameHint')}
+        </AppText>
+      ) : null}
       {view.routeHiddenAway ? (
         <AppText variant="caption" muted testID="share-route-hidden">
           {t('activity.share.routeHiddenAway', { distance: `${radius.value} ${radius.unit}` })}
@@ -225,6 +230,7 @@ function ShareBody({ resolved }: { resolved: ResolvedEntry }) {
         <Button
           label={busy === 'share' ? t('activity.share.sharing') : t('activity.share.title')}
           icon="share"
+          accessibilityLabel={t('activity.share.action')}
           onPress={() => void share()}
           disabled={busy !== null}
           style={{ flex: 1 }}
