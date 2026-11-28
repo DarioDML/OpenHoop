@@ -34,7 +34,6 @@ const DELTA_KIND: Readonly<Record<CoachMetric, ChipDelta['kind'] | null>> = {
 
 const NOTABLE_SPREAD = 0.5;
 
-/** How a value compares with the personal baseline of the 30 days before it. */
 export function chipStatus(days: readonly DayRecord[], metric: CoachMetric, day: string, value: number): ChipStatus {
   const index = days.findIndex((d) => d.day === day);
   const baseline = index < 0 ? null : baselineAt(days, index, metric);

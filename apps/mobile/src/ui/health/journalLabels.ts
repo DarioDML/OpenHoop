@@ -46,18 +46,10 @@ const QUESTION_ICONS: Readonly<Record<string, IconName>> = {
   breathwork: 'wind',
 };
 
-export function categoryIcon(category: JournalCategory): IconName {
-  return CATEGORY_ICONS[category];
-}
-
 export function questionIcon(question: JournalQuestion): IconName {
   return QUESTION_ICONS[question.id] ?? CATEGORY_ICONS[question.category];
 }
 
 export function questionText(t: TFunction, question: JournalQuestion): string {
   return question.labelKey === question.nameKey ? t('journal.askFormat', { name: t(question.nameKey) }) : t(question.labelKey);
-}
-
-export function behaviourLabel(t: TFunction, question: JournalQuestion): string {
-  return t(question.nameKey);
 }

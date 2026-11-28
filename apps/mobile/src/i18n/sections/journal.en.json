@@ -190,7 +190,6 @@
   "journal.voice.saveFailed": "The entries could not be saved. Try again.",
   "journal.voice.useAsNote": "Keep the words as a note",
   "journal.voice.minutes": "{minutes} min",
-  "journal.voice.chipA11y": "{name}: {detail}",
   "journal.trends.streak": "Streak",
   "journal.trends.thisMonth": "This month",
   "journal.trends.best": "Best",

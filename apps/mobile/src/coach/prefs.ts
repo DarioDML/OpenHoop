@@ -169,8 +169,12 @@ const CATEGORY_RULES: ReadonlyArray<{ category: MemoryCategory; pattern: RegExp 
     pattern:
       /\b(\d{1,2} (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|mei|mrt|okt)\w*|flight|trip|holiday|vacation|wedding|race on|marathon on|surgery|vlucht|reis|vakantie|bruiloft|operatie|wedstrijd op)\b/i,
   },
+  {
+    category: 'preferences',
+    pattern:
+      /\b(prefer|prefers|likes?|dislikes?|rather|short answers|keep it short|(don't|do not|doesn't) (want|like|mention|give|use|talk)|no (calorie|diet|weight|numbers|emoji|jargon|advice|lectures)|liever|houdt van|wil geen|niet graag|geen (calorie|dieet|gewicht|cijfers|emoji|jargon|advies))/i,
+  },
   { category: 'goals', pattern: /\b(goal|aim|want to|wants to|target|plan to|training for|sub-?\d|pr\b|doel|wil graag|streef|trainen voor)/i },
-  { category: 'preferences', pattern: /\b(prefer|prefers|likes?|dislikes?|don't|doesn't|no |rather|short answers|liever|houdt van|geen |niet graag)/i },
   { category: 'lifestyle', pattern: /\b(work|works|job|desk|shift|commute|trains|sleeps|kids|children|vegetarian|vegan|werk|werkt|bureau|ploeg|kinderen|slaapt|traint|vegetari)/i },
 ];
 

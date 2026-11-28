@@ -213,13 +213,10 @@ export function trackedQuestions(selected: readonly string[] | null, journal: Re
   return JOURNAL_QUESTIONS.filter((q) => active.has(q.id));
 }
 
-export function questionsByCategory(questions: readonly JournalQuestion[]): Array<{ category: JournalCategory; questions: JournalQuestion[] }> {
-  return JOURNAL_CATEGORIES.map((category) => ({ category, questions: questions.filter((q) => q.category === category) })).filter((group) => group.questions.length > 0);
-}
-
 export function withQuestion(selected: readonly string[] | null, id: string, on: boolean): string[] {
   const current = selected ?? [...DEFAULT_JOURNAL_QUESTIONS];
-  const next = on ? [...current, id] : current.filter((existing) => existing !== id);
+  const full = !current.includes(id) && current.length >= MAX_ACTIVE_QUESTIONS;
+  const next = on ? (full ? current : [...current, id]) : current.filter((existing) => existing !== id);
   return JOURNAL_QUESTIONS.map((q) => q.id).filter((qid) => next.includes(qid));
 }
 

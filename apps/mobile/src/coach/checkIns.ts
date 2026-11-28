@@ -69,7 +69,6 @@ export function scanForCheckIns(days: readonly DayRecord[], dismissed: readonly 
   return { status: 'ok', checkIns };
 }
 
-/** Days in a row, ending on the check-in day, where the metric sat outside the usual band in the same direction. */
 export function checkInStreak(days: readonly DayRecord[], checkIn: CheckIn): number {
   if (checkIn.kind === 'week') return 0;
   let index = days.findIndex((day) => day.day === checkIn.day);

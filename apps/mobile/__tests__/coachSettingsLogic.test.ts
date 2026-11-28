@@ -24,7 +24,7 @@ import { defaultUserData, parseUserData, serializeUserData, type JournalAnswer }
 import type { GatedFetch } from '@/net/gate';
 
 import { FIXTURE_NOW } from './support/appData';
-import { jsonResponse, makeController, replyBody } from './support/coach';
+import { jsonResponse, makeController, memoryRepo, replyBody } from './support/coach';
 
 const days = createFixtureDays(FIXTURE_NOW);
 const today = days[days.length - 1]?.day ?? '2026-11-25';
@@ -137,6 +137,24 @@ describe('coach on and off', () => {
     expect(repo.written).toEqual([]);
   });
 
+  it('stores nothing more once Stop lands while the answer is being saved', async () => {
+    const send = jest.fn<ReturnType<GatedFetch>, Parameters<GatedFetch>>(async () => jsonResponse(200, replyBody({ chips: [], text: 'Noted.', remember: 'Runs on Sunday' })));
+    const repo = memoryRepo();
+    const holder: { stop: () => void } = { stop: () => undefined };
+    const append = repo.appendExchange;
+    repo.appendExchange = async (...args) => {
+      holder.stop();
+      return append(...args);
+    };
+    const { controller } = makeController({ send, repo });
+    holder.stop = controller.stop;
+    await controller.load();
+    await controller.send('Remember I run on Sunday', { days, today, language: 'en', prefs: defaultCoachPrefs(), network: NETWORK });
+    expect(await repo.memory()).toEqual([]);
+    expect(controller.getState().messages).toEqual([]);
+    expect(controller.getState().sending).toBe(false);
+  });
+
   it('returns the new memory note so its category can be stored', async () => {
     const { controller } = makeController();
     await controller.load();
@@ -202,6 +220,10 @@ describe('memory categories', () => {
     expect(guessMemoryCategory('Desk job, sits most of the day')).toBe('lifestyle');
     expect(guessMemoryCategory('Wil een marathon lopen, doel is 3u30')).toBe('goals');
     expect(guessMemoryCategory('Bench 80 kg')).toBe('other');
+    expect(guessMemoryCategory('No allergies')).toBe('other');
+    expect(guessMemoryCategory('Geen allergieën')).toBe('other');
+    expect(guessMemoryCategory('No calorie targets')).toBe('preferences');
+    expect(guessMemoryCategory("Don't mention weight")).toBe('preferences');
   });
 
   it('prefers the stored category and prunes deleted notes', () => {

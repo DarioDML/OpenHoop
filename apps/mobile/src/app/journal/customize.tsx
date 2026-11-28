@@ -38,9 +38,9 @@ function AddRemoveButton({ label, on, disabled, onPress, testID }: ToggleButtonP
   return (
     <Pressable
       testID={testID}
-      accessibilityRole="switch"
+      accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ checked: on, disabled }}
+      accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
       hitSlop={6}

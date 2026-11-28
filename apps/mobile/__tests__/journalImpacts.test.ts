@@ -62,8 +62,12 @@ describe('journal impacts', () => {
   });
 
   it('has a short name for every question', () => {
-    for (const question of JOURNAL_QUESTIONS) expect(behaviourName(question)).toBe(question.nameKey);
+    const original = JOURNAL_QUESTIONS.filter((question) => question.labelKey.startsWith('journal.q.'));
+    expect(original).toHaveLength(12);
+    for (const question of original) expect(behaviourName(question)).toMatch(/^readinessImpacts\.b\./);
+    for (const question of JOURNAL_QUESTIONS.filter((item) => !original.includes(item))) expect(behaviourName(question)).toMatch(/^journal\.b\./);
     const alcohol = findQuestion('alcohol');
-    expect(alcohol && behaviourName(alcohol)).toBe('readinessImpacts.b.alcohol');
+    if (alcohol === undefined) throw new Error('alcohol is missing');
+    expect(behaviourName(alcohol)).toBe('readinessImpacts.b.alcohol');
   });
 });

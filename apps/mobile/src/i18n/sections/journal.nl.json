@@ -190,7 +190,6 @@
   "journal.voice.saveFailed": "De antwoorden konden niet bewaard worden. Probeer opnieuw.",
   "journal.voice.useAsNote": "Bewaar de tekst als notitie",
   "journal.voice.minutes": "{minutes} min",
-  "journal.voice.chipA11y": "{name}: {detail}",
   "journal.trends.streak": "Reeks",
   "journal.trends.thisMonth": "Deze maand",
   "journal.trends.best": "Record",

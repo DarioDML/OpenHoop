@@ -3,9 +3,9 @@ import {
   DEFAULT_JOURNAL_QUESTIONS,
   JOURNAL_CATEGORIES,
   JOURNAL_QUESTIONS,
+  MAX_ACTIVE_QUESTIONS,
   activeQuestions,
   findQuestion,
-  questionsByCategory,
   searchQuestions,
   trackedQuestions,
   withQuestion,
@@ -42,9 +42,7 @@ describe('journal behaviour catalogue', () => {
   });
 
   it('fills every category and keeps the defaults in the catalogue', () => {
-    const groups = questionsByCategory(JOURNAL_QUESTIONS);
-    expect(groups.map((g) => g.category)).toEqual([...JOURNAL_CATEGORIES]);
-    for (const group of groups) expect(group.questions.length).toBeGreaterThanOrEqual(5);
+    for (const category of JOURNAL_CATEGORIES) expect(JOURNAL_QUESTIONS.filter((q) => q.category === category).length).toBeGreaterThanOrEqual(5);
     expect(activeQuestions(null).map((q) => q.id)).toEqual([...DEFAULT_JOURNAL_QUESTIONS]);
   });
 
@@ -53,6 +51,14 @@ describe('journal behaviour catalogue', () => {
     expect(added).toEqual([...DEFAULT_JOURNAL_QUESTIONS, 'cold-plunge']);
     expect(withQuestion(added, 'alcohol', false)).toEqual(['caffeine-late', 'screens-bed', 'read-before-sleep', 'sauna', 'melatonin', 'cold-plunge']);
     expect(withQuestion(['meditation'], 'alcohol', true)).toEqual(['alcohol', 'meditation']);
+  });
+
+  it('never stores more than the maximum number of behaviours', () => {
+    const many = JOURNAL_QUESTIONS.slice(0, MAX_ACTIVE_QUESTIONS).map((q) => q.id);
+    const extra = JOURNAL_QUESTIONS[MAX_ACTIVE_QUESTIONS + 3];
+    if (!extra) throw new Error('catalogue too small');
+    expect(withQuestion(many, extra.id, true)).toEqual(many);
+    expect(withQuestion(many, many[0] ?? '', false)).toHaveLength(MAX_ACTIVE_QUESTIONS - 1);
   });
 
   it('keeps a long selection through a save and reload', () => {
