@@ -215,13 +215,14 @@ interface DotsProps {
 export function WeekDots({ dots, color }: DotsProps) {
   const { colors } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', gap: 6 }}>
+    <View style={{ flexDirection: 'row', gap: 4 }}>
       {dots.map((on, i) => (
         <View
           key={i}
           style={{
-            width: 14,
-            height: 14,
+            flex: 1,
+            maxWidth: 14,
+            aspectRatio: 1,
             borderRadius: radius.pill,
             backgroundColor: on === true ? color : 'transparent',
             borderWidth: on === true ? 0 : 1.5,

@@ -23,6 +23,7 @@ const STEP_MIN = 5;
 const HOUR_MIN = 60;
 const RING_WINDOW_S = 120;
 const DAY_MIN = 1440;
+const DAY_DOT_DP = 44;
 
 type WindowChoice = 'off' | `${number}`;
 
@@ -236,8 +237,9 @@ export default function HapticAlarmScreen() {
                 accessibilityState={{ checked: on, disabled: only }}
                 disabled={only}
                 onPress={() => setDraft((plan) => ({ ...plan, days: toggleDay(plan.days, day) }))}
-                style={{ width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.purple : colors.surfaceAlt }}>
-                <AppText variant="bodyStrong" color={on ? colors.primaryOn : colors.textMuted}>
+                hitSlop={{ top: 4, bottom: 4 }}
+                style={{ flex: 1, maxWidth: DAY_DOT_DP, aspectRatio: 1, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.purple : colors.surfaceAlt }}>
+                <AppText variant="bodyStrong" maxFontSizeMultiplier={1.2} color={on ? colors.primaryOn : colors.textMuted}>
                   {weekdayName(day, language, 'narrow').toUpperCase()}
                 </AppText>
               </Pressable>
