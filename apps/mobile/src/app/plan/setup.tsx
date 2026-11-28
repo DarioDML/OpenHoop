@@ -20,7 +20,6 @@ import {
 } from '@/data/weeklyPlan';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
-import { Stepper } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Button, Toggle } from '@/ui/controls';
@@ -29,6 +28,7 @@ import { CapHeader } from '@/ui/ListGroup';
 import { Screen } from '@/ui/Screen';
 import { StepSlider } from '@/ui/StepSlider';
 import { GOAL_ICON, goalColors, goalTarget } from '@/ui/plan/goals';
+import { TargetStepper } from '@/ui/plan/TargetStepper';
 import { radius, spacing, useTheme } from '@/ui/theme';
 import { TopBar } from '@/ui/TopBar';
 
@@ -54,11 +54,11 @@ export default function PlanSetupScreen() {
   const stepper = (key: TargetKey) => {
     const limits = TARGET_LIMITS[key];
     const common = { value: plan[key], min: limits.min, max: limits.max, step: limits.step, onChange: (value: number) => setPlan((p) => setTarget(p, key, value)) };
-    if (key === 'loadDays') return <Stepper key={key} {...common} label={t('plan.setup.loadDays')} hint={t('plan.setup.loadDaysHint', { value: LOAD_DAY_MIN })} testID="plan-load-days" />;
-    if (key === 'sleepNights') return <Stepper key={key} {...common} label={t('plan.setup.nights')} hint={t('plan.setup.nightsHint', { min: plan.sleepScoreMin })} testID="plan-sleep-nights" />;
-    if (key === 'sleepScoreMin') return <Stepper key={key} {...common} label={t('plan.setup.scoreMin')} hint={t('plan.setup.scoreMinHint')} format={(v) => `${v}%`} testID="plan-sleep-score" />;
-    if (key === 'strengthMinutes') return <Stepper key={key} {...common} label={t('plan.setup.strength')} hint={t('plan.setup.strengthHint')} format={(v) => t('plan.minutes', { minutes: v })} testID="plan-strength" />;
-    return <Stepper key={key} {...common} label={t('plan.setup.steps')} hint={t('plan.setup.stepsHint')} format={fmt} testID="plan-steps" />;
+    if (key === 'loadDays') return <TargetStepper key={key} {...common} label={t('plan.setup.loadDays')} hint={t('plan.setup.loadDaysHint', { value: LOAD_DAY_MIN })} testID="plan-load-days" />;
+    if (key === 'sleepNights') return <TargetStepper key={key} {...common} label={t('plan.setup.nights')} hint={t('plan.setup.nightsHint', { min: plan.sleepScoreMin })} testID="plan-sleep-nights" />;
+    if (key === 'sleepScoreMin') return <TargetStepper key={key} {...common} label={t('plan.setup.scoreMin')} hint={t('plan.setup.scoreMinHint')} format={(v) => `${v}%`} testID="plan-sleep-score" />;
+    if (key === 'strengthMinutes') return <TargetStepper key={key} {...common} label={t('plan.setup.strength')} hint={t('plan.setup.strengthHint')} format={(v) => t('plan.minutes', { minutes: v })} testID="plan-strength" />;
+    return <TargetStepper key={key} {...common} label={t('plan.setup.steps')} hint={t('plan.setup.stepsHint')} format={fmt} testID="plan-steps" />;
   };
 
   return (
