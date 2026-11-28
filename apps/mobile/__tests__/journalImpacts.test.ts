@@ -62,6 +62,8 @@ describe('journal impacts', () => {
   });
 
   it('has a short name for every question', () => {
-    for (const question of JOURNAL_QUESTIONS) expect(behaviourName(question)).toMatch(/^readinessImpacts\.b\./);
+    for (const question of JOURNAL_QUESTIONS) expect(behaviourName(question)).toBe(question.nameKey);
+    const alcohol = findQuestion('alcohol');
+    expect(alcohol && behaviourName(alcohol)).toBe('readinessImpacts.b.alcohol');
   });
 });
