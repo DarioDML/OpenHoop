@@ -222,6 +222,7 @@ export default function BiomarkerScreen() {
           return (
             <Card key={entry.id} testID={`biomarker-entry-${entry.id}`}>
               <View
+                testID={`biomarker-entry-row-${entry.id}`}
                 style={{
                   flexDirection: layout.compact ? 'column' : 'row',
                   alignItems: layout.compact ? 'flex-start' : 'center',

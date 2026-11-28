@@ -144,7 +144,7 @@ describe('biomarker detail screen', () => {
   it('keeps each result value in one piece and shows a short date', async () => {
     mockParams.id = 'glucose';
     await render(withAppData(<BiomarkerScreen />, 'en', { labResults: [lab(1, { value: 5.1, day: '2025-09-09', refHigh: 5.6 }), lab(2, { value: 5.2, day: '2026-09-09', refHigh: 5.6 })] }));
-    expect(screen.getByTestId('biomarker-value-2')).toHaveTextContent('5.2 mmol/L');
+    expect(screen.getByTestId('biomarker-value-2')).toHaveTextContent('5.2\u00a0mmol/L');
     expect(screen.getByTestId('biomarker-day-2')).toHaveTextContent('9/9');
     expect(screen.getByTestId('biomarker-day-1')).toHaveTextContent('9/9/2025');
     expect(screen.getAllByText('9/9/2025')).toHaveLength(2);
