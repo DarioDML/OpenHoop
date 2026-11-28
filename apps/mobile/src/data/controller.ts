@@ -181,6 +181,7 @@ import { CHECK_EVERY_S, LEAVE_TO_BAND_S, REARM_AFTER_S, rearmDue, smartWakeDecis
 import { jetLagWakeOverrides } from './jetLag';
 import { smartWakeScheduler, type SmartWakeScheduler } from '@/lib/smartWakeNative';
 import { newestChanged } from './bodyComposition';
+import { historyDays, pagesRead, RECORDS_PER_PAGE } from './onboarding';
 import { openAppStore, type AppStore } from './appStore';
 import { storageProblemOf, type StorageProblem } from './storageProblem';
 import { readinessNightsLeft } from './progress';
@@ -199,6 +200,7 @@ import {
   type HealthConnectState,
 } from './healthConnectState';
 import { runHealthConnectSync } from './healthConnectSync';
+import { switchHealthConnectTypes } from './healthConnectSwitch';
 import { removeLeftoverReports } from './reportFiles';
 import { removeLeftoverEcgFiles } from './ecgShare';
 import {
@@ -306,6 +308,12 @@ interface Connection {
   session: Session;
   deviceId: number;
   heldChunk: HeldChunk | null;
+}
+
+interface TransferPages {
+  total: number | null;
+  newestOnBandS: number | null;
+  firstSampleS: number | null;
 }
 
 export interface SyncTimings {
@@ -876,10 +884,13 @@ export class AppController {
       const before = await store.getSyncState(deviceId);
       const previousNewest = before?.newestSampleT ?? null;
       let backlogRecords: number | null = null;
+      const pages: TransferPages = { total: null, newestOnBandS: null, firstSampleS: null };
       try {
         const range = await conn.session.dataRange();
         this.backlogPages = range.pagesBehind;
-        backlogRecords = range.pagesBehind === null ? null : range.pagesBehind * 14;
+        pages.total = range.pagesBehind;
+        pages.newestOnBandS = range.newestUnix;
+        backlogRecords = range.pagesBehind === null ? null : range.pagesBehind * RECORDS_PER_PAGE;
       } catch {
         backlogRecords = null;
       }
@@ -891,7 +902,7 @@ export class AppController {
       const result = await syncHistory(conn.session, store, {
         deviceId,
         heldChunk,
-        onProgress: (progress) => this.onTransferProgress(progress, backlogRecords),
+        onProgress: (progress) => this.onTransferProgress(progress, backlogRecords, pages),
       });
       const transferMs = Date.now() - startedAt;
       this.lastSyncCounts = { saved: result.samples, discarded: result.discardedBeforeOwner };
@@ -937,14 +948,22 @@ export class AppController {
     if (row !== null && row.ownerSince === null) throw new AppError('error.ownerSinceMissing');
   }
 
-  private onTransferProgress(progress: SyncProgress, backlogRecords: number | null): void {
+  private onTransferProgress(progress: SyncProgress, backlogRecords: number | null, pages: TransferPages): void {
+    if (pages.firstSampleS === null && progress.newestSampleT !== null) pages.firstSampleS = progress.newestSampleT;
     const now = Date.now();
     if (now - this.lastProgressAt < PROGRESS_INTERVAL_MS) return;
     this.lastProgressAt = now;
     const processed = progress.frames + progress.discardedBeforeOwner;
     const percent =
       backlogRecords === null || backlogRecords === 0 ? null : Math.min(99, Math.floor((processed / backlogRecords) * 100));
-    this.patch({ syncProgress: this.progressView('transfer', progress.chunks, percent, 0, 0) });
+    this.patch({
+      syncProgress: {
+        ...this.progressView('transfer', progress.chunks, percent, 0, 0),
+        pagesRead: pagesRead(processed, pages.total),
+        pagesTotal: pages.total,
+        historyDays: historyDays(pages.firstSampleS, pages.newestOnBandS ?? nowSeconds()),
+      },
+    });
   }
 
   private async recompute(deviceId: number, from: number | null): Promise<void> {
@@ -2005,6 +2024,15 @@ export class AppController {
       return granted.has(key);
     }, false);
 
+  setHealthConnectTypes = (types: readonly HcDataType[], enabled: boolean): Promise<HcDataType[]> =>
+    this.healthConnectTask(async () => {
+      const view = this.snapshot.healthConnect;
+      const result = await switchHealthConnectTypes(this.healthConnect, { state: view.state, granted: view.granted, availability: view.availability, types, enabled });
+      await this.saveHealthConnectState(result.state);
+      this.patchHealthConnect({ granted: result.granted });
+      return result.on;
+    }, []);
+
   setHealthConnectAfterSync = (enabled: boolean): Promise<void> =>
     this.healthConnectTask(async () => {
       await this.saveHealthConnectState({ ...this.snapshot.healthConnect.state, afterBandSync: enabled });
@@ -2386,6 +2414,7 @@ export class AppController {
       clearInbox: this.clearInbox,
       refreshHealthConnect: this.refreshHealthConnect,
       setHealthConnectType: this.setHealthConnectType,
+      setHealthConnectTypes: this.setHealthConnectTypes,
       setHealthConnectAfterSync: this.setHealthConnectAfterSync,
       requestHealthConnectAccess: this.requestHealthConnectAccess,
       syncHealthConnect: this.syncHealthConnect,

@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 
 import { useT } from '@/i18n/useT';
 
@@ -22,7 +22,7 @@ export function Sheet({ visible, onClose, title, subtitle, children, footer, tes
   const { colors } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <View accessibilityViewIsModal style={{ flex: 1, justifyContent: 'flex-end' }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} accessibilityViewIsModal style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Pressable
           accessible={false}
           importantForAccessibility="no"
@@ -62,12 +62,12 @@ export function Sheet({ visible, onClose, title, subtitle, children, footer, tes
               <Icon name="close" size={20} color={colors.text} />
             </Pressable>
           </View>
-          <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: spacing.lg }}>
+          <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: spacing.lg }} keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
           {footer}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

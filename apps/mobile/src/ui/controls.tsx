@@ -67,10 +67,11 @@ interface SegmentedProps<T extends string> {
   options: ReadonlyArray<{ value: T; label: string; testID?: string }>;
   value: T;
   onChange: (value: T) => void;
+  wrap?: boolean;
   testID?: string;
 }
 
-export function Segmented<T extends string>({ options, value, onChange, testID }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ options, value, onChange, wrap = false, testID }: SegmentedProps<T>) {
   const { colors } = useTheme();
   return (
     <View
@@ -98,10 +99,10 @@ export function Segmented<T extends string>({ options, value, onChange, testID }
             <AppText
               variant="label"
               color={selected ? colors.primaryOn : colors.textMuted}
-              numberOfLines={1}
-              adjustsFontSizeToFit
+              numberOfLines={wrap ? 2 : 1}
+              adjustsFontSizeToFit={!wrap}
               minimumFontScale={0.7}
-              style={{ fontFamily: fonts.semibold, fontWeight: '600' }}>
+              style={{ fontFamily: fonts.semibold, fontWeight: '600', textAlign: 'center' }}>
               {option.label}
             </AppText>
           </Pressable>

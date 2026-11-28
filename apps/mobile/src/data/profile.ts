@@ -1,6 +1,7 @@
 import { effectiveMaxHr, hrrZoneFloors, isZoneFloors, loadReference, type Profile as AnalyticsProfile, type ZoneFloors } from '@openhoop/analytics';
 import type { DayRecord } from '@openhoop/core';
 
+import { parseWholeNumber } from './activityDerived';
 import type { Profile, ZoneMode } from './types';
 
 export const ZONE_MODES = ['auto', 'custom'] as const satisfies readonly ZoneMode[];
@@ -20,6 +21,22 @@ export function birthDateOf(year: number, month: number, day: number, today: str
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
   const iso = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   return iso <= today ? iso : null;
+}
+
+export type BirthFields = { ok: true; birthYear: number | null; birthDate: string | null } | { ok: false };
+
+export function parseBirthFields(dayText: string, monthText: string, yearText: string, today: string): BirthFields {
+  const filled = (text: string): boolean => text.trim() !== '';
+  if (!filled(dayText) && !filled(monthText) && !filled(yearText)) return { ok: true, birthYear: null, birthDate: null };
+  const year = parseWholeNumber(yearText);
+  const currentYear = Number(today.slice(0, 4));
+  if (year === null || year < BIRTH_YEAR_MIN || year > currentYear) return { ok: false };
+  if (!filled(dayText) && !filled(monthText)) return { ok: true, birthYear: year, birthDate: null };
+  const day = parseWholeNumber(dayText);
+  const month = parseWholeNumber(monthText);
+  if (day === null || month === null) return { ok: false };
+  const date = birthDateOf(year, month, day, today);
+  return date === null ? { ok: false } : { ok: true, birthYear: year, birthDate: date };
 }
 
 export function parseBirthDate(raw: string | null | undefined, today: string): string | null {

@@ -2,107 +2,167 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
+import { parseBandConfig } from '@/data/bandConfig';
 import { useAppData, useSyncProgress } from '@/data/context';
-import type { SyncPhase } from '@/data/types';
+import { backedUpSince, isOnBand, SETUP_STEPS, setupStepStatuses, type SetupStage, type SetupStepId, type SetupStepStatus } from '@/data/onboarding';
+import type { SyncProgressView } from '@/data/types';
 import type { TranslationKey } from '@/i18n';
-import { useT } from '@/i18n/useT';
+import { useT, type TFunction } from '@/i18n/useT';
+import { formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
+import { ListGroup } from '@/ui/ListGroup';
+import { DoneBadge } from '@/ui/manage/DoneBadge';
 import { OnboardingPage } from '@/ui/manage/OnboardingPage';
-import { NoticeCard } from '@/ui/NoticeCard';
+import { Num } from '@/ui/Num';
 import { Ring } from '@/ui/Ring';
-import { spacing, useTheme } from '@/ui/theme';
+import { radius, spacing, useTheme } from '@/ui/theme';
 
-const PHASE_ORDER: readonly SyncPhase[] = ['connecting', 'probing', 'transfer', 'compute'];
+const STEP_KEYS: Readonly<Record<SetupStepId, TranslationKey>> = {
+  info: 'onboarding.setup.stepInfo',
+  backup: 'onboarding.setup.stepBackup',
+  history: 'onboarding.setup.stepHistory',
+  compute: 'onboarding.setup.stepCompute',
+};
 
-interface StepSpec {
-  key: TranslationKey;
-  startsAt: SyncPhase;
+type Run = 'backup' | 'sync' | 'ended';
+
+function pagesText(t: TFunction, progress: SyncProgressView | null, fmt: (value: number) => string): string | null {
+  const done = progress?.pagesRead ?? null;
+  const total = progress?.pagesTotal ?? null;
+  if (done === null || total === null) return null;
+  const days = progress?.historyDays ?? null;
+  const params = { done: fmt(done), total: fmt(total) };
+  if (days === null) return t('onboarding.setup.pages', params);
+  return days === 1 ? t('onboarding.setup.pagesDay', params) : t('onboarding.setup.pagesDays', { ...params, days: fmt(days) });
 }
 
-const STEPS: readonly StepSpec[] = [
-  { key: 'onboarding.setup.stepInfo', startsAt: 'connecting' },
-  { key: 'onboarding.setup.stepHistory', startsAt: 'transfer' },
-  { key: 'onboarding.setup.stepCompute', startsAt: 'compute' },
-];
-
-type StepStatus = 'done' | 'active' | 'pending';
+function StepIcon({ status, step }: { status: SetupStepStatus; step: SetupStepId }) {
+  const { colors } = useTheme();
+  if (status === 'done') return <DoneBadge size={24} />;
+  if (status === 'failed') return <Icon name="alert" color={colors.warning} size={24} />;
+  if (status === 'active') {
+    return (
+      <View style={{ width: 24, height: 24, borderRadius: radius.pill, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={step === 'history' ? 'download' : 'sync'} color={colors.accent} size={14} />
+      </View>
+    );
+  }
+  return <View style={{ width: 24, height: 24, borderRadius: radius.pill, borderWidth: 2, borderColor: colors.textFaint }} />;
+}
 
 export default function SetupScreen() {
-  const { t } = useT();
+  const { t, language } = useT();
   const { colors } = useTheme();
-  const { sync, notice, device } = useAppData();
+  const { sync, readBandConfig, clearNotice, notice, device, settings } = useAppData();
   const syncProgress = useSyncProgress();
-  const [finished, setFinished] = useState(false);
+  const demo = settings.dataSource === 'demo';
+  const [run, setRun] = useState<Run>(demo ? 'sync' : 'backup');
+  const [startedS, setStartedS] = useState<number | null>(null);
+  const [reachedBand, setReachedBand] = useState(false);
   const started = useRef(false);
 
-  const run = async (): Promise<void> => {
-    setFinished(false);
+  const start = async (): Promise<void> => {
+    setReachedBand(false);
+    setStartedS(Math.floor(Date.now() / 1000));
+    if (!demo) {
+      setRun('backup');
+      await readBandConfig();
+      clearNotice();
+    }
+    setRun('sync');
     await sync();
-    setFinished(true);
+    setRun('ended');
   };
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void run();
+    void start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const failed = finished && notice !== null;
-  const currentIndex = syncProgress === null ? -1 : PHASE_ORDER.indexOf(syncProgress.phase);
+  const phase = syncProgress?.phase ?? null;
+  const onBand = isOnBand(device.connection, phase);
+  useEffect(() => {
+    if (run !== 'ended' && onBand) setReachedBand(true);
+  }, [run, onBand]);
 
-  const statusOf = (step: StepSpec, position: number): StepStatus => {
-    if (finished && !failed) return 'done';
-    if (syncProgress === null) return 'pending';
-    const startIndex = PHASE_ORDER.indexOf(step.startsAt);
-    const nextStart = STEPS[position + 1];
-    const endIndex = nextStart ? PHASE_ORDER.indexOf(nextStart.startsAt) : PHASE_ORDER.length;
-    if (currentIndex >= endIndex) return 'done';
-    return currentIndex >= startIndex ? 'active' : 'pending';
-  };
+  const config = parseBandConfig(device.configSnapshot);
+  const backupDone = backedUpSince(config.status === 'ok' ? config.snapshot.readAt : null, startedS);
+  const stage: SetupStage = run === 'ended' ? (notice === null ? 'finished' : 'failed') : run;
+  const statuses = setupStepStatuses({ stage, backupDone, reachedBand: reachedBand || backupDone, connection: device.connection, phase });
+  const fmt = (value: number): string => formatNumber(value, 0, language);
+  const pages = pagesText(t, syncProgress, fmt);
 
   const percent = syncProgress?.percent ?? null;
-  const fraction = finished && !failed ? 1 : percent === null ? null : percent / 100;
+  const fraction = stage === 'finished' ? 1 : phase === 'transfer' && percent !== null ? percent / 100 : null;
+  const ringKey: TranslationKey =
+    stage === 'finished'
+      ? 'onboarding.setup.finished'
+      : stage === 'failed'
+        ? 'onboarding.setup.failed'
+        : stage === 'backup'
+          ? onBand
+            ? 'onboarding.setup.ring.backup'
+            : phase === 'probing'
+              ? 'onboarding.setup.ring.probing'
+              : 'onboarding.setup.ring.connecting'
+          : `onboarding.setup.ring.${phase ?? 'connecting'}`;
 
-  const primary = failed
-    ? { label: t('onboarding.setup.retry'), onPress: () => void run(), testID: 'setup-retry' }
-    : { label: t('common.continue'), onPress: () => router.push('/onboarding/wear'), disabled: !finished, testID: 'setup-continue' };
+  const primary =
+    stage === 'failed'
+      ? { label: t('onboarding.setup.retry'), onPress: () => void start(), testID: 'setup-retry' }
+      : stage === 'finished'
+        ? { label: t('common.continue'), onPress: () => router.push('/onboarding/wear'), testID: 'setup-continue' }
+        : { label: t('onboarding.setup.background'), onPress: () => router.push('/onboarding/wear'), testID: 'setup-background' };
 
   return (
-    <OnboardingPage
-      step={9}
-      hideBack
-      title={t('onboarding.setup.title')}
-      subtitle={t('onboarding.setup.subtitle')}
-      primary={primary}
-      tertiary={finished ? undefined : { label: t('onboarding.setup.background'), onPress: () => router.push('/onboarding/wear'), testID: 'setup-background' }}>
-      <NoticeCard />
-      <View style={{ alignItems: 'center', paddingVertical: spacing.lg }}>
-        <Ring fraction={fraction} color={colors.accent} size={160} strokeWidth={10} testID="setup-ring">
-          <AppText variant="display" numeric>
-            {fraction === null ? '…' : `${Math.round(fraction * 100)}%`}
-          </AppText>
-          <AppText variant="caption" muted>
-            {syncProgress ? t(`sync.phase.${syncProgress.phase}`) : finished ? (failed ? t('onboarding.setup.failed') : t('onboarding.setup.finished')) : t('sync.phase.connecting')}
+    <OnboardingPage screen="setup" hideBack title={t('onboarding.setup.title')} subtitle={t('onboarding.setup.subtitle')} primary={primary}>
+      <View style={{ alignItems: 'center' }}>
+        <Ring fraction={fraction} color={colors.accent} size={180} strokeWidth={10} testID="setup-ring">
+          <Num size={64} unit={fraction === null ? undefined : '%'} unitSize={28} testID="setup-percent">
+            {fraction === null ? '…' : String(Math.round(fraction * 100))}
+          </Num>
+          <AppText variant="cap" muted style={{ textAlign: 'center' }} testID="setup-phase">
+            {t(ringKey)}
           </AppText>
         </Ring>
       </View>
-      <Card style={{ gap: spacing.lg }}>
-        {STEPS.map((step, position) => {
-          const status = statusOf(step, position);
+      <ListGroup>
+        {(demo ? SETUP_STEPS.filter((step) => step !== 'backup') : SETUP_STEPS).map((step) => {
+          const status = statuses[step];
+          const subtitle =
+            step === 'history' && status === 'active' && pages !== null
+              ? pages
+              : step === 'backup' && status === 'failed'
+                ? t('onboarding.setup.backupFailed')
+                : null;
           return (
-            <View key={step.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }} testID={`setup-step-${position}`}>
-              <Icon name={status === 'done' ? 'check' : status === 'active' ? 'sync' : 'clock'} color={status === 'done' ? colors.positive : status === 'active' ? colors.accent : colors.textFaint} size={20} />
-              <AppText variant="body" color={status === 'pending' ? colors.textMuted : colors.text} style={{ flex: 1 }}>
-                {t(step.key)}
-              </AppText>
+            <View
+              key={step}
+              testID={`setup-step-${step}`}
+              accessible
+              accessibilityLabel={subtitle === null ? t(STEP_KEYS[step]) : `${t(STEP_KEYS[step])}, ${subtitle}`}
+              accessibilityState={{ busy: status === 'active', checked: status === 'done' }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: subtitle === null ? 56 : 68, paddingVertical: spacing.sm }}>
+              <StepIcon status={status} step={step} />
+              <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
+                <AppText variant="body" color={status === 'pending' ? colors.textMuted : colors.text} style={{ fontWeight: '500' }}>
+                  {t(STEP_KEYS[step])}
+                </AppText>
+                {subtitle === null ? null : (
+                  <AppText variant="label" muted testID={`setup-step-${step}-detail`}>
+                    {subtitle}
+                  </AppText>
+                )}
+              </View>
             </View>
           );
         })}
-      </Card>
-      {finished && !failed && device.lastSyncCounts !== null ? (
+      </ListGroup>
+      {stage === 'finished' && device.lastSyncCounts !== null ? (
         <Card style={{ gap: spacing.sm }} testID="setup-counts">
           <AppText variant="body">
             {device.lastSyncCounts.saved > 0 ? t('onboarding.setup.saved', { count: device.lastSyncCounts.saved }) : t('onboarding.setup.savedNone')}
@@ -114,8 +174,8 @@ export default function SetupScreen() {
           ) : null}
         </Card>
       ) : null}
-      <AppText variant="label" muted>
-        {t('onboarding.setup.noFirmware')}
+      <AppText variant="label" muted testID="setup-firmware">
+        {device.firmware === null ? t('onboarding.setup.firmwareUnknown') : t('onboarding.setup.firmware', { version: device.firmware })}
       </AppText>
     </OnboardingPage>
   );

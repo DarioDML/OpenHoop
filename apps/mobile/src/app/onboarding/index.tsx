@@ -7,7 +7,7 @@ import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Chip } from '@/ui/Chip';
 import { OnboardingPage } from '@/ui/manage/OnboardingPage';
-import { useTheme } from '@/ui/theme';
+import { fonts, spacing, useTheme } from '@/ui/theme';
 
 interface RingSpec {
   r: number;
@@ -38,7 +38,7 @@ export default function WelcomeScreen() {
 
   return (
     <OnboardingPage
-      step={1}
+      screen="welcome"
       hideBack
       testID="onboarding-welcome"
       title={t('onboarding.welcome.title')}
@@ -46,11 +46,11 @@ export default function WelcomeScreen() {
       primary={{ label: t('onboarding.welcome.start'), onPress: () => router.push('/onboarding/profile'), testID: 'welcome-start' }}
       secondary={{ label: t('onboarding.welcome.haveData'), onPress: () => router.push('/settings/integrations'), testID: 'welcome-have-data' }}
       tertiary={{ label: t('onboarding.welcome.demo'), onPress: () => void startDemo(), testID: 'welcome-demo' }}>
-      <View style={{ flex: 1, gap: 16 }}>
-        <AppText variant="title" style={{ fontWeight: '700' }}>
-          Open<AppText variant="title" style={{ fontWeight: '500' }}>Hoop</AppText>
+      <View style={{ flex: 1, gap: spacing.lg }}>
+        <AppText variant="title" style={{ fontFamily: fonts.bold, letterSpacing: -0.2 }} testID="welcome-wordmark">
+          Open<AppText variant="title" style={{ fontFamily: fonts.medium }}>Hoop</AppText>
         </AppText>
-        <View style={{ alignItems: 'center', paddingVertical: 16 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <View style={{ alignItems: 'center', paddingVertical: spacing.xl }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <Svg width={220} height={220} viewBox="0 0 220 220">
             {rings.map((ring) => {
               const c = 2 * Math.PI * ring.r;
@@ -72,9 +72,9 @@ export default function WelcomeScreen() {
             })}
           </Svg>
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
-          <Chip label={t('onboarding.welcome.chipBands')} />
-          <Chip label={t('onboarding.welcome.chipOpen')} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm }}>
+          <Chip label={t('onboarding.welcome.chipBands')} testID="welcome-chip-bands" />
+          <Chip label={t('onboarding.welcome.chipOpen')} testID="welcome-chip-open" />
         </View>
       </View>
     </OnboardingPage>

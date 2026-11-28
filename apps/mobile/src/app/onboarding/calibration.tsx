@@ -6,15 +6,17 @@ import { MIN_BASELINE_NIGHTS } from '@/data/derived';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
-import { Card } from '@/ui/Card';
-import { Icon } from '@/ui/Icon';
+import { Chip } from '@/ui/Chip';
+import { Icon, type IconName } from '@/ui/Icon';
+import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { OnboardingPage } from '@/ui/manage/OnboardingPage';
+import { tile, type TileTone } from '@/ui/manage/tiles';
 import { radius, spacing, useTheme } from '@/ui/theme';
 
-const MILESTONES: ReadonlyArray<{ night: number; key: TranslationKey }> = [
-  { night: 1, key: 'onboarding.calibration.night1' },
-  { night: 3, key: 'onboarding.calibration.night3' },
-  { night: 4, key: 'onboarding.calibration.night4' },
+const MILESTONES: ReadonlyArray<{ night: number; key: TranslationKey; icon: IconName; tone: TileTone }> = [
+  { night: 1, key: 'onboarding.calibration.night1', icon: 'moon', tone: 'purple' },
+  { night: 3, key: 'onboarding.calibration.night3', icon: 'heart', tone: 'gold' },
+  { night: 4, key: 'onboarding.calibration.night4', icon: 'check', tone: 'positive' },
 ];
 
 export default function CalibrationScreen() {
@@ -27,42 +29,70 @@ export default function CalibrationScreen() {
   const left = MIN_BASELINE_NIGHTS - done;
 
   const finish = async (): Promise<void> => {
-    await updateUserData({ onboardingDone: true });
+    if (!(await updateUserData({ onboardingDone: true }))) return;
     router.replace('/');
   };
 
   return (
     <OnboardingPage
-      step={11}
+      screen="calibration"
       title={t('onboarding.calibration.title', { count: MIN_BASELINE_NIGHTS })}
       subtitle={t('onboarding.calibration.subtitle')}
       primary={{ label: t('onboarding.calibration.home'), onPress: () => void finish(), testID: 'calibration-finish' }}>
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        {Array.from({ length: MIN_BASELINE_NIGHTS }, (_, index) => (
-          <View key={index} style={{ flex: 1, gap: 6, alignItems: 'center' }}>
-            <View style={{ height: 8, alignSelf: 'stretch', borderRadius: radius.pill, backgroundColor: index < done ? colors.positive : colors.surface3 }} />
-            <AppText variant="caption" muted>
-              {t('onboarding.calibration.night', { n: index + 1 })}
-            </AppText>
-          </View>
-        ))}
-      </View>
-      <AppText variant="bodyStrong" testID="calibration-status">
-        {left === 0 ? t('onboarding.calibration.ready') : t('onboarding.calibration.left', { count: left })}
-      </AppText>
-      <Card style={{ gap: spacing.lg }}>
-        {MILESTONES.map((milestone) => (
-          <View key={milestone.night} style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
-            <Icon name={done >= milestone.night ? 'check' : 'moon'} color={done >= milestone.night ? colors.positive : colors.textMuted} size={20} />
-            <View style={{ flex: 1 }}>
-              <AppText variant="bodyStrong">{t('onboarding.calibration.night', { n: milestone.night })}</AppText>
-              <AppText variant="label" muted>
-                {t(milestone.key)}
+        {Array.from({ length: MIN_BASELINE_NIGHTS }, (_, index) => {
+          const n = index + 1;
+          const recorded = n <= done;
+          return (
+            <View
+              key={n}
+              accessible
+              accessibilityLabel={t(recorded ? 'onboarding.calibration.nightDone' : 'onboarding.calibration.nightTodo', { n })}
+              testID={`night-${n}`}
+              style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: spacing.sm, paddingTop: spacing.md, paddingBottom: spacing.md, borderRadius: radius.md, backgroundColor: colors.surface }}>
+              <View
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: radius.pill,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: recorded ? colors.pink : 'transparent',
+                  borderWidth: recorded ? 0 : 2,
+                  borderColor: colors.pinkSoft,
+                }}>
+                {recorded ? (
+                  <Icon name="check" color={colors.primaryOn} size={16} strokeWidth={2.5} />
+                ) : (
+                  <AppText variant="label" muted numeric>
+                    {n}
+                  </AppText>
+                )}
+              </View>
+              <View style={{ alignSelf: 'stretch', marginHorizontal: spacing.sm, height: 6, borderRadius: radius.pill, backgroundColor: recorded ? colors.pink : colors.pinkSoft }} />
+              <AppText variant="caption" muted numberOfLines={1}>
+                {t('onboarding.calibration.night', { n })}
               </AppText>
             </View>
-          </View>
+          );
+        })}
+      </View>
+      <AppText variant="bodyStrong" testID="calibration-status">
+        {left === 0 ? t('onboarding.calibration.ready') : left === 1 ? t('onboarding.calibration.leftOne') : t('onboarding.calibration.left', { count: left })}
+      </AppText>
+      <ListGroup>
+        {MILESTONES.map((milestone) => (
+          <ListRow
+            key={milestone.night}
+            icon={tile(colors, milestone.icon, milestone.tone)}
+            title={t('onboarding.calibration.night', { n: milestone.night })}
+            subtitle={t(milestone.key)}
+            right={done >= milestone.night ? <Chip label={t('onboarding.calibration.reached')} tone="positive" small /> : null}
+            chevron={false}
+            testID={`milestone-${milestone.night}`}
+          />
         ))}
-      </Card>
+      </ListGroup>
     </OnboardingPage>
   );
 }

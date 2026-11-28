@@ -144,6 +144,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     healthConnect: { availability: 'available', granted: [], state: defaultHealthConnectState(), syncing: false },
     refreshHealthConnect: noop,
     setHealthConnectType: async () => true,
+    setHealthConnectTypes: async () => [],
     setHealthConnectAfterSync: noop,
     requestHealthConnectAccess: noop,
     syncHealthConnect: noop,

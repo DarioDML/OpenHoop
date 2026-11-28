@@ -1,23 +1,21 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
+import { Chip } from '@/ui/Chip';
 import { Field } from '@/ui/controls';
-import { Icon, type IconName } from '@/ui/Icon';
+import { Icon } from '@/ui/Icon';
+import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { OnboardingPage } from '@/ui/manage/OnboardingPage';
-import { NotBuilt } from '@/ui/NotBuilt';
+import { issueUrl } from '@/ui/NotBuilt';
 import { spacing, useTheme } from '@/ui/theme';
 
-const PROMISES: ReadonlyArray<{ icon: IconName; key: TranslationKey }> = [
-  { icon: 'shield', key: 'onboarding.profile.promiseLocal' },
-  { icon: 'lock', key: 'onboarding.profile.promiseTracking' },
-  { icon: 'export', key: 'onboarding.profile.promiseExport' },
-];
+const PROMISES: readonly TranslationKey[] = ['onboarding.profile.promiseLocal', 'onboarding.profile.promiseTracking', 'onboarding.profile.promiseExport'];
 
 export default function ProfileScreen() {
   const { t } = useT();
@@ -27,27 +25,34 @@ export default function ProfileScreen() {
 
   const next = async (): Promise<void> => {
     const trimmed = name.trim();
-    await updateUserData({ name: trimmed === '' ? null : trimmed.slice(0, 40) });
+    if (!(await updateUserData({ name: trimmed === '' ? null : trimmed.slice(0, 40) }))) return;
     router.push('/onboarding/body');
   };
 
   return (
     <OnboardingPage
-      step={2}
+      screen="profile"
       title={t('onboarding.profile.title')}
       subtitle={t('onboarding.profile.subtitle')}
       primary={{ label: t('common.continue'), onPress: () => void next() }}>
       <Field label={t('onboarding.profile.nameLabel')} value={name} onChangeText={setName} maxLength={40} autoCapitalize="words" autoCorrect={false} testID="name-input" />
-      <NotBuilt issue="backup" compact body={t('onboarding.profile.accountNotBuilt')} />
-      <Card style={{ gap: spacing.md }}>
-        <AppText variant="capLarge" muted>
-          {t('onboarding.profile.promiseTitle')}
-        </AppText>
-        {PROMISES.map((promise) => (
-          <View key={promise.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            <Icon name={promise.icon} color={colors.positive} size={20} />
-            <AppText variant="body" style={{ flex: 1 }}>
-              {t(promise.key)}
+      <ListGroup>
+        <ListRow
+          title={t('onboarding.profile.accountTitle')}
+          subtitle={t('onboarding.profile.accountBody')}
+          right={<Chip label={t('notBuilt.title')} tone="pink" small testID="account-not-built" />}
+          chevron={false}
+          onPress={() => void Linking.openURL(issueUrl('backup'))}
+          testID="account-row"
+        />
+      </ListGroup>
+      <Card style={{ gap: spacing.md }} testID="privacy-promise">
+        <AppText variant="cardTitle">{t('onboarding.profile.promiseTitle')}</AppText>
+        {PROMISES.map((key) => (
+          <View key={key} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            <Icon name="check" color={colors.positive} size={20} strokeWidth={2.25} />
+            <AppText variant="body" soft style={{ flex: 1 }}>
+              {t(key)}
             </AppText>
           </View>
         ))}

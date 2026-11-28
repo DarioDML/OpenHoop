@@ -52,7 +52,7 @@ export function isValidIsoDate(text: string, now: Date): boolean {
   if (y === undefined || m === undefined || d === undefined) return false;
   const date = new Date(Date.UTC(y, m - 1, d));
   const exists = date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
-  return exists && date.getTime() <= now.getTime() && y >= 2015;
+  return exists && text <= todayIso(now) && y >= 2015;
 }
 
 export function todayIso(now: Date): string {

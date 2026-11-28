@@ -6,10 +6,9 @@ import { parseDecimal, parseWholeNumber } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import {
   autoFloors,
-  BIRTH_YEAR_MIN,
-  birthDateOf,
   birthDateParts,
   MAX_HR_LIMITS,
+  parseBirthFields,
   RESTING_HR_LIMITS,
   roundedFloors,
   zoneRanges,
@@ -27,6 +26,7 @@ import { Card } from '@/ui/Card';
 import { Pill } from '@/ui/Chip';
 import { Field, Segmented } from '@/ui/controls';
 import { CapHeader } from '@/ui/ListGroup';
+import { measureLimits } from '@/ui/manage/validation';
 import { Num } from '@/ui/Num';
 import { Screen } from '@/ui/Screen';
 import { fonts, radius, spacing, typeScale, useTheme } from '@/ui/theme';
@@ -54,28 +54,6 @@ function heightText(cm: number | null, units: Units): string {
 function weightText(kg: number | null, units: Units): string {
   if (kg === null) return '';
   return String(Math.round(weightIn(kg, units) * 10) / 10);
-}
-
-function unitLimits(units: Units): { height: { min: number; max: number }; weight: { min: number; max: number } } {
-  return {
-    height: { min: Math.ceil(heightIn(HEIGHT_CM.min, units)), max: Math.floor(heightIn(HEIGHT_CM.max, units)) },
-    weight: { min: Math.ceil(weightIn(WEIGHT_KG.min, units)), max: Math.floor(weightIn(WEIGHT_KG.max, units)) },
-  };
-}
-
-type BirthResult = { ok: true; birthYear: number | null; birthDate: string | null } | { ok: false };
-
-function parseBirth(dayText: string, monthText: string, yearText: string, today: string): BirthResult {
-  if (!filled(dayText) && !filled(monthText) && !filled(yearText)) return { ok: true, birthYear: null, birthDate: null };
-  const year = parseWholeNumber(yearText);
-  const currentYear = Number(today.slice(0, 4));
-  if (year === null || year < BIRTH_YEAR_MIN || year > currentYear) return { ok: false };
-  if (!filled(dayText) && !filled(monthText)) return { ok: true, birthYear: year, birthDate: null };
-  const day = parseWholeNumber(dayText);
-  const month = parseWholeNumber(monthText);
-  if (day === null || month === null) return { ok: false };
-  const date = birthDateOf(year, month, day, today);
-  return date === null ? { ok: false } : { ok: true, birthYear: year, birthDate: date };
 }
 
 function parseFloors(texts: readonly string[]): ZoneFloors | null {
@@ -123,7 +101,7 @@ export default function EditProfileScreen() {
 
   const today = todayIsoDate();
   const nowS = Math.floor(Date.now() / 1000);
-  const birth = parseBirth(birthDay, birthMonth, birthYear, today);
+  const birth = parseBirthFields(birthDay, birthMonth, birthYear, today);
   const typedMax = parseWholeNumber(maxHr);
   const typedRest = parseWholeNumber(restHr);
   const draft: Profile = {
@@ -138,7 +116,7 @@ export default function EditProfileScreen() {
   const custom = parseFloors(floors);
   const shownFloors = zoneMode === 'custom' ? custom : auto;
   const ranges = shownFloors === null ? null : zoneRanges(shownFloors, reference.max);
-  const limits = unitLimits(units);
+  const limits = measureLimits(units);
   const sources = sourceText(t, reference);
   const defaultMax = Math.round(reference.max);
 
