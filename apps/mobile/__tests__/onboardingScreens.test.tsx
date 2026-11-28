@@ -5,7 +5,12 @@ import { Linking } from 'react-native';
 
 import WelcomeScreen from '@/app/onboarding/index';
 import BodyScreen from '@/app/onboarding/body';
+import GoalsScreen from '@/app/onboarding/goals';
+import PermissionsScreen from '@/app/onboarding/permissions';
 import ProfileScreen from '@/app/onboarding/profile';
+
+import { defaultHealthConnectState } from '@/data/healthConnectState';
+import { HC_EXPORT_TYPES } from '@/lib/healthConnectMapping';
 
 import { fixtureAppData, withAppData } from './support/appData';
 
@@ -14,6 +19,20 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
   Stack: { Screen: () => null },
   Link: ({ children }: { children: ReactNode }) => children,
+}));
+
+interface MockPermission {
+  granted: boolean;
+  canAskAgain: boolean;
+  status: string;
+}
+
+const mockGetLocation = jest.fn(async (): Promise<MockPermission> => ({ granted: false, canAskAgain: true, status: 'undetermined' }));
+const mockRequestLocation = jest.fn(async (): Promise<MockPermission> => ({ granted: true, canAskAgain: true, status: 'granted' }));
+
+jest.mock('expo-location', () => ({
+  getForegroundPermissionsAsync: () => mockGetLocation(),
+  requestForegroundPermissionsAsync: () => mockRequestLocation(),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -107,5 +126,74 @@ describe('Body (A3)', () => {
     await fireEvent.press(screen.getByTestId('onboarding-primary'));
     expect(await screen.findByTestId('body-invalid')).toHaveTextContent(/a real birth date/);
     expect(updateProfile).not.toHaveBeenCalled();
+  });
+});
+
+describe('Goals (A4)', () => {
+  it('offers the mockup goals as check pills next to the existing ones and saves the picks', async () => {
+    const base = fixtureAppData();
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<GoalsScreen />, 'en', { updateUserData, userData: { ...base.userData, goals: ['sleep'] } }));
+    for (const goal of ['performance', 'sleep', 'longevity', 'stress', 'strength', 'cycle', 'recovery', 'fitness', 'health']) {
+      expect(screen.getByTestId(`goal-${goal}`)).toBeTruthy();
+    }
+    expect(screen.getByTestId('goal-sleep').props.accessibilityState).toEqual({ checked: true });
+    await fireEvent.press(screen.getByTestId('goal-longevity'));
+    await fireEvent.press(screen.getByTestId('goal-cycle'));
+    await fireEvent.press(screen.getByTestId('goal-sleep'));
+    expect(screen.getByTestId('goal-longevity').props.accessibilityState).toEqual({ checked: true });
+    expect(screen.getByTestId('goals-control')).toHaveTextContent(/You stay in control/);
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/onboarding/permissions'));
+    expect(updateUserData).toHaveBeenCalledWith({ goals: ['longevity', 'cycle'] });
+  });
+});
+
+describe('Permissions (A5)', () => {
+  it('switches Health Connect on for measured values through one permission request', async () => {
+    const setHealthConnectTypes = jest.fn(async () => true);
+    await render(withAppData(<PermissionsScreen />, 'en', { setHealthConnectTypes }));
+    expect(screen.getByTestId('permission-bluetooth')).toHaveTextContent(/Required/);
+    await fireEvent(screen.getByTestId('permission-health-connect-toggle'), 'valueChange', true);
+    expect(setHealthConnectTypes).toHaveBeenCalledWith(HC_EXPORT_TYPES, true);
+  });
+
+  it('says which permissions Health Connect left out', async () => {
+    const base = fixtureAppData();
+    const state = { ...defaultHealthConnectState(), export: { ...defaultHealthConnectState().export, heartRate: true } };
+    await render(withAppData(<PermissionsScreen />, 'en', { healthConnect: { ...base.healthConnect, state, granted: [] } }));
+    expect(screen.getByTestId('permission-health-connect-toggle').props.value).toBe(true);
+    expect(screen.getByTestId('permission-health-connect-missing')).toBeTruthy();
+  });
+
+  it('offers to install Health Connect when it is missing', async () => {
+    const base = fixtureAppData();
+    const installHealthConnect = jest.fn(async () => undefined);
+    await render(withAppData(<PermissionsScreen />, 'en', { installHealthConnect, healthConnect: { ...base.healthConnect, availability: 'not-installed' } }));
+    expect(screen.queryByTestId('permission-health-connect-toggle')).toBeNull();
+    await fireEvent.press(screen.getByTestId('permission-health-connect-install'));
+    expect(installHealthConnect).toHaveBeenCalled();
+  });
+
+  it('stays honest on phones without Health Connect', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<PermissionsScreen />, 'en', { healthConnect: { ...base.healthConnect, availability: 'unsupported' } }));
+    expect(screen.getByTestId('permission-health-connect')).toHaveTextContent(/Android only/);
+  });
+
+  it('asks for location when the switch goes on', async () => {
+    await render(withAppData(<PermissionsScreen />));
+    await waitFor(() => expect(mockGetLocation).toHaveBeenCalled());
+    expect(screen.getByTestId('permission-location-toggle').props.value).toBe(false);
+    await fireEvent(screen.getByTestId('permission-location-toggle'), 'valueChange', true);
+    await waitFor(() => expect(screen.getByTestId('permission-location-toggle').props.value).toBe(true));
+    expect(mockRequestLocation).toHaveBeenCalled();
+    expect(screen.getByTestId('permission-location-revoke')).toBeTruthy();
+  });
+
+  it('points to the phone settings when location is blocked', async () => {
+    mockGetLocation.mockResolvedValueOnce({ granted: false, canAskAgain: false, status: 'denied' });
+    await render(withAppData(<PermissionsScreen />));
+    expect(await screen.findByTestId('permission-location-blocked')).toBeTruthy();
   });
 });

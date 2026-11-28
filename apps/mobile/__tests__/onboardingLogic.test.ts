@@ -13,6 +13,7 @@ import {
   signalStrength,
 } from '@/data/onboarding';
 import { defaultUserData, GOALS, parseUserData, serializeUserData } from '@/data/userData';
+import { locationAccess } from '@/ui/manage/locationSwitch';
 
 describe('onboarding stages', () => {
   it('splits the flow into a three-step part about you and a four-step part about the band', () => {
@@ -160,5 +161,13 @@ describe('onboarding user data', () => {
     expect(parsed.goals).toEqual(['strength']);
     expect(parsed.wearLocation).toBeNull();
     expect(parsed.officialAppMode).toBeNull();
+  });
+});
+
+describe('location access', () => {
+  it('tells granted, askable and blocked apart', () => {
+    expect(locationAccess(true, true)).toBe('granted');
+    expect(locationAccess(false, true)).toBe('askable');
+    expect(locationAccess(false, false)).toBe('blocked');
   });
 });
