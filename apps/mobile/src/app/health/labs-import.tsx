@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -7,7 +7,8 @@ import { useCoach } from '@/coach/CoachContext';
 import { secureKeyStore } from '@/coach/keyStore';
 import { useAppData } from '@/data/context';
 import { requestLabExtraction } from '@/data/labImport/claude';
-import { discardReport, pickReportFile, takeReportPhoto, type PickOutcome, type ReportFile } from '@/data/labImport/files';
+import { parseLabCsv } from '@/data/labImport/csv';
+import { discardReport, pickCsvFile, pickReportFile, takeReportPhoto, type CsvPick, type PickOutcome, type ReportFile } from '@/data/labImport/files';
 import { parseLabText } from '@/data/labImport/parse';
 import { onDeviceAvailable, readOnDevice, uploadFor, type DeviceReadError, type UploadError } from '@/data/labImport/reader';
 import { remapRow, rowsFromCandidates, sharedDay, validateSelected, withDay, type ReviewRow } from '@/data/labImport/review';
@@ -33,6 +34,7 @@ type Failure =
   | { kind: 'device'; error: DeviceReadError }
   | { kind: 'upload'; error: UploadError }
   | { kind: 'claude'; error: CoachErrorKind }
+  | { kind: 'csv'; error: Exclude<CsvPick['status'], 'picked' | 'cancelled'> | 'nothing' }
   | { kind: 'nothing' };
 
 type Phase =
@@ -55,6 +57,8 @@ function failureKey(failure: Failure): TranslationKey {
       return failure.error === 'unreadable' ? 'health.labsImport.error.failed' : `health.labsImport.error.${failure.error}`;
     case 'claude':
       return `health.labsImport.claudeError.${failure.error}`;
+    case 'csv':
+      return `health.labsImport.csvError.${failure.error}`;
     case 'nothing':
       return 'health.labsImport.error.nothing';
   }
@@ -65,6 +69,8 @@ export default function LabsImportScreen() {
   const { colors } = useTheme();
   const { userData, saveLabResult } = useAppData();
   const { state: coach } = useCoach();
+  const params = useLocalSearchParams<{ source?: string }>();
+  const csv = params.source === 'csv';
   const claudeReady = featureEnabled(userData.network, 'labs') && coach.hasKey;
   const deviceReady = onDeviceAvailable();
   const [method, setMethod] = useState<Method>(deviceReady || !claudeReady ? 'device' : 'claude');
@@ -128,6 +134,18 @@ export default function LabsImportScreen() {
     await readFile(outcome.file, via);
   };
 
+  const startCsv = async (): Promise<void> => {
+    const outcome = await pickCsvFile();
+    if (outcome.status === 'cancelled') return;
+    if (outcome.status !== 'picked') return show({ step: 'failed', failure: { kind: 'csv', error: outcome.status } });
+    setInvalid({});
+    setNotice(null);
+    const parsed = parseLabCsv(outcome.text, today());
+    if (parsed.candidates.length === 0) return show({ step: 'failed', failure: { kind: 'csv', error: 'nothing' } });
+    const note = (value: string): string => t('health.labsImport.review.censoredNote', { value });
+    show({ step: 'review', rows: rowsFromCandidates(parsed.candidates, note), dropped: 0 });
+  };
+
   const updateRow = (id: string, change: (row: ReviewRow) => ReviewRow): void => {
     setPhase((current) => (current.step === 'review' ? { ...current, rows: current.rows.map((row) => (row.id === id ? change(row) : row)) } : current));
     setInvalid((current) => {
@@ -187,14 +205,27 @@ export default function LabsImportScreen() {
       hero={
         <View style={{ gap: spacing.md }}>
           <AppText variant="h2" accessibilityRole="header">
-            {t('health.labsImport.heading')}
+            {csv ? t('health.labsImport.csv.heading') : t('health.labsImport.heading')}
           </AppText>
           <AppText variant="lead" muted>
-            {t('health.labsImport.body')}
+            {csv ? t('health.labsImport.csv.body') : t('health.labsImport.body')}
           </AppText>
         </View>
       }>
-      {phase.step === 'choose' ? (
+      {phase.step === 'choose' && csv ? (
+        <Card testID="labs-import-csv">
+          <AppText variant="capLarge" muted>
+            {t('health.labsImport.csv.title')}
+          </AppText>
+          <AppText variant="body" muted>
+            {t('health.labsImport.csv.columns')}
+          </AppText>
+          <Button label={t('health.labsImport.csv.pick')} icon="upload" onPress={() => void startCsv()} testID="labs-import-csv-pick" />
+          <Button label={t('health.labsImport.csv.other')} variant="tertiary" onPress={() => router.replace('/health/labs-import')} testID="labs-import-csv-other" />
+        </Card>
+      ) : null}
+
+      {phase.step === 'choose' && !csv ? (
         <Card testID="labs-import-choose">
           <AppText variant="capLarge" muted>
             {t('health.labsImport.method.title')}

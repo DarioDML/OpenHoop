@@ -169,7 +169,27 @@ describe('lab entry screen', () => {
 
   async function open(save: Save, extra: Partial<Parameters<typeof withAppData>[2]> = {}): Promise<void> {
     await render(withAppData(<LabsUploadScreen />, 'en', { saveLabResult: save, ...extra }));
+    if (screen.queryByTestId('labs-choose-manual') !== null) await fireEvent.press(screen.getByTestId('labs-choose-manual'));
   }
+
+  it('starts with a chooser for CSV, a PDF or photo, or typing it in', async () => {
+    await render(withAppData(<LabsUploadScreen />, 'en'));
+    expect(screen.queryByTestId('labs-form')).toBeNull();
+    expect(screen.getByText('Recommended')).toBeTruthy();
+    expect(screen.getByTestId('labs-booking')).toHaveTextContent(/Lab booking isn't included/);
+    await fireEvent.press(screen.getByTestId('labs-choose-csv'));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/health/labs-import', params: { source: 'csv' } });
+    await fireEvent.press(screen.getByTestId('labs-import-open'));
+    expect(router.push).toHaveBeenCalledWith('/health/labs-import');
+    await fireEvent.press(screen.getByTestId('labs-choose-manual'));
+    expect(screen.getByTestId('labs-form')).toBeTruthy();
+  });
+
+  it('goes straight to the form when it adds to a known biomarker', async () => {
+    mockParams.biomarker = 'hba1c';
+    await render(withAppData(<LabsUploadScreen />, 'en'));
+    expect(screen.getByTestId('labs-form')).toBeTruthy();
+  });
 
   it('offers importing a report instead of a not-built note', async () => {
     await open(jest.fn<Promise<boolean>, [number | null, LabResultInput]>(async () => true));

@@ -84,3 +84,37 @@ export async function takeReportPhoto(): Promise<PickOutcome> {
     return { status: 'failed' };
   }
 }
+
+export type CsvPick =
+  | { status: 'picked'; text: string }
+  | { status: 'cancelled' }
+  | { status: 'unsupported' }
+  | { status: 'too-large' }
+  | { status: 'failed' };
+
+const CSV_TYPES = ['text/csv', 'text/comma-separated-values', 'text/tab-separated-values', 'text/plain', 'application/vnd.ms-excel'];
+const CSV_NAME = /\.(csv|tsv|txt)$/i;
+const CSV_MAX_BYTES = 2_000_000;
+
+export function isCsvFile(mimeType: string | null | undefined, name: string): boolean {
+  return CSV_NAME.test(name) || (mimeType ?? '').toLowerCase().startsWith('text/');
+}
+
+export async function pickCsvFile(): Promise<CsvPick> {
+  try {
+    const result = await getDocumentAsync({ type: CSV_TYPES, multiple: false, copyToCacheDirectory: true });
+    if (result.canceled) return { status: 'cancelled' };
+    const asset = result.assets[0];
+    if (asset === undefined) return { status: 'cancelled' };
+    try {
+      if (!isCsvFile(asset.mimeType, asset.name)) return { status: 'unsupported' };
+      if (asset.size !== undefined && asset.size !== null && asset.size > CSV_MAX_BYTES) return { status: 'too-large' };
+      const text = await new File(asset.uri).text();
+      return text.length > CSV_MAX_BYTES ? { status: 'too-large' } : { status: 'picked', text };
+    } finally {
+      discardReport(asset.uri);
+    }
+  } catch {
+    return { status: 'failed' };
+  }
+}
