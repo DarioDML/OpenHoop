@@ -6,12 +6,10 @@ import { formatElapsed, loadTargetBand, parseActivityType } from '@/data/activit
 import { useAppData } from '@/data/context';
 import { rangeStatus } from '@/data/derived';
 import { caloriesForActivity } from '@/data/energyDerived';
-import { loadTargetBuzzAt } from '@/data/liveSession';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
-import { BuzzChip, LiveControls, LiveStatus, ZoneStrip } from '@/ui/activity/LiveParts';
+import { LiveControls, LiveStatus, ZoneStrip } from '@/ui/activity/LiveParts';
 import { ProgressBar } from '@/ui/activity/parts';
-import { useLoadTargetBuzz } from '@/ui/activity/useLoadTargetBuzz';
 import { nowSeconds, useLiveRecording } from '@/ui/activity/useLiveRecording';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
@@ -34,7 +32,7 @@ export default function LiveActivityScreen() {
   const { days, notice, userData, profile } = useAppData();
   const { t, language, reason } = useT();
   const { colors } = useTheme();
-  const params = useLocalSearchParams<{ type?: string; start?: string; live?: string; buzz?: string }>();
+  const params = useLocalSearchParams<{ type?: string; start?: string; live?: string }>();
   const type = parseActivityType(params.type);
   const { session, save, running, send, begin, finish, ref, heartRate, hud, now } = useLiveRecording(type, { adoptLive: params.live === '1' });
   const beginRef = useRef(begin);
@@ -50,8 +48,6 @@ export default function LiveActivityScreen() {
   const zone = hud.zone;
   const zoneColor = zone !== null && zone > 0 ? colors.zones[zone - 1] : undefined;
   const band = loadTargetBand(days);
-  const target = loadTargetBuzzAt(days);
-  const buzz = useLoadTargetBuzz(params.buzz === '1', target, hud.projectedDayLoad, session.phase === 'running');
   const calories = caloriesForActivity(hud.activeMinutes, session.startedAt ?? now, userData, profile);
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
   const noHr = t('activity.live.noHrYet');
@@ -174,7 +170,6 @@ export default function LiveActivityScreen() {
             </AppText>
           </>
         )}
-        <BuzzChip status={buzz} target={target} testID="live-buzz" />
         <ParityBadge level={PARITY.load} />
       </Card>
 

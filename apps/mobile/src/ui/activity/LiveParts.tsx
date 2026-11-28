@@ -3,15 +3,14 @@ import { View } from 'react-native';
 import type { LivePhase } from '@/data/liveSession';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
-import { formatNumber } from '@/lib/format';
 
 import { AppText } from '../AppText';
 import { Chip, type ChipTone } from '../Chip';
 import { Button } from '../controls';
 import { spacing, useTheme } from '../theme';
-import type { BuzzStatus } from './useLoadTargetBuzz';
 
 const ZONES = [0, 1, 2, 3, 4, 5] as const;
+const ZONE_LABELS = ['Z0', 'Z1', 'Z2', 'Z3', 'Z4', 'Z5'] as const;
 
 interface ZoneStripProps {
   zone: number | null;
@@ -31,7 +30,7 @@ export function ZoneStrip({ zone, testID }: ZoneStripProps) {
           <View key={z} style={{ flex: active ? 2 : 1, alignItems: 'center', gap: 6 }} testID={active && testID ? `${testID}-active` : undefined}>
             <View style={{ alignSelf: 'stretch', height: active ? 28 : 12, borderRadius: 6, backgroundColor: color, opacity: active ? 1 : 0.45 }} />
             <AppText variant="capSmall" color={active ? colors.text : colors.textMuted}>
-              {`Z${z}`}
+              {ZONE_LABELS[z]}
             </AppText>
           </View>
         );
@@ -51,22 +50,6 @@ export function LiveStatus({ phase, testID }: { phase: LivePhase; testID?: strin
   const { t } = useT();
   const { key, tone } = STATUS[phase];
   return <Chip tone={tone} label={phase === 'running' ? `● ${t(key)}` : t(key)} testID={testID} />;
-}
-
-const BUZZ: Record<Exclude<BuzzStatus, 'off'>, { key: TranslationKey; tone: ChipTone }> = {
-  noTarget: { key: 'activity.live.buzz.noTarget', tone: 'neutral' },
-  waitingDay: { key: 'activity.live.buzz.waitingDay', tone: 'warning' },
-  armed: { key: 'activity.live.buzz.armed', tone: 'info' },
-  passed: { key: 'activity.live.buzz.passed', tone: 'neutral' },
-  buzzed: { key: 'activity.live.buzz.buzzed', tone: 'positive' },
-  failed: { key: 'activity.live.buzz.failed', tone: 'negative' },
-};
-
-export function BuzzChip({ status, target, testID }: { status: BuzzStatus; target: number | null; testID?: string }) {
-  const { t, language } = useT();
-  if (status === 'off') return null;
-  const { key, tone } = BUZZ[status];
-  return <Chip tone={tone} label={t(key, { value: target === null ? '' : formatNumber(target, 1, language) })} testID={testID} />;
 }
 
 interface FooterProps {

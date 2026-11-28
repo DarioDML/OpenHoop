@@ -1,12 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import { createFixtureDays, createFixtureDevice } from '@/data/fixtureSource';
-import { loadTargetBuzzAt, loadTargetBuzzDue } from '@/data/liveSession';
+import { createFixtureDevice } from '@/data/fixtureSource';
 import { gpsByDefault } from '@/data/route';
 import { bandLink } from '@/ui/activity/bandLink';
 
-import { FIXTURE_NOW, withAppData } from './support/appData';
+import { FIXTURE_NOW, fixtureBandActions, withAppData } from './support/appData';
 
 let mockParams: Record<string, string> = {};
 
@@ -24,7 +23,6 @@ jest.mock('react-native-safe-area-context', () => ({
 import LiveActivityScreen from '@/app/activity/live';
 import StartActivityScreen from '@/app/activity/start';
 
-const days = createFixtureDays(FIXTURE_NOW);
 const device = createFixtureDevice(FIXTURE_NOW);
 const idle = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
 
@@ -42,24 +40,6 @@ describe('start helpers', () => {
     expect(gpsByDefault('strength')).toBe(false);
   });
 
-  it('buzzes once, only when the projected Load crosses the target upward', () => {
-    expect(loadTargetBuzzDue(6.9, 7.1, 7)).toBe(true);
-    expect(loadTargetBuzzDue(7, 7.4, 7)).toBe(false);
-    expect(loadTargetBuzzDue(7.4, 6.9, 7)).toBe(false);
-    expect(loadTargetBuzzDue(null, 7.1, 7)).toBe(false);
-    expect(loadTargetBuzzDue(6.9, null, 7)).toBe(false);
-    expect(loadTargetBuzzDue(6.9, 7.1, null)).toBe(false);
-  });
-
-  it('takes the target from the low end of the aim range and has none without history', () => {
-    const target = loadTargetBuzzAt(days);
-    expect(target).not.toBeNull();
-    expect(target).toBeGreaterThanOrEqual(0);
-    expect(target).toBeLessThanOrEqual(21);
-    expect(loadTargetBuzzAt([])).toBeNull();
-    expect(loadTargetBuzzAt(days.slice(-1))).toBeNull();
-  });
-
   it('describes the band link, live first', () => {
     expect(bandLink(device, { ...idle, active: true, heartRate: 72 })).toEqual({ kind: 'live', bpm: 72 });
     expect(bandLink(device, idle)).toEqual({ kind: 'connected' });
@@ -69,21 +49,21 @@ describe('start helpers', () => {
 });
 
 describe('start activity screen', () => {
-  it('starts a GPS activity with the target buzz on by default', async () => {
+  it('starts a GPS activity for an outdoor type and hands over the band stream', async () => {
     mockParams = { type: 'running' };
     await render(withAppData(<StartActivityScreen />));
     expect(screen.getByTestId('start-type').props.children).toBe('Running');
     expect(screen.getByTestId('start-gps').props.value).toBe(true);
     expect(screen.getByTestId('start-gps-note')).toHaveTextContent(/only while this activity records/);
     await fireEvent.press(screen.getByTestId('start-begin'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: { type: 'running', start: '1', buzz: '1', live: '1' } });
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: { type: 'running', start: '1', live: '1' } });
   });
 
-  it('records without a route when GPS is switched off, and without a buzz when it is off', async () => {
+  it('records without a route when GPS is switched off, and offers no buzz switch of its own', async () => {
     mockParams = { type: 'running' };
     await render(withAppData(<StartActivityScreen />));
+    expect(screen.queryByTestId('start-buzz')).toBeNull();
     await fireEvent(screen.getByTestId('start-gps'), 'valueChange', false);
-    await fireEvent(screen.getByTestId('start-buzz'), 'valueChange', false);
     expect(screen.queryByTestId('start-gps-note')).toBeNull();
     await fireEvent.press(screen.getByTestId('start-begin'));
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'running', start: '1', live: '1' } });
@@ -167,19 +147,43 @@ describe('start activity screen', () => {
     expect(await screen.findByTestId('start-broadcast-failed')).toHaveTextContent(/did not take the change/);
   });
 
-  it('offers no broadcast without a paired band and no buzz without a target', async () => {
-    await render(withAppData(<StartActivityScreen />, 'en', { days: days.slice(-1), device: { ...device, name: null, connection: 'disconnected' } }));
+  it('offers no broadcast without a paired band', async () => {
+    await render(withAppData(<StartActivityScreen />, 'en', { device: { ...device, name: null, connection: 'disconnected' } }));
     expect(screen.getByTestId('start-broadcast').props.disabled).toBe(true);
     expect(screen.getByText('Pair a band to broadcast its heart rate.')).toBeTruthy();
-    expect(screen.getByTestId('start-buzz').props.disabled).toBe(true);
-    expect(screen.getByTestId('start-buzz').props.value).toBe(false);
-    expect(screen.getByText(/No target yet/)).toBeTruthy();
     expect(screen.getByTestId('start-band-status')).toHaveTextContent('No band paired');
   });
 
-  it('shows the buzz target in Dutch', async () => {
+  it('starts only once when Start is tapped twice', async () => {
+    mockParams = { type: 'yoga' };
+    await render(withAppData(<StartActivityScreen />));
+    await fireEvent.press(screen.getByTestId('start-begin'));
+    await fireEvent.press(screen.getByTestId('start-begin'));
+    expect(router.replace).toHaveBeenCalledTimes(1);
+  });
+
+  it('restarts the heart-rate preview when the broadcast change throws', async () => {
+    const startLive = jest.fn(async () => undefined);
+    const stopLive = jest.fn(async () => undefined);
+    const setHeartRateBroadcast = jest.fn(async (): Promise<boolean> => {
+      throw new Error('band gone');
+    });
+    const bandActions = { ...fixtureBandActions(), setHeartRateBroadcast };
+    const base = { startLive, stopLive, bandActions };
+    const view = await render(withAppData(<StartActivityScreen />, 'en', { ...base, live: idle }));
+    await waitFor(() => expect(startLive).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await view.rerender(withAppData(<StartActivityScreen />, 'en', { ...base, live: { active: true, heartRate: 70, lastRrMs: 850, updatedAt: 1 } }));
+    });
+    await fireEvent(screen.getByTestId('start-broadcast'), 'valueChange', true);
+    expect(await screen.findByTestId('start-broadcast-failed')).toBeTruthy();
+    expect(stopLive).toHaveBeenCalledTimes(1);
+    expect(startLive).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows Dutch text', async () => {
     await render(withAppData(<StartActivityScreen />, 'nl'));
-    expect(screen.getByText(/^Trilt bij \d/)).toBeTruthy();
+    expect(screen.getByText('GPS van je telefoon')).toBeTruthy();
   });
 });
 

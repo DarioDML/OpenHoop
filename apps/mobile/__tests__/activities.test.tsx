@@ -453,8 +453,8 @@ describe('live activity screen', () => {
     await fireEvent.press(screen.getByTestId('live-begin'));
     await waitFor(() => expect(startLive).toHaveBeenCalled());
     const start = Math.floor(nowMs / 1000);
-    for (let i = 1; i <= 40; i++) {
-      nowMs += 1000;
+    for (let i = 1; i <= 10; i++) {
+      nowMs += 4000;
       await act(async () => {
         await view.rerender(withAppData(<LiveActivityScreen />, 'en', { ...base, live: { active: true, heartRate: 150, lastRrMs: 400, updatedAt: nowMs } }));
       });
@@ -481,7 +481,7 @@ describe('live activity screen', () => {
     expect(await screen.findByTestId('live-saved')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('live-view'));
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/details', params: { id: '55' } });
-  }, 20_000);
+  });
 
   it('reports the projected day load while a session runs so the band can buzz at the target', async () => {
     const latest = lastDay();

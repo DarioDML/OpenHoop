@@ -1,10 +1,6 @@
 import { activeSegments, activityMetrics, projectDayLoad, zoneIndex, type ActiveMinutes, type HrPoint, type Interval, type LoadReference } from '@openhoop/analytics';
 import type { DayRecord } from '@openhoop/core';
 
-import { loadTargetBand } from './activityDerived';
-import { visibleReadiness } from './derived';
-import { loadAimRange } from './readinessDerived';
-
 export type LivePhase = 'ready' | 'running' | 'paused' | 'stopped';
 
 export interface LiveSession {
@@ -103,16 +99,4 @@ export function hudFor(state: LiveSession, nowS: number, heartRate: number | nul
     projectedDayLoad: projected,
     activeMinutes: m.activeMinutes,
   };
-}
-
-export function loadTargetBuzzAt(days: readonly DayRecord[]): number | null {
-  const day = days[days.length - 1];
-  if (day === undefined) return null;
-  const aim = loadAimRange(loadTargetBand(days), visibleReadiness(day).value);
-  return aim === null ? null : Math.round(aim.low * 10) / 10;
-}
-
-export function loadTargetBuzzDue(previous: number | null, current: number | null, target: number | null): boolean {
-  if (target === null || previous === null || current === null) return false;
-  return previous < target && current >= target;
 }

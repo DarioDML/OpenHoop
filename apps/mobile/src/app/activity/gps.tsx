@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatElapsed, parseActivityType } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
-import { loadTargetBuzzAt } from '@/data/liveSession';
 import {
   gpsSignal,
   HIDDEN_ZONE_M,
@@ -22,10 +21,9 @@ import {
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
-import { distanceIn, formatDistance, formatPace, formatShortDistance, formatSpeed, unitLengthM, useUnits, type Measure } from '@/lib/units';
-import { BuzzChip, LiveControls, LiveStatus, ZoneStrip } from '@/ui/activity/LiveParts';
+import { distanceIn, distanceUnit, formatDistance, formatPace, formatShortDistance, formatSpeed, unitLengthM, useUnits, type Measure } from '@/lib/units';
+import { LiveControls, LiveStatus, ZoneStrip } from '@/ui/activity/LiveParts';
 import { RouteMap } from '@/ui/activity/RouteMap';
-import { useLoadTargetBuzz } from '@/ui/activity/useLoadTargetBuzz';
 import { nowSeconds, useLiveRecording } from '@/ui/activity/useLiveRecording';
 import { useRouteRecorder, type GpsState } from '@/ui/activity/useRouteRecorder';
 import { AppText } from '@/ui/AppText';
@@ -57,33 +55,29 @@ const ZONE_KEYS = ['zone.1', 'zone.2', 'zone.3', 'zone.4', 'zone.5'] as const;
 const SPLITS_SHOWN = 3;
 
 export default function GpsActivityScreen() {
-  const { notice, userData, days } = useAppData();
+  const { notice, userData } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { gutter } = useLayout();
   const { height: windowHeight } = useWindowDimensions();
   const units = useUnits();
-  const params = useLocalSearchParams<{ type?: string; start?: string; live?: string; buzz?: string }>();
+  const params = useLocalSearchParams<{ type?: string; start?: string; live?: string }>();
   const type = parseActivityType(params.type);
   const recording = useLiveRecording(type, { adoptLive: params.live === '1' });
   const gps = useRouteRecorder(type);
   const [starting, setStarting] = useState(false);
   const { session, save, running, hud, heartRate } = recording;
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
-  const target = loadTargetBuzzAt(days);
-  const buzz = useLoadTargetBuzz(params.buzz === '1', target, hud.projectedDayLoad, session.phase === 'running');
 
   const { points, progress } = gps;
-  const shown = useMemo(
-    () => visibleRoute([...points], userData.hideRouteEnds ? HIDDEN_ZONE_M : 0, 0, markerStepM(progress.distanceM, units)),
+  const { shown, lastSplits } = useMemo(
+    () => ({
+      shown: visibleRoute([...points], userData.hideRouteEnds ? HIDDEN_ZONE_M : 0, 0, markerStepM(progress.distanceM, units)),
+      lastSplits: latestSplits(routeSplits(points, units), SPLITS_SHOWN),
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- points is a mutable ref that keeps its identity; progress.version changes on every new fix
     [points, progress.version, progress.distanceM, userData.hideRouteEnds, units],
-  );
-  const lastSplits = useMemo(
-    () => latestSplits(routeSplits(points, units), SPLITS_SHOWN),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- points is a mutable ref that keeps its identity; progress.version changes on every new fix
-    [points, progress.version, units],
   );
 
   const begin = async (): Promise<void> => {
@@ -130,14 +124,14 @@ export default function GpsActivityScreen() {
   const signal = gpsSignal(gps.state === 'recording', progress.accuracyM);
   const zone = hud.zone;
   const zoneColor = zone !== null && zone > 0 ? colors.zones[zone - 1] : undefined;
-  const unitWord = units === 'imperial' ? 'mi' : 'km';
+  const unitWord = distanceUnit(units);
   const markerText = (m: number): string => fmt(distanceIn(m, units), m % unitLengthM(units) === 0 ? 0 : 1);
   const mapHeight = Math.max(240, Math.round(windowHeight * 0.42));
 
   const footer =
     session.phase === 'ready' ? (
       blocked !== undefined ? (
-        <Button label={t('route.live.withoutRoute')} variant="secondary" onPress={() => router.replace({ pathname: '/activity/live', params: { type } })} testID="gps-without-route" />
+        <Button label={t('route.live.withoutRoute')} variant="secondary" onPress={() => router.replace({ pathname: '/activity/live', params: { type, start: '1' } })} testID="gps-without-route" />
       ) : (
         <Button label={starting ? t('route.live.asking') : t('route.live.start')} icon="play" disabled={starting} onPress={() => void begin()} testID="gps-begin" />
       )
@@ -267,7 +261,6 @@ export default function GpsActivityScreen() {
               </View>
 
               <ZoneStrip zone={heartRate === null ? null : zone} testID="gps-zones" />
-              <BuzzChip status={buzz} target={target} testID="gps-buzz" />
 
               {lastSplits.length > 0 ? (
                 <View style={{ gap: spacing.sm }} testID="gps-splits">

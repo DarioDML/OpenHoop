@@ -1,5 +1,5 @@
 import { loadReference } from '@openhoop/analytics';
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import type { ActivityType } from '@/data/activityDerived';
 import { useAppData, useLive } from '@/data/context';
@@ -80,10 +80,14 @@ export function useLiveRecording(type: ActivityType, options: LiveRecordingOptio
     setSave(id === null ? { kind: 'failed' } : { kind: 'saved', id });
   };
 
-  const tz = deviceTzOffsetS(new Date());
-  const ref = loadReference(days, analyticsProfileOf(profile), now, new Date(now * 1000).getFullYear());
-  const latest = days[days.length - 1] ?? null;
-  const today = latest !== null && latest.day === unixToIsoDate(now, tz) ? latest : null;
+  const dayKey = unixToIsoDate(now, deviceTzOffsetS(new Date(now * 1000)));
+  const { ref, today } = useMemo(() => {
+    const latest = days[days.length - 1] ?? null;
+    return {
+      ref: loadReference(days, analyticsProfileOf(profile), Number.MAX_SAFE_INTEGER, Number(dayKey.slice(0, 4))),
+      today: latest !== null && latest.day === dayKey ? latest : null,
+    };
+  }, [days, profile, dayKey]);
   const heartRate = live.active ? live.heartRate : null;
   const hud = hudFor(session, now, heartRate, ref, today);
   const projectedTenths = hud.projectedDayLoad === null ? null : Math.round(hud.projectedDayLoad * 10);

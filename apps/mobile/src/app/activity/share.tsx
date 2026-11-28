@@ -1,16 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 
 import { chartBucketS } from '@/data/activities';
 import { useAppData } from '@/data/context';
 import { caloriesForActivity } from '@/data/energyDerived';
-import { usesPace } from '@/data/route';
+import { HIDDEN_ZONE_M, usesPace } from '@/data/route';
 import { SaveImageError, saveSnapshotImage, ShareUnavailableError, shareSnapshotImage, type CardHandle } from '@/data/shareImage';
 import {
   availableFields,
   buildSnapshot,
   DEFAULT_SELECTION,
-  SHARE_PRIVACY_RADIUS_M,
   snapshotFileName,
   toggleField,
   type SnapshotField,
@@ -93,13 +92,15 @@ function ShareBody({ resolved }: { resolved: ResolvedEntry }) {
 
   const calories = entry.hasLoad ? caloriesForActivity(entry.metrics.activeMinutes, entry.start, userData, profile) : null;
   const day = unixToIsoDate(entry.start, tzOffsetS);
-  const input = { entry, day, kcal: calories?.estimate?.totalKcal ?? null, route: route ?? [], heartRate: heart };
-  const view = buildSnapshot(input, selection, { privacyRadiusM: hideEnds ? SHARE_PRIVACY_RADIUS_M : 0 });
-  const fields = availableFields(input);
+  const kcal = calories?.estimate?.totalKcal ?? null;
+  const { view, fields } = useMemo(() => {
+    const input = { entry, day, kcal, route: route ?? [], heartRate: heart };
+    return { view: buildSnapshot(input, selection, { privacyRadiusM: hideEnds ? HIDDEN_ZONE_M : 0 }), fields: availableFields(input) };
+  }, [entry, day, kcal, route, heart, selection, hideEnds]);
   const title = entry.type !== null ? t(`activity.type.${entry.type}`) : t('workout.default');
   const network = strictestPrefs(userData.network, currentNetworkPrefs());
   const mapsOn = featureEnabled(network, 'maps');
-  const radius = formatShortDistance(SHARE_PRIVACY_RADIUS_M, units, language);
+  const radius = formatShortDistance(HIDDEN_ZONE_M, units, language);
   const labelOf = (field: SnapshotField): string => (field === 'pace' ? t(usesPace(entry.type ?? 'other') ? 'route.pace' : 'route.speed') : t(FIELD_LABELS[field]));
 
   const share = async (): Promise<void> => {
@@ -120,7 +121,7 @@ function ShareBody({ resolved }: { resolved: ResolvedEntry }) {
     setError(null);
     setSaved(false);
     try {
-      const outcome = await saveSnapshotImage(cardRef, snapshotFileName(entry.type, day, format), Platform.OS === 'ios' ? 'ios' : 'android');
+      const outcome = await saveSnapshotImage(cardRef, snapshotFileName(entry.type, day, format, Date.now()), Platform.OS === 'ios' ? 'ios' : 'android');
       if (outcome.kind === 'saved') setSaved(true);
     } catch (failure) {
       setError(failure instanceof SaveImageError ? 'activity.share.saveError' : 'activity.share.error');

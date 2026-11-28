@@ -17,8 +17,6 @@ export const SNAPSHOT_FORMATS = ['story', 'square', 'transparent'] as const;
 
 export type SnapshotFormat = (typeof SNAPSHOT_FORMATS)[number];
 
-export const SHARE_PRIVACY_RADIUS_M = 200;
-
 export const DEFAULT_SELECTION: SnapshotSelection = {
   route: true,
   load: true,
@@ -132,10 +130,11 @@ export function buildSnapshot(input: SnapshotInput, selection: SnapshotSelection
   };
 }
 
-export function snapshotFileName(type: ActivityType | null, day: string, format: SnapshotFormat): string {
+export function snapshotFileName(type: ActivityType | null, day: string, format: SnapshotFormat, nowMs: number): string {
   const kind = type ?? 'workout';
   const safeDay = /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : 'activity';
-  return `openhoop-${kind}-${safeDay}-${format}.png`;
+  const stamp = Number.isFinite(nowMs) && nowMs > 0 ? `-${Math.floor(nowMs)}` : '';
+  return `openhoop-${kind}-${safeDay}-${format}${stamp}.png`;
 }
 
 export function toggleField(selection: SnapshotSelection, field: SnapshotField, value: boolean): SnapshotSelection {

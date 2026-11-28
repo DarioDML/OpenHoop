@@ -1,8 +1,6 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { defaultUserData } from '@/data/userData';
-import { useLoadTargetBuzz } from '@/ui/activity/useLoadTargetBuzz';
 
 import { FIXTURE_NOW, fixtureBandActions, withAppData } from './support/appData';
 
@@ -30,71 +28,6 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.restoreAllMocks();
-});
-
-function BuzzProbe({ enabled, target, projected, running }: { enabled: boolean; target: number | null; projected: number | null; running: boolean }) {
-  const status = useLoadTargetBuzz(enabled, target, projected, running);
-  return <Text testID="buzz-status">{status}</Text>;
-}
-
-describe('load target buzz', () => {
-  it('buzzes the band once when the projected Load crosses the target while recording', async () => {
-    const buzz = jest.fn(async () => true);
-    const bandActions = { ...fixtureBandActions(), buzz };
-    const probe = (projected: number | null, running = true) => withAppData(<BuzzProbe enabled target={7} projected={projected} running={running} />, 'en', { bandActions });
-    const view = await render(probe(6.5, false));
-    expect(screen.getByTestId('buzz-status')).toHaveTextContent('armed');
-    await act(async () => {
-      await view.rerender(probe(6.5));
-    });
-    await act(async () => {
-      await view.rerender(probe(6.9));
-    });
-    expect(buzz).not.toHaveBeenCalled();
-    await act(async () => {
-      await view.rerender(probe(7.2));
-    });
-    await waitFor(() => expect(screen.getByTestId('buzz-status')).toHaveTextContent('buzzed'));
-    await act(async () => {
-      await view.rerender(probe(6.8));
-    });
-    await act(async () => {
-      await view.rerender(probe(7.5));
-    });
-    expect(buzz).toHaveBeenCalledTimes(1);
-    expect(buzz).toHaveBeenCalledWith('test');
-  });
-
-  it('does not buzz when the day was already past the target at the start', async () => {
-    const buzz = jest.fn(async () => true);
-    const bandActions = { ...fixtureBandActions(), buzz };
-    const probe = (projected: number) => withAppData(<BuzzProbe enabled target={7} projected={projected} running />, 'en', { bandActions });
-    const view = await render(probe(8));
-    await act(async () => {
-      await view.rerender(probe(9));
-    });
-    expect(screen.getByTestId('buzz-status')).toHaveTextContent('passed');
-    expect(buzz).not.toHaveBeenCalled();
-  });
-
-  it('says when the buzz did not reach the band, and stays off when switched off', async () => {
-    const bandActions = { ...fixtureBandActions(), buzz: async () => false };
-    const probe = (projected: number) => withAppData(<BuzzProbe enabled target={7} projected={projected} running />, 'en', { bandActions });
-    const view = await render(probe(6));
-    await act(async () => {
-      await view.rerender(probe(7));
-    });
-    await waitFor(() => expect(screen.getByTestId('buzz-status')).toHaveTextContent('failed'));
-    await render(withAppData(<BuzzProbe enabled={false} target={7} projected={6} running />));
-    expect(screen.getAllByTestId('buzz-status').some((n) => n.props.children === 'off')).toBe(true);
-  });
-
-  it('reports a missing target or day', async () => {
-    await render(withAppData(<BuzzProbe enabled target={null} projected={6} running />));
-    expect(screen.getByTestId('buzz-status')).toHaveTextContent('noTarget');
-    await render(withAppData(<BuzzProbe enabled target={7} projected={null} running />));
-    expect(screen.getAllByTestId('buzz-status').some((n) => n.props.children === 'waitingDay')).toBe(true);
-  });
 });
 
 describe('live HUD', () => {
@@ -142,10 +75,21 @@ describe('live HUD', () => {
     expect(screen.getByTestId('live-max')).toHaveTextContent(/No heart rate yet|150/);
   });
 
-  it('shows the buzz target when the buzz was switched on at the start', async () => {
-    mockParams = { type: 'running', start: '1', buzz: '1' };
-    await render(withAppData(<LiveActivityScreen />, 'en', { live: liveAt(120, 1) }));
-    expect(await screen.findByTestId('live-buzz')).toBeTruthy();
+  it('never buzzes the band itself while recording', async () => {
+    let nowMs = FIXTURE_NOW.getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    mockParams = { type: 'running', start: '1' };
+    const buzz = jest.fn(async () => true);
+    const bandActions = { ...fixtureBandActions(), buzz };
+    const view = await render(withAppData(<LiveActivityScreen />, 'en', { bandActions, live: liveAt(170, nowMs) }));
+    for (let i = 1; i <= 5; i++) {
+      nowMs += 1000;
+      await act(async () => {
+        await view.rerender(withAppData(<LiveActivityScreen />, 'en', { bandActions, live: liveAt(170, nowMs) }));
+      });
+    }
+    expect(screen.queryByTestId('live-buzz')).toBeNull();
+    expect(buzz).not.toHaveBeenCalled();
   });
 
   it('shows Dutch status text', async () => {

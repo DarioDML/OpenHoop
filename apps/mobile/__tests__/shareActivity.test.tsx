@@ -5,6 +5,8 @@ import { captureRef } from 'react-native-view-shot';
 
 import { createFixtureDays } from '@/data/fixtureSource';
 import { defaultUserData } from '@/data/userData';
+import { setNetworkPrefs } from '@/net';
+import { defaultNetworkPrefs, type NetworkPrefs } from '@/net/features';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -109,7 +111,10 @@ async function open(rows: ActivityRow[] = [activity()], extra: Record<string, un
   await render(withAppData(<ShareActivityScreen />, 'en', { activities: rows, ...extra }));
 }
 
+const MAPS_ON: NetworkPrefs = { enabled: true, features: { coach: false, maps: true, labs: false, strava: false } };
+
 beforeEach(() => {
+  setNetworkPrefs(defaultNetworkPrefs());
   jest.clearAllMocks();
   mockFiles.clear();
   mockFolders.clear();
@@ -225,7 +230,7 @@ describe('share activity screen', () => {
     expect(mockPick).toHaveBeenCalledTimes(1);
     expect(mockShare).not.toHaveBeenCalled();
     expect(mockAvailable).not.toHaveBeenCalled();
-    expect([...mockFiles.keys()]).toEqual([expect.stringMatching(/^content:\/\/downloads\/openhoop-cycling-\d{4}-\d{2}-\d{2}-story\.png$/)]);
+    expect([...mockFiles.keys()]).toEqual([expect.stringMatching(/^content:\/\/downloads\/openhoop-cycling-\d{4}-\d{2}-\d{2}-story-\d+\.png$/)]);
   });
 
   it('does nothing when the folder picker is cancelled, and says when saving fails', async () => {
@@ -270,6 +275,32 @@ describe('share activity screen', () => {
     await fireEvent.press(screen.getByTestId('share-toggle-route'));
     expect(screen.queryByTestId('card-route')).toBeNull();
     expect(screen.getByTestId('share-toggle-route').props.accessibilityState).toEqual({ checked: false });
+  });
+
+  it('loads map tiles behind the route only when Maps is on, and never on the transparent card', async () => {
+    const route = Array.from({ length: 31 }, (_, i) => ({ tMs: i * 30_000, lat: 51.05 + (i * 100) / 111_195, lon: 3.72, altM: null, accuracyM: 5, segment: 0 }));
+    const routeFor = jest.fn(async () => route);
+    const userData = { ...profiled.userData, network: MAPS_ON };
+    const layoutRoute = async (): Promise<void> => {
+      await fireEvent(screen.getByTestId('card-route'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 270, height: 300 } } });
+    };
+    mockParams = { id: '7' };
+    const view = await render(withAppData(<ShareActivityScreen />, 'en', { activities: [activity()], ...profiled, routeFor, userData }));
+    await screen.findByTestId('card-route');
+    await layoutRoute();
+    expect(screen.queryByTestId('route-tile')).toBeNull();
+    expect(screen.getByTestId('share-map-off')).toBeTruthy();
+
+    setNetworkPrefs(MAPS_ON);
+    await view.rerender(withAppData(<ShareActivityScreen />, 'en', { activities: [activity()], ...profiled, routeFor, userData: { ...userData } }));
+    await layoutRoute();
+    expect(screen.getAllByTestId('route-tile').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('route-attribution')).toHaveTextContent('© OpenStreetMap contributors');
+    expect(screen.queryByTestId('share-map-off')).toBeNull();
+
+    await fireEvent.press(screen.getByText('Transparent'));
+    await layoutRoute();
+    expect(screen.queryByTestId('route-tile')).toBeNull();
   });
 
   it('offers no route chip or hide switch without a route', async () => {

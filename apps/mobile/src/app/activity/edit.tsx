@@ -131,7 +131,8 @@ function EditForm({ resolved }: { resolved: ResolvedEntry }) {
           <Stack.Screen options={{ presentation: 'modal' }} />
           <TopBar title={t('activity.edit.title')} />
         </>
-      }>
+      }
+      footer={<Button label={t('activity.edit.save')} onPress={() => void save()} disabled={busy} testID="edit-save" />}>
       <Card>
         <AppText variant="cardTitle">{entryTitle(t, entry)}</AppText>
         <AppText variant="label" muted numeric>
@@ -212,7 +213,6 @@ function EditForm({ resolved }: { resolved: ResolvedEntry }) {
           {notice === null ? t('activity.form.failed') : t(notice.key, notice.params)}
         </AppText>
       ) : null}
-      <Button label={t('activity.edit.save')} onPress={() => void save()} disabled={busy} testID="edit-save" />
       <Button label={t('activity.delete')} icon="trash" variant="danger" disabled={busy} onPress={() => void remove()} testID="edit-delete" />
       <AppText variant="label" muted testID="edit-delete-hint">
         {t('activity.edit.deleteHint', { seconds: DELETE_UNDO_MS / 1000 })}

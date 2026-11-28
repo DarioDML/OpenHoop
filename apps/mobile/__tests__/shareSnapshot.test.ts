@@ -1,6 +1,6 @@
 import type { ActivityEntry } from '@/data/activities';
-import { hideAroundEnds, haversineM, type RoutePoint } from '@/data/route';
-import { availableFields, buildSnapshot, DEFAULT_SELECTION, durationParity, SHARE_PRIVACY_RADIUS_M, snapshotFileName, toggleField, type SnapshotInput } from '@/data/shareSnapshot';
+import { HIDDEN_ZONE_M, hideAroundEnds, haversineM, type RoutePoint } from '@/data/route';
+import { availableFields, buildSnapshot, DEFAULT_SELECTION, durationParity, snapshotFileName, toggleField, type SnapshotInput } from '@/data/shareSnapshot';
 
 function entry(over: Partial<ActivityEntry> = {}, metrics: Partial<ActivityEntry['metrics']> = {}): ActivityEntry {
   return {
@@ -140,27 +140,28 @@ describe('route, pace and heart-rate chart on the image', () => {
 
   it('cuts the privacy radius around the start and the end out of the drawn route', () => {
     const full = line(101, 30);
-    const view = buildSnapshot(withRoute(full), DEFAULT_SELECTION, { privacyRadiusM: SHARE_PRIVACY_RADIUS_M });
+    const view = buildSnapshot(withRoute(full), DEFAULT_SELECTION, { privacyRadiusM: HIDDEN_ZONE_M });
     const kept = view.route?.points ?? [];
     expect(view.route?.trimmed).toBe(true);
     const first = full[0];
     const last = full[full.length - 1];
     if (first === undefined || last === undefined) throw new Error('route');
-    expect(kept.every((p) => haversineM(first, p) >= SHARE_PRIVACY_RADIUS_M && haversineM(last, p) >= SHARE_PRIVACY_RADIUS_M)).toBe(true);
+    expect(kept.every((p) => haversineM(first, p) >= HIDDEN_ZONE_M && haversineM(last, p) >= HIDDEN_ZONE_M)).toBe(true);
     expect(kept.length).toBe(101 - 7 - 7);
     expect(view.pace?.distanceM).toBeCloseTo(3000, 0);
   });
 
   it('says when nothing of the route is left after hiding the ends', () => {
-    const view = buildSnapshot(withRoute(line(11, 30)), DEFAULT_SELECTION, { privacyRadiusM: SHARE_PRIVACY_RADIUS_M });
+    const view = buildSnapshot(withRoute(line(11, 30)), DEFAULT_SELECTION, { privacyRadiusM: HIDDEN_ZONE_M });
     expect(view.route).toBeNull();
     expect(view.routeHiddenAway).toBe(true);
     expect(buildSnapshot(withRoute(line(11, 30)), toggleField(DEFAULT_SELECTION, 'route', false), { privacyRadiusM: 200 }).routeHiddenAway).toBe(false);
   });
 
-  it('names the saved file after the activity, day and format', () => {
-    expect(snapshotFileName('running', '2026-11-24', 'story')).toBe('openhoop-running-2026-11-24-story.png');
-    expect(snapshotFileName(null, '../../etc', 'square')).toBe('openhoop-workout-activity-square.png');
+  it('names the saved file after the activity, day, format and moment, so a second save gets its own file', () => {
+    expect(snapshotFileName('running', '2026-11-24', 'story', 1_795_537_800_123)).toBe('openhoop-running-2026-11-24-story-1795537800123.png');
+    expect(snapshotFileName('running', '2026-11-24', 'story', 1_795_537_801_000)).not.toBe(snapshotFileName('running', '2026-11-24', 'story', 1_795_537_800_123));
+    expect(snapshotFileName(null, '../../etc', 'square', Number.NaN)).toBe('openhoop-workout-activity-square.png');
   });
 });
 

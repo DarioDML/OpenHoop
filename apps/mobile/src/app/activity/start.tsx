@@ -4,7 +4,6 @@ import { Pressable, View } from 'react-native';
 
 import { ACTIVITY_TYPES, parseActivityType, type ActivityType } from '@/data/activityDerived';
 import { useAppData, useLive } from '@/data/context';
-import { loadTargetBuzzAt } from '@/data/liveSession';
 import { gpsByDefault } from '@/data/route';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
@@ -32,25 +31,24 @@ const LINK_LABEL: Record<Exclude<BandLink['kind'], 'live'>, TranslationKey> = {
 export default function StartActivityScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const { days, device, bandActions, startLive, stopLive, notice } = useAppData();
+  const { device, bandActions, startLive, stopLive, notice } = useAppData();
   const live = useLive();
   const params = useLocalSearchParams<{ type?: string }>();
   const [type, setType] = useState<ActivityType>(() => parseActivityType(params.type));
   const [picking, setPicking] = useState(false);
   const [gpsChoice, setGpsChoice] = useState<boolean | null>(null);
-  const [buzz, setBuzz] = useState(true);
   const [broadcastBusy, setBroadcastBusy] = useState(false);
   const [broadcastFailed, setBroadcastFailed] = useState(false);
   const preview = useRef(false);
   const handedOff = useRef(false);
+  const begun = useRef(false);
+  const closed = useRef(false);
   const liveRef = useRef(live);
   liveRef.current = live;
   const stopRef = useRef(stopLive);
   stopRef.current = stopLive;
 
   const gps = gpsChoice ?? gpsByDefault(type);
-  const target = loadTargetBuzzAt(days);
-  const buzzOn = buzz && target !== null;
   const paired = device.name !== null;
   const canPreview = paired && device.connection === 'connected';
   const link = bandLink(device, live);
@@ -64,6 +62,7 @@ export default function StartActivityScreen() {
 
   useEffect(
     () => () => {
+      closed.current = true;
       if (preview.current && !handedOff.current) void stopRef.current();
     },
     [],
@@ -77,21 +76,23 @@ export default function StartActivityScreen() {
   const setBroadcast = async (on: boolean): Promise<void> => {
     setBroadcastBusy(true);
     setBroadcastFailed(false);
+    const restart = liveRef.current.active && preview.current;
     try {
-      const restart = liveRef.current.active && preview.current;
       if (restart) await stopLive();
-      const ok = await bandActions.setHeartRateBroadcast(on);
-      if (!ok) setBroadcastFailed(true);
-      if (restart) await startLive();
+      if (!(await bandActions.setHeartRateBroadcast(on))) setBroadcastFailed(true);
+    } catch {
+      setBroadcastFailed(true);
     } finally {
+      if (restart && !closed.current && !handedOff.current) await startLive();
       setBroadcastBusy(false);
     }
   };
 
   const begin = (): void => {
+    if (begun.current) return;
+    begun.current = true;
     handedOff.current = preview.current;
     const next: Record<string, string> = { type, start: '1' };
-    if (buzzOn) next.buzz = '1';
     if (handedOff.current) next.live = '1';
     router.replace({ pathname: gps ? '/activity/gps' : '/activity/live', params: next });
   };
@@ -158,23 +159,10 @@ export default function StartActivityScreen() {
           disabled={!paired || broadcastBusy || device.connection === 'syncing'}
           testID="start-broadcast"
         />
-        <ToggleRow
-          title={t('activity.start.buzz.title')}
-          subtitle={target === null ? t('activity.start.buzz.noTarget') : t('activity.start.buzz.body', { value: fmt(target, 1) })}
-          value={buzzOn}
-          onChange={setBuzz}
-          disabled={target === null}
-          testID="start-buzz"
-        />
       </ListGroup>
       {gps ? (
         <AppText variant="caption" muted testID="start-gps-note">
           {t('route.live.permissionBody')}
-        </AppText>
-      ) : null}
-      {buzzOn ? (
-        <AppText variant="caption" muted testID="start-buzz-note">
-          {t('activity.start.buzz.when')}
         </AppText>
       ) : null}
       {broadcastFailed ? (

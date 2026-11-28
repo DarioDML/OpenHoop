@@ -255,7 +255,7 @@ describe('live GPS activity', () => {
     expect(startLive).not.toHaveBeenCalled();
     expect(mockWatch).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('gps-without-route'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'walking' } });
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'walking', start: '1' } });
   });
 
   it('says so when GPS cannot start', async () => {
