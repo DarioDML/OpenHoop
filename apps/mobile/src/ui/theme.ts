@@ -41,6 +41,7 @@ export interface ColorTokens {
   grid: string;
   ecg: string;
   ecgPaper: string;
+  cyclePhase: { menstrual: string; follicular: string; ovulation: string; luteal: string };
   metric: {
     sleep: string;
     load: string;
@@ -97,6 +98,7 @@ export const darkColors: ColorTokens = {
   grid: '#FFFFFF14',
   ecg: '#FF6B8B',
   ecgPaper: '#1A1418',
+  cyclePhase: { menstrual: '#FF6B8B', follicular: '#FFB3C7', ovulation: '#C77DFF', luteal: '#8C6BD6' },
   metric: {
     sleep: '#7FA6C2',
     load: '#0A93E8',
@@ -164,6 +166,7 @@ export const lightColors: ColorTokens = {
   grid: '#0D11141A',
   ecg: '#C8325A',
   ecgPaper: '#FBF0F3',
+  cyclePhase: { menstrual: '#C8325A', follicular: '#B8577A', ovulation: '#8E3FC7', luteal: '#5B45D6' },
   metric: {
     sleep: '#3E6E91',
     load: '#0A6FC0',

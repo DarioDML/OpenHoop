@@ -70,6 +70,32 @@ describe('cycle screen', () => {
     expect(screen.getByTestId('cycle-temp-note')).toHaveTextContent(/Raw data, not interpreted/);
   });
 
+  it('places today on the phase wheel and labels everything as an estimate', async () => {
+    await render(withAppData(<CycleScreen />, 'en', { cycle: cycleData({ periods: THREE_PERIODS }) }));
+    expect(screen.getByTestId('cycle-wheel-day')).toHaveTextContent('28');
+    expect(screen.getByTestId('cycle-wheel-phase')).toHaveTextContent('Luteal');
+    expect(screen.getByTestId('cycle-phase-title')).toHaveTextContent('Luteal phase (estimate)');
+    expect(screen.getByTestId('cycle-phase-left')).toHaveTextContent('1 day left');
+    expect(screen.getByTestId('cycle-tile-next-value')).toHaveTextContent('in 2 days');
+    expect(screen.getByText('estimate')).toBeTruthy();
+    expect(screen.getByTestId('cycle-level')).toHaveTextContent(/Not for contraception and not medical advice/);
+    expect(screen.queryByTestId('cycle-wheel-typical')).toBeNull();
+  });
+
+  it('assumes a typical cycle until there is history and asks for a first log', async () => {
+    await render(withAppData(<CycleScreen />, 'en', { cycle: cycleData({ periods: [period(4, '2026-11-09')] }) }));
+    expect(screen.getByTestId('cycle-wheel-day')).toHaveTextContent('17');
+    expect(screen.getByTestId('cycle-wheel-typical')).toHaveTextContent(/typical 28-day cycle/);
+    expect(screen.getByTestId('cycle-phase-left')).toHaveTextContent('11 days left');
+    expect(screen.getByTestId('cycle-tile-next-missing')).toHaveTextContent('Needs more logs');
+  });
+
+  it('opens the period form from the calendar button', async () => {
+    await render(withAppData(<CycleScreen />, 'en', { cycle: cycleData({ periods: THREE_PERIODS }) }));
+    await fireEvent.press(screen.getByTestId('cycle-open-calendar'));
+    expect(screen.getByTestId('cycle-form')).toBeTruthy();
+  });
+
   it('does not estimate a next period while pregnancy mode is on', async () => {
     await render(
       withAppData(<CycleScreen />, 'en', { cycle: cycleData({ periods: THREE_PERIODS, pregnancy: { dueDay: '2027-03-01', createdAt: 1 } }) }),
@@ -87,6 +113,8 @@ describe('cycle screen', () => {
   it('rejects invalid periods without saving and flags the overlap', async () => {
     const save = jest.fn<Promise<boolean>, [number | null, PeriodInput]>(async () => true);
     await render(withAppData(<CycleScreen />, 'en', { cycle: cycleData({ periods: THREE_PERIODS }), savePeriod: save }));
+    expect(screen.queryByTestId('cycle-form')).toBeNull();
+    await fireEvent.press(screen.getByTestId('cycle-open-form'));
     await fireEvent.changeText(screen.getByTestId('cycle-input-start'), '2026-11-26');
     await fireEvent.press(screen.getByTestId('cycle-save'));
     expect(save).not.toHaveBeenCalled();

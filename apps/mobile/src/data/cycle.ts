@@ -275,3 +275,151 @@ export function nightlySeries(days: readonly DayRecord[], key: MetricKey, today:
   }
   return points;
 }
+
+export const CYCLE_PHASES = ['menstrual', 'follicular', 'ovulation', 'luteal'] as const;
+export type CyclePhase = (typeof CYCLE_PHASES)[number];
+
+export const PHASE_DEFAULTS = {
+  cycleDays: 28,
+  periodDays: 5,
+  lutealDays: 14,
+  ovulationHalfWindow: 1,
+  fertileBefore: 5,
+  fertileAfter: 1,
+  minPeriodDays: 2,
+  maxPeriodDays: 8,
+} as const;
+
+export interface PhaseSpan {
+  phase: CyclePhase;
+  from: number;
+  to: number;
+}
+
+export function cyclePhases(cycleDays: number, periodDays: number): PhaseSpan[] {
+  const length = Math.max(CYCLE_LIMITS.minCycleDays, Math.round(cycleDays));
+  const period = Math.min(PHASE_DEFAULTS.maxPeriodDays, Math.max(PHASE_DEFAULTS.minPeriodDays, Math.round(periodDays)));
+  const ovulation = Math.max(period + 3, length - PHASE_DEFAULTS.lutealDays);
+  const spans: PhaseSpan[] = [
+    { phase: 'menstrual', from: 1, to: period },
+    { phase: 'follicular', from: period + 1, to: ovulation - PHASE_DEFAULTS.ovulationHalfWindow - 1 },
+    { phase: 'ovulation', from: ovulation - PHASE_DEFAULTS.ovulationHalfWindow, to: Math.min(length, ovulation + PHASE_DEFAULTS.ovulationHalfWindow) },
+    { phase: 'luteal', from: ovulation + PHASE_DEFAULTS.ovulationHalfWindow + 1, to: length },
+  ];
+  return spans.filter((span) => span.to >= span.from);
+}
+
+export function phaseOn(spans: readonly PhaseSpan[], day: number): PhaseSpan | null {
+  return spans.find((span) => day >= span.from && day <= span.to) ?? null;
+}
+
+export interface CycleWheel {
+  day: number;
+  length: number;
+  typicalLength: boolean;
+  spans: PhaseSpan[];
+  phase: CyclePhase;
+  daysLeftInPhase: number;
+  overdue: boolean;
+}
+
+export function cycleWheel(stats: CycleStats, today: string): CycleWheel | null {
+  const day = dayOfCycle(stats, today);
+  if (day === null) return null;
+  const typicalLength = stats.averageCycleDays === null;
+  const length = Math.round(stats.averageCycleDays ?? PHASE_DEFAULTS.cycleDays);
+  const spans = cyclePhases(length, stats.averagePeriodDays ?? PHASE_DEFAULTS.periodDays);
+  const shownLength = spans[spans.length - 1]?.to ?? length;
+  const span = phaseOn(spans, day);
+  if (span === null) return { day, length: shownLength, typicalLength, spans, phase: 'luteal', daysLeftInPhase: 0, overdue: true };
+  return { day, length: shownLength, typicalLength, spans, phase: span.phase, daysLeftInPhase: span.to - day, overdue: false };
+}
+
+export interface DayWindow {
+  from: string;
+  to: string;
+}
+
+export function fertileWindow(next: NextPeriodEstimate): DayWindow | null {
+  if (!next.ok) return null;
+  const ovulation = shiftIsoDay(next.day, -PHASE_DEFAULTS.lutealDays);
+  return { from: shiftIsoDay(ovulation, -PHASE_DEFAULTS.fertileBefore), to: shiftIsoDay(ovulation, PHASE_DEFAULTS.fertileAfter) };
+}
+
+export interface RecentValue {
+  day: string;
+  value: number;
+}
+
+export function latestDeviation(days: readonly DayRecord[], today: string, maxAgeDays: number): RecentValue | null {
+  const from = shiftIsoDay(today, -maxAgeDays);
+  for (let i = days.length - 1; i >= 0; i--) {
+    const record = days[i];
+    if (record === undefined || record.day > today) continue;
+    if (record.day < from) return null;
+    const value = metricValue(record, 'skinTempDeviation');
+    if (value !== null) return { day: record.day, value };
+  }
+  return null;
+}
+
+export type TempFit = 'typical' | 'different';
+
+export const TEMP_FIT_C = 0.1;
+
+export function tempFitsPhase(phase: CyclePhase, deviationC: number): TempFit | null {
+  if (phase === 'ovulation') return null;
+  if (phase === 'luteal') return deviationC >= TEMP_FIT_C ? 'typical' : 'different';
+  return deviationC <= TEMP_FIT_C ? 'typical' : 'different';
+}
+
+export type FlowChoice = 0 | FlowLevel;
+
+export type FlowAction =
+  | { kind: 'none' }
+  | { kind: 'insert'; input: PeriodInput }
+  | { kind: 'update'; id: number; input: PeriodInput }
+  | { kind: 'delete'; id: number }
+  | { kind: 'inside' }
+  | { kind: 'invalid' };
+
+function coverEnd(period: PeriodEntry, today: string): string {
+  if (period.endDay !== null) return period.endDay;
+  const longest = shiftIsoDay(period.startDay, CYCLE_LIMITS.maxPeriodDays - 1);
+  return longest < today ? longest : today;
+}
+
+export function periodOn(periods: readonly PeriodEntry[], day: string, today: string): PeriodEntry | null {
+  return periods.find((period) => period.startDay <= day && day <= coverEnd(period, today)) ?? null;
+}
+
+export function dayFlow(periods: readonly PeriodEntry[], day: string, today: string): FlowChoice {
+  return periodOn(periods, day, today)?.flow ?? 0;
+}
+
+function checked(input: PeriodInput, id: number | null, periods: readonly PeriodEntry[], today: string): FlowAction {
+  const result = validatePeriodDraft({ start: input.startDay, end: input.endDay ?? '', flow: input.flow }, today, periods, id);
+  if (!result.ok) return { kind: 'invalid' };
+  return id === null ? { kind: 'insert', input: result.value } : { kind: 'update', id, input: result.value };
+}
+
+export function applyDayFlow(periods: readonly PeriodEntry[], day: string, choice: FlowChoice, today: string): FlowAction {
+  const cover = periodOn(periods, day, today);
+  if (choice === 0) {
+    if (cover === null) return { kind: 'none' };
+    const end = cover.endDay ?? day;
+    if (cover.startDay === day && (cover.endDay === null || end === day)) return { kind: 'delete', id: cover.id };
+    if (cover.endDay === null || end === day) return checked({ startDay: cover.startDay, endDay: shiftIsoDay(day, -1), flow: cover.flow }, cover.id, periods, today);
+    if (cover.startDay === day) return checked({ startDay: shiftIsoDay(day, 1), endDay: cover.endDay, flow: cover.flow }, cover.id, periods, today);
+    return { kind: 'inside' };
+  }
+  if (cover !== null) {
+    if (cover.flow === choice) return { kind: 'none' };
+    return checked({ startDay: cover.startDay, endDay: cover.endDay, flow: choice }, cover.id, periods, today);
+  }
+  const before = periods.find((period) => period.endDay === shiftIsoDay(day, -1));
+  if (before !== undefined) return checked({ startDay: before.startDay, endDay: day, flow: choice }, before.id, periods, today);
+  const after = periods.find((period) => period.startDay === shiftIsoDay(day, 1));
+  if (after !== undefined) return checked({ startDay: day, endDay: after.endDay, flow: choice }, after.id, periods, today);
+  return checked({ startDay: day, endDay: day === today ? null : day, flow: choice }, null, periods, today);
+}
