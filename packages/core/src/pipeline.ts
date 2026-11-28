@@ -251,9 +251,10 @@ function withoutOffWristSleep(ctx: Context, samples: Sample[]): Sample[] {
   return samples.map((s) => (s.state === 'SLEEP' && lookup(s.t) === 'off' ? { ...s, state: null } : s));
 }
 
-function mergedPeriods(ctx: Context, samples: Sample[], from: number, to: number): MergedSleepPeriod[] {
+function mergedPeriods(ctx: Context, samples: Sample[], from: number, to: number, before: Sample[] = []): MergedSleepPeriod[] {
   const guarded = withoutOffWristSleep(ctx, samples);
-  const detected = withBedTime(withStillLeadIn(withoutAwakeTails(sleepPeriods(guarded), guarded), guarded), guarded);
+  const sleep = withStillLeadIn(withoutAwakeTails(sleepPeriods(guarded), guarded), guarded);
+  const detected = withBedTime(sleep, before.length === 0 ? guarded : [...before, ...guarded]);
   return applySleepEdits(detected, editsTouching(ctx.edits, from, to), guarded);
 }
 
@@ -402,7 +403,7 @@ async function computeDay(
   const key = formatDayIndex(index);
   const scanned = await mainNightOf(ctx, index);
   const { samples: before } = await readWindow(ctx, start - BED_LEAD_IN_MAX_S, start);
-  const periods = mergedPeriods(ctx, [...before, ...samples], start, end).filter((p) => p.onset >= start && p.onset < end);
+  const periods = mergedPeriods(ctx, samples, start, end, before).filter((p) => p.onset >= start && p.onset < end);
   const main = scanned === null ? null : pickMainNight(nightsOf(periods), index, tz);
   const periodRecords: SleepPeriodRecord[] = periods.map((p) => ({
     onset: p.onset,
