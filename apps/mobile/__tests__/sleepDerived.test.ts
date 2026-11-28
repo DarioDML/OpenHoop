@@ -127,6 +127,7 @@ describe('night events', () => {
     expect(fallAsleepS([{ ...period, bedOnset: 19_000, sleepOnset: 20_180 }])).toBe(1_180);
     expect(fallAsleepS([{ ...period, nap: true, bedOnset: 19_000, sleepOnset: 20_180 }])).toBeNull();
     expect(fallAsleepS([period])).toBeNull();
+    expect(fallAsleepS([{ ...period, bedOnset: 20_000, sleepOnset: 20_000 }])).toBeNull();
   });
 
   it('gives nothing for a night without sleep epochs', () => {

@@ -57,7 +57,7 @@
   "lastNight.minUnit": "min",
   "lastNight.noStages": "Geen slaapfasen voor deze nacht",
   "lastNight.inBedRows": "Tijd in bed",
-  "lastNight.level": "De fasen komen uit OpenHoops eigen open classificatie, niet uit het officiële model. Inslaaptijd en onderbrekingen komen uit de fasen.",
+  "lastNight.level": "De fasen komen uit OpenHoops eigen open classificatie, niet uit het officiële model. Onderbrekingen komen uit de fasen; de inslaaptijd komt uit wanneer je in bed stapte en in slaap viel.",
 
   "sleepNeed.info": "Zo werkt slaapbehoefte",
   "sleepNeed.toWake": "om volledig uitgerust wakker te worden",

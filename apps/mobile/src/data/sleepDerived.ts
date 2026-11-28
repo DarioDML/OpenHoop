@@ -190,8 +190,8 @@ export function nightEvents(epochs: readonly StageEpochRow[], onset: number): Ni
 /** Time to fall asleep: from getting into bed to falling asleep, when the night carries both. */
 export function fallAsleepS(periods: readonly SleepPeriodRecord[]): number | null {
   const first = periods.filter((p) => !p.nap).sort((a, b) => a.onset - b.onset)[0];
-  if (first?.bedOnset === undefined || first.sleepOnset === undefined) return null;
-  return Math.max(0, first.sleepOnset - first.bedOnset);
+  if (first?.bedOnset === undefined || first.sleepOnset === undefined || first.sleepOnset <= first.bedOnset) return null;
+  return first.sleepOnset - first.bedOnset;
 }
 
 export const LATENCY_GOOD_MAX_S = 30 * 60;
