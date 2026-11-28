@@ -1,4 +1,5 @@
 import type { ActiveMinutes, SleepStage, StageTotals, StressDay } from '@openhoop/analytics';
+import type { EncodedChunk } from './chunkCodec';
 
 export type SqlValue = string | number | null | Uint8Array;
 
@@ -56,7 +57,8 @@ export interface HeartRateBucket {
 export interface ChunkInput {
   deviceId: number;
   endToken: Uint8Array | null;
-  frames: Uint8Array[];
+  frames: readonly Uint8Array[];
+  encoded?: EncodedChunk;
   clockOffsetS: number | null;
   receivedAt: number;
 }

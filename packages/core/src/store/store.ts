@@ -313,7 +313,10 @@ export function bindStore(driver: SqlDriver): Store {
     },
 
     async commitChunk(chunk, samples, extras) {
-      const encoded = encodeChunk(chunk.frames);
+      const encoded = chunk.encoded ?? encodeChunk(chunk.frames);
+      if (encoded.frameCount !== chunk.frames.length) {
+        throw new Error(`Encoded chunk holds ${encoded.frameCount} frames, but ${chunk.frames.length} were given`);
+      }
       return driver.transaction(async (tx) => {
         const existing =
           encoded.frameCount === 0

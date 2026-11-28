@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
-import { ChunkIntegrityError, DriverClosedError, bindStore, decodeChunk, driverContract, encodeChunk, openStore } from '../src/index';
+import { ChunkBuilder, ChunkIntegrityError, DriverClosedError, bindStore, decodeChunk, driverContract, encodeChunk, openStore } from '../src/index';
 import { openNodeDriver } from '../src/node/index';
 import type { SqlDriver, SqlValue } from '../src/index';
 import { MissedTransactionHandleError, openStrictDriver } from './strictDriver';
@@ -149,5 +149,31 @@ describe('chunk codec', () => {
   it('handles an empty chunk', () => {
     const encoded = encodeChunk([]);
     expect(decodeChunk(encoded.blob, encoded.sha256)).toEqual([]);
+  });
+
+  it('builds the same blob and checksum frame by frame as encodeChunk does at once', () => {
+    const sets = [[], [new Uint8Array(0)], [new Uint8Array([1, 2, 3]), new Uint8Array(0), new Uint8Array(500).fill(9)], Array.from({ length: 70 }, (_, i) => new Uint8Array(104).fill(i))];
+    for (const frames of sets) {
+      const builder = new ChunkBuilder();
+      for (const frame of frames) builder.add(frame);
+      expect(builder.frames).toEqual(frames);
+      expect(builder.encode()).toEqual(encodeChunk(frames));
+    }
+  });
+
+  it('keeps a frame as it was when added, even if the caller reuses its buffer', () => {
+    const buffer = new Uint8Array([1, 2, 3]);
+    const builder = new ChunkBuilder();
+    builder.add(buffer);
+    buffer[0] = 9;
+    expect(builder.encode()).toEqual(encodeChunk([new Uint8Array([1, 2, 3])]));
+  });
+
+  it('returns the same encoding when asked twice and refuses frames after encoding', () => {
+    const builder = new ChunkBuilder();
+    builder.add(new Uint8Array([7]));
+    const first = builder.encode();
+    expect(builder.encode()).toBe(first);
+    expect(() => builder.add(new Uint8Array([8]))).toThrow();
   });
 });
