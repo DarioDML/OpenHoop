@@ -323,6 +323,21 @@ describe('syncHistory', () => {
     expect(linked[0]?.n).toBe(2);
   });
 
+  it('ignores live motion records that arrive during a sync', async () => {
+    const still: [number[], number[], number[]] = [new Array<number>(100).fill(0), new Array<number>(100).fill(0), new Array<number>(100).fill(4096)];
+    const chunk = [
+      encodeMetadata({ meta: 'HISTORY_START', unixS: T0 }),
+      encodeBiometric({ recordIndex: 1, unixS: T0 + 1, heartRate: 61 }),
+      encodeImu({ recordIndex: 2, unixS: T0 + 2, packetType: 43, accel: still, gyro: still }),
+      encodeMetadata({ meta: 'HISTORY_END', unixS: T0 + 4, endToken: token(0) }),
+    ];
+    const { session } = await band({ chunks: [chunk], complete: historyComplete(T0 + 5) });
+    const result = await syncHistory(session, store, { deviceId });
+    expect(result.signalRange).toBeNull();
+    expect(result.frames).toBe(3);
+    expect(await imuBetween(store.driver, deviceId, T0, T0 + 10)).toEqual([]);
+  });
+
   it('reports no signal range when a sync brings no optical or motion records', async () => {
     const { session } = await band({ chunks: [biometricChunk(0, { firstT: T0, count: 3 })], complete: historyComplete(T0 + 10) });
     expect((await syncHistory(session, store, { deviceId })).signalRange).toBeNull();

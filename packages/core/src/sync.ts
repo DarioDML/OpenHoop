@@ -4,6 +4,7 @@ import type { HeldChunk } from './lockProbe';
 import { ChunkBuilder } from './store/chunkCodec';
 import { packEventFromPacket, sampleFromPacket } from './mapping';
 import type { Session } from './session';
+import { isLiveSignal } from './rawStreams';
 import { emptySignals, mergeSignals, signalRangeOf, signalsFromPacket } from './signals';
 import type { SignalRows } from './signals';
 import { CommandFailedError, DisconnectedError, LINK_QUIET_MAX_MS, LINK_QUIET_MS } from './session';
@@ -85,7 +86,7 @@ class EventQueue {
   ) {
     this.cleanups.push(
       session.onPacket((packet, raw) => {
-        if (packet.kind === 'commandResponse' || packet.kind === 'realtimeHr') return;
+        if (packet.kind === 'commandResponse' || packet.kind === 'realtimeHr' || isLiveSignal(packet)) return;
         this.push({ type: 'frame', packet, raw, integrity: session.integrityErrors });
       }),
       session.onDisconnect(() => this.push({ type: 'disconnect' })),

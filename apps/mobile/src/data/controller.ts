@@ -143,15 +143,17 @@ import {
   type DonationDay,
   type DonationProgress,
 } from '@openhoop/core';
+import { RawStreamError, StreamCollector, insertSignals, isLiveSignal, startBandRecording, stopBandRecording, switchStreams } from '@openhoop/core';
+import type { LiveImuSecond, LiveOpticalSecond, StreamKind } from '@openhoop/core';
 import { spo2Windows } from '@openhoop/analytics';
 import type { Profile as AnalyticsProfile } from '@openhoop/analytics';
-import { commandName, formatFirmware, type Wrist } from '@openhoop/protocol';
+import { commandName, formatFirmware, type Packet, type Wrist } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
 import Constants from 'expo-constants';
 import { getRandomBytes } from 'expo-crypto';
 import { Directory } from 'expo-file-system';
 import { getLocales } from 'expo-localization';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { dayEntries, DELETE_UNDO_MS } from './activities';
 import { BleManagerTransport } from '@/ble/bleManagerTransport';
@@ -235,6 +237,10 @@ import { buzzIfConnected } from './bandBuzz';
 import { LoadBuzzRunner } from './loadBuzzRunner';
 import { loadTargetsHidden } from './pregnancyPrefs';
 import { changesAppData } from './liveData';
+import { EMPTY_IMU_TAIL, IDLE_RAW_LIVE, appendImuTail, opticalChannels } from './rawLive';
+import type { RawLiveState } from './rawLive';
+import { FailSafe, StreamOwners, connectAction, onBackground, parseFlags, serializeFlags } from './rawStreamPolicy';
+import type { StreamOwner } from './rawStreamPolicy';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, storeProfile } from './settingsCodec';
 import { analyticsProfileOf, emptyProfile, mergeProfile } from './profile';
 import { createDonationWorkspace, filePartSink, removeLeftoverDonations, saveDonationParts, sharePartFile, type SaveOutcome } from './donation/files';
@@ -243,6 +249,7 @@ import type {
   AlarmActions,
   AlarmSaveOutcome,
   EcgActions,
+  RawStreamActions,
   EcgLiveState,
   AlarmView,
   AppData,
@@ -320,6 +327,7 @@ export interface Snapshot {
   ecgRecordings: EcgSummary[];
   ecgWrist: Wrist;
   ecgLive: EcgLiveState;
+  rawLive: RawLiveState;
 }
 
 interface Connection {
@@ -351,6 +359,15 @@ const ECG_PROGRESS_MS = 200;
 const RING_WAIT_MS = 40_000;
 
 const ECG_WRIST_KEY = 'ecg.wrist';
+
+const STREAM_KINDS: readonly StreamKind[] = ['imu', 'optical'];
+const DEV_STREAM_SECONDS = 600;
+const STREAM_CAP_CHECK_MS = 1_000;
+const BAND_RECORDING_MS = 10_800_000;
+
+function streamFlagsKey(deviceId: number): string {
+  return `raw.cleanup.${deviceId}`;
+}
 
 function ecgCleanupKey(deviceId: number): string {
   return `ecg.cleanup.${deviceId}`;
@@ -487,6 +504,7 @@ export class AppController {
       ecgRecordings: [],
       ecgWrist: 'left',
       ecgLive: IDLE_ECG,
+      rawLive: IDLE_RAW_LIVE,
     };
   }
 
@@ -568,6 +586,9 @@ export class AppController {
   private async startOnce(): Promise<void> {
     if (this.started) return;
     this.started = true;
+    AppState.addEventListener('change', (state) => {
+      if (state !== 'active') void this.switchOffReleased(onBackground(this.streamOwners));
+    });
     try {
       removeLeftoverExports();
       removeLeftoverReports();
@@ -778,6 +799,8 @@ export class AppController {
   private async dropConnection(): Promise<void> {
     const conn = this.conn;
     this.conn = null;
+    this.streamCollector?.collector.close();
+    this.streamCollector = null;
     if (conn === null) return;
     try {
       await conn.session.close();
@@ -801,7 +824,10 @@ export class AppController {
       const info = await readDeviceInformation(transport);
       const logged = loggedTransport(transport);
       const session = new Session(logged, { now: () => Date.now() });
-      session.onPacket((packet, raw) => packetLog.record('rx', describePacket(packet), raw));
+      session.onPacket((packet, raw) => {
+        packetLog.record('rx', describePacket(packet), raw);
+        this.guardLiveSignal(session, packet);
+      });
       const hello = await session.open();
       const row = await store.upsertDevice({
         bleId,
@@ -827,6 +853,8 @@ export class AppController {
       if ((await store.getSetting(ecgCleanupKey(row.id))) === '1' && (await stopEcg(session))) {
         await store.setSetting(ecgCleanupKey(row.id), '');
       }
+      this.collectStreams(conn);
+      await this.applyStreamsOnConnect(conn);
       this.battery = await session.battery().catch(() => hello.batteryPercent);
       this.setConnection('connected');
       return conn;
@@ -883,6 +911,10 @@ export class AppController {
 
   sync = (): Promise<void> => {
     if (this.syncRun !== null) return this.syncRun;
+    if (this.streamOwners.has('developer')) {
+      this.fail(new AppError('error.syncStreamsOn'));
+      return Promise.resolve();
+    }
     const run = this.exclusive(() => this.runSync()).then(
       () => {
         if (this.snapshot.healthConnect.state.afterBandSync && this.snapshot.settings.dataSource === 'band') void this.syncHealthConnect();
@@ -1311,6 +1343,185 @@ export class AppController {
   };
 
   private ecgAbort: AbortController | null = null;
+  private readonly streamOwners = new StreamOwners();
+  private readonly failSafe = new FailSafe();
+  private streamCollector: { session: Session; collector: StreamCollector } | null = null;
+  private devImu: LiveImuSecond[] = [];
+  private devOptical: LiveOpticalSecond[] = [];
+  private streamCapTimer: ReturnType<typeof setInterval> | null = null;
+  private bandRecording = false;
+
+  private readonly rawStreamSet: RawStreamActions = {
+    start: (owner: StreamOwner, kinds: readonly StreamKind[]) => this.startStreams(owner, kinds),
+    stop: (owner: StreamOwner) => this.stopStreams(owner),
+    setBandRecording: (on: boolean) => this.setBandRecording(on),
+    imuSeconds: () => this.devImu,
+    opticalSeconds: () => this.devOptical,
+  };
+
+  private async saveStreamFlags(deviceId: number): Promise<void> {
+    const active = this.streamOwners.active();
+    await this.requireApp().store.setSetting(streamFlagsKey(deviceId), serializeFlags({ imu: active.includes('imu'), optical: active.includes('optical'), band: this.bandRecording }));
+  }
+
+  private collectStreams(conn: Connection): void {
+    if (this.streamCollector?.session === conn.session) return;
+    this.streamCollector?.collector.close();
+    const collector = new StreamCollector(conn.session);
+    collector.onImu((second) => this.takeImu(conn, collector, second));
+    collector.onOptical((second) => this.takeOptical(collector, second));
+    this.streamCollector = { session: conn.session, collector };
+  }
+
+  private takeImu(conn: Connection, collector: StreamCollector, second: LiveImuSecond): void {
+    if (!this.streamOwners.active().includes('imu')) return;
+    if (this.streamOwners.has('developer')) this.devImu = keepLast(this.devImu, second, DEV_STREAM_SECONDS);
+    if (this.streamOwners.has('workout')) {
+      const row = { deviceId: conn.deviceId, t: Math.floor(second.t), rateHz: second.rateHz, accel: second.accel, gyro: second.gyro };
+      void insertSignals(this.requireApp().store.driver, { imu: [row], optical: [] }, null).catch((error: unknown) => this.fail(error));
+    }
+    const previous = this.snapshot.rawLive.imu;
+    this.patch({
+      rawLive: {
+        ...this.snapshot.rawLive,
+        imu: { rateHz: collector.measuredRate('imu'), seconds: (previous?.seconds ?? 0) + 1, tail: appendImuTail(previous?.tail ?? EMPTY_IMU_TAIL, second) },
+      },
+    });
+  }
+
+  private takeOptical(collector: StreamCollector, second: LiveOpticalSecond): void {
+    if (!this.streamOwners.active().includes('optical')) return;
+    if (this.streamOwners.has('developer')) this.devOptical = keepLast(this.devOptical, second, DEV_STREAM_SECONDS);
+    const previous = this.snapshot.rawLive.optical;
+    this.patch({
+      rawLive: {
+        ...this.snapshot.rawLive,
+        optical: { rateHz: collector.measuredRate('optical'), seconds: (previous?.seconds ?? 0) + 1, channels: opticalChannels(previous?.channels ?? [], second) },
+      },
+    });
+  }
+
+  private guardLiveSignal(session: Session, packet: Packet): void {
+    if (!isLiveSignal(packet)) return;
+    const active = this.streamOwners.active();
+    const unowned = STREAM_KINDS.filter((kind) => !active.includes(kind));
+    const kind: StreamKind = packet.kind === 'record' && packet.layout === 21 ? 'imu' : 'optical';
+    if (!this.failSafe.shouldStop(Date.now(), { owned: active.includes(kind), ecg: this.ecgAbort !== null, syncing: this.syncRun !== null })) return;
+    void this.exclusive(async () => {
+      if (session.isConnected) await switchStreams(session, unowned, false);
+    }).catch(() => undefined);
+  }
+
+  private async applyStreamsOnConnect(conn: Connection): Promise<void> {
+    const { store } = this.requireApp();
+    const flags = parseFlags(await store.getSetting(streamFlagsKey(conn.deviceId)));
+    const action = connectAction(this.streamOwners.active(), flags, this.bandRecording);
+    try {
+      if (action.reassert.length > 0) await switchStreams(conn.session, action.reassert, true);
+      if (action.switchOff.length > 0) {
+        this.failSafe.noteStop(Date.now());
+        await switchStreams(conn.session, action.switchOff, false);
+      }
+      if (action.stopBand) await stopBandRecording(conn.session);
+      if (action.switchOff.length > 0 || action.stopBand) await this.saveStreamFlags(conn.deviceId);
+    } catch (error) {
+      if (!(error instanceof RawStreamError)) throw error;
+    }
+  }
+
+  private async startStreams(owner: StreamOwner, kinds: readonly StreamKind[]): Promise<boolean> {
+    if (this.ecgAbort !== null || (owner === 'developer' && this.syncRun !== null)) {
+      this.fail(new AppError('error.streamsBusy'));
+      return false;
+    }
+    try {
+      await this.exclusive(async () => {
+        const conn = await this.ensureConnection();
+        this.collectStreams(conn);
+        const newly = this.streamOwners.claim(owner, kinds, Date.now());
+        this.patchStreamOwners();
+        if (owner === 'developer') {
+          if (newly.includes('imu')) this.devImu = [];
+          if (newly.includes('optical')) this.devOptical = [];
+        }
+        await this.saveStreamFlags(conn.deviceId);
+        try {
+          await switchStreams(conn.session, newly, true);
+        } catch (error) {
+          this.streamOwners.release(owner);
+          this.patchStreamOwners();
+          this.clearRawLive(newly);
+          await this.saveStreamFlags(conn.deviceId);
+          throw error;
+        }
+      });
+      this.armStreamCap();
+      return true;
+    } catch (error) {
+      this.fail(error instanceof RawStreamError ? new AppError('error.streamRefused') : error);
+      return false;
+    }
+  }
+
+  private stopStreams(owner: StreamOwner): Promise<void> {
+    return this.switchOffReleased(this.streamOwners.release(owner));
+  }
+
+  private async switchOffReleased(kinds: readonly StreamKind[]): Promise<void> {
+    if (kinds.length > 0) this.failSafe.noteStop(Date.now());
+    this.patchStreamOwners();
+    this.clearRawLive(kinds);
+    if (this.streamOwners.active().length === 0) this.disarmStreamCap();
+    const conn = this.conn;
+    if (conn === null || !conn.session.isConnected) return;
+    try {
+      await this.exclusive(async () => {
+        if (kinds.length > 0 && conn.session.isConnected) await switchStreams(conn.session, kinds, false);
+        await this.saveStreamFlags(conn.deviceId);
+      });
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+
+  private clearRawLive(kinds: readonly StreamKind[]): void {
+    if (kinds.length === 0) return;
+    const live = this.snapshot.rawLive;
+    this.patch({ rawLive: { ...live, imu: kinds.includes('imu') ? null : live.imu, optical: kinds.includes('optical') ? null : live.optical } });
+  }
+
+  private patchStreamOwners(): void {
+    this.patch({ rawLive: { ...this.snapshot.rawLive, owners: { developer: this.streamOwners.kindsOf('developer'), workout: this.streamOwners.kindsOf('workout') } } });
+  }
+
+  private armStreamCap(): void {
+    if (this.streamCapTimer !== null) return;
+    this.streamCapTimer = setInterval(() => {
+      for (const owner of this.streamOwners.expired(Date.now())) void this.stopStreams(owner);
+    }, STREAM_CAP_CHECK_MS);
+  }
+
+  private disarmStreamCap(): void {
+    if (this.streamCapTimer === null) return;
+    clearInterval(this.streamCapTimer);
+    this.streamCapTimer = null;
+  }
+
+  private async setBandRecording(on: boolean): Promise<boolean> {
+    try {
+      await this.exclusive(async () => {
+        const conn = await this.ensureConnection();
+        if (on) await startBandRecording(conn.session, BAND_RECORDING_MS);
+        else await stopBandRecording(conn.session);
+        this.bandRecording = on;
+        await this.saveStreamFlags(conn.deviceId);
+      });
+      return true;
+    } catch (error) {
+      this.fail(error instanceof RawStreamError ? new AppError('error.streamRefused') : error);
+      return false;
+    }
+  }
   private startRun: Promise<void> | null = null;
   private quietSync = false;
 
@@ -1340,6 +1551,10 @@ export class AppController {
   private async startEcg(wrist: Wrist): Promise<number | null> {
     if (this.syncRun !== null || this.liveAbort !== null || this.ecgAbort !== null) {
       this.fail(new AppError('error.bandBusy'));
+      return null;
+    }
+    if (this.streamOwners.active().length > 0) {
+      this.fail(new AppError('error.ecgStreamsOn'));
       return null;
     }
     const abort = new AbortController();
@@ -2437,7 +2652,7 @@ export class AppController {
   };
 
   private appData(): AppData {
-    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ecgLive: _ecgLive, ...snapshot } = this.snapshot;
+    const { live: _live, syncProgress: _syncProgress, pendingDelete: _pendingDelete, ecgLive: _ecgLive, rawLive: _rawLive, ...snapshot } = this.snapshot;
     return {
       ...snapshot,
       sleepEditLimits: { napMaxS: MANUAL_NAP_MAX_S, sleepMaxS: EDITED_SLEEP_MAX_S },
@@ -2450,6 +2665,7 @@ export class AppController {
       bandActions: this.bandActionSet,
       alarmActions: this.alarmActionSet,
       ecgActions: this.ecgActionSet,
+      rawStreams: this.rawStreamSet,
       stopLive: this.stopLive,
       exportData: this.exportData,
       storageStats: this.storageStats,
@@ -2509,6 +2725,11 @@ export class AppController {
       installHealthConnect: this.installHealthConnect,
     };
   }
+}
+
+function keepLast<T>(list: readonly T[], item: T, limit: number): T[] {
+  const next = [...list, item];
+  return next.length > limit ? next.slice(next.length - limit) : next;
 }
 
 let shared: AppController | null = null;

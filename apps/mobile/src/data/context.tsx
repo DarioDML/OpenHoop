@@ -1,5 +1,6 @@
 import { createContext, useContext, useSyncExternalStore } from 'react';
 
+import type { RawLiveState } from './rawLive';
 import type { AppData, EcgLiveState, LiveData, LiveDataStore, LiveState, PendingDelete, SyncProgressView } from './types';
 
 export const AppDataContext = createContext<AppData | null>(null);
@@ -34,4 +35,8 @@ export function usePendingDelete(): PendingDelete | null {
 
 export function useEcgLive(): EcgLiveState {
   return useLiveField('ecgLive');
+}
+
+export function useRawLive(): RawLiveState {
+  return useLiveField('rawLive');
 }
