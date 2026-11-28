@@ -1,4 +1,5 @@
 import type { EcgSummary, EcgSymptom } from '@openhoop/core';
+import { ECG_SYMPTOMS } from '@openhoop/core/ecg-symptoms';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
@@ -6,7 +7,7 @@ import { Alert, View } from 'react-native';
 import { useAppData } from '@/data/context';
 import type { Language } from '@/data/types';
 import { singleParam } from '@/data/dailyDerived';
-import { ECG_STRIP_S, ECG_SYMPTOM_OPTIONS, ecgStrips, stripLength, toggleEcgSymptom, traceRange } from '@/data/ecg';
+import { ECG_STRIP_S, ecgStrips, stripLength, toggleEcgSymptom, traceRange } from '@/data/ecg';
 import { ecgReportHtml } from '@/data/ecgReport';
 import { shareEcgCsv } from '@/data/ecgShare';
 import { shareReportPdf } from '@/data/reportShare';
@@ -219,7 +220,7 @@ export default function EcgResultScreen() {
               {t('ecg.feel.question')}
             </AppText>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-              {ECG_SYMPTOM_OPTIONS.map((symptom) => (
+              {ECG_SYMPTOMS.map((symptom) => (
                 <SelectChip key={symptom} label={t(`ecg.feel.${symptom}`)} selected={symptoms.includes(symptom)} onPress={() => feel(symptom)} testID={`ecg-feel-${symptom}`} />
               ))}
             </View>

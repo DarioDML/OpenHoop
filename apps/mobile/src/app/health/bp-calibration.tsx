@@ -23,6 +23,10 @@ function tzNow(): number {
   return deviceTzOffsetS(new Date(Date.now()));
 }
 
+function offsetAt(unixS: number): number {
+  return deviceTzOffsetS(new Date(unixS * 1000));
+}
+
 function leave(): void {
   if (router.canGoBack()) router.back();
   else router.replace('/health/blood-pressure');
@@ -84,7 +88,7 @@ export default function BpCalibrationScreen() {
   };
 
   const save = async (): Promise<void> => {
-    const result = validateCuffDraft(draft, nowS(), tzNow());
+    const result = validateCuffDraft(draft, nowS(), offsetAt);
     if (!result.ok) {
       setInvalid(result.invalid);
       return;

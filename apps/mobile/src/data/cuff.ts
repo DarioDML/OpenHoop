@@ -1,12 +1,8 @@
 import type { CuffReading, CuffReadingInput } from '@openhoop/core';
+import { CUFF_LIMITS } from '@openhoop/core/cuff-readings';
 
 import { parseIsoDate, unixToIsoDate } from '@/lib/dates';
 
-export const CUFF_RANGES = {
-  systolic: { min: 60, max: 260 },
-  diastolic: { min: 30, max: 160 },
-  pulse: { min: 30, max: 220 },
-} as const;
 
 export type CuffField = 'systolic' | 'diastolic' | 'pulse' | 'day' | 'time' | 'order';
 
@@ -45,26 +41,30 @@ function whole(text: string, range: { readonly min: number; readonly max: number
   return value >= range.min && value <= range.max ? value : null;
 }
 
-export function localToUnix(day: string, time: string, tzOffsetS: number): number | null {
+export type OffsetAt = (unixS: number) => number;
+
+export function localToUnix(day: string, time: string, offsetAt: OffsetAt): number | null {
   const date = parseIsoDate(day.trim());
   const clock = CLOCK.exec(time.trim());
   if (date === null || clock === null || date.y < MIN_YEAR) return null;
-  return Date.UTC(date.y, date.m - 1, date.d, Number(clock[1]), Number(clock[2])) / 1000 - tzOffsetS;
+  const wall = Date.UTC(date.y, date.m - 1, date.d, Number(clock[1]), Number(clock[2])) / 1000;
+  const guess = wall - offsetAt(wall);
+  return wall - offsetAt(guess);
 }
 
-export function validateCuffDraft(draft: CuffDraft, nowS: number, tzOffsetS: number): CuffValidation {
+export function validateCuffDraft(draft: CuffDraft, nowS: number, offsetAt: OffsetAt): CuffValidation {
   const invalid: CuffField[] = [];
-  const systolic = whole(draft.systolic, CUFF_RANGES.systolic);
-  const diastolic = whole(draft.diastolic, CUFF_RANGES.diastolic);
+  const systolic = whole(draft.systolic, CUFF_LIMITS.systolic);
+  const diastolic = whole(draft.diastolic, CUFF_LIMITS.diastolic);
   if (systolic === null) invalid.push('systolic');
   if (diastolic === null) invalid.push('diastolic');
   if (systolic !== null && diastolic !== null && diastolic >= systolic) invalid.push('order');
   const pulseText = draft.pulse.trim();
-  const pulse = pulseText === '' ? null : whole(pulseText, CUFF_RANGES.pulse);
+  const pulse = pulseText === '' ? null : whole(pulseText, CUFF_LIMITS.pulse);
   if (pulseText !== '' && pulse === null) invalid.push('pulse');
   if (parseIsoDate(draft.day.trim()) === null) invalid.push('day');
   if (!CLOCK.test(draft.time.trim())) invalid.push('time');
-  const t = localToUnix(draft.day, draft.time, tzOffsetS);
+  const t = localToUnix(draft.day, draft.time, offsetAt);
   if (t !== null && t > nowS + FUTURE_SLACK_S) invalid.push('day', 'time');
   if (t === null && !invalid.includes('day') && !invalid.includes('time')) invalid.push('day');
   if (invalid.length > 0 || systolic === null || diastolic === null || t === null) return { ok: false, invalid: [...new Set(invalid)] };

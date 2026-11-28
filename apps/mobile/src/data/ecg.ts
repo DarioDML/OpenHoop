@@ -2,10 +2,6 @@ import type { EcgSummary, EcgSymptom } from '@openhoop/core';
 
 export const ECG_STRIP_S = 5;
 
-export const ECG_SYMPTOM_OPTIONS = ['none', 'palpitations', 'dizzy', 'shortBreath', 'chestPain'] as const satisfies readonly EcgSymptom[];
-
-type AssertNever<T extends never> = T;
-export type EcgSymptomsComplete = AssertNever<Exclude<EcgSymptom, (typeof ECG_SYMPTOM_OPTIONS)[number]>>;
 
 export interface TraceColumn {
   min: number;

@@ -9,6 +9,8 @@
     "./node": "./src/node/index.ts",
     "./donation-info": "./src/donation/info.ts",
     "./thresholds": "./src/thresholds.ts",
+    "./cuff-readings": "./src/cuffReadings.ts",
+    "./ecg-symptoms": "./src/ecgSymptoms.ts",
     "./versions": "./src/versions.ts"
   },
   "dependencies": {

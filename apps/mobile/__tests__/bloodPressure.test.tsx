@@ -40,26 +40,37 @@ beforeEach(() => {
 
 describe('cuff readings', () => {
   const draft = { ...emptyCuffDraft(NOW, 0), systolic: '118', diastolic: '76', pulse: '' };
+  const utc = (): number => 0;
 
   it('starts on today and the current time', () => {
     expect(emptyCuffDraft(NOW, 3_600)).toEqual({ systolic: '', diastolic: '', pulse: '', day: '2026-11-25', time: '13:00' });
   });
 
   it('keeps what was typed and derives nothing', () => {
-    expect(validateCuffDraft(draft, NOW, 0)).toEqual({ ok: true, value: { t: NOW, systolic: 118, diastolic: 76, pulse: null } });
-    expect(validateCuffDraft({ ...draft, pulse: '62', time: '7.10' }, NOW, 3_600)).toEqual({
+    expect(validateCuffDraft(draft, NOW, utc)).toEqual({ ok: true, value: { t: NOW, systolic: 118, diastolic: 76, pulse: null } });
+    expect(validateCuffDraft({ ...draft, pulse: '62', time: '7.10' }, NOW, () => 3_600)).toEqual({
       ok: true,
       value: { t: Date.UTC(2026, 10, 25, 6, 10) / 1000, systolic: 118, diastolic: 76, pulse: 62 },
     });
   });
 
   it('rejects numbers a cuff cannot show, a swapped pair and a future time', () => {
-    expect(validateCuffDraft({ ...draft, systolic: '300' }, NOW, 0)).toEqual({ ok: false, invalid: ['systolic'] });
-    expect(validateCuffDraft({ ...draft, systolic: '76', diastolic: '118' }, NOW, 0)).toEqual({ ok: false, invalid: ['order'] });
-    expect(validateCuffDraft({ ...draft, pulse: '12' }, NOW, 0)).toEqual({ ok: false, invalid: ['pulse'] });
-    expect(validateCuffDraft({ ...draft, time: '25:00' }, NOW, 0)).toEqual({ ok: false, invalid: ['time'] });
-    expect(validateCuffDraft({ ...draft, day: '2026-11-26' }, NOW, 0)).toEqual({ ok: false, invalid: ['day', 'time'] });
-    expect(localToUnix('1999-01-01', '07:00', 0)).toBeNull();
+    expect(validateCuffDraft({ ...draft, systolic: '300' }, NOW, utc)).toEqual({ ok: false, invalid: ['systolic'] });
+    expect(validateCuffDraft({ ...draft, systolic: '76', diastolic: '118' }, NOW, utc)).toEqual({ ok: false, invalid: ['order'] });
+    expect(validateCuffDraft({ ...draft, pulse: '12' }, NOW, utc)).toEqual({ ok: false, invalid: ['pulse'] });
+    expect(validateCuffDraft({ ...draft, time: '25:00' }, NOW, utc)).toEqual({ ok: false, invalid: ['time'] });
+    expect(validateCuffDraft({ ...draft, day: '2026-11-26' }, NOW, utc)).toEqual({ ok: false, invalid: ['day', 'time'] });
+    expect(localToUnix('1999-01-01', '07:00', utc)).toBeNull();
+  });
+
+  it('uses the UTC offset of the typed date, so a summer reading typed in winter keeps its clock time', () => {
+    const summerStart = Date.UTC(2026, 2, 29, 1) / 1000;
+    const summerEnd = Date.UTC(2026, 9, 25, 1) / 1000;
+    const brussels = (unixS: number): number => (unixS >= summerStart && unixS < summerEnd ? 7_200 : 3_600);
+    expect(localToUnix('2026-07-15', '07:10', brussels)).toBe(Date.UTC(2026, 6, 15, 5, 10) / 1000);
+    expect(localToUnix('2026-11-25', '07:10', brussels)).toBe(Date.UTC(2026, 10, 25, 6, 10) / 1000);
+    const typedInWinter = validateCuffDraft({ ...draft, day: '2026-07-15', time: '07:10' }, NOW, brussels);
+    expect(typedInWinter).toEqual({ ok: true, value: { t: Date.UTC(2026, 6, 15, 5, 10) / 1000, systolic: 118, diastolic: 76, pulse: null } });
   });
 
   it('exports oldest first as the wearer typed it', () => {

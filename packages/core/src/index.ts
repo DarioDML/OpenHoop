@@ -13,6 +13,7 @@ export * from './config';
 export * from './bandActions';
 export * from './alarm';
 export * from './ecg';
+export * from './ecgSymptoms';
 export * from './ongoingNight';
 export * from './pipeline';
 export * from './redecode';
