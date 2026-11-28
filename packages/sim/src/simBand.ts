@@ -8,6 +8,8 @@ import {
   encodeCommandResponse,
   encodeDataRangeBody,
   encodeEcgFiltered,
+  encodeImu,
+  encodeOptical,
   encodeEvent,
   encodeHelloBody,
   encodeMetadata,
@@ -43,6 +45,8 @@ export interface SimOptions {
   ecgUnsupported?: boolean;
   ecgIntervalMs?: number;
   alarmRingMs?: number;
+  rawUnsupported?: boolean;
+  rawIntervalMs?: number;
 }
 
 export interface WireEntry {
@@ -63,6 +67,9 @@ const DEFAULT_ECG_INTERVAL_MS = 400;
 const DEFAULT_ALARM_RING_MS = 300;
 const ECG_BLOCK = 100;
 const SUBSEC_TICKS = 32768;
+const DEFAULT_RAW_INTERVAL_MS = 1000;
+const IMU_PER_SECOND = 100;
+const OPTICAL_PER_SECOND = 25;
 const DEFAULT_WIRE_CAP = 5000;
 const DEFAULT_FIRMWARE = '50.38.1.0';
 
@@ -190,6 +197,10 @@ export class SimBand implements Transport {
   ecgWrist: number | null = null;
   ecgFiltered = false;
   ecgRawSave = false;
+  imuOn = false;
+  opticalOn = false;
+  rawFramesSent = 0;
+  readonly rawSessionBodies: Uint8Array[] = [];
   readonly flags: MutableKeyTable = FEATURE_FLAGS.map(([key, value]): [string, string] => [key, value]);
   readonly deviceConfig: MutableKeyTable = DEVICE_CONFIG.map(([key, value]): [string, string] => [key, value]);
 
@@ -233,6 +244,13 @@ export class SimBand implements Transport {
   private ecgIndex = 0;
   private readonly ecgUnsupported: boolean;
   private readonly ecgIntervalMs: number;
+  private readonly rawUnsupported: boolean;
+  private readonly rawIntervalMs: number;
+  private rawTimer: Timer | null = null;
+  private rawIndex = 0;
+  private rawStartS = 0;
+  private rawSeconds = 0;
+  private imuWarm = false;
   private readonly alarmRingMs: number;
   private dataFrames = 0;
   private fragmentCount = 0;
@@ -256,6 +274,8 @@ export class SimBand implements Transport {
     this.liveIntervalMs = opts.liveIntervalMs ?? DEFAULT_LIVE_MS;
     this.ecgUnsupported = opts.ecgUnsupported === true;
     this.ecgIntervalMs = opts.ecgIntervalMs ?? DEFAULT_ECG_INTERVAL_MS;
+    this.rawUnsupported = opts.rawUnsupported === true;
+    this.rawIntervalMs = opts.rawIntervalMs ?? DEFAULT_RAW_INTERVAL_MS;
     this.alarmRingMs = opts.alarmRingMs ?? DEFAULT_ALARM_RING_MS;
     this.wireLogCap = opts.wireLogCap ?? DEFAULT_WIRE_CAP;
     this.modelName = opts.model === 'MG' ? 'WHOOP MG' : 'WHOOP 5.0';
@@ -679,6 +699,17 @@ export class SimBand implements Transport {
         this.reply(command, seq, SUCCESS);
         return true;
       }
+      case Command.TOGGLE_IMU_MODE:
+      case Command.TOGGLE_OPTICAL_MODE:
+        this.writesReceived += 1;
+        this.rawSwitch(command, seq, args);
+        return true;
+      case Command.START_RAW_DATA:
+      case Command.STOP_RAW_DATA:
+        this.writesReceived += 1;
+        this.rawSessionBodies.push(args.slice());
+        this.reply(command, seq, this.rawUnsupported ? FAILURE : SUCCESS, Uint8Array.of(1, 0, 0));
+        return true;
       case Command.TOGGLE_LABRADOR_DATA_GENERATION:
         this.writesReceived += 1;
         this.ecgGeneration(command, seq, args[1] ?? 0);
@@ -708,6 +739,85 @@ export class SimBand implements Transport {
     }
     this.reply(command, seq, SUCCESS);
     if (this.ecgTimer === null) this.ecgTimer = setTimeout(() => this.ecgTick(), this.ecgIntervalMs);
+  }
+
+  private rawSwitch(command: number, seq: number, args: Uint8Array): void {
+    if (this.rawUnsupported || args[0] !== 1 || args.length < 2) {
+      this.reply(command, seq, FAILURE);
+      return;
+    }
+    const on = args[1] === 1;
+    if (command === Command.TOGGLE_IMU_MODE) {
+      if (on && !this.imuOn) this.imuWarm = false;
+      this.imuOn = on;
+    } else {
+      this.opticalOn = on;
+    }
+    this.reply(command, seq, SUCCESS, Uint8Array.of(1, 0, 0));
+    if ((this.imuOn || this.opticalOn) && this.rawTimer === null) {
+      this.rawStartS = Math.floor(this.bandNow());
+      this.rawSeconds = 0;
+      this.rawTimer = setTimeout(() => this.rawTick(), this.rawIntervalMs);
+    }
+    if (!this.imuOn && !this.opticalOn && this.rawTimer !== null) {
+      clearTimeout(this.rawTimer);
+      this.rawTimer = null;
+    }
+  }
+
+  private rawTick(): void {
+    this.rawTimer = null;
+    if (!this.imuOn && !this.opticalOn) return;
+    if (this.connected) {
+      const unixS = this.rawStartS + this.rawSeconds;
+      const recordIndex = this.rawIndex;
+      if (this.imuOn) {
+        const wave = (k: number, amp: number): number => Math.round(amp * Math.sin((2 * Math.PI * (k + recordIndex * IMU_PER_SECOND)) / 37));
+        const axis = (base: number, amp: number): number[] => Array.from({ length: IMU_PER_SECOND }, (_, k) => base + wave(k, amp));
+        const gyro: [number[], number[], number[]] = this.imuWarm ? [axis(0, 5), axis(0, 4), axis(0, 3)] : [[], [], []];
+        this.imuWarm = true;
+        this.enqueueFrame(GATT.dataFromStrap, encodeImu({ recordIndex, unixS, packetType: 43, accel: [axis(0, 20), axis(0, 20), axis(4096, 20)], gyro }), NO_GEN);
+        this.rawFramesSent += 1;
+      }
+      if (this.opticalOn) {
+        const slot = (base: number, amp: number, n: number): number[] =>
+          Array.from({ length: n }, (_, k) => Math.round(base + amp * Math.sin((2 * Math.PI * 1.2 * (recordIndex + k / OPTICAL_PER_SECOND)))));
+        const block = (sourceA: number, driveA: number, n: number, base: number, amp: number) => ({
+          sourceA,
+          driveA,
+          sourceB: 4,
+          driveB: driveA === 0 ? 0 : driveA * 2,
+          detectorA: 3,
+          rangeA: 32,
+          offsetA: 0,
+          detectorB: 4,
+          rangeB: 32,
+          offsetB: 0,
+          slotA: slot(base, amp, n),
+          slotB: slot(base / 2, amp / 2, n),
+        });
+        this.enqueueFrame(
+          GATT.dataFromStrap,
+          encodeOptical({
+            recordIndex,
+            unixS,
+            packetType: 43,
+            blocks: [
+              block(1, 2750, OPTICAL_PER_SECOND, 200_000, 1000),
+              block(3, 12_750, 0, 0, 0),
+              block(2, 5300, 0, 0, 0),
+              block(2, 0, OPTICAL_PER_SECOND, 190, 5),
+              block(2, 200, OPTICAL_PER_SECOND, 100_000, 120),
+            ],
+          }),
+          NO_GEN,
+        );
+        this.rawFramesSent += 1;
+      }
+      this.rawIndex += 1;
+    }
+    this.rawSeconds += 1;
+    this.rawTimer = setTimeout(() => this.rawTick(), this.rawIntervalMs);
   }
 
   private stopEcgStream(): void {
