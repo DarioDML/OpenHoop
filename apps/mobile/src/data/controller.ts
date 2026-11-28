@@ -165,7 +165,8 @@ import { alertText } from '@/lib/notificationText';
 import { buildWidgetFile } from '@/lib/widgetSnapshot';
 import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
 import { setNetworkPrefs } from '@/net';
-import { featureEnabled, strictestPrefs } from '@/net/features';
+import { coachActive } from '@/coach/prefs';
+import { strictestPrefs } from '@/net/features';
 
 import { applyConfigWrite, buildSnapshot, carryOver, changeFor, parseBandConfig, recordOriginal, serializeSnapshot, type ConfigKind, type WritableValue } from './bandConfig';
 import { hrBroadcastKey, parseHrBroadcast, serializeHrBroadcast, type HrBroadcastState } from './hrBroadcast';
@@ -217,6 +218,7 @@ import {
   NOTIFICATION_STATE_KEY,
   emptyNotificationState,
   parseNotificationState,
+  refreshesNotifications,
   serializeNotificationState,
   type NotificationState,
 } from './notificationState';
@@ -1534,7 +1536,7 @@ export class AppController {
         this.patch({ userData: next });
         if (patch.theme !== undefined) setThemePreference(next.theme);
         if (retentionChanged(patch)) void this.exclusive(() => this.pruneRaw());
-        if (patch.notifications !== undefined || patch.weeklyPlan !== undefined || patch.windDown !== undefined) void this.refreshNotifications();
+        if (refreshesNotifications(patch)) void this.refreshNotifications();
         if (patch.widgetValues !== undefined || patch.pregnancyPrefs !== undefined) void this.refreshWidgets();
         if (patch.jetLagShiftAlarm !== undefined || (patch.jetLagPlan !== undefined && next.jetLagShiftAlarm)) void this.reapplyAlarm();
         return true;
@@ -1903,7 +1905,7 @@ export class AppController {
             fresh,
             windDown: wind,
             steps: stepsGoalFacts(this.snapshot.days, userData.stepsGoal, now),
-            coachReady: featureEnabled(userData.network, 'coach'),
+            coachReady: coachActive(userData.coach, userData.network),
           })
         : [];
       this.patch({ notificationPermission: permission });

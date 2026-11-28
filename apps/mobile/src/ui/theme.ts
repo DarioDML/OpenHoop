@@ -52,7 +52,7 @@ export interface ColorTokens {
     optimal: string;
     streak: string;
   };
-  coach: { from: string; to: string; surface: string };
+  coach: { from: string; to: string; surface: string; on: string };
   tint: Record<Tint, string>;
   stage: { awake: string; light: string; deep: string; rem: string };
   zones: [string, string, string, string, string];
@@ -109,7 +109,7 @@ export const darkColors: ColorTokens = {
     optimal: '#00F0A0',
     streak: '#FFB347',
   },
-  coach: { from: '#7B5CFF', to: '#3FA9FF', surface: '#22233A' },
+  coach: { from: '#7B5CFF', to: '#3FA9FF', surface: '#22233A', on: '#FFFFFF' },
   tint: {
     home: '#1B2A33',
     sleep: '#2E2650',
@@ -177,7 +177,7 @@ export const lightColors: ColorTokens = {
     optimal: '#00825A',
     streak: '#B35F00',
   },
-  coach: { from: '#7B5CFF', to: '#3FA9FF', surface: '#E4E4F2' },
+  coach: { from: '#7B5CFF', to: '#3FA9FF', surface: '#E4E4F2', on: '#FFFFFF' },
   tint: {
     home: '#D6E4EC',
     sleep: '#E3DDF7',

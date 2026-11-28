@@ -235,15 +235,24 @@ describe('check-ins', () => {
 
 describe('coach prefs', () => {
   it('default to Sonnet 5.5 with check-ins off', () => {
-    expect(defaultCoachPrefs()).toEqual({ model: 'claude-sonnet-5-5', memory: true, checkIns: false, dismissedCheckIns: [] });
+    expect(defaultCoachPrefs()).toEqual({
+      model: 'claude-sonnet-5-5',
+      memory: true,
+      checkIns: false,
+      dismissedCheckIns: [],
+      enabled: true,
+      tone: 'neutral',
+      proactivity: 'off',
+      access: { scores: true, journal: false, sensors: false },
+      memoryCategories: {},
+      checkInReplies: [],
+    });
     expect(parseUserData(null).coach).toEqual(defaultCoachPrefs());
   });
 
   it('reject unknown models and malformed dismissals', () => {
     expect(parseCoachPrefs({ model: 'gpt-x', memory: 'no', checkIns: 'yes', dismissedCheckIns: ['2026-11-25:hrv', 'bad', 3] })).toEqual({
-      model: 'claude-sonnet-5-5',
-      memory: true,
-      checkIns: false,
+      ...defaultCoachPrefs(),
       dismissedCheckIns: ['2026-11-25:hrv'],
     });
     expect(parseCoachPrefs({ model: 'claude-haiku-5-5', memory: false, checkIns: true }).model).toBe('claude-haiku-5-5');

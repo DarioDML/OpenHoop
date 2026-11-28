@@ -19,6 +19,8 @@ jest.mock('expo-router', () => ({
   Link: ({ children }: { children: ReactNode }) => children,
 }));
 
+jest.mock('expo-speech-recognition', () => jest.requireActual<{ speechRecognitionMock: object }>('./support/speech').speechRecognitionMock);
+
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -78,7 +80,8 @@ describe('coach chat', () => {
     await render(withCoach(<CoachScreen />, controller));
     expect(screen.getByTestId('coach-state-network-off')).toBeTruthy();
     expect(screen.getByTestId('coach-chips')).toBeTruthy();
-    expect(screen.getByTestId('coach-send')).toBeDisabled();
+    expect(screen.queryByTestId('coach-send')).toBeNull();
+    expect(screen.getByTestId('coach-input').props.editable).toBe(false);
     await fireEvent.press(screen.getByText('Open privacy settings'));
     expect(router.push).toHaveBeenCalledWith('/settings/privacy');
     expect(send).not.toHaveBeenCalled();
@@ -182,6 +185,7 @@ describe('coach memory', () => {
     await controller.load();
     await render(withCoach(<CoachMemoryScreen />, controller));
     expect(screen.getByTestId('coach-memory-empty')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('coach-memory-add-lifestyle'));
     await fireEvent.press(screen.getByTestId('coach-memory-add'));
     expect(screen.getByText(/between 1 and 200/)).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('coach-memory-input'), 'I train on Tuesdays');
@@ -212,7 +216,7 @@ describe('coach check-ins', () => {
     await render(withCoach(<CoachCheckInScreen />, controller, { updateUserData }));
     expect(screen.getByText('Check-ins are off.')).toBeTruthy();
     fireEvent(screen.getByTestId('coach-check-in-toggle'), 'valueChange', true);
-    expect(updateUserData).toHaveBeenCalledWith({ coach: { ...defaultCoachPrefs(), checkIns: true } });
+    expect(updateUserData).toHaveBeenCalledWith({ coach: { ...defaultCoachPrefs(), checkIns: true, proactivity: 'patterns' } });
   });
 
   it('show a clear change with ask and dismiss when on', async () => {

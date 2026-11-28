@@ -1,41 +1,13 @@
-import { useSpeechRecognitionEvent } from 'expo-speech-recognition';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, View } from 'react-native';
 
-import { speechLocale, type DictationAvailability } from '@/data/dictation';
-import {
-  abortDictation,
-  checkDictation,
-  dictationErrorKind,
-  downloadLanguagePack,
-  requestMicrophone,
-  startDictation,
-  stopDictation,
-} from '@/lib/speech';
+import { speechLocale } from '@/data/dictation';
 import { useT } from '@/i18n/useT';
 import type { TranslationKey } from '@/i18n';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/controls';
 import { spacing, useTheme } from '@/ui/theme';
 
-type Phase = 'idle' | 'starting' | 'listening';
-type Notice = 'denied' | 'blocked' | 'failed' | 'download-started' | 'download-failed';
-
-const UNAVAILABLE_TEXT = {
-  ios: 'journal.voice.unavailableIos',
-  'android-version': 'journal.voice.unavailableAndroid',
-  'no-recogniser': 'journal.voice.unavailableRecogniser',
-} as const satisfies Record<string, TranslationKey>;
-
-const NOTICE_TEXT = {
-  denied: 'journal.voice.denied',
-  blocked: 'journal.voice.blocked',
-  failed: 'journal.voice.failed',
-  'download-started': 'journal.voice.downloadStarted',
-  'download-failed': 'journal.voice.downloadFailed',
-} as const satisfies Record<Notice, TranslationKey>;
-
-const STOP_TIMEOUT_MS = 4000;
+import { DICTATION_NOTICE_TEXT, DICTATION_UNAVAILABLE_TEXT, useDictation } from './useDictation';
 
 interface Props {
   onText: (text: string) => void;
@@ -45,113 +17,7 @@ interface Props {
 export function NoteDictation({ onText, sessionKey }: Props) {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const [availability, setAvailability] = useState<DictationAvailability>({ kind: 'checking' });
-  const [phase, setPhase] = useState<Phase>('idle');
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const [checks, setChecks] = useState(0);
-  const phaseRef = useRef<Phase>('idle');
-  const attemptRef = useRef(0);
-  const mountedRef = useRef(true);
-  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const recheckAfterErrorRef = useRef(false);
-
-  const clearStopTimer = useCallback((): void => {
-    if (stopTimerRef.current !== null) clearTimeout(stopTimerRef.current);
-    stopTimerRef.current = null;
-  }, []);
-
-  const updatePhase = useCallback(
-    (next: Phase): void => {
-      phaseRef.current = next;
-      if (next === 'idle') clearStopTimer();
-      if (mountedRef.current) setPhase(next);
-    },
-    [clearStopTimer],
-  );
-
-  const halt = useCallback((): void => {
-    attemptRef.current += 1;
-    if (phaseRef.current !== 'idle') abortDictation();
-    updatePhase('idle');
-  }, [updatePhase]);
-
-  useEffect(() => {
-    let current = true;
-    void checkDictation(language).then((result) => {
-      if (!current) return;
-      setAvailability(result);
-      if (recheckAfterErrorRef.current && result.kind === 'ready') setNotice('failed');
-      recheckAfterErrorRef.current = false;
-    });
-    return () => {
-      current = false;
-    };
-  }, [language, checks]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      halt();
-    };
-  }, [halt]);
-
-  useEffect(() => {
-    halt();
-  }, [sessionKey, halt]);
-
-  useSpeechRecognitionEvent('start', () => updatePhase('listening'));
-  useSpeechRecognitionEvent('end', () => updatePhase('idle'));
-  useSpeechRecognitionEvent('result', (event) => {
-    if (phaseRef.current === 'idle') return;
-    const transcript = event.isFinal ? event.results[0]?.transcript : undefined;
-    if (transcript !== undefined) onText(transcript);
-  });
-  useSpeechRecognitionEvent('error', (event) => {
-    updatePhase('idle');
-    const kind = dictationErrorKind(event.error);
-    if (kind === 'permission') setNotice('denied');
-    else if (kind === 'language') {
-      recheckAfterErrorRef.current = true;
-      setChecks((count) => count + 1);
-    } else if (kind === 'failed') setNotice('failed');
-  });
-
-  const begin = async (): Promise<void> => {
-    if (availability.kind !== 'ready' || phaseRef.current !== 'idle') return;
-    setNotice(null);
-    updatePhase('starting');
-    const attempt = attemptRef.current;
-    const permission = await requestMicrophone();
-    if (attempt !== attemptRef.current) return;
-    if (permission !== 'granted') {
-      updatePhase('idle');
-      setNotice(permission === 'blocked' ? 'blocked' : 'denied');
-      return;
-    }
-    if (!startDictation(availability.locale)) {
-      updatePhase('idle');
-      setNotice('failed');
-    }
-  };
-
-  const stop = (): void => {
-    stopDictation();
-    clearStopTimer();
-    stopTimerRef.current = setTimeout(halt, STOP_TIMEOUT_MS);
-  };
-
-  const download = async (locale: string): Promise<void> => {
-    setNotice(null);
-    const outcome = await downloadLanguagePack(locale);
-    if (outcome === 'finished') setChecks((count) => count + 1);
-    else setNotice(outcome === 'started' ? 'download-started' : 'download-failed');
-  };
-
-  const recheck = (): void => {
-    setNotice(null);
-    setChecks((count) => count + 1);
-  };
+  const { availability, phase, notice, begin, stop, download, recheck } = useDictation(language, onText, sessionKey);
 
   if (availability.kind === 'checking') return null;
 
@@ -162,7 +28,7 @@ export function NoteDictation({ onText, sessionKey }: Props) {
   );
 
   if (availability.kind === 'unavailable') {
-    return <View testID="note-dictate">{status(UNAVAILABLE_TEXT[availability.reason], 'note-dictate-unavailable')}</View>;
+    return <View testID="note-dictate">{status(DICTATION_UNAVAILABLE_TEXT[availability.reason], 'note-dictate-unavailable')}</View>;
   }
 
   if (availability.kind === 'language-missing') {
@@ -190,7 +56,7 @@ export function NoteDictation({ onText, sessionKey }: Props) {
           {status('journal.voice.onDevice', 'note-dictate-on-device')}
         </>
       )}
-      {notice !== null ? status(NOTICE_TEXT[notice], 'note-dictate-notice', notice === 'failed' || notice === 'download-failed' ? 'negative' : 'muted') : null}
+      {notice !== null ? status(DICTATION_NOTICE_TEXT[notice], 'note-dictate-notice', notice === 'failed' || notice === 'download-failed' ? 'negative' : 'muted') : null}
       {notice === 'blocked' ? (
         <Button label={t('journal.voice.openSettings')} variant="tertiary" onPress={() => void Linking.openSettings()} testID="note-dictate-settings" />
       ) : null}

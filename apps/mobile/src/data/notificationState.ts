@@ -1,5 +1,7 @@
 import { GOAL_KINDS, INBOX_LIMIT, SENT_LIMIT, goalAlertId, type Alert, type NotificationLedger } from '@/lib/notificationPlan';
 
+import type { UserData } from './userData';
+
 export const NOTIFICATION_STATE_KEY = 'notifications.state';
 const MAX_PENDING = 20;
 
@@ -67,6 +69,16 @@ function parseList<T>(value: Json | undefined, limit: number, parse: (item: Json
     if (parsed !== null) out.push(parsed);
   }
   return out;
+}
+
+export function refreshesNotifications(patch: Partial<UserData>): boolean {
+  return (
+    patch.notifications !== undefined ||
+    patch.weeklyPlan !== undefined ||
+    patch.windDown !== undefined ||
+    patch.coach !== undefined ||
+    patch.network !== undefined
+  );
 }
 
 export function emptyNotificationState(): NotificationState {

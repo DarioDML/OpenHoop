@@ -6,7 +6,7 @@ import { Pressable, View, type ViewStyle } from 'react-native';
 
 import { dayEntries, type ActivityEntry } from '@/data/activities';
 import { stepsForDay } from '@/data/activityDerived';
-import { activeCheckIns } from '@/coach/checkIns';
+import { coachCheckIns } from '@/coach/checkIns';
 import { useAppData } from '@/data/context';
 import { MIN_BASELINE_NIGHTS, baselineAt } from '@/data/derived';
 import { buildingProgress } from '@/data/progress';
@@ -21,7 +21,7 @@ import { confirmedAlarm } from '@/data/alarm';
 import type { AlarmView } from '@/data/types';
 import { strengthWeek } from '@/data/strength';
 import { useT } from '@/i18n/useT';
-import { formatClock, formatDuration, formatNumber } from '@/lib/format';
+import { formatClock, formatDuration, formatNumber, todayIso } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card, CardHeader } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
@@ -243,7 +243,7 @@ export function CoachPill() {
   const { t } = useT();
   const { colors } = useTheme();
   const { days, userData } = useAppData();
-  const checkIns = userData.coach.checkIns ? activeCheckIns(days, userData.coach.dismissedCheckIns).length : 0;
+  const checkIns = coachCheckIns(days, userData.coach, todayIso(new Date())).length;
   return (
     <Pressable
       testID="coach-pill"

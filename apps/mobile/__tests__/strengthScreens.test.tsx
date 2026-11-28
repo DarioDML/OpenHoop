@@ -4,6 +4,7 @@ import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import type { ReactNode } from 'react';
 import { captureRef } from 'react-native-view-shot';
 
+import { defaultCoachPrefs } from '@/coach/prefs';
 import { AppDataContext } from '@/data/context';
 import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { defaultUserData } from '@/data/userData';
@@ -401,6 +402,15 @@ describe('workout builder with the coach', () => {
     await controller.load();
     await render(withCoach(<StrengthBuilderScreen />, controller, { ...app(data(), actions()), ...withNetwork(false) }));
     expect(screen.getByTestId('builder-coach-off')).toHaveTextContent(/Network access for the coach is off/);
+  });
+
+  it('hides the builder while the coach is switched off', async () => {
+    const { controller } = makeController();
+    await controller.load();
+    const userData = { ...defaultUserData(), onboardingDone: true, network, coach: { ...defaultCoachPrefs(), enabled: false } };
+    await render(withCoach(<StrengthBuilderScreen />, controller, { ...app(data(), actions()), userData }));
+    expect(screen.getByTestId('builder-coach-off')).toHaveTextContent(/Switch it on in Coach settings/);
+    expect(screen.queryByTestId('builder-describe')).toBeNull();
   });
 
   it('fills the editor from a description and never saves on its own', async () => {

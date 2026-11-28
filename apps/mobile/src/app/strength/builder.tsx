@@ -26,7 +26,7 @@ import { useT } from '@/i18n/useT';
 import { moveItem } from '@/lib/reorder';
 import { weightIn } from '@/lib/units';
 import { netFetch } from '@/net';
-import { featureEnabled } from '@/net/features';
+import { coachActive } from '@/coach/prefs';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Button, Field } from '@/ui/controls';
@@ -98,7 +98,7 @@ export default function StrengthBuilderScreen() {
   const latest = useRef({ rows, name });
   latest.current = { rows, name };
   const running = activeSession(strength.sessions) !== null;
-  const coachNetwork = featureEnabled(userData.network, 'coach');
+  const coachNetwork = coachActive(userData.coach, userData.network);
   const coachKey = coach?.state.hasKey === true;
 
   useEffect(
@@ -433,7 +433,7 @@ export default function StrengthBuilderScreen() {
             <View style={{ flex: 1, gap: 4 }}>
               <AppText variant="cardTitle">{t('strength.coach.offTitle')}</AppText>
               <AppText variant="label" muted>
-                {t(coachKey ? 'strength.coach.offNetwork' : 'strength.coach.offKey')}
+                {t(!coachKey ? 'strength.coach.offKey' : !userData.coach.enabled ? 'coach.coachOffBody' : 'strength.coach.offNetwork')}
               </AppText>
             </View>
           </View>

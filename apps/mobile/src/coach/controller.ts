@@ -1,13 +1,14 @@
 import type { CoachConversation, CoachMemoryNote, CoachMessage, DayRecord } from '@openhoop/core';
 
 import type { Language } from '@/data/types';
+import type { JournalAnswer } from '@/data/userData';
 import { featureEnabled, type NetworkPrefs } from '@/net/features';
 import type { GatedFetch } from '@/net/gate';
 
 import { requestCoachReply, type CoachErrorKind, type CoachTurn } from './api';
 import { buildSystemPrompt } from './context';
 import type { KeyStore } from './keyStore';
-import type { CoachPrefs } from './prefs';
+import { effectiveProactivity, type CheckInReplyKind, type CoachPrefs } from './prefs';
 import { parseCoachReply, serializeChips } from './reply';
 import type { CoachRepo } from './repo';
 
@@ -41,6 +42,14 @@ export interface SendContext {
   language: Language;
   prefs: CoachPrefs;
   network: NetworkPrefs;
+  journal?: Readonly<Record<string, Readonly<Record<string, JournalAnswer>>>>;
+}
+
+export interface CheckInDraft {
+  text: string;
+  conversationId: number | null;
+  checkInId: string;
+  reply: Exclude<CheckInReplyKind, 'later'>;
 }
 
 export function historyTurns(messages: readonly CoachMessage[]): CoachTurn[] {
@@ -55,6 +64,10 @@ export function promptFor(ctx: Omit<SendContext, 'network'>, memory: readonly Co
     today: ctx.today,
     language: ctx.language,
     memory: ctx.prefs.memory ? memory.map((note) => note.text) : null,
+    access: ctx.prefs.access,
+    journal: ctx.journal,
+    tone: ctx.prefs.tone,
+    proactivity: effectiveProactivity(ctx.prefs),
   });
 }
 
@@ -71,6 +84,7 @@ export class CoachController {
   };
   private readonly listeners = new Set<() => void>();
   private inflight: AbortController | null = null;
+  private draft: CheckInDraft | null = null;
 
   constructor(private readonly deps: CoachDeps) {}
 
@@ -132,7 +146,7 @@ export class CoachController {
 
   send = async (question: string, ctx: SendContext): Promise<boolean> => {
     const text = question.trim();
-    if (text === '' || text.length > MAX_QUESTION_LENGTH || this.state.sending) return false;
+    if (text === '' || text.length > MAX_QUESTION_LENGTH || this.state.sending || !ctx.prefs.enabled) return false;
     if (!featureEnabled(ctx.network, 'coach')) {
       this.patch({ error: 'network-off' });
       return false;
@@ -168,6 +182,7 @@ export class CoachController {
         this.patch({ error: 'invalid-response' });
         return false;
       }
+      if (abort.signal.aborted) return false;
       return await this.guard(async () => {
         const now = this.deps.now();
         const id = await this.deps.repo.appendExchange(
@@ -179,7 +194,7 @@ export class CoachController {
           ],
           now,
         );
-        if (ctx.prefs.memory && reply.remember !== null) await this.deps.repo.addMemory(reply.remember, 'coach', now);
+        if (!abort.signal.aborted && ctx.prefs.memory && reply.remember !== null) await this.deps.repo.addMemory(reply.remember, 'coach', now);
         const [messages, conversations, memory] = await Promise.all([
           this.deps.repo.messages(id),
           this.deps.repo.conversations(),
@@ -189,9 +204,27 @@ export class CoachController {
         return true;
       }, false);
     } finally {
-      if (this.inflight === abort) this.inflight = null;
-      this.patch({ sending: false });
+      if (this.inflight === abort) {
+        this.inflight = null;
+        this.patch({ sending: false });
+      } else if (this.inflight === null) this.patch({ sending: false });
     }
+  };
+
+  queueDraft = (draft: CheckInDraft): void => {
+    this.draft = draft;
+  };
+
+  takeDraft = (): CheckInDraft | null => {
+    const draft = this.draft;
+    this.draft = null;
+    return draft;
+  };
+
+  stop = (): void => {
+    if (this.inflight === null) return;
+    this.cancelInflight();
+    this.patch({ sending: false });
   };
 
   deleteConversation = async (conversationId: number): Promise<boolean> =>
@@ -208,12 +241,14 @@ export class CoachController {
     this.patch({ memory: await this.deps.repo.memory() });
   }
 
-  addMemory = async (text: string): Promise<boolean> =>
+  addMemory = async (text: string): Promise<boolean> => (await this.addMemoryNote(text)) !== null;
+
+  addMemoryNote = async (text: string): Promise<CoachMemoryNote | null> =>
     this.guard(async () => {
       const id = await this.deps.repo.addMemory(text, 'user', this.deps.now());
       await this.refreshMemory();
-      return id !== null;
-    }, false);
+      return id === null ? null : (this.state.memory.find((note) => note.id === id) ?? null);
+    }, null);
 
   updateMemory = async (id: number, text: string): Promise<boolean> =>
     this.guard(async () => {

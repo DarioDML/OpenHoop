@@ -83,21 +83,6 @@ export function rankBehaviourImpacts(
   return { ranked, needsMore };
 }
 
-const BEHAVIOUR_NAMES: Readonly<Record<string, TranslationKey>> = {
-  alcohol: 'readinessImpacts.b.alcohol',
-  'caffeine-late': 'readinessImpacts.b.caffeineLate',
-  'screens-bed': 'readinessImpacts.b.screensBed',
-  'read-before-sleep': 'readinessImpacts.b.readBeforeSleep',
-  sauna: 'readinessImpacts.b.sauna',
-  melatonin: 'readinessImpacts.b.melatonin',
-  'late-meal': 'readinessImpacts.b.lateMeal',
-  'evening-workout': 'readinessImpacts.b.eveningWorkout',
-  nap: 'readinessImpacts.b.nap',
-  'high-stress': 'readinessImpacts.b.highStress',
-  water: 'readinessImpacts.b.water',
-  outdoors: 'readinessImpacts.b.outdoors',
-};
-
 export function behaviourName(question: JournalQuestion): TranslationKey {
-  return BEHAVIOUR_NAMES[question.id] ?? question.labelKey;
+  return question.nameKey;
 }
