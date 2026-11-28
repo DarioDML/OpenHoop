@@ -77,7 +77,7 @@ export function Segmented<T extends string>({ options, value, onChange, wrap = f
     <View
       accessibilityRole="tablist"
       testID={testID}
-      style={{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.pill, padding: 4, gap: 4 }}>
+      style={{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: wrap ? radius.lg : radius.pill, padding: 4, gap: 4 }}>
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -90,11 +90,13 @@ export function Segmented<T extends string>({ options, value, onChange, wrap = f
             onPress={() => onChange(option.value)}
             style={{
               flex: 1,
+              minWidth: 0,
               minHeight: 36,
-              paddingHorizontal: 6,
+              paddingHorizontal: wrap ? 10 : 6,
+              paddingVertical: wrap ? 6 : 0,
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: radius.pill,
+              borderRadius: wrap ? radius.md : radius.pill,
               backgroundColor: selected ? colors.primary : 'transparent',
             }}>
             {wrap ? (

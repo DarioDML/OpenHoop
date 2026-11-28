@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { Chip } from '@/ui/Chip';
+import { Segmented } from '@/ui/controls';
 import { ListRow } from '@/ui/ListGroup';
 import { SHEET_MAX_HEIGHT, SHEET_TALL_HEIGHT } from '@/ui/SheetScreen';
 import { ACTION_LABEL_LINES } from '@/ui/Tiles';
@@ -192,5 +193,25 @@ describe('ListRow value at S24 size', () => {
   it('keeps the value at the right edge on a roomy screen', async () => {
     await render(<ListRow testID="goal" title="Weight goal" subtitle="Optional." value="Not set" onPress={() => undefined} />);
     expect(within(screen.getByTestId('goal-text')).queryByTestId('goal-value')).toBeNull();
+  });
+});
+
+describe('segmented labels that wrap', () => {
+  it('give a wrapped segment inner padding and a rounded box that fits the control', async () => {
+    s24();
+    await render(
+      <Segmented<'male' | 'none'>
+        testID="seg"
+        value="none"
+        onChange={() => undefined}
+        wrap
+        options={[
+          { value: 'male', label: 'Male', testID: 'seg-male' },
+          { value: 'none', label: 'Rather not say', testID: 'seg-none' },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('seg-none')).toHaveStyle({ paddingHorizontal: 10, paddingVertical: 6, minWidth: 0 });
+    expect(screen.getByTestId('seg')).toHaveStyle({ padding: 4 });
   });
 });
