@@ -13,6 +13,7 @@ import {
   signalStrength,
 } from '@/data/onboarding';
 import { defaultUserData, GOALS, parseUserData, serializeUserData } from '@/data/userData';
+import { isValidIsoDate } from '@/lib/format';
 import { locationAccess } from '@/ui/manage/locationSwitch';
 
 describe('onboarding stages', () => {
@@ -169,5 +170,15 @@ describe('location access', () => {
     expect(locationAccess(true, true)).toBe('granted');
     expect(locationAccess(false, true)).toBe('askable');
     expect(locationAccess(false, false)).toBe('blocked');
+  });
+});
+
+describe('worn-since date', () => {
+  it('compares with the local date, so today is valid just after local midnight', () => {
+    const justAfterMidnight = new Date(2026, 10, 28, 0, 30);
+    expect(isValidIsoDate('2026-11-28', justAfterMidnight)).toBe(true);
+    expect(isValidIsoDate('2026-11-29', justAfterMidnight)).toBe(false);
+    expect(isValidIsoDate('2026-02-30', justAfterMidnight)).toBe(false);
+    expect(isValidIsoDate('2014-12-31', justAfterMidnight)).toBe(false);
   });
 });
