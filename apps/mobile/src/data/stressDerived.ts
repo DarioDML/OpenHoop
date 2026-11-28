@@ -72,6 +72,20 @@ export interface StressHour {
   level: StressLevel | null;
 }
 
+export function recentStressWindows(days: readonly DayRecord[], index: number): StressWindow[] {
+  const previous = index > 0 ? stressForDay(days[index - 1]).windows : [];
+  return [...previous, ...stressForDay(days[index]).windows];
+}
+
+export function hourTicks(count: number, step = 4): number[] {
+  if (count <= 0) return [];
+  const ticks: number[] = [];
+  for (let i = 0; i < count; i += step) ticks.push(i);
+  const lastTick = ticks[ticks.length - 1] ?? 0;
+  if (count - 1 - lastTick >= step / 2) ticks.push(count - 1);
+  return ticks;
+}
+
 export function stressHours(windows: readonly StressWindow[], endS: number, tzOffsetS: number, hours = STRESS_HOURS): StressHour[] {
   const lastStart = Math.floor((endS + tzOffsetS) / HOUR_S) * HOUR_S - tzOffsetS;
   return Array.from({ length: hours }, (_, i) => {
