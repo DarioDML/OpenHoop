@@ -10,7 +10,7 @@ import { defaultNetworkPrefs } from '@/net/features';
 import type { GatedFetch } from '@/net/gate';
 import { WeekCard } from '@/ui/daily/cards';
 
-import { FIXTURE_NOW, fixtureStrengthActions, withAppData, type AppDataOverrides } from './support/appData';
+import { FIXTURE_NOW, fixtureAppData, fixtureBandActions, fixtureStrengthActions, withAppData, type AppDataOverrides } from './support/appData';
 import { TEST_KEY, jsonResponse, makeController, messageBody, withCoach } from './support/coach';
 
 let mockParams: Record<string, string | string[] | undefined> = {};
@@ -477,7 +477,7 @@ describe('live session', () => {
     const removeSet = jest.fn(async () => true);
     const withSet: StrengthSession = { ...running, sets: [set(3, 'lib:bench_press', 'Bench press', 'chest', 6, 62.5, 8)] };
     await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [withSet] }), actions({ removeSet }))));
-    expect(screen.getByText(/Set 1: 6 × 62.5 kg · RPE 8/)).toBeTruthy();
+    expect(screen.getByLabelText('Set 1: 6 × 62.5 kg · RPE 8')).toBeTruthy();
     expect(screen.getByTestId('live-reps-lib:bench_press').props.value).toBe('6');
     await fireEvent.press(screen.getByTestId(`live-delete-set-${withSet.sets[0]?.id}`));
     expect(removeSet).toHaveBeenCalledWith(withSet.sets[0]?.id);
@@ -513,6 +513,123 @@ describe('live session', () => {
     await waitFor(() =>
       expect(addSessionExercise).toHaveBeenCalledWith(3, { exerciseKey: 'lib:pull_up', exerciseName: 'Pull-up', muscle: 'back', sets: 3, reps: 8, weightKg: 0 }),
     );
+  });
+
+  const twoExercises: StrengthSession = {
+    ...running,
+    exercises: [
+      ...running.exercises,
+      { id: 12, sessionId: 3, position: 1, exerciseKey: 'lib:back_squat', exerciseName: 'Back squat', muscle: 'quads', sets: 4, reps: 5, weightKg: 100 },
+    ],
+  };
+
+  it('shows one exercise at a time with its position and moves to the next', async () => {
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [twoExercises] }), actions())));
+    expect(screen.getByTestId('live-position')).toHaveTextContent('Exercise 1 of 2');
+    expect(screen.getByTestId('live-exercise-name')).toHaveTextContent('Bench press');
+    expect(screen.queryByTestId('live-exercise-lib:back_squat')).toBeNull();
+    expect(screen.getByTestId('live-plan-reps-lib:bench_press-3').props.value).toBe('8');
+    await fireEvent.press(screen.getByTestId('live-next'));
+    expect(screen.getByTestId('live-position')).toHaveTextContent('Exercise 2 of 2');
+    expect(screen.getByTestId('live-exercise-lib:back_squat')).toBeTruthy();
+    expect(screen.getByTestId('live-next').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(screen.getByTestId('live-jump-lib:bench_press'));
+    expect(screen.getByTestId('live-position')).toHaveTextContent('Exercise 1 of 2');
+  });
+
+  it('changes reps and weight with the steppers and logs them', async () => {
+    const logSet = jest.fn(async () => true);
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [running] }), actions({ logSet }))));
+    await fireEvent.press(screen.getByTestId('live-reps-lib:bench_press-more'));
+    await fireEvent.press(screen.getByTestId('live-weight-lib:bench_press-more'));
+    await fireEvent.press(screen.getByTestId('live-weight-lib:bench_press-more'));
+    await fireEvent.press(screen.getByTestId('live-weight-lib:bench_press-less'));
+    expect(screen.getByTestId('live-reps-lib:bench_press').props.value).toBe('9');
+    expect(screen.getByTestId('live-weight-lib:bench_press').props.value).toBe('62.5');
+    await fireEvent.press(screen.getByTestId('live-log-lib:bench_press'));
+    await waitFor(() =>
+      expect(logSet).toHaveBeenCalledWith(3, { exerciseKey: 'lib:bench_press', exerciseName: 'Bench press', muscle: 'chest', reps: 9, weightKg: 62.5, rpe: null }),
+    );
+  });
+
+  it('adds and removes 15 seconds of rest', async () => {
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [running] }), actions())));
+    expect(screen.getByTestId('live-rest-plus').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(screen.getByTestId('live-log-lib:bench_press'));
+    await waitFor(() => expect(screen.getByTestId('live-rest-value')).toHaveTextContent('1:30'));
+    await fireEvent.press(screen.getByTestId('live-rest-plus'));
+    expect(screen.getByTestId('live-rest-value')).toHaveTextContent('1:45');
+    await fireEvent.press(screen.getByTestId('live-rest-minus'));
+    await fireEvent.press(screen.getByTestId('live-rest-minus'));
+    expect(screen.getByTestId('live-rest-value')).toHaveTextContent('1:15');
+  });
+
+  it('buzzes the connected band once when rest is over, only when asked', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(FIXTURE_NOW);
+    jest.spyOn(Date, 'now').mockImplementation(() => new Date().getTime());
+    const buzz = jest.fn(async () => true);
+    const device = { ...fixtureAppData().device, connection: 'connected' as const };
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [running] }), actions(), { device, bandActions: { ...fixtureBandActions(), buzz } })));
+    expect(screen.getByText(/buzzes once when the countdown ends/)).toBeTruthy();
+    await fireEvent(screen.getByTestId('live-rest-buzz'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('live-rest-60'));
+    await fireEvent.press(screen.getByTestId('live-log-lib:bench_press'));
+    await act(async () => {
+      jest.advanceTimersByTime(59_000);
+    });
+    expect(buzz).not.toHaveBeenCalled();
+    await act(async () => {
+      jest.advanceTimersByTime(2_000);
+    });
+    expect(buzz).toHaveBeenCalledTimes(1);
+    expect(buzz).toHaveBeenCalledWith('test');
+    expect(screen.getByTestId('live-rest-state')).toHaveTextContent(/Rest is over/);
+    jest.useRealTimers();
+  });
+
+  it('does not buzz a band that is not connected', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(FIXTURE_NOW);
+    jest.spyOn(Date, 'now').mockImplementation(() => new Date().getTime());
+    const buzz = jest.fn(async () => true);
+    const device = { ...fixtureAppData().device, connection: 'disconnected' as const };
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [running] }), actions(), { device, bandActions: { ...fixtureBandActions(), buzz } })));
+    expect(screen.getByText(/not connected right now/)).toBeTruthy();
+    await fireEvent(screen.getByTestId('live-rest-buzz'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('live-rest-60'));
+    await fireEvent.press(screen.getByTestId('live-log-lib:bench_press'));
+    await act(async () => {
+      jest.advanceTimersByTime(61_000);
+    });
+    expect(buzz).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('shows live Load from the heart rate and the volume so far', async () => {
+    const withSet: StrengthSession = { ...running, sets: [set(3, 'lib:bench_press', 'Bench press', 'chest', 6, 62.5)] };
+    const heartRateBetween = jest.fn(async (fromS: number, toS: number) => steadyHeartRate(fromS, toS, 160));
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [withSet] }), actions(), { heartRateBetween })));
+    await waitFor(() => expect(screen.getByTestId('live-load-value')).toHaveTextContent(/^\d+\.\d$/));
+    expect(screen.getByTestId('live-volume-value')).toHaveTextContent('375 kg');
+    expect(heartRateBetween).toHaveBeenCalledWith(running.startedAt, expect.any(Number), 1);
+  });
+
+  it('says why there is no live Load without heart rate', async () => {
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [running] }), actions())));
+    await waitFor(() => expect(screen.getByTestId('live-load-missing')).toHaveTextContent('Needs heart rate'));
+  });
+
+  it('suggests and logs weights in pounds for imperial units', async () => {
+    const logSet = jest.fn(async () => true);
+    const settings = { ...createFixtureSettings('en', FIXTURE_NOW), units: 'imperial' as const };
+    const heavy: StrengthSession = { ...running, exercises: running.exercises.map((item) => ({ ...item, weightKg: 102.058 })) };
+    await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [heavy] }), actions({ logSet }), { settings })));
+    expect(screen.getByTestId('live-weight-lib:bench_press').props.value).toBe('225');
+    await fireEvent.press(screen.getByTestId('live-weight-lib:bench_press-more'));
+    expect(screen.getByTestId('live-weight-lib:bench_press').props.value).toBe('230');
+    await fireEvent.press(screen.getByTestId('live-log-lib:bench_press'));
+    await waitFor(() => expect(logSet).toHaveBeenCalledWith(3, expect.objectContaining({ weightKg: 104.326 })));
   });
 
   it('keeps counting time', async () => {

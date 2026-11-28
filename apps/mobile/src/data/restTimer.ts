@@ -48,7 +48,7 @@ export interface RestView {
 export function restView(timer: RestTimer, nowMs: number): RestView {
   if (timer.status === 'idle') return { status: 'idle', remainingS: null, fraction: 0 };
   if (timer.status === 'done' || nowMs >= timer.endsAtMs) return { status: 'done', remainingS: 0, fraction: 0 };
-  const remainingS = Math.ceil((timer.endsAtMs - nowMs) / 1000);
+  const remainingS = Math.min(timer.totalS, Math.ceil((timer.endsAtMs - nowMs) / 1000));
   const fraction = timer.totalS > 0 ? Math.min(1, (timer.endsAtMs - nowMs) / (timer.totalS * 1000)) : 0;
   return { status: 'running', remainingS, fraction };
 }
