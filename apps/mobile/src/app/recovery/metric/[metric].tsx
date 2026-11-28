@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, View, type LayoutChangeEvent, type ScrollViewInstance } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { sliceEndingAt, singleParam, TREND_RANGES, type TrendRange } from '@/data/dailyDerived';
@@ -21,6 +21,10 @@ import { LineChart } from '@/ui/LineChart';
 import { Num } from '@/ui/Num';
 import { spacing, useTheme } from '@/ui/theme';
 import { IconButton } from '@/ui/TopBar';
+
+function scrollChipsTo(scroller: ScrollViewInstance | null, x: number): void {
+  scroller?.scrollTo({ x: Math.max(0, x - spacing.lg), animated: false });
+}
 
 function MissingHero({ target }: { target: ExplainTarget }) {
   const { t, language } = useT();
@@ -45,6 +49,16 @@ export default function MetricDetailScreen() {
   const units = useUnits();
   const [range, setRange] = useState<TrendRange>('1M');
   const slug = singleParam(params.metric);
+  const chipsRef = useRef<ScrollViewInstance>(null);
+  const chipX = useRef(new Map<string, number>());
+  const onChipLayout = (s: string, event: LayoutChangeEvent): void => {
+    chipX.current.set(s, event.nativeEvent.layout.x);
+    if (s === slug) scrollChipsTo(chipsRef.current, event.nativeEvent.layout.x);
+  };
+  useEffect(() => {
+    const x = slug === null ? undefined : chipX.current.get(slug);
+    if (x !== undefined) scrollChipsTo(chipsRef.current, x);
+  }, [slug]);
   const index = days.length - 1;
   const day = days[index];
 
@@ -93,9 +107,11 @@ export default function MetricDetailScreen() {
       testID="metric-detail"
       hero={
         <View style={{ gap: spacing.lg }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+          <ScrollView ref={chipsRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }} testID="metric-chips">
             {METRIC_SLUGS.map((s) => (
-              <Pill key={s} testID={`pill-${s}`} label={t(`readinessShort.${s}`)} selected={s === slug} onPress={() => router.replace(`/recovery/metric/${s}`)} />
+              <View key={s} onLayout={(event) => onChipLayout(s, event)} testID={`pill-wrap-${s}`}>
+                <Pill testID={`pill-${s}`} label={t(`readinessShort.${s}`)} selected={s === slug} onPress={() => router.replace(`/recovery/metric/${s}`)} />
+              </View>
             ))}
           </ScrollView>
           <View style={{ gap: spacing.sm }}>
