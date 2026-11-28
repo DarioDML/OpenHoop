@@ -71,7 +71,7 @@ describe('labs summary screen', () => {
     ];
     await render(withAppData(<LabsScreen />, 'en', { labResults }));
     expect(screen.getByText(/^6.2 mmol\/L · range 3.9–5.6/)).toBeTruthy();
-    expect(within(screen.getByTestId('labs-status-glucose')).getByText('! high')).toBeTruthy();
+    expect(within(screen.getByTestId('labs-status-glucose')).getByText('above range')).toBeTruthy();
     expect(within(screen.getByTestId('labs-status-ldl')).getByText('no range')).toBeTruthy();
     expect(screen.getByTestId('labs-gauge-out')).toHaveTextContent('1 out of range');
     expect(screen.getByTestId('labs-source')).toHaveTextContent(/latest .* · 3 markers/);
@@ -100,7 +100,7 @@ describe('labs summary screen', () => {
   it('renders in Dutch', async () => {
     await render(withAppData(<LabsScreen />, 'nl', { labResults: glucoseHistory }));
     expect(screen.getByText(/^6,2 mmol\/L · bereik 3,9–5,6/)).toBeTruthy();
-    expect(screen.getByText('! hoog')).toBeTruthy();
+    expect(screen.getByText('boven bereik')).toBeTruthy();
     expect(screen.getByText(/Geen medisch hulpmiddel/)).toBeTruthy();
   });
 });

@@ -76,14 +76,20 @@ export default function EcgScreen() {
 
   const hero = (
     <View style={{ flexDirection: layout.narrow ? 'column' : 'row', alignItems: layout.narrow ? 'flex-start' : 'center', gap: spacing.xl }}>
-      <Ring size={ringSize} strokeWidth={9} fraction={live.active ? seconds / DURATION_S : 0} color={colors.ecg} testID="ecg-countdown">
-        <Num size={layout.narrow ? 40 : 48} testID="ecg-countdown-value">
-          {live.active ? String(seconds) : String(DURATION_S)}
-        </Num>
-        <AppText variant="capSmall" muted>
-          {live.active ? t('ecg.hero.of', { total: DURATION_S }) : t('ecg.hero.seconds')}
-        </AppText>
-      </Ring>
+      <View
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel={live.active ? t('ecg.hero.a11y', { seconds, total: DURATION_S }) : t('ecg.hero.a11yIdle', { total: DURATION_S })}
+        testID="ecg-countdown-a11y">
+        <Ring size={ringSize} strokeWidth={9} fraction={live.active ? seconds / DURATION_S : 0} color={colors.ecg} testID="ecg-countdown">
+          <Num size={layout.narrow ? 40 : 48} testID="ecg-countdown-value">
+            {live.active ? String(seconds) : String(DURATION_S)}
+          </Num>
+          <AppText variant="capSmall" muted>
+            {live.active ? t('ecg.hero.of', { total: DURATION_S }) : t('ecg.hero.seconds')}
+          </AppText>
+        </Ring>
+      </View>
       <View style={{ flex: layout.narrow ? undefined : 1, gap: spacing.sm }}>
         <AppText variant="cardTitle" accessibilityRole="header" style={{ fontSize: 18, lineHeight: 24 }}>
           {live.active ? t('ecg.hero.activeTitle') : t('ecg.hero.idleTitle')}

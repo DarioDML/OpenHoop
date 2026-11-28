@@ -327,8 +327,8 @@ export function labBand(result: Pick<LabResult, 'value' | 'refLow' | 'refHigh'>)
     const edge = (refHigh - refLow) * LAB_EDGE_SHARE;
     return value < refLow + edge || value > refHigh - edge ? 'edge' : 'mid';
   }
-  if (refHigh !== null) return value > refHigh * (1 - LAB_EDGE_SHARE) ? 'edge' : 'mid';
-  return refLow !== null && value < refLow * (1 + LAB_EDGE_SHARE) ? 'edge' : 'mid';
+  if (refHigh !== null) return value > refHigh - Math.abs(refHigh) * LAB_EDGE_SHARE ? 'edge' : 'mid';
+  return refLow !== null && value < refLow + Math.abs(refLow) * LAB_EDGE_SHARE ? 'edge' : 'mid';
 }
 
 export interface LabTally {

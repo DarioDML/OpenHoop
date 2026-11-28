@@ -19,6 +19,7 @@ const HEADERS: Readonly<Record<Column, RegExp>> = {
 const COLUMNS = Object.keys(HEADERS) as Column[];
 const DELIMITERS = [',', ';', '\t'] as const;
 const VALUE = /^(<=?|>=?)?\s*(\d{1,7}(?:[.,]\d{1,4})?)\s*(.*)$/;
+const THOUSANDS = /^\d{1,3},\d{3}$/;
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 
 export function csvRecords(text: string, delimiter: string, maxRecords: number): string[][] {
@@ -116,7 +117,8 @@ function rowCandidate(cells: readonly string[], columns: Partial<Record<Column, 
   const validRange = range.refLow !== null && range.refHigh !== null && range.refLow >= range.refHigh ? { refLow: null, refHigh: null } : range;
   let biomarker = matchBiomarker(name);
   if (biomarker !== null && !unitFits(biomarker, unit)) biomarker = null;
-  return { name, biomarker, value, censored, unit, ...validRange, day: findDate(cell('date'), today) };
+  const ambiguous = THOUSANDS.test(match[2] ?? '');
+  return { name, biomarker, value, censored, ambiguous, unit, ...validRange, day: findDate(cell('date'), today) };
 }
 
 export function parseLabCsv(text: string, today: string): LabParseResult {

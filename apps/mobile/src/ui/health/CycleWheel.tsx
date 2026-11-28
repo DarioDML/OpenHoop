@@ -78,7 +78,7 @@ export function CycleWheel({ wheel, size, dayLabel, phaseLabel, emptyLabel, acce
             {String(wheel.day)}
           </Num>
           {phaseLabel === null ? null : (
-            <AppText variant="cap" color={colors.cyclePhase[wheel.phase]} testID={testID ? `${testID}-phase` : undefined}>
+            <AppText variant="cap" color={wheel.overdue ? colors.textSoft : colors.cyclePhase[wheel.phase]} testID={testID ? `${testID}-phase` : undefined}>
               {phaseLabel}
             </AppText>
           )}

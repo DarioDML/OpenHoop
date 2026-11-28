@@ -166,3 +166,13 @@ export function weightDraftToKg(text: string, units: Units): string {
   const value = Number(trimmed.replace(',', '.'));
   return Number.isFinite(value) && /^\d{1,3}([.,]\d{1,2})?$/.test(trimmed) ? (Math.round(weightToKg(value, units) * 100) / 100).toString() : text;
 }
+
+export interface WeightBase {
+  text: string;
+  kg: number;
+}
+
+export function draftWeightKg(text: string, units: Units, base: WeightBase | null): string {
+  if (base !== null && text.trim() === base.text.trim()) return String(base.kg);
+  return weightDraftToKg(text, units);
+}

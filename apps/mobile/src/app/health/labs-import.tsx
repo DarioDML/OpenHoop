@@ -420,6 +420,12 @@ function ReviewCard({ row, invalid, onChange }: ReviewCardProps) {
         <Toggle label={t('health.labsImport.review.select')} value={row.selected} onChange={(selected) => onChange((current) => ({ ...current, selected }))} testID={`${prefix}-select`} />
       </View>
 
+      {row.ambiguous ? (
+        <AppText variant="caption" color={colors.warning} testID={`${prefix}-ambiguous`}>
+          {t('health.labsImport.review.ambiguous', { value: row.printedValue })}
+        </AppText>
+      ) : null}
+
       {row.censored !== null ? (
         <AppText variant="caption" color={colors.warning} testID={`${prefix}-censored`}>
           {t('health.labsImport.review.censored', { value: shown })}

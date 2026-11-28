@@ -11,6 +11,7 @@ export interface LabCandidate {
   biomarker: BiomarkerId | null;
   value: number;
   censored: Censor | null;
+  ambiguous?: boolean;
   unit: string;
   refLow: number | null;
   refHigh: number | null;

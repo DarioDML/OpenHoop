@@ -13,6 +13,7 @@ export interface ReviewRow {
   matchedAs: BiomarkerId | null;
   selected: boolean;
   censored: Censor | null;
+  ambiguous: boolean;
   draft: LabDraft;
 }
 
@@ -26,7 +27,8 @@ export function rowsFromCandidates(candidates: readonly LabCandidate[], censored
     const printedValue = `${candidate.censored ?? ''}${plain(candidate.value)}`;
     const day = candidate.day ?? '';
     const slot = `${candidate.biomarker ?? ''}|${day}`;
-    const selected = candidate.biomarker !== null && candidate.censored === null && !chosen.has(slot);
+    const ambiguous = candidate.ambiguous === true;
+    const selected = candidate.biomarker !== null && candidate.censored === null && !ambiguous && !chosen.has(slot);
     if (selected) chosen.add(slot);
     return {
       id: `row-${index}`,
@@ -36,6 +38,7 @@ export function rowsFromCandidates(candidates: readonly LabCandidate[], censored
       matchedAs: candidate.biomarker,
       selected,
       censored: candidate.censored,
+      ambiguous,
       draft: {
         biomarker: candidate.biomarker ?? '',
         customName: candidate.biomarker === null ? candidate.name.slice(0, LAB_LIMITS.nameLength) : '',

@@ -105,6 +105,7 @@ describe('ECG recording screen', () => {
     );
     expect(screen.getByTestId('ecg-elapsed').props.children).toBe('Recording: 12 of 30 s');
     expect(screen.getByTestId('ecg-countdown-value').props.children).toContain('12');
+    expect(screen.getByTestId('ecg-countdown-a11y').props.accessibilityLabel).toBe('Recording, 12 of 30 seconds');
     expect(screen.getByText('of 30 s')).toBeTruthy();
     expect(screen.getByTestId('ecg-samples-value').props.children).toContain('1500');
     expect(screen.getByTestId('ecg-signal-value').props.children).toContain('Good');

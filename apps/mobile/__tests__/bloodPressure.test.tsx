@@ -97,6 +97,7 @@ describe('blood pressure screen', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     await render(withAppData(<BloodPressureScreen />, 'en', { userData: { ...defaultUserData(), cuffLog: true }, cuffReadings: [READING], removeCuffReading }));
     expect(screen.getByText(/Cuff 118 \/ 76 · pulse 61 · your entry/)).toBeTruthy();
+    expect(screen.getByTestId('cuff-reading-3').props.accessibilityRole).toBe('button');
     await fireEvent.press(screen.getByTestId('cuff-add'));
     expect(mockPush).toHaveBeenCalledWith('/health/bp-calibration');
     await fireEvent.press(screen.getByTestId('cuff-export'));

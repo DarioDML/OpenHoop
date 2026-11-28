@@ -162,12 +162,14 @@ export default function CycleScreen() {
             wheel={wheel}
             size={wheelSize}
             dayLabel={t('health.cycle.stat.day')}
-            phaseLabel={wheel === null ? null : phaseName(wheel.phase)}
+            phaseLabel={wheel === null ? null : wheel.overdue ? t('health.cycle.wheel.overdue') : phaseName(wheel.phase)}
             emptyLabel={pregnant ? t('health.cycle.wheel.pregnant') : t('health.cycle.wheel.empty')}
             accessibilityLabel={
               wheel === null
                 ? t('health.cycle.wheel.empty')
-                : t('health.cycle.wheel.a11y', { day: wheel.day, length: wheel.length, phase: phaseName(wheel.phase) })
+                : wheel.overdue
+                  ? t('health.cycle.wheel.a11yOverdue', { day: wheel.day, length: wheel.length })
+                  : t('health.cycle.wheel.a11y', { day: wheel.day, length: wheel.length, phase: phaseName(wheel.phase) })
             }
             testID="cycle-wheel"
           />
@@ -192,7 +194,7 @@ export default function CycleScreen() {
       <Card testID="cycle-phase-card">
         <View style={{ flexDirection: layout.narrow ? 'column' : 'row', justifyContent: 'space-between', alignItems: layout.narrow ? 'flex-start' : 'center', gap: spacing.xs }}>
           <AppText variant="cardTitle" testID="cycle-phase-title">
-            {wheel === null ? t('health.cycle.phase.title') : t('health.cycle.phase.named', { phase: phaseName(wheel.phase) })}
+            {wheel === null || wheel.overdue ? t('health.cycle.phase.title') : t('health.cycle.phase.named', { phase: phaseName(wheel.phase) })}
           </AppText>
           {wheel !== null && !wheel.overdue ? (
             <AppText variant="capSmall" muted testID="cycle-phase-left">

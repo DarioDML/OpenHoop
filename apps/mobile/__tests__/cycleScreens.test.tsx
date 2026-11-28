@@ -90,6 +90,13 @@ describe('cycle screen', () => {
     expect(screen.getByTestId('cycle-tile-next-missing')).toHaveTextContent('Needs more logs');
   });
 
+  it('names no phase when the period is later than the average cycle', async () => {
+    await render(withAppData(<CycleScreen />, 'en', { cycle: cycleData({ periods: [period(1, '2026-08-25'), period(2, '2026-09-22'), period(3, '2026-10-20')] }) }));
+    expect(screen.getByTestId('cycle-wheel-phase')).toHaveTextContent('Later than usual');
+    expect(screen.getByTestId('cycle-phase-title')).toHaveTextContent('Cycle phase');
+    expect(screen.queryByText(/Luteal phase/)).toBeNull();
+  });
+
   it('opens the period form from the calendar button', async () => {
     await render(withAppData(<CycleScreen />, 'en', { cycle: cycleData({ periods: THREE_PERIODS }) }));
     await fireEvent.press(screen.getByTestId('cycle-open-calendar'));

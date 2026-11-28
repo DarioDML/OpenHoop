@@ -8,9 +8,10 @@ import {
   computeTrend,
   parseBodyRange,
   sortMeasurements,
+  draftWeightKg,
   towardGoal,
   validateBodyDraft,
-  weightDraftToKg,
+  type WeightBase,
   type BodyDraft,
   type BodyField,
 } from '@/data/bodyComposition';
@@ -57,6 +58,7 @@ export default function BodyCompositionScreen() {
   const { userData, cycle, healthConnect, updateUserData, bodyMeasurements, saveBodyMeasurement, removeBodyMeasurement } = useAppData();
   const [draft, setDraft] = useState<BodyDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editBase, setEditBase] = useState<WeightBase | null>(null);
   const [invalid, setInvalid] = useState<BodyField[]>([]);
   const [saving, setSaving] = useState(false);
   const [range, setRange] = useState<string>('90');
@@ -99,11 +101,12 @@ export default function BodyCompositionScreen() {
   const reset = (): void => {
     setDraft(emptyDraft());
     setEditingId(null);
+    setEditBase(null);
     setInvalid([]);
   };
 
   const submit = async (): Promise<void> => {
-    const result = validateBodyDraft({ ...draft, weight: weightDraftToKg(draft.weight, units) }, todayIso());
+    const result = validateBodyDraft({ ...draft, weight: draftWeightKg(draft.weight, units, editBase) }, todayIso());
     if (!result.ok) {
       setInvalid(result.invalid);
       return;
@@ -115,12 +118,14 @@ export default function BodyCompositionScreen() {
   };
 
   const startEdit = (entry: BodyMeasurement): void => {
+    const shownWeight = units === 'metric' ? entry.weightKg.toString() : plain(weightIn(entry.weightKg, units));
+    setEditBase({ text: shownWeight, kg: entry.weightKg });
     setEditingId(entry.id);
     setConfirmId(null);
     setInvalid([]);
     setDraft({
       day: entry.day,
-      weight: units === 'metric' ? entry.weightKg.toString() : plain(weightIn(entry.weightKg, units)),
+      weight: shownWeight,
       bodyFat: entry.bodyFatPct === null ? '' : entry.bodyFatPct.toString(),
     });
   };

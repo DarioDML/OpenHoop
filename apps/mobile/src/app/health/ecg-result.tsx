@@ -70,19 +70,23 @@ export default function EcgResultScreen() {
   const [tags, setTags] = useState<{ id: number; symptoms: EcgSymptom[] } | null>(null);
   const tagWrites = useRef<Promise<void>>(Promise.resolve());
 
+  const selectedId = selected?.id ?? null;
+  const selectedStart = selected?.t ?? 0;
+  const selectedLength = selected?.durationMs ?? 0;
+
   useEffect(() => {
-    if (selected === null) return;
+    if (selectedId === null) return;
     let cancelled = false;
     void (async () => {
-      const samples = await ecgActions.samples(selected.id);
-      const hr = await heartRateBetween(selected.t, selected.t + Math.ceil(selected.durationMs / 1000), 1);
+      const samples = await ecgActions.samples(selectedId);
+      const hr = await heartRateBetween(selectedStart, selectedStart + Math.ceil(selectedLength / 1000), 1);
       const avgHr = hr.length === 0 ? null : Math.round(hr.reduce((sum, point) => sum + point.hr, 0) / hr.length);
-      if (!cancelled) setLoaded({ id: selected.id, samples, avgHr });
+      if (!cancelled) setLoaded({ id: selectedId, samples, avgHr });
     })();
     return () => {
       cancelled = true;
     };
-  }, [selected, ecgActions, heartRateBetween]);
+  }, [selectedId, selectedStart, selectedLength, ecgActions, heartRateBetween]);
 
   const current = selected !== null && loaded?.id === selected.id ? loaded : null;
   const symptoms = selected === null ? [] : tags !== null && tags.id === selected.id ? tags.symptoms : selected.symptoms;
@@ -97,14 +101,14 @@ export default function EcgResultScreen() {
     });
   };
 
-  const summaryRows = (recording: EcgSummary, avgHr: number | null): Array<{ label: string; value: string }> => [
-    { label: t('ecg.recorded'), value: when(t, language, recording.t) },
-    { label: t('ecg.length'), value: seconds(t, recording) },
-    { label: t('ecg.wrist'), value: wristText(t, recording) },
-    { label: t('ecg.rate'), value: recording.rateHz === null ? t('band.unknown') : t('ecg.rateValue', { rate: Math.round(recording.rateHz) }) },
-    { label: t('ecg.sampleCount'), value: String(recording.sampleCount) },
-    { label: t('ecg.bandHr'), value: avgHr === null ? t('ecg.bandHrNone') : t('ecg.bandHrValue', { bpm: avgHr }) },
-    { label: t('ecg.feel.title'), value: symptomsText(t, symptoms) },
+  const summaryRows = (recording: EcgSummary, avgHr: number | null): Array<{ id: string; label: string; value: string }> => [
+    { id: 'recorded', label: t('ecg.recorded'), value: when(t, language, recording.t) },
+    { id: 'length', label: t('ecg.length'), value: seconds(t, recording) },
+    { id: 'wrist', label: t('ecg.wrist'), value: wristText(t, recording) },
+    { id: 'rate', label: t('ecg.rate'), value: recording.rateHz === null ? t('band.unknown') : t('ecg.rateValue', { rate: Math.round(recording.rateHz) }) },
+    { id: 'samples', label: t('ecg.sampleCount'), value: String(recording.sampleCount) },
+    { id: 'band-hr', label: t('ecg.bandHr'), value: avgHr === null ? t('ecg.bandHrNone') : t('ecg.bandHrValue', { bpm: avgHr }) },
+    { id: 'felt', label: t('ecg.feel.title'), value: symptomsText(t, symptoms) },
   ];
 
   const exportPdf = async (): Promise<void> => {
@@ -269,8 +273,8 @@ export default function EcgResultScreen() {
           </ListGroup>
 
           <Card style={{ gap: spacing.xs }} testID="ecg-summary">
-            {summaryRows(selected, current?.avgHr ?? null).map((row, i) => (
-              <KeyValueRow key={row.label} label={row.label} value={row.value} testID={i === 5 ? 'ecg-band-hr' : undefined} />
+            {summaryRows(selected, current?.avgHr ?? null).map((row) => (
+              <KeyValueRow key={row.id} label={row.label} value={row.value} testID={`ecg-${row.id}`} />
             ))}
             <AppText variant="caption" muted>
               {t('ecg.bandHrNote')}

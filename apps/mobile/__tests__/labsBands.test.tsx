@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
 import { labBand, linkedBehaviours, outOfRangeFirst, summarizeBiomarkers, tallyLabs } from '@/data/labs';
-import { rangeScale } from '@/ui/health/RangeBar';
+import { rangeScale, visibleTicks } from '@/ui/health/RangeBar';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -49,6 +49,8 @@ describe('lab bands', () => {
     expect(labBand(lab(1, { refLow: null, refHigh: 100, value: 80 }))).toBe('mid');
     expect(labBand(lab(1, { refLow: 30, refHigh: null, value: 31 }))).toBe('edge');
     expect(labBand(lab(1, { refLow: null, refHigh: null }))).toBe('none');
+    expect(labBand(lab(1, { refLow: -2, refHigh: null, value: -1.9 }))).toBe('edge');
+    expect(labBand(lab(1, { refLow: -2, refHigh: null, value: 1 }))).toBe('mid');
   });
 
   it('counts the latest value per marker and lists out of range first', () => {
@@ -65,6 +67,10 @@ describe('lab bands', () => {
   it('scales the range bar around the range and the value', () => {
     expect(rangeScale(30, 60, 18)).toEqual({ max: 90, ticks: [0, 30, 60, 90] });
     expect(rangeScale(null, 100, 120).ticks[1]).toBe(100);
+    expect(rangeScale(null, null, 0)).toEqual({ max: 1, ticks: [0, 1] });
+    expect(rangeScale(0, 0.5, 0).ticks).toEqual([0, 0.5, 1]);
+    expect(visibleTicks([0, 30, 31, 90], 90, 120)).toEqual([0, 30, 90]);
+    expect(visibleTicks([0, 30, 60, 90], 90, 60)).toEqual([0, 90]);
   });
 
   it('puts wearable averages side by side only with two tests and enough band data', () => {
@@ -86,7 +92,7 @@ describe('biomarker screen', () => {
     const last = DAYS[DAYS.length - 1]?.day ?? '';
     await render(withAppData(<BiomarkerScreen />, 'en', { labResults: [lab(1, { day: first, value: 25 }), lab(2, { day: last, value: 18 })] }));
     expect(screen.getByTestId('biomarker-hero-value')).toHaveTextContent('18 ng/mL');
-    expect(screen.getByTestId('biomarker-hero-status')).toHaveTextContent('! low');
+    expect(screen.getByTestId('biomarker-hero-status')).toHaveTextContent('below range');
     expect(screen.getByTestId('biomarker-range-bar')).toBeTruthy();
     expect(screen.getByTestId('biomarker-linked')).toHaveTextContent(/does not say one causes the other/);
     expect(screen.queryByTestId('biomarker-linked-none')).toBeNull();

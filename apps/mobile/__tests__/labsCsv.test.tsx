@@ -95,6 +95,11 @@ describe('lab CSV parsing', () => {
     ]);
   });
 
+  it('flags a value with a comma before three digits as ambiguous', () => {
+    const parsed = parseLabCsv('name,value,unit\nCreatinine,"1,234",µmol/L\nGlucose,5.2,mmol/L', TODAY);
+    expect(parsed.candidates.map((c) => c.ambiguous)).toEqual([true, false]);
+  });
+
   it('finds nothing in an empty file', () => {
     expect(parseLabCsv('', TODAY)).toEqual({ candidates: [], day: null });
   });
