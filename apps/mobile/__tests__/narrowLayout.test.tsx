@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import { Chip } from '@/ui/Chip';
 import { ListRow } from '@/ui/ListGroup';
 import { SHEET_MAX_HEIGHT, SHEET_TALL_HEIGHT } from '@/ui/SheetScreen';
+import { ACTION_LABEL_LINES } from '@/ui/Tiles';
 
 import { withAppData } from './support/appData';
 
@@ -116,12 +117,13 @@ describe('bottom sheets at S24 size', () => {
     expect(screen.getByTestId('date-picker-sheet')).toHaveStyle({ maxHeight: SHEET_TALL_HEIGHT });
   });
 
-  it('draws the action center as a sheet with two-line tile labels', async () => {
+  it('draws the action center as a sheet with tile labels of up to three lines', async () => {
     s24();
     await render(withAppData(<ActionCenterScreen />));
     expect(screen.getByTestId('action-center-sheet')).toHaveStyle({ maxHeight: SHEET_MAX_HEIGHT });
     const label = screen.getByTestId('action-symptoms-label');
-    expect(label.props.numberOfLines).toBe(2);
+    expect(label.props.numberOfLines).toBe(ACTION_LABEL_LINES);
+    expect(screen.getByTestId('action-planner-label')).toHaveTextContent('Sleep planner & alarm');
     expect(label.props.allowFontScaling).toBe(false);
     expect(label).toHaveStyle({ fontSize: 13 * 1.3 });
   });

@@ -361,7 +361,7 @@
   "home.week.goalMet": "Doel gehaald",
   "home.tonightAlarmMode": "Wekkermodus: {mode}",
   "home.tonightNoBed": "Nog niet gepland",
-  "home.action.plannerAlarm": "Slaapplanner & wekker",
+  "home.action.plannerAlarm": "Slaapplan & wekker",
   "home.ac.band": "Band {model}",
   "home.ac.lastSync": "laatste sync {ago}",
   "home.ac.neverSynced": "nog niet gesynchroniseerd",
