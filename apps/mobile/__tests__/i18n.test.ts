@@ -61,6 +61,15 @@ describe('countKey', () => {
   });
 });
 
+describe('remaining count texts', () => {
+  it('reads singular for one', () => {
+    expect(translate('en', countKey(1, 'metricDetail.baselineNightsOne', 'metricDetail.baselineNights'), { count: 1 })).toBe('From 1 night');
+    expect(translate('nl', countKey(1, 'explain.rangeAfterOne', 'explain.rangeAfter'), { count: 1 })).toBe('Je gewone bereik verschijnt na 1 nacht');
+    expect(translate('en', countKey(1, 'profile.ach.workoutsOne', 'profile.ach.workouts'), { count: 1 })).toBe('1 workout recorded');
+    expect(translate('en', countKey(4, 'explain.rangeAfterOne', 'explain.rangeAfter'), { count: 4 })).toBe('Your usual range shows after 4 nights');
+  });
+});
+
 describe('needReasonKey', () => {
   it('says a missing sleep need waits for a recorded night', () => {
     expect(translate('en', needReasonKey('no-sleep'))).toBe('Known after a recorded night');

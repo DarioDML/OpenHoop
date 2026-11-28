@@ -256,6 +256,7 @@
   "metricDetail.baseline": "Basislijn van 30 dagen",
   "metricDetail.normalRange": "Je normale bereik: {low}–{high} {unit}",
   "metricDetail.baselineNights": "Uit {count} nachten",
+  "metricDetail.baselineNightsOne": "Uit 1 nacht",
   "metricDetail.baselineNone": "Je normale bereik heeft nog een paar nachten nodig voordat het getoond kan worden.",
   "metricDetail.bandNote": "De gearceerde band is je normale bereik, bepaald op de laatste nacht.",
   "metricDetail.whatItMeans": "Wat het betekent",
