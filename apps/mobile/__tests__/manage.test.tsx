@@ -304,7 +304,7 @@ describe('Battery pack', () => {
     const base = fixtureAppData();
     await render(withAppData(<BatteryPackScreen />, 'en', { device: { ...base.device, batteryPack: report } }));
     expect(screen.getByTestId('pack-status')).toBeTruthy();
-    expect(screen.getByText('64.7 %')).toBeTruthy();
+    expect(screen.getByTestId('pack-report-charge')).toHaveTextContent(/64\.7%$/);
     expect(screen.getByText('TESTPACK0000001')).toBeTruthy();
     expect(screen.getByText('3.30.5.0')).toBeTruthy();
     expect(screen.getByText('Experimental')).toBeTruthy();
@@ -317,14 +317,16 @@ describe('Battery pack', () => {
     const noCharge = { ...report, socPercent: null, socAt: null };
     await render(withAppData(<BatteryPackScreen />, 'en', { device: { ...base.device, batteryPack: noCharge } }));
     expect(screen.getByText('TESTPACK0000001')).toBeTruthy();
-    expect(screen.queryByText('64.7 %')).toBeNull();
+    expect(screen.queryByTestId('pack-report-charge')).toBeNull();
   });
 
   it('shows the pack charge in the ring, charges per week and honest tiles', async () => {
     const base = fixtureAppData();
     const chargeHistory = jest.fn(async () => [NOW_S - 2 * 86_400, NOW_S - 9 * 86_400]);
     await render(withAppData(<BatteryPackScreen />, 'en', { device: { ...base.device, batteryPack: report }, chargeHistory }));
-    expect(screen.getByTestId('pack-hero-value')).toHaveTextContent('65%');
+    expect(screen.getByTestId('pack-hero-value')).toHaveTextContent(/64\.7%$/);
+    expect(screen.getByTestId('pack-charge-tile-value')).toHaveTextContent(/^64\.7/);
+    expect(screen.getByTestId('pack-report-charge')).toHaveTextContent(/64\.7%$/);
     expect(within(screen.getByTestId('pack-cycles-tile')).getByText('Not reported')).toBeTruthy();
     expect(await screen.findByTestId('pack-charges-bars')).toBeTruthy();
     expect(chargeHistory).toHaveBeenCalled();
@@ -342,7 +344,8 @@ describe('Battery pack', () => {
   it('writes the charge the Dutch way', async () => {
     const base = fixtureAppData();
     await render(withAppData(<BatteryPackScreen />, 'nl', { device: { ...base.device, batteryPack: report } }));
-    expect(screen.getByText('64,7 %')).toBeTruthy();
+    expect(screen.getByTestId('pack-report-charge')).toHaveTextContent(/64,7%$/);
+    expect(screen.getByTestId('pack-hero-value')).toHaveTextContent(/64,7%$/);
     expect(screen.getByText('Experimenteel')).toBeTruthy();
   });
 });

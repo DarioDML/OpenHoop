@@ -37,6 +37,7 @@ export default function BatteryPackScreen() {
   const nowS = Math.floor(Date.now() / 1000);
   const reportedAt = pack === null ? null : (pack.socAt ?? pack.infoAt);
   const soc = pack?.socPercent ?? null;
+  const charge = soc === null ? null : formatNumber(soc, 1, language);
   const charging = device.band?.charging ?? null;
   const chargingFresh = charging !== null && nowS - charging.at < CHARGING_REPORT_FRESH_S;
 
@@ -64,8 +65,8 @@ export default function BatteryPackScreen() {
               {t('device.pack.chargeMissing')}
             </AppText>
           ) : (
-            <Num size={44} unit="%" unitSize={18} unitColor={colors.textMuted} testID="pack-hero-value">
-              {formatNumber(soc, 0, language)}
+            <Num size={44} unit="%" unitSize={18} unitColor={colors.textMuted} adjustsFontSizeToFit testID="pack-hero-value">
+              {charge}
             </Num>
           )}
         </Ring>
@@ -114,7 +115,7 @@ export default function BatteryPackScreen() {
         <BigStatTile
           testID="pack-charge-tile"
           label={t('device.pack.chargeTile')}
-          value={soc === null ? null : formatNumber(soc, 0, language)}
+          value={charge}
           unit="%"
           missing={t('device.pack.chargeMissing')}
         />
@@ -146,7 +147,7 @@ export default function BatteryPackScreen() {
             </AppText>
             <ParityBadge level={PARITY.batteryPack} long />
           </View>
-          {pack.socPercent !== null && <KeyValueRow label={t('device.pack.charge')} value={`${formatNumber(pack.socPercent, 1, language)} %`} />}
+          {charge !== null && <KeyValueRow label={t('device.pack.charge')} value={`${charge}${t('unit.percent')}`} testID="pack-report-charge" />}
           {reportedAt !== null && <KeyValueRow label={t('device.pack.reported')} value={formatAgo(t, nowS, reportedAt)} />}
           <KeyValueRow label={t('device.pack.serial')} value={pack.info?.serial ?? unknown} />
           <KeyValueRow label={t('device.pack.firmware')} value={pack.info === null ? unknown : formatFirmware(pack.info.firmware)} />
