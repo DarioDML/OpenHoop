@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GYRO_INVALID, decodeFrame, encodeImu, encodeOptical, type OpticalBlockInput, type Packet } from '../src';
+import { GYRO_INVALID, decodeFrame, encodeCompactOptical, encodeImu, encodeOptical, type OpticalBlockInput, type Packet } from '../src';
 
 function series(n: number, f: (i: number) => number): number[] {
   return Array.from({ length: n }, (_, i) => f(i));
@@ -87,5 +87,21 @@ describe('live optical record', () => {
 
   it('rejects a block with more than 50 samples', () => {
     expect(() => encodeOptical({ recordIndex: 1, unixS: 1, blocks: [block(51, 1, 2750)] })).toThrow(RangeError);
+  });
+});
+
+describe('compact optical record', () => {
+  it('encodeCompactOptical → decodeFrame round-trips', () => {
+    const samples = Array.from({ length: 25 }, (_, i) => 207_400 + 3 * i - (i % 2) * 7);
+    const packet = recordOf(decodeFrame(encodeCompactOptical({ recordIndex: 9, unixS: 1_795_694_367, burstCounter: 2, samples })));
+    expect(packet.layout).toBe(26);
+    const record = packet.record;
+    if (record.type !== 'compactOptical') throw new Error(record.type);
+    expect(record.samples).toEqual(samples);
+    expect(record.burstCounter).toBe(2);
+  });
+
+  it('needs exactly 25 samples', () => {
+    expect(() => encodeCompactOptical({ recordIndex: 9, unixS: 1, samples: [1, 2, 3] })).toThrow(RangeError);
   });
 });

@@ -4,6 +4,8 @@ import type { HeldChunk } from './lockProbe';
 import { ChunkBuilder } from './store/chunkCodec';
 import { packEventFromPacket, sampleFromPacket } from './mapping';
 import type { Session } from './session';
+import { emptySignals, mergeSignals, signalRangeOf, signalsFromPacket } from './signals';
+import type { SignalRows } from './signals';
 import { CommandFailedError, DisconnectedError, LINK_QUIET_MAX_MS, LINK_QUIET_MS } from './session';
 import type { ConsoleRow, EventRow, PackEventRow, SampleRow, Store, SyncStateRow } from './store/types';
 
@@ -32,6 +34,7 @@ export interface SyncResult {
   discardedBeforeOwner: number;
   unknownFrames: number;
   stoppedBy: SyncStop;
+  signalRange: { from: number; to: number } | null;
 }
 
 export interface SyncOptions {
@@ -41,6 +44,12 @@ export interface SyncOptions {
   idleTimeoutMs?: number;
   clockPolicy?: 'strict' | 'store-all';
   heldChunk?: HeldChunk | null;
+}
+
+function widen(a: { from: number; to: number } | null, b: { from: number; to: number } | null): { from: number; to: number } | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return { from: Math.min(a.from, b.from), to: Math.max(a.to, b.to) };
 }
 
 function endTokenOf(packet: Packet): Uint8Array | undefined {
@@ -129,6 +138,7 @@ interface ChunkTally {
   events: EventRow[];
   packEvents: PackEventRow[];
   console: ConsoleRow[];
+  signals: SignalRows;
   unknownFrames: number;
   discarded: number;
   content: number;
@@ -142,6 +152,7 @@ function emptyTally(): ChunkTally {
     events: [],
     packEvents: [],
     console: [],
+    signals: emptySignals(),
     unknownFrames: 0,
     discarded: 0,
     content: 0,
@@ -180,6 +191,7 @@ function addFrameKind(tally: ChunkTally, deviceId: number, ownerFloor: number | 
       }
       tally.chunk.add(raw);
       if (packet.record.type === 'unknown') tally.unknownFrames += 1;
+      mergeSignals(tally.signals, signalsFromPacket(deviceId, packet));
       const sample = sampleFromPacket(deviceId, packet);
       if (sample !== null) tally.samples.push({ ...sample, source: 'history' });
       return;
@@ -242,6 +254,7 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
     discardedBeforeOwner: 0,
     unknownFrames: 0,
     stoppedBy: 'complete',
+    signalRange: null,
   };
   const finish = (stoppedBy: SyncStop): SyncResult => ({ ...totals, stoppedBy });
 
@@ -295,6 +308,7 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
         events: tally.events,
         packEvents: tally.packEvents,
         console: tally.console,
+        signals: tally.signals,
         unknownFrames: tally.unknownFrames,
         syncState: state,
       },
@@ -304,6 +318,7 @@ export async function syncHistory(session: Session, store: Store, opts: SyncOpti
     totals.frames += tally.chunk.frames.length;
     totals.samples += tally.samples.length;
     totals.unknownFrames += tally.unknownFrames;
+    totals.signalRange = widen(totals.signalRange, signalRangeOf(tally.signals));
   };
 
   try {

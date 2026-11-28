@@ -330,3 +330,15 @@ export function encodeOptical(i: { recordIndex: number; unixS: number; subsec?: 
   });
   return body.frame();
 }
+
+export function encodeCompactOptical(i: { recordIndex: number; unixS: number; packetType?: 43 | 47; burstCounter?: number; samples: number[] }): Uint8Array {
+  const c = schema.compactOptical;
+  if (i.samples.length !== c.deltaCount + 1) throw new RangeError(`a compact optical record holds ${c.deltaCount + 1} samples`);
+  const body = recordBody(c.length, 26, 0, i);
+  const [base = 0] = i.samples;
+  body.put(c.fields, 'burst_counter', i.burstCounter ?? 0);
+  body.put(c.fields, 'base', base);
+  for (let k = 1; k < i.samples.length; k++) body.i16(c.deltaOffset + 2 * (k - 1), (i.samples[k] ?? 0) - (i.samples[k - 1] ?? 0));
+  body.put(c.fields, 'on_wrist_raw', 1);
+  return body.frame();
+}

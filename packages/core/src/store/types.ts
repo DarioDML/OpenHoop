@@ -1,4 +1,5 @@
 import type { ActiveMinutes, SleepStage, StageTotals, StressDay } from '@openhoop/analytics';
+import type { SignalRows } from '../signals';
 import type { EncodedChunk } from './chunkCodec';
 
 export type SqlValue = string | number | null | Uint8Array;
@@ -243,6 +244,7 @@ export interface Store {
       events: EventRow[];
       packEvents?: PackEventRow[];
       console: ConsoleRow[];
+      signals?: SignalRows;
       unknownFrames: number;
       syncState: SyncStateRow;
     },

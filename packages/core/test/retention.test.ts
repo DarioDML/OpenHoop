@@ -48,12 +48,12 @@ describe('raw data retention', () => {
   it('removes only chunks whose frames are all older than the cut-off, and keeps every reading', async () => {
     const before = await store.sampleRange(deviceId);
     const pruned = await pruneRawBefore(store, deviceId, at(2 * CHUNK_S + 10));
-    expect(pruned).toEqual({ chunks: 2, frames: 2 * CHUNK_S });
+    expect(pruned).toEqual({ chunks: 2, frames: 2 * CHUNK_S, signals: 0 });
     expect(await store.listChunkIds(deviceId)).toHaveLength(2);
     expect(await store.sampleRange(deviceId)).toEqual(before);
     const [orphan] = await store.samplesBetween(deviceId, at(0), at(0) + 1);
     expect(orphan?.chunkId).toBeNull();
-    expect(await pruneRawBefore(store, deviceId, at(2 * CHUNK_S + 10))).toEqual({ chunks: 0, frames: 0 });
+    expect(await pruneRawBefore(store, deviceId, at(2 * CHUNK_S + 10))).toEqual({ chunks: 0, frames: 0, signals: 0 });
   });
 
   it('keeps history whose raw bytes were pruned when the rest is rebuilt from raw', async () => {
@@ -82,7 +82,7 @@ describe('raw data retention', () => {
     await commit(0, 100, 10);
     await commit(50, 200, 20);
     const before = await fresh.sampleRange(id);
-    expect(await pruneRawBefore(fresh, id, (own[150] as SampleRow).t)).toEqual({ chunks: 1, frames: 100 });
+    expect(await pruneRawBefore(fresh, id, (own[150] as SampleRow).t)).toEqual({ chunks: 1, frames: 100, signals: 0 });
     await rebuildFromRaw(fresh, id);
     expect(await fresh.sampleRange(id)).toEqual(before);
     await fresh.driver.close();

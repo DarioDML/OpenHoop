@@ -1,6 +1,7 @@
 import { SLEEP_STAGES } from '@openhoop/analytics';
 import type { SleepStage } from '@openhoop/analytics';
 import { ChunkIntegrityError, decodeChunk, encodeChunk } from './chunkCodec';
+import { insertSignals } from '../signals';
 import { bulkInsert } from './bulk';
 import { migrate } from './migrations';
 import type {
@@ -331,6 +332,7 @@ export function bindStore(driver: SqlDriver): Store {
           extras.events.map((e: EventRow) => [e.deviceId, e.t, e.event, e.name, e.payloadHex, chunkId]),
         );
         await insertPackEventsRaw(tx, extras.packEvents ?? [], chunkId);
+        if (extras.signals !== undefined) await insertSignals(tx, extras.signals, chunkId);
         await bulkInsert(
           tx,
           'INSERT OR IGNORE INTO console_log (device_id, t, sequence, text, chunk_id)',
