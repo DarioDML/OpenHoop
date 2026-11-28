@@ -1,5 +1,5 @@
 import type { StrengthData, StrengthSession, StrengthSet, StrengthTemplate } from '@openhoop/core';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react-native';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import type { ReactNode } from 'react';
 import { captureRef } from 'react-native-view-shot';
@@ -11,6 +11,7 @@ import type { HeartRatePoint, StrengthActions } from '@/data/types';
 import { defaultNetworkPrefs } from '@/net/features';
 import type { GatedFetch } from '@/net/gate';
 import { WeekCard } from '@/ui/daily/cards';
+import { useSessionHeartRate } from '@/ui/strength/useSessionHeartRate';
 
 import { FIXTURE_NOW, fixtureAppData, fixtureBandActions, fixtureStrengthActions, withAppData, type AppDataOverrides } from './support/appData';
 import { TEST_KEY, jsonResponse, makeController, messageBody, withCoach } from './support/coach';
@@ -676,21 +677,20 @@ describe('live session', () => {
     jest.useRealTimers();
   });
 
-  it('keeps counting live Load while the same heart rate repeats', async () => {
+  it('keeps every live beat while the same heart rate repeats', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(FIXTURE_NOW);
-    jest.spyOn(Date, 'now').mockImplementation(() => new Date().getTime());
     const fresh: StrengthSession = { ...running, startedAt: NOW_S };
-    const overrides = (at: number): AppDataOverrides => ({ live: { active: true, heartRate: 150, lastRrMs: 400, updatedAt: at } });
-    const view = await render(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [fresh] }), actions(), overrides(0))));
-    expect(screen.getByTestId('live-load-missing')).toBeTruthy();
+    const wrapper = ({ children }: { children: ReactNode }) => withAppData(children, 'en', { heartRateBetween: async () => [] });
+    const hook = await renderHook(({ at }: { at: number }) => useSessionHeartRate(fresh, 150, at), { initialProps: { at: 0 }, wrapper });
     for (let at = 1; at <= 75; at++) {
       await act(async () => {
         jest.advanceTimersByTime(1_000);
       });
-      await view.rerender(withAppData(<StrengthLiveScreen />, 'en', app(data({ sessions: [fresh] }), actions(), overrides(at))));
+      await hook.rerender({ at });
     }
-    expect(screen.getByTestId('live-load-value')).toHaveTextContent(/^\d+\.\d$/);
+    expect(hook.result.current).toHaveLength(76);
+    expect(new Set(hook.result.current.map((point) => point.hr))).toEqual(new Set([150]));
     jest.useRealTimers();
   });
 
