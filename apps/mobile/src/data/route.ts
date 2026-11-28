@@ -226,29 +226,26 @@ export interface VisibleRoute {
 export function visibleRoute(points: readonly RoutePoint[], hideStartM: number, hideEndM: number, stepM: number): VisibleRoute | null {
   const markers = distanceMarkers(points, stepM);
   if (hideStartM <= 0 && hideEndM <= 0) return points.length >= 2 ? { points: [...points], markers, trimmed: false } : null;
-  const cum = cumulativeM(points);
-  const total = cum[cum.length - 1] ?? 0;
-  const from = hideStartM;
-  const to = total - hideEndM;
-  if (to <= from) return null;
-  const kept = points.filter((_, i) => {
-    const d = cum[i] ?? 0;
-    return d >= from && d <= to;
-  });
+  const kept = hideAroundEnds(points, hideStartM, hideEndM);
   if (kept.length < 2) return null;
-  return { points: kept, markers: markers.filter((m) => m.distanceM >= from && m.distanceM <= to), trimmed: true };
+  return { points: kept, markers: markers.filter((m) => !nearEnds(points, m, hideStartM, hideEndM)), trimmed: true };
 }
 
-export function hideAroundEnds(points: readonly RoutePoint[], radiusM: number): RoutePoint[] {
+function nearEnds(points: readonly RoutePoint[], at: LatLon, startRadiusM: number, endRadiusM: number): boolean {
   const first = points[0];
   const last = points[points.length - 1];
-  if (radiusM <= 0 || first === undefined || last === undefined) return [...points];
+  if (first === undefined || last === undefined) return false;
+  return (startRadiusM > 0 && haversineM(first, at) < startRadiusM) || (endRadiusM > 0 && haversineM(last, at) < endRadiusM);
+}
+
+export function hideAroundEnds(points: readonly RoutePoint[], startRadiusM: number, endRadiusM: number = startRadiusM): RoutePoint[] {
+  if (startRadiusM <= 0 && endRadiusM <= 0) return [...points];
   const out: RoutePoint[] = [];
   let segment = 0;
   let gap = false;
   let previous: number | null = null;
   for (const p of points) {
-    if (haversineM(first, p) < radiusM || haversineM(last, p) < radiusM) {
+    if (nearEnds(points, p, startRadiusM, endRadiusM)) {
       gap = true;
       continue;
     }

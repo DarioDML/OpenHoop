@@ -1,6 +1,6 @@
 {
   "network.strava.title": "Strava",
-  "network.strava.sends": "Verstuurt: alleen een activiteit die je zelf uploadt, op het moment dat je op Uploaden tikt: begin en einde, soort en naam, de hartslag van de band tijdens de activiteit en de GPS-route zonder de eerste en laatste 200 m (tenzij je dat voor die upload uitzet). Bij het verbinden gaan ook de client-ID en het geheim van je eigen Strava-app en de aanmeldtokens mee.",
+  "network.strava.sends": "Verstuurt: alleen een activiteit die je zelf uploadt, op het moment dat je op Uploaden tikt: begin en einde, soort en naam, de hartslag van de band tijdens de activiteit en de GPS-route zonder de stukken binnen 200 m van begin en einde (tenzij je dat voor die upload uitzet). Bij het verbinden gaan ook de client-ID en het geheim van je eigen Strava-app en de aanmeldtokens mee.",
   "network.strava.to": "Naar: Strava (www.strava.com), onder het privacybeleid van Strava, in je eigen Strava-account. Er gaat niets op de achtergrond weg.",
   "strava.title": "Strava",
   "strava.intro": "Upload de activiteiten die jij kiest naar je eigen Strava-account. OpenHoop leest nooit iets uit Strava en verstuurt niets tot je bij een activiteit op Uploaden tikt.",
@@ -67,8 +67,8 @@
   "strava.upload.noHeartRate": "Geen hartslag van de band tijdens deze activiteit.",
   "strava.upload.route": "GPS-route: {count} punten.",
   "strava.upload.noRoute": "Geen GPS-route.",
-  "strava.upload.hidden": "De eerste en laatste 200 m van de route blijven weg, zoals overal waar OpenHoop een route toont.",
-  "strava.upload.hideEnds": "Eerste en laatste 200 m weglaten",
+  "strava.upload.hidden": "Alles binnen 200 m van het begin en het einde van de route blijft weg, zoals overal waar OpenHoop een route toont.",
+  "strava.upload.hideEnds": "200 m rond begin en einde weglaten",
   "strava.upload.hiddenAll": "De route is korter dan 400 m, dus zonder de uiteinden gaat er geen GPS mee.",
   "strava.upload.manual": "Zonder hartslag of route is er geen bestand om te uploaden, dus maakt OpenHoop een handmatige Strava-activiteit met alleen begin, duur, soort en naam.",
   "strava.upload.notNoted": "Je notities worden nooit verstuurd.",

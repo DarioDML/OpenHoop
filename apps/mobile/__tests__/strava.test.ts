@@ -180,7 +180,17 @@ describe('Strava activity file', () => {
     expect(plan.tcx).not.toContain('<Position>');
   });
 
-  it('leaves out the first and last 200 m of the route by default, and all of a route shorter than that', () => {
+  it('never uploads the part of a loop that passes the start again', () => {
+    const out = line(41, 10);
+    const turn = line(41, 10).map((p, i) => ({ ...p, tMs: p.tMs + 410_000, lat: (out[40]?.lat ?? 51) - (i * 10) / 111_320, lon: 4.0002 }));
+    const sent = uploadRoute([...out, ...turn, ...line(30, 10).map((p, i) => ({ ...p, tMs: p.tMs + 820_000, lat: 51 - ((i + 25) * 10) / 111_320 }))], true);
+    const home = out[0];
+    if (home === undefined) throw new Error('route');
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.every((p) => Math.abs(p.lat - home.lat) * 111_320 >= 199 || Math.abs(p.lon - home.lon) * 70_000 >= 199)).toBe(true);
+  });
+
+  it('leaves out 200 m around the start and end of the route by default, and all of a route shorter than that', () => {
     const route = line(61, 10);
     expect(uploadRoute(route, false)).toHaveLength(61);
     const trimmed = uploadRoute(route, true);

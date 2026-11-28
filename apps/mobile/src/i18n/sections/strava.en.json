@@ -1,6 +1,6 @@
 {
   "network.strava.title": "Strava",
-  "network.strava.sends": "Sends: only an activity you choose to upload, when you tap Upload: its start and end, its type and name, the band's heart rate during it and its GPS route without the first and last 200 m (unless you turn that off for that upload). Connecting also sends your own Strava app's client ID and secret and the sign-in tokens.",
+  "network.strava.sends": "Sends: only an activity you choose to upload, when you tap Upload: its start and end, its type and name, the band's heart rate during it and its GPS route without the parts within 200 m of its start and end (unless you turn that off for that upload). Connecting also sends your own Strava app's client ID and secret and the sign-in tokens.",
   "network.strava.to": "To: Strava (www.strava.com), under Strava's privacy policy, into your own Strava account. Nothing is sent in the background.",
   "strava.title": "Strava",
   "strava.intro": "Upload the activities you choose to your own Strava account. OpenHoop never reads anything from Strava and sends nothing until you tap Upload on an activity.",
@@ -67,8 +67,8 @@
   "strava.upload.noHeartRate": "No band heart rate during this activity.",
   "strava.upload.route": "GPS route: {count} points.",
   "strava.upload.noRoute": "No GPS route.",
-  "strava.upload.hidden": "The first and last 200 m of the route are left out, as everywhere OpenHoop shows a route.",
-  "strava.upload.hideEnds": "Leave out the first and last 200 m",
+  "strava.upload.hidden": "Everything within 200 m of the start and the end of the route is left out, as everywhere OpenHoop shows a route.",
+  "strava.upload.hideEnds": "Leave out 200 m around the start and end",
   "strava.upload.hiddenAll": "The route is shorter than 400 m, so with the ends left out no GPS is sent.",
   "strava.upload.manual": "Without heart rate or route there is no file to upload, so OpenHoop creates a manual Strava entry with just the start, duration, type and name.",
   "strava.upload.notNoted": "Your notes are never sent.",
