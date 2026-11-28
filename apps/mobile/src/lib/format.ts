@@ -47,6 +47,12 @@ export function formatShortDay(day: string, language: Language): string {
   return language === 'nl' ? `${Number(date)}/${Number(month)}` : `${Number(month)}/${Number(date)}`;
 }
 
+export function formatShortDayIn(day: string, language: Language, referenceDay: string): string {
+  const short = formatShortDay(day, language);
+  const year = day.slice(0, 4);
+  return short === day || year === referenceDay.slice(0, 4) ? short : `${short}/${year}`;
+}
+
 export function isValidIsoDate(text: string, now: Date): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
   const [y, m, d] = text.split('-').map(Number);
