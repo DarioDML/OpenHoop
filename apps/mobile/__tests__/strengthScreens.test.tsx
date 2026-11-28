@@ -790,11 +790,27 @@ describe('exercise details', () => {
     expect(screen.getByTestId('exercise-entry-1')).toBeTruthy();
   });
 
+  it('leads with the best set and lists personal records', async () => {
+    mockParams = { key: 'lib:bench_press' };
+    await render(withAppData(<StrengthExerciseScreen />, 'en', app(data({ sessions: [DAY_1, DAY_2] }), actions())));
+    expect(screen.getByTestId('exercise-best-value')).toHaveTextContent('85 × 5 kg');
+    expect(screen.getByText(/Est\. 1-rep max 99\.2 kg/)).toBeTruthy();
+    expect(screen.getByTestId('exercise-heaviest')).toHaveTextContent(/90 kg × 3/);
+    expect(screen.getByTestId('exercise-pr-reps')).toHaveTextContent(/Most reps at 80 kg.*5/);
+    expect(screen.getByTestId('exercise-pr-volume')).toHaveTextContent(/Best volume.*800 kg/);
+    expect(screen.getByTestId('exercise-entry-2')).toHaveTextContent(/5 × 85 kg · 3 × 90 kg/);
+    expect(screen.getByTestId('exercise-entry-1')).toHaveTextContent(/2 × 5 · 80 kg/);
+  });
+
   it('gives no estimate for bodyweight work', async () => {
     mockParams = { key: 'lib:crunch' };
     await render(withAppData(<StrengthExerciseScreen />, 'en', app(data({ sessions: [DAY_2] }), actions())));
     expect(screen.getByTestId('exercise-rm-none')).toBeTruthy();
     expect(screen.queryByTestId('exercise-rm-value')).toBeNull();
+    expect(screen.getByTestId('exercise-best-value')).toHaveTextContent('15 reps');
+    expect(screen.getByTestId('exercise-heaviest')).toHaveTextContent(/No weighted set yet/);
+    expect(screen.getByTestId('exercise-pr-volume')).toHaveTextContent(/No volume yet/);
+    expect(screen.getByTestId('exercise-pr-reps')).toHaveTextContent(/Most reps at bodyweight.*15/);
   });
 
   it('lists trained exercises without a key and handles an unknown key', async () => {
