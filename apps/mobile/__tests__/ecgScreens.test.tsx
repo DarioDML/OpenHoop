@@ -36,7 +36,7 @@ import BloodPressureScreen from '@/app/health/blood-pressure';
 import IrregularRhythmScreen from '@/app/health/irregular-rhythm';
 
 const MG = { ...createFixtureDevice(FIXTURE_NOW), model: 'MG' as const };
-const RECORDING: EcgSummary = { id: 4, deviceId: 1, t: 1_795_700_000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left', symptoms: [] };
+const RECORDING: EcgSummary = { id: 4, deviceId: 1, t: 1_795_700_000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left', symptoms: [], movementG: null };
 const OLDER: EcgSummary = { ...RECORDING, id: 2, t: 1_795_600_000, wrist: 'right' };
 const BEAT = Array.from({ length: 128 }, (_, i) => (i === 40 ? 1200 : i === 41 ? -300 : i > 70 && i < 90 ? 200 : 0));
 const HEALTHY_TAIL = [...BEAT, ...BEAT, ...BEAT, ...BEAT];

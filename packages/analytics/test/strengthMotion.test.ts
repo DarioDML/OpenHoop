@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STRENGTH_MOTION, analyseBout, findBouts, lastBoutBefore, tempoFactor } from '../src/index';
+import { STRENGTH_MOTION, analyseBout, findBouts, lastBoutBefore, tempoFactor, wristMovementG } from '../src/index';
 import type { MotionSecond } from '../src/index';
 
 const T0 = 1_000;
@@ -174,5 +174,15 @@ describe('tempo factor', () => {
   it('factor clamps to 0.7-1.3', () => {
     expect(tempoFactor(10, [2.5, 2.5, 2.5])).toBe(1.3);
     expect(tempoFactor(0.5, [2.5, 2.5, 2.5])).toBe(0.7);
+  });
+});
+
+describe('wrist movement', () => {
+  it('is near zero for a still wrist and grows with motion', () => {
+    const still = synthSession([{ kind: 'still', s: 40 }]);
+    const moving = synthSession([{ kind: 'still', s: 5 }, { kind: 'lift', reps: 12, periodS: 2.5, ampG: 0.3 }, { kind: 'still', s: 5 }]);
+    expect(wristMovementG(still, T0 + 5, T0 + 35)).toBeLessThan(0.01);
+    expect(wristMovementG(moving, T0 + 5, T0 + 35)).toBeGreaterThan(0.15);
+    expect(wristMovementG(still, T0 + 100, T0 + 130)).toBeNull();
   });
 });

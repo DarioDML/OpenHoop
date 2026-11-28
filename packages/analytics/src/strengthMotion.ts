@@ -280,3 +280,16 @@ export function tempoFactor(tempoS: number | null, referenceTempos: readonly num
   if (reference <= 0) return 1;
   return Math.min(C.factorMax, Math.max(C.factorMin, tempoS / reference));
 }
+
+export function wristMovementG(seconds: readonly MotionSecond[], from: number, to: number): number | null {
+  const s = seriesBetween(seconds, from - C.gravityWindowS, to + C.gravityWindowS);
+  if (s === null) return null;
+  let sum = 0;
+  let n = 0;
+  s.time.forEach((t, i) => {
+    if (t < from || t > to) return;
+    sum += (s.dx[i] ?? 0) ** 2 + (s.dy[i] ?? 0) ** 2 + (s.dz[i] ?? 0) ** 2;
+    n += 1;
+  });
+  return n === 0 ? null : Math.sqrt(sum / n);
+}

@@ -167,9 +167,10 @@ export interface EcgSummary {
   rateHz: number | null;
   wrist: Wrist | null;
   symptoms: EcgSymptom[];
+  movementG: number | null;
 }
 
-const ECG_COLUMNS = 'id, device_id, t, duration_ms, sample_count, rate_hz, wrist, symptoms';
+const ECG_COLUMNS = 'id, device_id, t, duration_ms, sample_count, rate_hz, wrist, symptoms, movement_g';
 
 function packSamples(samples: readonly number[]): Uint8Array {
   const out = new Uint8Array(samples.length * 2);
@@ -186,7 +187,7 @@ export function unpackSamples(data: Uint8Array): number[] {
 }
 
 function toSummary(row: Record<string, SqlValue>): EcgSummary {
-  const { id, device_id: deviceId, t, duration_ms: durationMs, sample_count: sampleCount, rate_hz: rateHz, wrist, symptoms } = row;
+  const { id, device_id: deviceId, t, duration_ms: durationMs, sample_count: sampleCount, rate_hz: rateHz, wrist, symptoms, movement_g: movement } = row;
   if (typeof id !== 'number' || typeof deviceId !== 'number' || typeof t !== 'number' || typeof durationMs !== 'number' || typeof sampleCount !== 'number') {
     throw new Error('Invalid ECG recording row in database');
   }
@@ -199,6 +200,7 @@ function toSummary(row: Record<string, SqlValue>): EcgSummary {
     rateHz: typeof rateHz === 'number' ? rateHz : null,
     wrist: wrist === 'left' || wrist === 'right' ? wrist : null,
     symptoms: typeof symptoms === 'string' ? parseEcgSymptoms(symptoms) : [],
+    movementG: typeof movement === 'number' ? movement : null,
   };
 }
 

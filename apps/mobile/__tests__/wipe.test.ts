@@ -8,7 +8,7 @@ describe('delete all data', () => {
   it('clears cuff readings, ECG tags and the health settings from the app data', () => {
     const before = fixtureAppData('en', {
       cuffReadings: [{ id: 1, t: 1_795_700_000, systolic: 118, diastolic: 76, pulse: 61, createdAt: 1 }],
-      ecgRecordings: [{ id: 4, deviceId: 1, t: 1_795_700_000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left', symptoms: ['dizzy'] }],
+      ecgRecordings: [{ id: 4, deviceId: 1, t: 1_795_700_000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left', symptoms: ['dizzy'], movementG: null }],
       userData: { ...defaultUserData(), cuffLog: true, weightGoalKg: 70, pregnancyPrefs: { hideLoadTargets: true, pauseWeightGoals: true } },
       cycle: { periods: [], symptoms: [], pregnancy: { dueDay: '2027-03-01', createdAt: 1 } },
     });

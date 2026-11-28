@@ -15,6 +15,7 @@ export * from './alarm';
 export * from './ecg';
 export * from './signals';
 export * from './rawStreams';
+export * from './strengthMotion';
 export * from './ecgSymptoms';
 export * from './ongoingNight';
 export * from './pipeline';

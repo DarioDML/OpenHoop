@@ -36,7 +36,7 @@ const cases: ReadonlyArray<[string, HubInput]> = [
       labResults: [{ id: 1, biomarker: 'glucose', value: 5, unit: 'mmol/L', day: '2026-11-01', refLow: 3.9, refHigh: 5.6, note: null, createdAt: 0 }],
       bodyMeasurements: [{ id: 1, day: '2026-11-20', weightKg: 78, bodyFatPct: null, createdAt: 0, source: 'manual', origin: null }],
       cycle: { periods: [{ id: 1, startDay: '2026-11-10', endDay: '2026-11-14', flow: 2, createdAt: 0 }], symptoms: [], pregnancy: null },
-      ecgRecordings: [{ id: 1, deviceId: 1, t: Math.floor(FIXTURE_NOW.getTime() / 1000) - 3600, durationMs: 30_000, sampleCount: 3900, rateHz: 130, wrist: 'left', symptoms: [] }],
+      ecgRecordings: [{ id: 1, deviceId: 1, t: Math.floor(FIXTURE_NOW.getTime() / 1000) - 3600, durationMs: 30_000, sampleCount: 3900, rateHz: 130, wrist: 'left', symptoms: [], movementG: null }],
     }),
   ],
 ];
