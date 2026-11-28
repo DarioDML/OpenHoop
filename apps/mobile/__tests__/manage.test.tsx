@@ -238,6 +238,8 @@ describe('Connect a provider', () => {
   it('lists the partner providers honestly and explains that plug-ins are not built', async () => {
     await render(withAppData(<ConnectProviderScreen />));
     expect(within(screen.getByTestId('provider-hero')).getByText('These need a partner')).toBeTruthy();
+    const order = JSON.stringify(screen.toJSON()).match(/"testID":"provider-(teams|partner-note|add-plugin)"/g) ?? [];
+    expect(order).toEqual(['"testID":"provider-teams"', '"testID":"provider-partner-note"', '"testID":"provider-add-plugin"']);
     expect(screen.getAllByText('No provider yet')).toHaveLength(3);
     await fireEvent.press(screen.getByTestId('provider-add-plugin'));
     expect(screen.getByTestId('provider-plugin-not-built')).toBeTruthy();
