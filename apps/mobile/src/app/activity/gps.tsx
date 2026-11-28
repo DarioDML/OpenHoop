@@ -4,6 +4,8 @@ import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatElapsed, parseActivityType } from '@/data/activityDerived';
+import { aimAt } from '@/data/loadDerived';
+import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { useAppData } from '@/data/context';
 import {
   gpsSignal,
@@ -22,7 +24,7 @@ import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 import { distanceIn, distanceUnit, formatDistance, formatPace, formatShortDistance, formatSpeed, unitLengthM, useUnits, type Measure } from '@/lib/units';
-import { LiveControls, LiveStatus, ZoneStrip } from '@/ui/activity/LiveParts';
+import { BuzzChip, LiveControls, LiveStatus, ZoneStrip } from '@/ui/activity/LiveParts';
 import { RouteMap } from '@/ui/activity/RouteMap';
 import { nowSeconds, useLiveRecording } from '@/ui/activity/useLiveRecording';
 import { useRouteRecorder, type GpsState } from '@/ui/activity/useRouteRecorder';
@@ -55,7 +57,7 @@ const ZONE_KEYS = ['zone.1', 'zone.2', 'zone.3', 'zone.4', 'zone.5'] as const;
 const SPLITS_SHOWN = 3;
 
 export default function GpsActivityScreen() {
-  const { notice, userData } = useAppData();
+  const { notice, userData, days } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -67,7 +69,7 @@ export default function GpsActivityScreen() {
   const recording = useLiveRecording(type, { adoptLive: params.live === '1' });
   const gps = useRouteRecorder(type);
   const [starting, setStarting] = useState(false);
-  const { session, save, running, hud, heartRate } = recording;
+  const { session, save, running, hud, heartRate, now } = recording;
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
 
   const { points, progress } = gps;
@@ -261,6 +263,7 @@ export default function GpsActivityScreen() {
               </View>
 
               <ZoneStrip zone={heartRate === null ? null : zone} testID="gps-zones" />
+              <BuzzChip prefs={userData.loadBuzz} aim={aimAt(days, days.length - 1)} todayKey={unixToIsoDate(now, deviceTzOffsetS(new Date(now * 1000)))} testID="gps-buzz" />
 
               {lastSplits.length > 0 ? (
                 <View style={{ gap: spacing.sm }} testID="gps-splits">

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { router } from 'expo-router';
 
 import { createFixtureDevice } from '@/data/fixtureSource';
+import { defaultUserData } from '@/data/userData';
 import { gpsByDefault } from '@/data/route';
 import { bandLink } from '@/ui/activity/bandLink';
 
@@ -59,14 +60,41 @@ describe('start activity screen', () => {
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: { type: 'running', start: '1', live: '1' } });
   });
 
-  it('records without a route when GPS is switched off, and offers no buzz switch of its own', async () => {
+  it('records without a route when GPS is switched off', async () => {
     mockParams = { type: 'running' };
     await render(withAppData(<StartActivityScreen />));
-    expect(screen.queryByTestId('start-buzz')).toBeNull();
     await fireEvent(screen.getByTestId('start-gps'), 'valueChange', false);
     expect(screen.queryByTestId('start-gps-note')).toBeNull();
     await fireEvent.press(screen.getByTestId('start-begin'));
     expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'running', start: '1', live: '1' } });
+  });
+
+  it('shows the saved Load buzz setting and toggles it, without buzzing the band itself', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const buzz = jest.fn(async () => true);
+    const bandActions = { ...fixtureBandActions(), buzz };
+    await render(withAppData(<StartActivityScreen />, 'en', { updateUserData, bandActions }));
+    expect(screen.getByTestId('start-buzz').props.value).toBe(false);
+    expect(screen.getByText(/^Vibrate at \d/)).toBeTruthy();
+    expect(screen.queryByTestId('start-buzz-note')).toBeNull();
+    await fireEvent(screen.getByTestId('start-buzz'), 'valueChange', true);
+    expect(updateUserData).toHaveBeenCalledWith({ loadBuzz: expect.objectContaining({ atTarget: true }) });
+    await fireEvent.press(screen.getByTestId('start-begin'));
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: expect.not.objectContaining({ buzz: expect.anything() }) });
+    expect(buzz).not.toHaveBeenCalled();
+  });
+
+  it('reflects a buzz that is already on, with the once-a-day note', async () => {
+    const userData = { ...defaultUserData(), onboardingDone: true, loadBuzz: { atTarget: true, overTop: false, lastTarget: null, lastTop: null } };
+    await render(withAppData(<StartActivityScreen />, 'en', { userData }));
+    expect(screen.getByTestId('start-buzz').props.value).toBe(true);
+    expect(screen.getByTestId('start-buzz-note')).toHaveTextContent(/once a day/);
+  });
+
+  it('has no buzz to switch without any days', async () => {
+    await render(withAppData(<StartActivityScreen />, 'en', { days: [] }));
+    expect(screen.getByTestId('start-buzz').props.disabled).toBe(true);
+    expect(screen.getByText(/No target yet/)).toBeTruthy();
   });
 
   it('changes the activity with the Change link and its type picker', async () => {

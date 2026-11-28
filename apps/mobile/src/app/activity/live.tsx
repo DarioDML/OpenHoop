@@ -6,9 +6,11 @@ import { formatElapsed, loadTargetBand, parseActivityType } from '@/data/activit
 import { useAppData } from '@/data/context';
 import { rangeStatus } from '@/data/derived';
 import { caloriesForActivity } from '@/data/energyDerived';
+import { aimAt } from '@/data/loadDerived';
 import { useT } from '@/i18n/useT';
+import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { formatNumber } from '@/lib/format';
-import { LiveControls, LiveStatus, ZoneStrip } from '@/ui/activity/LiveParts';
+import { BuzzChip, LiveControls, LiveStatus, ZoneStrip } from '@/ui/activity/LiveParts';
 import { ProgressBar } from '@/ui/activity/parts';
 import { nowSeconds, useLiveRecording } from '@/ui/activity/useLiveRecording';
 import { AppText } from '@/ui/AppText';
@@ -170,6 +172,7 @@ export default function LiveActivityScreen() {
             </AppText>
           </>
         )}
+        <BuzzChip prefs={userData.loadBuzz} aim={aimAt(days, days.length - 1)} todayKey={unixToIsoDate(now, deviceTzOffsetS(new Date(now * 1000)))} testID="live-buzz" />
         <ParityBadge level={PARITY.load} />
       </Card>
 

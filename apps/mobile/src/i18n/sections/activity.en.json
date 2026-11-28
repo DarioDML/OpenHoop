@@ -395,5 +395,12 @@
   "activity.edit.deleteHint": "Delete works right away, no need to save first. You can undo for {seconds} seconds.",
   "activity.edit.sliderNeedsTimes": "Fill in a valid start and end below to use the time slider.",
   "activity.edit.dragStart": "Start time, drag to change",
-  "activity.edit.dragEnd": "End time, drag to change"
+  "activity.edit.dragEnd": "End time, drag to change",
+  "activity.start.buzz.title": "Load target buzz",
+  "activity.start.buzz.body": "Vibrate at {value}",
+  "activity.start.buzz.noTarget": "No target yet: your usual range needs a few days of Load first.",
+  "activity.start.buzz.when": "The band buzzes once a day when today's Load reaches the target. It checks during this activity and after every sync, so it can also come later. This is the same switch as on the Load target page.",
+  "activity.live.buzz.noTarget": "Buzz on, but there is no target yet",
+  "activity.live.buzz.armed": "Buzz at {value}",
+  "activity.live.buzz.done": "Buzzed at {value} today"
 }

@@ -10,7 +10,7 @@ import { defaultUserData } from '@/data/userData';
 import { setNetworkPrefs } from '@/net';
 import { defaultNetworkPrefs, type NetworkPrefs } from '@/net/features';
 
-import { FIXTURE_NOW, withAppData } from './support/appData';
+import { FIXTURE_NOW, fixtureBandActions, withAppData } from './support/appData';
 
 type Permission = { granted: boolean; status: string; android?: { accuracy: 'fine' | 'coarse' | 'none' } };
 
@@ -188,6 +188,19 @@ describe('live GPS activity', () => {
     expect(screen.getByTestId('gps-pace')).toHaveTextContent(/\d:\d\d\s*\/mi/);
     expect(screen.getByTestId('gps-splits')).toHaveTextContent(/mi 1/);
     expect(screen.queryByText(/mi 2/)).toBeNull();
+  });
+
+  it('shows the saved buzz state and never buzzes the band itself', async () => {
+    const nowMs = FIXTURE_NOW.getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => nowMs);
+    mockParams = { type: 'running', start: '1' };
+    const buzz = jest.fn(async () => true);
+    const userData = { ...defaultUserData(), onboardingDone: true, loadBuzz: { atTarget: true, overTop: false, lastTarget: null, lastTop: null } };
+    await render(withAppData(<GpsActivityScreen />, 'en', { userData, bandActions: { ...fixtureBandActions(), buzz } }));
+    await waitFor(() => expect(screen.getByTestId('gps-pause')).toBeTruthy());
+    for (let i = 0; i < 5; i++) await act(async () => mockOnLocation?.(location(nowMs + i * 2000, i * 10)));
+    expect(screen.getByTestId('gps-buzz')).toHaveTextContent(/^Buzz at \d/);
+    expect(buzz).not.toHaveBeenCalled();
   });
 
   it('lists the newest kilometre splits first', async () => {

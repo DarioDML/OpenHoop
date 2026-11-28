@@ -1,8 +1,11 @@
 import { View } from 'react-native';
 
+import type { LoadBuzzPrefs } from '@/data/loadBuzz';
 import type { LivePhase } from '@/data/liveSession';
+import type { AimRange } from '@/data/readinessDerived';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
+import { formatNumber } from '@/lib/format';
 
 import { AppText } from '../AppText';
 import { Chip, type ChipTone } from '../Chip';
@@ -50,6 +53,28 @@ export function LiveStatus({ phase, testID }: { phase: LivePhase; testID?: strin
   const { t } = useT();
   const { key, tone } = STATUS[phase];
   return <Chip tone={tone} label={phase === 'running' ? `● ${t(key)}` : t(key)} testID={testID} />;
+}
+
+export type BuzzView = 'off' | 'noTarget' | 'armed' | 'done';
+
+export function buzzView(prefs: LoadBuzzPrefs, aim: AimRange | null, todayKey: string): BuzzView {
+  if (!prefs.atTarget) return 'off';
+  if (aim === null) return 'noTarget';
+  return prefs.lastTarget === todayKey ? 'done' : 'armed';
+}
+
+const BUZZ: Record<Exclude<BuzzView, 'off'>, { key: TranslationKey; tone: ChipTone }> = {
+  noTarget: { key: 'activity.live.buzz.noTarget', tone: 'neutral' },
+  armed: { key: 'activity.live.buzz.armed', tone: 'info' },
+  done: { key: 'activity.live.buzz.done', tone: 'positive' },
+};
+
+export function BuzzChip({ prefs, aim, todayKey, testID }: { prefs: LoadBuzzPrefs; aim: AimRange | null; todayKey: string; testID?: string }) {
+  const { t, language } = useT();
+  const view = buzzView(prefs, aim, todayKey);
+  if (view === 'off') return null;
+  const { key, tone } = BUZZ[view];
+  return <Chip tone={tone} label={t(key, { value: aim === null ? '' : formatNumber(aim.low, 1, language) })} testID={testID} />;
 }
 
 interface FooterProps {

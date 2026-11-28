@@ -19,6 +19,7 @@ import { ToggleRow } from '@/ui/manage/rows';
 import { Screen } from '@/ui/Screen';
 import { spacing, useTheme } from '@/ui/theme';
 import { TopBar } from '@/ui/TopBar';
+import { useLoadBuzz, useLoadToday, type LoadToday } from '@/ui/load/useLoadToday';
 
 const LINK_LABEL: Record<Exclude<BandLink['kind'], 'live'>, TranslationKey> = {
   connected: 'activity.start.band.connected',
@@ -31,7 +32,8 @@ const LINK_LABEL: Record<Exclude<BandLink['kind'], 'live'>, TranslationKey> = {
 export default function StartActivityScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const { device, bandActions, startLive, stopLive, notice } = useAppData();
+  const { device, bandActions, startLive, stopLive, notice, userData } = useAppData();
+  const today = useLoadToday();
   const live = useLive();
   const params = useLocalSearchParams<{ type?: string }>();
   const [type, setType] = useState<ActivityType>(() => parseActivityType(params.type));
@@ -159,7 +161,17 @@ export default function StartActivityScreen() {
           disabled={!paired || broadcastBusy || device.connection === 'syncing'}
           testID="start-broadcast"
         />
+        {today === null ? (
+          <ToggleRow title={t('activity.start.buzz.title')} subtitle={t('activity.start.buzz.noTarget')} value={false} onChange={() => undefined} disabled testID="start-buzz" />
+        ) : (
+          <StartBuzzRow today={today} />
+        )}
       </ListGroup>
+      {userData.loadBuzz.atTarget ? (
+        <AppText variant="caption" muted testID="start-buzz-note">
+          {t('activity.start.buzz.when')}
+        </AppText>
+      ) : null}
       {gps ? (
         <AppText variant="caption" muted testID="start-gps-note">
           {t('route.live.permissionBody')}
@@ -203,4 +215,13 @@ export default function StartActivityScreen() {
       </Card>
     </Screen>
   );
+}
+
+function StartBuzzRow({ today }: { today: LoadToday }) {
+  const { t, language } = useT();
+  const buzz = useLoadBuzz(today);
+  const aim = today.aim;
+  const base = aim === null ? t('activity.start.buzz.noTarget') : t('activity.start.buzz.body', { value: formatNumber(aim.low, 1, language) });
+  const subtitle = buzz.prefs.atTarget && buzz.doneToday.target ? t('loadBuzz.doneToday', { text: base }) : base;
+  return <ToggleRow title={t('activity.start.buzz.title')} subtitle={subtitle} value={buzz.prefs.atTarget} onChange={(on) => buzz.set('target', on)} testID="start-buzz" />;
 }
