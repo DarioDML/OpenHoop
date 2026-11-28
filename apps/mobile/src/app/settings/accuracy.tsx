@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Share, View } from 'react-native';
 
-import { MIN_PAIRS, compareWithOfficial, summarise, type AccuracyMetric, type MetricComparison } from '@/data/accuracy';
+import { MIN_PAIRS, STAGES_KAPPA_TARGET, compareWithOfficial, summarise, type AccuracyMetric, type MetricComparison } from '@/data/accuracy';
 import { useAppData } from '@/data/context';
 import type { Language, Units } from '@/data/types';
 import type { TranslationKey } from '@/i18n';
@@ -92,7 +92,8 @@ function errorText(t: TFunction, language: Language, metric: AccuracyMetric, val
 
 function targetText(language: Language, metric: AccuracyMetric, target: number, units: Units): string {
   const shown = inUnits(metric, target, units);
-  return formatNumber(shown, metric === 'load' ? 1 : Number.isInteger(shown) ? 0 : 1, language);
+  const decimals = metric === 'load' ? 1 : metric === 'skinTemp' ? 2 : Number.isInteger(shown) ? 0 : 1;
+  return formatNumber(shown, decimals, language);
 }
 
 interface ResultRowProps {
@@ -145,9 +146,9 @@ export default function AccuracyScreen() {
     [days, vendorData, useImport],
   );
   const summary = summarise(comparisons);
-  const measured = new Set<string>(comparisons.filter((comparison) => comparison.meanAbsError !== null).map((comparison) => comparison.metric));
+  const measured = new Set<string>([...comparisons.filter((comparison) => comparison.meanAbsError !== null).map((comparison) => comparison.metric), 'stages']);
   const stagesKappa = formatNumber(STAGE_VALIDATION.kappa, 2, language);
-  const stagesPass = STAGE_VALIDATION.kappa >= 0.4;
+  const stagesPass = STAGE_VALIDATION.kappa >= STAGES_KAPPA_TARGET;
   const title =
     summary.withTarget > 0
       ? t('aboutx.accuracy.summary', { passing: summary.passing, total: summary.withTarget })
@@ -210,7 +211,7 @@ export default function AccuracyScreen() {
           subtitle={t('aboutx.accuracy.vsLab', { people: STAGE_VALIDATION.subjects })}
           value={`${t('aboutx.accuracy.kappa')} ${stagesKappa}`}
           pass={stagesPass}
-          target={formatNumber(0.4, 1, language)}
+          target={formatNumber(STAGES_KAPPA_TARGET, 1, language)}
         />
       </ListGroup>
       <AppText variant="label" muted>

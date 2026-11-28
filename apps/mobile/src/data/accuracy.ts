@@ -14,6 +14,8 @@ export const ACCURACY_TARGETS: Readonly<Partial<Record<AccuracyMetric, number>>>
 
 export const MIN_PAIRS = 3;
 
+export const STAGES_KAPPA_TARGET = 0.4;
+
 export interface MetricComparison {
   metric: AccuracyMetric;
   pairs: number;

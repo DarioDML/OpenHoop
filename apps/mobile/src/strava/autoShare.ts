@@ -24,13 +24,16 @@ export function defaultAutoSharePrefs(): AutoSharePrefs {
   return { mode: 'manual', types: [...DEFAULT_AUTO_SHARE_TYPES], since: null };
 }
 
+function isAutoShareMode(value: Json | undefined): value is AutoShareMode {
+  return AUTO_SHARE_MODES.some((mode) => mode === value);
+}
+
 export function parseAutoSharePrefs(value: Json | undefined): AutoSharePrefs {
   const base = defaultAutoSharePrefs();
   if (!isRecord(value)) return base;
-  const mode = typeof value.mode === 'string' && (AUTO_SHARE_MODES as readonly string[]).includes(value.mode) ? (value.mode as AutoShareMode) : base.mode;
-  const types = Array.isArray(value.types)
-    ? ACTIVITY_TYPES.filter((type) => (value.types as Json[]).includes(type))
-    : base.types;
+  const mode = isAutoShareMode(value.mode) ? value.mode : base.mode;
+  const listed = value.types;
+  const types = Array.isArray(listed) ? ACTIVITY_TYPES.filter((type) => listed.includes(type)) : base.types;
   const since = typeof value.since === 'number' && Number.isSafeInteger(value.since) && value.since > 0 ? value.since : null;
   return { mode, types, since: mode === 'manual' ? null : since };
 }

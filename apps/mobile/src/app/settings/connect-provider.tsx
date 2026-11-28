@@ -57,8 +57,7 @@ export default function ConnectProviderScreen() {
         {t('appSettings.provider.consent')}
       </AppText>
 
-      <Card style={{ gap: 6 }}>
-        <AppText variant="bodyStrong">{t('appSettings.provider.partnerTitle')}</AppText>
+      <Card>
         <AppText variant="label" muted>
           {t('appSettings.provider.partnerBody')}
         </AppText>

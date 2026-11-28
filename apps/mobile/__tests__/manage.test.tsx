@@ -335,6 +335,7 @@ describe('Battery pack', () => {
     await render(withAppData(<BatteryPackScreen />));
     expect(await screen.findByText('No charging was recorded in the last 30 days.')).toBeTruthy();
     expect(within(screen.getByTestId('pack-charge-tile')).getByText('No report yet')).toBeTruthy();
+    expect(screen.getByTestId('pack-hero-missing')).toHaveTextContent('No report yet');
     expect(screen.getByTestId('pack-hero-status')).toHaveTextContent('Charging state not reported');
   });
 
@@ -505,8 +506,30 @@ describe('About, accuracy and support', () => {
     expect(screen.getByTestId('accuracy-summary')).toHaveTextContent('1 of 1 metrics within target');
     expect(screen.getByTestId('accuracy-result-readiness-value')).toHaveTextContent('±2.0 pts');
     expect(screen.getByTestId('accuracy-result-readiness-target')).toHaveTextContent('✓ target 5');
+    expect(within(screen.getByTestId('accuracy-stages')).getByText('Measured')).toBeTruthy();
     expect(within(screen.getByTestId('accuracy-result-hrv')).getByText('Not measured yet')).toBeTruthy();
     expect(within(screen.getByTestId('accuracy-readiness')).getByText('Measured')).toBeTruthy();
+  });
+
+  it('shows the skin temperature target in Fahrenheit with two decimals', async () => {
+    const base = fixtureAppData();
+    const days = base.days.filter((day) => day.skinTempC.value !== null);
+    const cycles = days.slice(0, 4).map((day) => ({
+      startT: day.start,
+      endT: day.end,
+      tzOffsetS: day.tzOffsetS,
+      day: day.day,
+      recoveryPct: null,
+      restingHr: null,
+      hrvMs: null,
+      skinTempC: (day.skinTempC.value ?? 0) + 0.1,
+      spo2Pct: null,
+      respiratoryRate: null,
+      dayStrain: null,
+    }));
+    await render(withAppData(<AccuracyScreen />, 'en', { vendorData: { cycles, sleeps: [], workouts: [], journal: [] }, settings: { ...base.settings, units: 'imperial' } }));
+    expect(screen.getByTestId('accuracy-result-skinTemp-target')).toHaveTextContent('✓ target 0.36');
+    expect(screen.getByTestId('accuracy-result-skinTemp-value')).toHaveTextContent('±0.18 °F');
   });
 
   it('says nothing is measured on your data before an import', async () => {

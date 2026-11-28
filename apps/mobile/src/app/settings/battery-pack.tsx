@@ -60,8 +60,8 @@ export default function BatteryPackScreen() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }} testID="pack-hero">
         <Ring fraction={soc === null ? null : soc / 100} color={colors.positive} size={128} strokeWidth={10}>
           {soc === null ? (
-            <AppText variant="title" muted>
-              –
+            <AppText variant="caption" muted style={{ textAlign: 'center', maxWidth: 96 }} testID="pack-hero-missing">
+              {t('device.pack.chargeMissing')}
             </AppText>
           ) : (
             <Num size={44} unit="%" unitSize={18} unitColor={colors.textMuted} testID="pack-hero-value">

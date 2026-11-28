@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Linking, View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 
 import type { ParityLevel } from '@/data/types';
 import { useT } from '@/i18n/useT';
@@ -33,7 +33,7 @@ export default function AboutScreen() {
   const { t } = useT();
   const { colors } = useTheme();
   const version = Constants.expoConfig?.version ?? '0';
-  const build = Constants.expoConfig?.android?.versionCode ?? Constants.expoConfig?.ios?.buildNumber ?? null;
+  const build = (Platform.OS === 'ios' ? Constants.expoConfig?.ios?.buildNumber : Constants.expoConfig?.android?.versionCode) ?? null;
 
   const header = (
     <>
