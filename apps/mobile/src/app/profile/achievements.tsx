@@ -85,10 +85,18 @@ export default function AchievementsScreen() {
                       {name}
                     </AppText>
                   </View>
-                  {a.unlocked ? null : <Chip small tone="neutral" label={t('profile.ach.lockedChip')} />}
-                  <AppText variant="caption" muted numeric testID={`ach-${a.id}-progress`}>
-                    {progress}
-                  </AppText>
+                  <View style={{ marginTop: 'auto', alignItems: 'center', gap: spacing.sm }}>
+                    <View
+                      testID={`ach-${a.id}-pill`}
+                      accessibilityElementsHidden={a.unlocked}
+                      importantForAccessibility={a.unlocked ? 'no-hide-descendants' : 'auto'}
+                      style={{ opacity: a.unlocked ? 0 : 1 }}>
+                      <Chip small tone="neutral" label={t('profile.ach.lockedChip')} />
+                    </View>
+                    <AppText variant="caption" muted numeric testID={`ach-${a.id}-progress`}>
+                      {progress}
+                    </AppText>
+                  </View>
                 </Pressable>
               );
             })}

@@ -14,6 +14,7 @@ import { Chip, Pill } from '@/ui/Chip';
 import { Segmented } from '@/ui/controls';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
 import { HealthConnectPanel } from '@/ui/manage/HealthConnectPanel';
+import { RowStatus } from '@/ui/manage/rows';
 import { SettingsPage } from '@/ui/manage/SettingsPage';
 import { tile } from '@/ui/manage/tiles';
 import { stravaStatus } from '@/ui/strava/status';
@@ -68,7 +69,7 @@ export default function IntegrationsScreen() {
             icon={tile(colors, 'heart', 'pink')}
             title={t('appSettings.integrations.appleHealth')}
             subtitle={t('appSettings.integrations.appleHealthBody')}
-            right={notBuilt('apple-health-status')}
+            right={<RowStatus placement="right">{notBuilt('apple-health-status')}</RowStatus>}
             chevron={false}
             testID="apple-health-row"
           />
@@ -77,7 +78,7 @@ export default function IntegrationsScreen() {
             icon={tile(colors, 'heart', 'positive')}
             title={t('appSettings.integrations.healthConnect')}
             subtitle={t('appSettings.integrations.healthConnectBody')}
-            right={hcStatus}
+            right={<RowStatus placement="right" testID="hc-status-slot">{hcStatus}</RowStatus>}
             chevron={false}
             testID="hc-row"
           />
@@ -86,7 +87,7 @@ export default function IntegrationsScreen() {
           icon={tile(colors, 'load', 'warning')}
           title={t('appSettings.integrations.strava')}
           subtitle={autoShareRow}
-          chip={stravaChip}
+          chip={<RowStatus placement="chip" testID="strava-status-slot">{stravaChip}</RowStatus>}
           href="/settings/strava"
           testID="strava-row"
         />
@@ -94,7 +95,7 @@ export default function IntegrationsScreen() {
           icon={tile(colors, 'report', 'plain')}
           title={t('appSettings.integrations.scale')}
           subtitle={ios ? t('appSettings.integrations.scaleIos') : t('appSettings.integrations.scaleBody')}
-          right={ios ? notBuilt('scale-status') : onOff(scaleOn, 'scale-status')}
+          right={<RowStatus placement="right" testID="scale-status-slot">{ios ? notBuilt('scale-status') : onOff(scaleOn, 'scale-status')}</RowStatus>}
           chevron={false}
           testID="scale-row"
         />
@@ -148,7 +149,7 @@ export default function IntegrationsScreen() {
             icon={tile(colors, 'export', 'plain')}
             title={t('appSettings.integrations.appleExport')}
             subtitle={t('appSettings.integrations.appleExportBody')}
-            right={notBuilt('apple-export-status')}
+            right={<RowStatus placement="right">{notBuilt('apple-export-status')}</RowStatus>}
             chevron={false}
             testID="apple-export-row"
           />

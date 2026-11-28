@@ -176,7 +176,7 @@ describe('import screen', () => {
     await render(withAppData(<ImportExportScreen />, 'en', { importVendorFiles, updateUserData, userData, settings }));
     await fireEvent.press(screen.getByTestId('import-choose'));
     expect(await screen.findByText('Only days from 2024-01-16 on are imported.')).toBeTruthy();
-    expect(screen.getByTestId('import-run')).toHaveTextContent('Import 1 days');
+    expect(screen.getByTestId('import-run')).toHaveTextContent('Import 1 day');
     await fireEvent(screen.getByTestId('use-accuracy'), 'valueChange', false);
     expect(updateUserData).toHaveBeenCalledWith({ vendorUse: { accuracy: false, history: false } });
     await fireEvent.press(screen.getByTestId('import-run'));

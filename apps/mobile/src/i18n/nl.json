@@ -222,7 +222,6 @@
   "error.shareUnavailable": "Delen is op dit toestel niet beschikbaar.",
   "danger.note": "In deze versie van OpenHoop is er geen enkel pad dat een schrijf-, gevaarlijk of verboden commando naar de band stuurt. De bevestiging doet dus niets.",
   "pairing.lockedDone": "Gekoppeld, maar de band geeft zijn geschiedenis niet vrij.",
-  "settings.sourceUntested": "De echte band is nog niet getest: de bands zijn er nog niet. Kies de demoband om de app te gebruiken.",
   "settings.exportWarning": "De database-kopie in de zip is niet versleuteld. Bewaar de zip zorgvuldig. De sleutel van de database zit er nooit in.",
   "selftest.run": "Zelftest starten",
   "selftest.runAgain": "Opnieuw uitvoeren",
@@ -277,5 +276,6 @@
   "readiness.medium": "Gemiddeld",
   "readiness.low": "Laag",
   "error.healthConnect": "Health Connect kon niet geopend worden.",
-  "error.healthConnectSync": "De sync met Health Connect is niet afgerond. Er ging niets verloren op deze telefoon; probeer het opnieuw."
+  "error.healthConnectSync": "De sync met Health Connect is niet afgerond. Er ging niets verloren op deze telefoon; probeer het opnieuw.",
+  "settings.sourceBand": "De echte band is de band die je draagt, gelezen via Bluetooth. De gegevens blijven op deze telefoon, tenzij je een netwerkfunctie aanzet."
 }

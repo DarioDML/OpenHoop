@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { LOAD_DAY_MIN, mergeSteps } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { defaultPlan, planAdvice, planWeek, type GoalProgress, type GoalState, type WeeklyPlan } from '@/data/weeklyPlan';
-import type { TranslationKey } from '@/i18n';
+import { countKey, type TranslationKey } from '@/i18n';
 import type { TFunction } from '@/i18n/useT';
 import { useT } from '@/i18n/useT';
 import { deviceTzOffsetS } from '@/lib/dates';
@@ -18,7 +18,7 @@ import { Button } from '@/ui/controls';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { Num } from '@/ui/Num';
 import { GoalDots } from '@/ui/plan/GoalDots';
-import { formatDayRange } from '@/ui/plan/goals';
+import { formatDayRange, weekProgressText } from '@/ui/plan/goals';
 import { Screen } from '@/ui/Screen';
 import { StateCard } from '@/ui/StateCard';
 import { spacing, useTheme, type ColorTokens } from '@/ui/theme';
@@ -107,7 +107,7 @@ export default function PlanScreen() {
               </>
             ) : null}
             <AppText variant="label" soft testID="plan-days">
-              {t('plan.week', { elapsed: week.elapsed, remaining: week.remaining })}
+              {weekProgressText(t, week.elapsed, week.remaining)}
             </AppText>
           </View>
         </>
@@ -135,7 +135,7 @@ export default function PlanScreen() {
               icon="info"
               tone="info"
               title={t('plan.notice.sleepTitle')}
-              body={t('plan.notice.sleepBody', { min: plan.sleepScoreMin, count: plan.sleepNights })}
+              body={t(countKey(plan.sleepNights, 'plan.notice.sleepBodyOne', 'plan.notice.sleepBody'), { min: plan.sleepScoreMin, count: plan.sleepNights })}
               actionLabel={t('plan.notice.dismiss')}
               onAction={() => void updateUserData({ weeklyPlan: { ...plan, sleepScoreNotice: false } })}
               testID="plan-sleep-notice"

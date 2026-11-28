@@ -193,6 +193,9 @@ describe('coach history', () => {
     await controller.load();
     await render(withCoach(<CoachHistoryScreen />, controller));
     expect(screen.getByTestId('coach-history-empty')).toBeTruthy();
+    expect(screen.getByTestId('coach-history-note')).not.toHaveTextContent(/bin/);
+    await fireEvent.press(screen.getByText('Start a conversation'));
+    expect(router.push).toHaveBeenCalledWith('/coach');
   });
 });
 

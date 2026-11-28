@@ -15,6 +15,7 @@ import { HealthPage } from '@/ui/health/HealthPage';
 import { Icon } from '@/ui/Icon';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { SearchField } from '@/ui/SearchField';
+import { StateCard } from '@/ui/StateCard';
 import { useTheme } from '@/ui/theme';
 import { IconButton } from '@/ui/TopBar';
 
@@ -98,9 +99,15 @@ export default function CoachHistoryScreen() {
       }>
       {state.error === 'storage' ? <ErrorCard message={t('coach.error.storage')} /> : null}
       {state.conversations.length === 0 ? (
-        <AppText variant="body" muted testID="coach-history-empty">
-          {t('coach.history.empty')}
-        </AppText>
+        <StateCard
+          icon="coach"
+          tone="purple"
+          title={t('coach.history.empty')}
+          body={t('coach.history.emptyBody')}
+          actionLabel={t('coach.history.start')}
+          onAction={startNew}
+          testID="coach-history-empty"
+        />
       ) : shown.length === 0 ? (
         <AppText variant="body" muted testID="coach-history-no-match">
           {t('coach.history.noMatch')}
@@ -111,8 +118,8 @@ export default function CoachHistoryScreen() {
           {groups.earlier.length > 0 ? <ListGroup title={t('coach.history.earlier')}>{groups.earlier.map(row)}</ListGroup> : null}
         </>
       )}
-      <AppText variant="label" muted>
-        {`${t('coach.history.body')} ${t('coach.history.deleteHint')}`}
+      <AppText variant="label" muted testID="coach-history-note">
+        {state.conversations.length > 0 ? `${t('coach.history.body')} ${t('coach.history.deleteHint')}` : t('coach.history.body')}
       </AppText>
     </HealthPage>
   );

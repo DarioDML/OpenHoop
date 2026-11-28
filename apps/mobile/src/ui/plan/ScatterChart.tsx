@@ -35,6 +35,7 @@ interface Props {
 const PAD = 10;
 const DOT = 7;
 const AXIS = 40;
+const EMPTY_INSET = 16;
 
 export function ScatterChart({ points, xDomain, yDomain, invertY = false, shade = null, shadeLabel, xLabel, yLabel, yTicks = null, height = 200, emptyLabel, accessibilityLabel, testID }: Props): ReactElement {
   const { colors } = useTheme();
@@ -82,8 +83,8 @@ export function ScatterChart({ points, xDomain, yDomain, invertY = false, shade 
             </AppText>
           ) : null}
           {points.length === 0 ? (
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-              <AppText variant="label" muted>
+            <View style={{ position: 'absolute', top: PAD, left: PAD + EMPTY_INSET, right: PAD + EMPTY_INSET, bottom: PAD, alignItems: 'center', justifyContent: 'center' }} testID={testID === undefined ? undefined : `${testID}-empty`}>
+              <AppText variant="label" muted style={{ textAlign: 'center' }}>
                 {emptyLabel}
               </AppText>
             </View>

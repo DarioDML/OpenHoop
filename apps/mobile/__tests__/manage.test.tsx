@@ -238,6 +238,8 @@ describe('Connect a provider', () => {
   it('lists the partner providers honestly and explains that plug-ins are not built', async () => {
     await render(withAppData(<ConnectProviderScreen />));
     expect(within(screen.getByTestId('provider-hero')).getByText('These need a partner')).toBeTruthy();
+    const order = JSON.stringify(screen.toJSON()).match(/"testID":"provider-(teams|partner-note|add-plugin)"/g) ?? [];
+    expect(order).toEqual(['"testID":"provider-teams"', '"testID":"provider-partner-note"', '"testID":"provider-add-plugin"']);
     expect(screen.getAllByText('No provider yet')).toHaveLength(3);
     await fireEvent.press(screen.getByTestId('provider-add-plugin'));
     expect(screen.getByTestId('provider-plugin-not-built')).toBeTruthy();
@@ -304,7 +306,7 @@ describe('Battery pack', () => {
     const base = fixtureAppData();
     await render(withAppData(<BatteryPackScreen />, 'en', { device: { ...base.device, batteryPack: report } }));
     expect(screen.getByTestId('pack-status')).toBeTruthy();
-    expect(screen.getByText('64.7 %')).toBeTruthy();
+    expect(screen.getByTestId('pack-report-charge')).toHaveTextContent(/64\.7%$/);
     expect(screen.getByText('TESTPACK0000001')).toBeTruthy();
     expect(screen.getByText('3.30.5.0')).toBeTruthy();
     expect(screen.getByText('Experimental')).toBeTruthy();
@@ -317,14 +319,16 @@ describe('Battery pack', () => {
     const noCharge = { ...report, socPercent: null, socAt: null };
     await render(withAppData(<BatteryPackScreen />, 'en', { device: { ...base.device, batteryPack: noCharge } }));
     expect(screen.getByText('TESTPACK0000001')).toBeTruthy();
-    expect(screen.queryByText('64.7 %')).toBeNull();
+    expect(screen.queryByTestId('pack-report-charge')).toBeNull();
   });
 
   it('shows the pack charge in the ring, charges per week and honest tiles', async () => {
     const base = fixtureAppData();
     const chargeHistory = jest.fn(async () => [NOW_S - 2 * 86_400, NOW_S - 9 * 86_400]);
     await render(withAppData(<BatteryPackScreen />, 'en', { device: { ...base.device, batteryPack: report }, chargeHistory }));
-    expect(screen.getByTestId('pack-hero-value')).toHaveTextContent('65%');
+    expect(screen.getByTestId('pack-hero-value')).toHaveTextContent(/64\.7%$/);
+    expect(screen.getByTestId('pack-charge-tile-value')).toHaveTextContent(/^64\.7/);
+    expect(screen.getByTestId('pack-report-charge')).toHaveTextContent(/64\.7%$/);
     expect(within(screen.getByTestId('pack-cycles-tile')).getByText('Not reported')).toBeTruthy();
     expect(await screen.findByTestId('pack-charges-bars')).toBeTruthy();
     expect(chargeHistory).toHaveBeenCalled();
@@ -342,12 +346,21 @@ describe('Battery pack', () => {
   it('writes the charge the Dutch way', async () => {
     const base = fixtureAppData();
     await render(withAppData(<BatteryPackScreen />, 'nl', { device: { ...base.device, batteryPack: report } }));
-    expect(screen.getByText('64,7 %')).toBeTruthy();
+    expect(screen.getByTestId('pack-report-charge')).toHaveTextContent(/64,7%$/);
+    expect(screen.getByTestId('pack-hero-value')).toHaveTextContent(/64,7%$/);
     expect(screen.getByText('Experimenteel')).toBeTruthy();
   });
 });
 
 describe('App settings', () => {
+  it('labels the notification level and explains both data sources without calling the band untested', async () => {
+    await render(withAppData(<AppSettingsScreen />));
+    expect(screen.getByTestId('notification-preset-label')).toHaveTextContent('How many notifications');
+    expect(screen.getByTestId('source-hint-band')).toHaveTextContent(/Bluetooth/);
+    expect(screen.getByTestId('source-hint-demo')).toHaveTextContent(/simulation/);
+    expect(screen.queryByText(/untested|not arrived/i)).toBeNull();
+  });
+
   it('switches language', async () => {
     const updateSettings = jest.fn(async () => undefined);
     await render(withAppData(<AppSettingsScreen />, 'en', { updateSettings }));
@@ -469,6 +482,19 @@ describe('Data and privacy', () => {
 });
 
 describe('About, accuracy and support', () => {
+  it.each([
+    ['about', () => <AboutScreen />, 'about-source'],
+    ['support', () => <SupportScreen />, 'support-repo'],
+  ])('labels the source code link on %s without a bare URL and still opens the repository', async (_name, make, id) => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    await render(withAppData(make()));
+    expect(within(screen.getByTestId(id)).getByText('DarioDML/OpenHoop on GitHub')).toBeTruthy();
+    expect(within(screen.getByTestId(id)).queryByText(/https:/)).toBeNull();
+    await fireEvent.press(screen.getByTestId(id));
+    expect(open).toHaveBeenCalledWith('https://github.com/DarioDML/OpenHoop');
+    open.mockRestore();
+  });
+
   it('shows the app version from the config', async () => {
     await render(withAppData(<AboutScreen />));
     expect(screen.getByTestId('about-version')).toHaveTextContent(/^(Version 1\.2\.3|v1\.2\.3 · build \d+)$/);

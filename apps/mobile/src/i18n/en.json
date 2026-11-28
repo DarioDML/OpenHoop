@@ -222,7 +222,6 @@
   "error.shareUnavailable": "Sharing is not available on this device.",
   "danger.note": "This version of OpenHoop has no code path that sends a write, dangerous or forbidden command to the band. The confirmation therefore does nothing.",
   "pairing.lockedDone": "Paired, but the band does not release its history.",
-  "settings.sourceUntested": "The real band is untested: the bands have not arrived yet. Pick the demo band to use the app.",
   "settings.exportWarning": "The database copy inside the zip is not encrypted. Keep the zip safe. The database key is never included.",
   "selftest.run": "Start self-test",
   "selftest.runAgain": "Run again",
@@ -277,5 +276,6 @@
   "readiness.medium": "Medium",
   "readiness.low": "Low",
   "error.healthConnect": "Health Connect could not be opened.",
-  "error.healthConnectSync": "Health Connect sync did not finish. Nothing on this phone was lost; try again."
+  "error.healthConnectSync": "Health Connect sync did not finish. Nothing on this phone was lost; try again.",
+  "settings.sourceBand": "The real band is the band you wear, read over Bluetooth. Its data stays on this phone unless you turn on a network feature."
 }

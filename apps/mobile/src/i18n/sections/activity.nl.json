@@ -121,8 +121,6 @@
   "plan.report.changes": "Vergeleken met daarvoor",
   "plan.report.vsPrevious": "Tegenover de {count} dagen daarvoor",
   "plan.report.noPrevious": "Er zijn te weinig dagen vóór deze periode om te vergelijken.",
-  "plan.report.sentence": "{label}: {current}, daarvoor {previous} ({trend}).",
-  "plan.report.sentenceNoPrev": "{label}: {current}.",
   "plan.report.trend.up": "hoger",
   "plan.report.trend.down": "lager",
   "plan.report.trend.stable": "ongeveer gelijk",

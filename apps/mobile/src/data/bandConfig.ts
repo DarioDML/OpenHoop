@@ -282,6 +282,15 @@ export function changeSummary(snapshot: BandConfigSnapshot): ChangeSummary {
   return { total: known.length, unchanged: known.length - changed.length, changed };
 }
 
+export interface FlagCoverage {
+  read: number;
+  known: number;
+}
+
+export function flagCoverage(snapshot: BandConfigSnapshot): FlagCoverage {
+  return { read: describeFields('flag', snapshot.flags).known.length, known: FLAG_KEYS.length };
+}
+
 export interface ConfigSnapshotEntry {
   id: string;
   at: number;

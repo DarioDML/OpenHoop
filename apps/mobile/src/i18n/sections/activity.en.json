@@ -121,8 +121,6 @@
   "plan.report.changes": "Compared with before",
   "plan.report.vsPrevious": "Against the {count} days before",
   "plan.report.noPrevious": "There are too few days before this period to compare.",
-  "plan.report.sentence": "{label}: {current}, before {previous} ({trend}).",
-  "plan.report.sentenceNoPrev": "{label}: {current}.",
   "plan.report.trend.up": "higher",
   "plan.report.trend.down": "lower",
   "plan.report.trend.stable": "about the same",

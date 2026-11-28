@@ -2,6 +2,7 @@ import type { DayRecord } from '@openhoop/core';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
+import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import { periodStats } from '@/data/activityDerived';
@@ -21,6 +22,8 @@ import {
 } from '@/data/periodReport';
 import { defaultUserData } from '@/data/userData';
 import { defaultPlan } from '@/data/weeklyPlan';
+import { translate, type TranslationKey, type TranslationParams } from '@/i18n';
+import { changeValueText } from '@/ui/plan/reportParts';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -233,5 +236,44 @@ describe('monthly report story', () => {
     await render(withAppData(<MonthlyReportScreen />, 'en', { days: days.slice(-2) }));
     expect(screen.getByTestId('report-few')).toBeTruthy();
     expect(screen.queryByTestId('report-pages')).toBeNull();
+  });
+});
+
+describe('report comparison rows', () => {
+  const t = (key: TranslationKey, params?: TranslationParams): string => translate('en', key, params);
+
+  it('formats each value with its unit', () => {
+    expect(changeValueText(t, 'en', 'readiness', 61.4)).toBe('61%');
+    expect(changeValueText(t, 'en', 'load', 13.27)).toBe('13.3');
+    expect(changeValueText(t, 'en', 'sleep', 7 + 11 / 60)).toBe('7 h 11 min');
+    expect(changeValueText(t, 'en', 'hrv', 46.2)).toBe('46 ms');
+    expect(changeValueText(t, 'en', 'restingHr', 53)).toBe('53 bpm');
+    expect(changeValueText(t, 'nl', 'load', 13.27)).toBe('13,3');
+  });
+
+  it('shows units without repeating the row title and a readable peak date', async () => {
+    await render(withAppData(<WeeklyReportScreen />));
+    const hidden = { includeHiddenElements: true };
+    expect(screen.getByTestId('report-row-hrv-value', hidden)).toHaveTextContent(/^\d+ ms$/);
+    expect(screen.getByTestId('report-row-restingHr-value', hidden)).toHaveTextContent(/^\d+ bpm$/);
+    expect(screen.getByTestId('report-row-sleep-value', hidden)).toHaveTextContent(/^\d+ h( \d+ min)?$|^\d+ min$/);
+    expect(within(screen.getByTestId('report-row-load')).queryByText(/Load:/, hidden)).toBeNull();
+    expect(screen.queryByText(/\d{4}-\d{2}-\d{2}/)).toBeNull();
+  });
+
+  it('reads each comparison row as one sentence with value, earlier value and trend', async () => {
+    await render(withAppData(<WeeklyReportScreen />));
+    const row = screen.getByTestId('report-row-hrv');
+    expect(row.props.accessible).toBe(true);
+    expect(row.props.accessibilityLabel).toMatch(/^HRV: \d+ ms(, before \d+ ms, (higher|lower|about the same))?\.$/);
+    expect(screen.queryByTestId('report-row-hrv-value')).toBeNull();
+  });
+
+  it('keeps the empty balance note inside the plot, clear of the axis', async () => {
+    const noLoad = days.map((d) => ({ ...d, load: { ...d.load, value: null } }));
+    await render(withAppData(<WeeklyReportScreen />, 'en', { days: noLoad }));
+    const empty = screen.getByTestId('report-balance-chart-empty');
+    expect(StyleSheet.flatten(empty.props.style).left).toBeGreaterThan(10);
+    expect(within(empty).getByText('No days with both readiness and load yet.')).toBeTruthy();
   });
 });

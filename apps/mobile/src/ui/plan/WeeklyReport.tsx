@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { View } from 'react-native';
 
-import { enoughForReport, formatWeekday, loadTargetBand, mergeSteps, MIN_REPORT_DAYS, periodStats, periodWindows } from '@/data/activityDerived';
+import { enoughForReport, formatWeekday, loadTargetBand, mergeSteps, periodStats, periodWindows } from '@/data/activityDerived';
 import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { useAppData } from '@/data/context';
 import { formatHm, formatMinutes } from '@/data/dailyDerived';
@@ -22,7 +22,7 @@ import { GridTile, StatGrid } from '../StatGrid';
 import { readinessColor, spacing, useTheme } from '../theme';
 import { IconButton, TopBar } from '../TopBar';
 import { formatDayRange } from './goals';
-import { ChangeRows, LoadDaysCard } from './reportParts';
+import { ChangeRows, LoadDaysCard, tooFewText } from './reportParts';
 import { ReportShareSheet } from './ReportShareSheet';
 import { ScatterChart } from './ScatterChart';
 
@@ -99,7 +99,7 @@ export function WeeklyReport({ testID }: { testID: string }): ReactElement {
       {!enough ? (
         <Card testID="report-few">
           <AppText variant="body" muted>
-            {t('plan.report.tooFew', { count: current.length, needed: MIN_REPORT_DAYS })}
+            {tooFewText(t, current.length)}
           </AppText>
         </Card>
       ) : (
@@ -118,6 +118,7 @@ export function WeeklyReport({ testID }: { testID: string }): ReactElement {
               yLabel={t('plan.chart.readinessAxis')}
               emptyLabel={t('plan.chart.noBalance')}
               accessibilityLabel={verdict}
+              testID="report-balance-chart"
             />
             <AppText variant="caption" muted>
               {band === null ? t('plan.chart.balanceNoBand') : t('plan.chart.balanceNote')}

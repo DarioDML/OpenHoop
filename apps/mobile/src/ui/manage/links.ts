@@ -1,4 +1,5 @@
-export const REPO_URL = 'https://github.com/DarioDML/OpenHoop';
+export const REPO_SLUG = 'DarioDML/OpenHoop';
+export const REPO_URL = `https://github.com/${REPO_SLUG}`;
 
 export const SPONSORS_URL = 'https://github.com/sponsors/DarioDML';
 

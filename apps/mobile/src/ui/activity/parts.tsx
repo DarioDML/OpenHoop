@@ -9,7 +9,6 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { Num } from '@/ui/Num';
-import { useLayout } from '@/ui/layout';
 import { NotBuilt, type IssueKey } from '@/ui/NotBuilt';
 import { Screen } from '@/ui/Screen';
 import { TopBar } from '@/ui/TopBar';
@@ -141,80 +140,4 @@ export function NoDataScreen({ title, tint = 'load', notFound = false }: NoDataP
 export function useLatestDay(): DayRecord | null {
   const { days } = useAppData();
   return days[days.length - 1] ?? null;
-}
-
-interface StepperProps {
-  label: string;
-  hint: string;
-  value: number;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-  step?: number;
-  format?: (value: number) => string;
-  testID: string;
-}
-
-export function Stepper({ label, hint, value, min, max, onChange, step = 1, format, testID }: StepperProps) {
-  const { colors } = useTheme();
-  const { narrow } = useLayout();
-  const { t } = useT();
-  const button = (delta: number, name: 'minus' | 'plus') => {
-    const next = value + delta;
-    const disabled = next < min || next > max;
-    return (
-      <Pressable
-        testID={`${testID}-${name}`}
-        accessibilityRole="button"
-        accessibilityLabel={`${label} ${delta > 0 ? t('plan.setup.increase') : t('plan.setup.decrease')}`}
-        accessibilityState={{ disabled }}
-        disabled={disabled}
-        onPress={() => onChange(next)}
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          backgroundColor: colors.surfaceAlt,
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: disabled ? 0.4 : 1,
-        }}>
-        <AppText variant="title">{delta > 0 ? '+' : '−'}</AppText>
-      </Pressable>
-    );
-  };
-  const text = (
-    <View style={{ flex: narrow ? undefined : 1, gap: 2 }}>
-      <AppText variant="cardTitle">{label}</AppText>
-      <AppText variant="label" muted>
-        {hint}
-      </AppText>
-    </View>
-  );
-  const controls = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, justifyContent: narrow ? 'space-between' : undefined }}>
-      {button(-step, 'minus')}
-      <View style={{ minWidth: 36, alignItems: 'center', flexShrink: 1 }}>
-        <Num size={format ? 30 : 40} testID={`${testID}-value`} adjustsFontSizeToFit={format !== undefined}>
-          {format ? format(value) : String(value)}
-        </Num>
-      </View>
-      {button(step, 'plus')}
-    </View>
-  );
-  return (
-    <Card>
-      {narrow ? (
-        <View style={{ gap: spacing.md }}>
-          {text}
-          {controls}
-        </View>
-      ) : (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          {text}
-          {controls}
-        </View>
-      )}
-    </Card>
-  );
 }

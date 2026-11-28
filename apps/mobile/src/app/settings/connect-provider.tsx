@@ -11,6 +11,7 @@ import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { PageHero } from '@/ui/manage/PageHero';
+import { RowStatus } from '@/ui/manage/rows';
 import { tile } from '@/ui/manage/tiles';
 import { NotBuilt } from '@/ui/NotBuilt';
 import { Screen } from '@/ui/Screen';
@@ -27,7 +28,11 @@ export default function ConnectProviderScreen() {
   const { userData } = useAppData();
   const { state } = useStrava();
   const [explained, setExplained] = useState<Explained>(null);
-  const none = <Chip label={t('appSettings.provider.none')} small />;
+  const none = (
+    <RowStatus placement="chip">
+      <Chip label={t('appSettings.provider.none')} small />
+    </RowStatus>
+  );
   const status = stravaStatus(state, featureEnabled(userData.network, 'strava'));
 
   const header = (
@@ -47,27 +52,34 @@ export default function ConnectProviderScreen() {
           icon={tile(colors, 'community', 'gold')}
           title={t('appSettings.provider.teams')}
           subtitle={t('appSettings.provider.teamsBody')}
-          chip={<Chip label={t('appSettings.provider.plugin')} tone="warning" small />}
+          chip={
+            <RowStatus placement="chip">
+              <Chip label={t('appSettings.provider.plugin')} tone="warning" small />
+            </RowStatus>
+          }
           onPress={() => setExplained('teams')}
           testID="provider-teams"
         />
       </ListGroup>
-      <Button label={t('appSettings.provider.addPlugin')} icon="plus" variant="soft" onPress={() => setExplained('plugin')} testID="provider-add-plugin" />
-      <AppText variant="label" muted>
-        {t('appSettings.provider.consent')}
-      </AppText>
-
-      <Card>
+      <Card testID="provider-partner-note">
         <AppText variant="label" muted>
           {t('appSettings.provider.partnerBody')}
         </AppText>
       </Card>
+      <Button label={t('appSettings.provider.addPlugin')} icon="plus" variant="soft" onPress={() => setExplained('plugin')} testID="provider-add-plugin" />
+      <AppText variant="label" muted>
+        {t('appSettings.provider.consent')}
+      </AppText>
       <ListGroup>
         <ListRow
           icon={tile(colors, 'load', 'warning')}
           title={t('appSettings.integrations.strava')}
           subtitle={t('strava.integrationsBody')}
-          chip={<Chip small label={t(`strava.status.${status}`)} tone={status === 'connected' ? 'positive' : status === 'reconnect' ? 'warning' : 'neutral'} />}
+          chip={
+            <RowStatus placement="chip">
+              <Chip small label={t(`strava.status.${status}`)} tone={status === 'connected' ? 'positive' : status === 'reconnect' ? 'warning' : 'neutral'} />
+            </RowStatus>
+          }
           href="/settings/strava"
           testID="provider-strava"
         />
