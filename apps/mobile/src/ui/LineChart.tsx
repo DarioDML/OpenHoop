@@ -16,6 +16,7 @@ interface Props {
   color?: string;
   band?: { low: number; high: number } | null;
   domain?: { min: number; max: number } | null;
+  guide?: number | null;
   testID?: string;
 }
 
@@ -23,7 +24,7 @@ const AXIS_WIDTH = 40;
 const PAD_Y = 8;
 const PAD_X = 6;
 
-export function LineChart({ data, height = 120, formatTick, emptyLabel, startLabel, endLabel, minSpan = 1, color, band = null, domain = null, testID }: Props) {
+export function LineChart({ data, height = 120, formatTick, emptyLabel, startLabel, endLabel, minSpan = 1, color, band = null, domain = null, guide = null, testID }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const values = data.filter((v): v is number => v !== null);
@@ -85,6 +86,9 @@ export function LineChart({ data, height = 120, formatTick, emptyLabel, startLab
               ))}
               {band ? (
                 <Rect x={0} y={y(band.high)} width={width} height={Math.max(2, y(band.low) - y(band.high))} fill={lineColor} opacity={0.14} />
+              ) : null}
+              {guide !== null ? (
+                <Line testID={testID ? `${testID}-guide` : undefined} x1={0} x2={width} y1={y(guide)} y2={y(guide)} stroke={colors.textMuted} strokeWidth={1} strokeDasharray="3 4" />
               ) : null}
               {segments.map((d) => (
                 <Path key={d} d={d} stroke={lineColor} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />

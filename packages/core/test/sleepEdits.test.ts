@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sleepPeriods } from '@openhoop/analytics';
 import type { SleepPeriod } from '@openhoop/analytics';
-import { MANUAL_NAP_MAX_S, applySleepEdits, editsTouching, measuredNight, validateSleepEdit } from '../src/index';
+import { MANUAL_NAP_MAX_S, applySleepEdits, editsTouching, measuredNight, sleepEditSource, validateSleepEdit } from '../src/index';
 import type { SleepEdit } from '../src/index';
 import { awakeSamples, nightSamples } from './sampleFactory';
 
@@ -16,7 +16,7 @@ function only<T>(items: readonly T[]): T {
 }
 
 function edit(overrides: Partial<SleepEdit>): SleepEdit {
-  return { id: 1, targetOnset: null, targetOffset: null, onset: T0, offset: T0 + HOUR_S, ...overrides };
+  return { id: 1, targetOnset: null, targetOffset: null, onset: T0, offset: T0 + HOUR_S, removed: false, ...overrides };
 }
 
 const night = [...awakeSamples(1, T0 - 2 * HOUR_S, 2 * HOUR_S), ...nightSamples(1, T0, 8 * HOUR_S), ...awakeSamples(1, T0 + 8 * HOUR_S, 2 * HOUR_S)];
@@ -24,6 +24,21 @@ const detected = sleepPeriods(night);
 const main = only(detected);
 
 describe('applySleepEdits', () => {
+  it('a removed edit takes the detected night away and emits nothing, and restoring brings it back', () => {
+    const removal = edit({ id: 4, targetOnset: main.onset, targetOffset: main.offset, onset: main.onset, offset: main.offset + 1, removed: true });
+    expect(applySleepEdits(detected, [removal], night)).toEqual([]);
+    expect(only(applySleepEdits(detected, [], night))).toMatchObject({ onset: main.onset, source: 'detected' });
+    expect(sleepEditSource(removal)).toBe('removed');
+    expect(sleepEditSource({ targetOnset: null })).toBe('manual');
+    expect(sleepEditSource({ targetOnset: main.onset, removed: false })).toBe('edited');
+  });
+
+  it('a nap added inside a removed night is still kept', () => {
+    const removal = edit({ id: 4, targetOnset: main.onset, targetOffset: main.offset, onset: main.onset, offset: main.offset + 1, removed: true });
+    const nap = edit({ id: 5, onset: T0 + 2 * HOUR_S, offset: T0 + 3 * HOUR_S });
+    expect(only(applySleepEdits(detected, [removal, nap], night))).toMatchObject({ source: 'manual', editId: 5, onset: nap.onset, offset: nap.offset, measured: [] });
+  });
+
   it('passes detected sleep through untouched when there are no edits', () => {
     const merged = only(applySleepEdits(detected, [], night));
     expect(merged).toEqual({ ...main, source: 'detected', editId: null, measured: [main] });

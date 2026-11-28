@@ -446,7 +446,7 @@ describe('pipeline', () => {
       const night = nightOf(original[3]);
       const onset = night.onset;
       const offset = night.offset + 1 - 2 * HOUR_S;
-      const id = await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset, createdAt: 1 });
+      const id = await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset, createdAt: 1, removed: false });
 
       const edited = await recomputeAfterEdit(onset);
       const day = edited[3];
@@ -472,7 +472,7 @@ describe('pipeline', () => {
       const original = await recompute(rows);
       const night = nightOf(original[2]);
       const onset = night.onset - HOUR_S;
-      await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset: night.offset + 1, createdAt: 1 });
+      await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset: night.offset + 1, createdAt: 1, removed: false });
 
       const edited = await recomputeAfterEdit(onset);
       expect(edited[2]?.start).toBe(onset);
@@ -488,7 +488,7 @@ describe('pipeline', () => {
       const original = await recompute(rows);
       const night = nightOf(original[2]);
       const onset = localMidnight(2) + 8 * HOUR_S;
-      await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset: onset + 6 * HOUR_S, createdAt: 1 });
+      await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset, offset: onset + 6 * HOUR_S, createdAt: 1, removed: false });
 
       const edited = await recomputeAfterEdit(onset);
       expect(edited[2]?.start).toBe(onset);
@@ -506,7 +506,7 @@ describe('pipeline', () => {
       const original = await recompute(rows);
       const night = nightOf(original[1]);
       const onset = night.offset + 1 + 30 * 60;
-      const id = await store.saveSleepEdit({ id: null, deviceId, targetOnset: null, targetOffset: null, onset, offset: onset + 2_700, createdAt: 1 });
+      const id = await store.saveSleepEdit({ id: null, deviceId, targetOnset: null, targetOffset: null, onset, offset: onset + 2_700, createdAt: 1, removed: false });
 
       const edited = await recomputeAfterEdit(onset);
       expect(edited[1]?.sleep.periods).toEqual([
@@ -518,13 +518,31 @@ describe('pipeline', () => {
       expect(drop).toBeCloseTo(2_700, 6);
     });
 
+    it('a deleted night leaves no sleep and comes back when restored, with its readings kept', async () => {
+      const rows = simulateDays(deviceId, { days: 4 });
+      await store.insertSamples(rows);
+      const original = await recompute(rows);
+      const night = nightOf(original[2]);
+      const id = await store.saveSleepEdit({ id: null, deviceId, targetOnset: night.onset, targetOffset: night.offset, onset: night.onset, offset: night.offset + 1, createdAt: 1, removed: true });
+
+      const removed = await recomputeAfterEdit(night.onset);
+      expect(removed[2]?.sleep.periods.filter((p) => !p.nap)).toEqual([]);
+      expect(removed[2]?.sleep.asleepS).toBeNull();
+      expect(removed[2]?.sleep.score.reason).toBe('no-sleep');
+      expect(await store.samplesBetween(deviceId, night.onset, night.offset + 1)).not.toEqual([]);
+      expect(removed[0]).toEqual(original[0]);
+
+      expect(await store.deleteSleepEdit(deviceId, id)).toBe(true);
+      expect(await recomputeAfterEdit(night.onset)).toEqual(original);
+    });
+
     it('keeps a nap added after the newest reading', async () => {
       const rows = simulateDays(deviceId, { days: 2 });
       await store.insertSamples(rows);
       await recompute(rows);
       const newest = rows[rows.length - 1]?.t ?? 0;
       const onset = newest + 600;
-      await store.saveSleepEdit({ id: null, deviceId, targetOnset: null, targetOffset: null, onset, offset: onset + 1_800, createdAt: 1 });
+      await store.saveSleepEdit({ id: null, deviceId, targetOnset: null, targetOffset: null, onset, offset: onset + 1_800, createdAt: 1, removed: false });
 
       const edited = await recomputeAfterEdit(onset);
       const last = edited[edited.length - 1];

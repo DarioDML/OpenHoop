@@ -1,4 +1,5 @@
-import { CHECK_EVERY_S, GOAL_WINDOW_S, smartWakeDecision, windowStart, type RecentEpoch, type SmartWakeInput } from '@/data/smartWake';
+import { DEFAULT_ALARM_PLAN } from '@/data/alarm';
+import { CHECK_EVERY_S, GOAL_WINDOW_S, REARM_AFTER_S, rearmDue, smartWakeDecision, wakeJob, windowStart, type RecentEpoch, type SmartWakeInput } from '@/data/smartWake';
 
 const WAKE = 1_800_000_000;
 const base: SmartWakeInput = { mode: 'window', wakeAt: WAKE, windowMin: 30, nowS: WAKE - 20 * 60, recent: null, awake: false, asleepS: null, needS: null };
@@ -38,5 +39,34 @@ describe('smartWakeDecision', () => {
     expect(smartWakeDecision({ ...goal, asleepS: 7.5 * 3600 }).kind).toBe('check');
     expect(smartWakeDecision({ ...goal, asleepS: 8 * 3600 })).toEqual({ kind: 'ring', reason: 'goal' });
     expect(smartWakeDecision({ ...goal, asleepS: 9 * 3600, needS: null }).kind).toBe('check');
+  });
+});
+
+describe('wakeJob', () => {
+  const plan = { ...DEFAULT_ALARM_PLAN, enabled: true, days: [1, 2, 3, 4, 5] };
+  const armed = { wakeAt: WAKE, armedAt: WAKE - 3600 * 8, confirmed: true, rangEarlyAt: null };
+  const now = WAKE - 3600 * 6;
+
+  it('wakes the phone after an exact ring to set the next alarm', () => {
+    expect(wakeJob(plan, armed, now, true)).toEqual({ kind: 'rearm', at: WAKE + REARM_AFTER_S });
+  });
+
+  it('checks the night first for a smart alarm, and re-arms once it rang early', () => {
+    expect(wakeJob({ ...plan, mode: 'window', windowMin: 30 }, armed, now, true)).toEqual({ kind: 'smart', at: WAKE - 1800 });
+    expect(wakeJob({ ...plan, mode: 'goal' }, { ...armed, rangEarlyAt: WAKE - 600 }, now, true)).toEqual({ kind: 'rearm', at: WAKE + REARM_AFTER_S });
+  });
+
+  it('schedules nothing without the scheduler, an armed alarm or an enabled plan', () => {
+    expect(wakeJob(plan, armed, now, false)).toBeNull();
+    expect(wakeJob(plan, null, now, true)).toBeNull();
+    expect(wakeJob({ ...plan, enabled: false }, armed, now, true)).toBeNull();
+    expect(wakeJob(plan, { ...armed, confirmed: false }, now, true)).toBeNull();
+    expect(wakeJob(plan, armed, WAKE + 10, true)).toBeNull();
+  });
+
+  it('knows when a passed alarm needs the next one', () => {
+    expect(rearmDue(plan, armed, WAKE + 200)).toBe(true);
+    expect(rearmDue(plan, armed, WAKE - 200)).toBe(false);
+    expect(rearmDue({ ...plan, enabled: false }, armed, WAKE + 200)).toBe(false);
   });
 });

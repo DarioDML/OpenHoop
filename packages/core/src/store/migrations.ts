@@ -500,7 +500,11 @@ ALTER TABLE ecg_recordings ADD COLUMN wrist TEXT CHECK (wrist IS NULL OR wrist I
 CREATE INDEX ecg_recordings_device ON ecg_recordings (device_id, t);
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15];
+const V16 = `
+ALTER TABLE sleep_edits ADD COLUMN removed INTEGER NOT NULL DEFAULT 0 CHECK (removed IN (0, 1));
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

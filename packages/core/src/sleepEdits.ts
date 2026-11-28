@@ -17,6 +17,7 @@ export interface SleepSpan {
 }
 
 export type SleepEditDraft = Pick<SleepEdit, 'targetOnset' | 'onset' | 'offset'>;
+export type SleepEditKind = SleepSource | 'removed';
 
 export interface MergedSleepPeriod extends SleepPeriod {
   source: SleepSource;
@@ -24,12 +25,16 @@ export interface MergedSleepPeriod extends SleepPeriod {
   measured: SleepPeriod[];
 }
 
-export function sleepEditSource(edit: Pick<SleepEdit, 'targetOnset'>): SleepSource {
+function periodSource(edit: Pick<SleepEdit, 'targetOnset'>): SleepSource {
   return edit.targetOnset === null ? 'manual' : 'edited';
 }
 
+export function sleepEditSource(edit: Pick<SleepEdit, 'targetOnset'> & Partial<Pick<SleepEdit, 'removed'>>): SleepEditKind {
+  return edit.removed === true ? 'removed' : periodSource(edit);
+}
+
 export function sleepEditMaxS(edit: Pick<SleepEdit, 'targetOnset'>): number {
-  return sleepEditSource(edit) === 'manual' ? MANUAL_NAP_MAX_S : EDITED_SLEEP_MAX_S;
+  return periodSource(edit) === 'manual' ? MANUAL_NAP_MAX_S : EDITED_SLEEP_MAX_S;
 }
 
 function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
@@ -90,7 +95,7 @@ function periodOf(rows: readonly Sample[], start: number, end: number): SleepPer
 
 function acceptedEdits(edits: readonly SleepEdit[]): SleepEdit[] {
   const accepted: SleepEdit[] = [];
-  for (const edit of [...edits].sort((a, b) => a.id - b.id)) {
+  for (const edit of [...edits].filter((e) => !e.removed).sort((a, b) => a.id - b.id)) {
     if (!Number.isFinite(edit.onset) || !Number.isFinite(edit.offset) || edit.offset <= edit.onset) continue;
     if (accepted.some((a) => overlaps(a.onset, a.offset, edit.onset, edit.offset))) continue;
     accepted.push(edit);
@@ -131,7 +136,7 @@ function editedPeriod(edit: SleepEdit, absorbed: readonly SleepPeriod[], rows: r
     inBedS: edit.offset - edit.onset,
     hrMin: whole.hrMin,
     hrMean: whole.hrMean,
-    source: sleepEditSource(edit),
+    source: periodSource(edit),
     editId: edit.id,
     measured: measured.sort((a, b) => a.onset - b.onset),
   };
@@ -143,10 +148,11 @@ export function applySleepEdits(
   samples: readonly Sample[],
 ): MergedSleepPeriod[] {
   const accepted = acceptedEdits(edits);
+  const removals = edits.filter((e) => e.removed && e.targetOnset !== null && e.targetOffset !== null);
   const detectedOnly = (p: SleepPeriod): MergedSleepPeriod => ({ ...p, source: 'detected', editId: null, measured: [p] });
-  if (accepted.length === 0) return detected.map(detectedOnly);
+  if (accepted.length === 0 && removals.length === 0) return detected.map(detectedOnly);
   const rows = sortedUnique(samples);
-  const taken = new Set<SleepPeriod>();
+  const taken = new Set<SleepPeriod>(detected.filter((p) => removals.some((r) => absorbs(r, p))));
   const out: MergedSleepPeriod[] = [];
   for (const edit of accepted) {
     const absorbed = detected.filter((p) => !taken.has(p) && absorbs(edit, p));

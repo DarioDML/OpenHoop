@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { STAGE_VALIDATION } from '@openhoop/analytics';
@@ -18,10 +19,13 @@ interface Props {
   stages: SleepStagesSummary | undefined;
   hypnogram?: { epochs: ReadonlyArray<StageEpochRow>; from: number; to: number; tzOffsetS: number };
   edited?: boolean;
+  split?: boolean;
+  legend?: ReactNode;
+  laneLabels?: boolean;
   testID?: string;
 }
 
-export function StageCard({ stages, hypnogram, edited = false, testID = 'card-stages' }: Props) {
+export function StageCard({ stages, hypnogram, edited = false, split = true, legend, laneLabels = true, testID = 'card-stages' }: Props) {
   const { t, language, reason } = useT();
   const totals = stages?.totals ?? null;
 
@@ -33,10 +37,11 @@ export function StageCard({ stages, hypnogram, edited = false, testID = 'card-st
       </View>
       {totals !== null ? (
         <>
+          {legend}
           {hypnogram && hypnogram.epochs.length > 0 ? (
-            <Hypnogram testID="hypnogram" epochs={hypnogram.epochs} from={hypnogram.from} to={hypnogram.to} tzOffsetS={hypnogram.tzOffsetS} />
+            <Hypnogram testID="hypnogram" epochs={hypnogram.epochs} from={hypnogram.from} to={hypnogram.to} tzOffsetS={hypnogram.tzOffsetS} labels={laneLabels} />
           ) : null}
-          <StageSplit testID="stage-split" totals={totals} />
+          {split ? <StageSplit testID="stage-split" totals={totals} /> : null}
           {stages?.coverage !== null && stages?.coverage !== undefined ? (
             <AppText variant="label" muted>
               {t('stage.coverage', { pct: Math.round(stages.coverage * 100) })}

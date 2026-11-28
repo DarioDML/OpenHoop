@@ -143,7 +143,7 @@ import { BleError } from '@/ble/errors';
 import { detectLanguage, translate, type TranslationKey } from '@/i18n';
 import { deviceTzOffsetS, isoDaysAgo, ownerSinceToUnix, todayIsoDate, unixToIsoDate } from '@/lib/dates';
 import { isExportType, permissionFor, permissionKey, wantedPermissions, type HcDataType } from '@/lib/healthConnectMapping';
-import { digestFacts, goalFacts, localDay, planAlerts, reconcile, syncFailedAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
+import { digestFacts, goalFacts, localDay, planAlerts, reconcile, syncFailedAlert, windDownAlert, type Alert, type InboxEntry } from '@/lib/notificationPlan';
 import { alertText } from '@/lib/notificationText';
 import { buildWidgetFile } from '@/lib/widgetSnapshot';
 import { androidWidgetBridge, type WidgetBridge } from '@/widgets/bridge';
@@ -166,8 +166,10 @@ import {
   serializeArmedAlarm,
   type AlarmPlan,
   type ArmedAlarm,
+  type WakeOverride,
 } from './alarm';
-import { CHECK_EVERY_S, LEAVE_TO_BAND_S, smartWakeDecision, windowStart } from './smartWake';
+import { CHECK_EVERY_S, LEAVE_TO_BAND_S, REARM_AFTER_S, rearmDue, smartWakeDecision, wakeJob, windowStart } from './smartWake';
+import { jetLagWakeOverrides } from './jetLag';
 import { smartWakeScheduler, type SmartWakeScheduler } from '@/lib/smartWakeNative';
 import { newestChanged } from './bodyComposition';
 import { openAppStore, type AppStore } from './appStore';
@@ -196,7 +198,7 @@ import {
   type NotificationState,
 } from './notificationState';
 import { expoNotifier, type Notifier, type PermissionState } from './notifier';
-import { otherSleepSpans, recomputeFrom, type SleepEditRequest } from './sleepEditForm';
+import { otherSleepSpans, recomputeFrom, type SleepEditRequest, type EditableSleep } from './sleepEditForm';
 import { parseVendorSources } from './vendorExport/sources';
 import type { FileReport } from './vendorExport/parse';
 import type { SourceFile } from './vendorExport/sources';
@@ -300,12 +302,11 @@ export interface SyncTimings {
   chunks: number;
 }
 
-const SYNC_FAILURES_NOT_ALERTED: ReadonlySet<TranslationKey> = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
+const SYNC_FAILURES_NOT_ALERTED = new Set<TranslationKey>(['error.noBandPaired', 'error.ownerSinceMissing']);
 
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null };
 const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
 const ECG_PROGRESS_MS = 200;
-const SMART_MIN_DELAY_S = 60;
 const RING_WAIT_MS = 40_000;
 
 const ECG_WRIST_KEY = 'ecg.wrist';
@@ -1070,7 +1071,7 @@ export class AppController {
   private async applyAlarm(conn: Connection): Promise<void> {
     const { store } = this.requireApp();
     const { plan, armed } = this.snapshot.alarm;
-    const task = alarmTask(plan, armed, new Date());
+    const task = alarmTask(plan, armed, new Date(), this.alarmOverrides());
     if (task.kind === 'arm') {
       const attempt: ArmedAlarm = { wakeAt: task.wakeAt, armedAt: nowSeconds(), confirmed: false, rangEarlyAt: null };
       await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(attempt));
@@ -1089,6 +1090,21 @@ export class AppController {
     this.scheduleSmartWake();
   }
 
+  private alarmOverrides(): WakeOverride[] {
+    const { jetLagPlan, jetLagShiftAlarm } = this.snapshot.userData;
+    return jetLagShiftAlarm && jetLagPlan !== null ? jetLagWakeOverrides(jetLagPlan) : [];
+  }
+
+  private reapplyAlarm = async (): Promise<void> => {
+    const { plan, armed } = this.snapshot.alarm;
+    if ((!plan.enabled && armed === null) || this.syncRun !== null || this.app === null) return;
+    try {
+      await this.exclusive(async () => this.applyAlarm(await this.ensureConnection()));
+    } catch (error) {
+      this.patchAlarm({ problem: alarmProblem(error) });
+    }
+  };
+
   private smartAlarm(): { plan: AlarmPlan & { mode: 'goal' | 'window' }; live: ArmedAlarm } | null {
     const { plan, armed } = this.snapshot.alarm;
     const live = confirmedAlarm(armed, nowSeconds());
@@ -1097,12 +1113,11 @@ export class AppController {
   }
 
   private scheduleSmartWake(): void {
-    const smart = this.smartAlarm();
-    if (smart === null || rangForThisAlarm(smart.live)) {
-      this.smartWake.cancel();
-      return;
-    }
-    this.queueSmartCheck(Math.max(nowSeconds() + SMART_MIN_DELAY_S, windowStart(smart.plan.mode, smart.live.wakeAt, smart.plan.windowMin)));
+    const { plan, armed, smartAvailable } = this.snapshot.alarm;
+    const job = wakeJob(plan, armed, nowSeconds(), smartAvailable);
+    if (job === null) this.smartWake.cancel();
+    else if (job.kind === 'smart') this.queueSmartCheck(job.at);
+    else this.queueRearm(job.at);
   }
 
   private queueSmartCheck(atS: number): void {
@@ -1110,7 +1125,23 @@ export class AppController {
     this.smartWake.schedule(atS, translate(language, 'alarm.smart.notifyTitle'), translate(language, 'alarm.smart.notifyBody'));
   }
 
+  private queueRearm(atS: number): void {
+    const language = this.snapshot.settings.language;
+    this.smartWake.schedule(atS, translate(language, 'alarmx.rearmTitle'), translate(language, 'alarmx.rearmBody'));
+  }
+
   smartWakeCheck = async (): Promise<void> => {
+    if (rearmDue(this.snapshot.alarm.plan, this.snapshot.alarm.armed, nowSeconds())) {
+      this.quietSync = true;
+      try {
+        await this.sync();
+      } catch (error) {
+        this.patchAlarm({ problem: alarmProblem(error) });
+      } finally {
+        this.quietSync = false;
+      }
+      return;
+    }
     const before = this.smartAlarm();
     if (before === null || rangForThisAlarm(before.live)) {
       this.smartWake.cancel();
@@ -1147,7 +1178,7 @@ export class AppController {
         needS: today?.sleep.need.value ?? null,
       });
       if (decision.kind === 'check') this.queueSmartCheck(decision.at);
-      else if (decision.kind === 'band') this.smartWake.cancel();
+      else if (decision.kind === 'band') this.queueRearm(smart.live.wakeAt + REARM_AFTER_S);
       else await this.ringSmartWake(smart.plan, smart.live);
     } catch (error) {
       this.patchAlarm({ problem: alarmProblem(error) });
@@ -1165,7 +1196,7 @@ export class AppController {
       await store.setSetting(armedAlarmKey(conn.deviceId), serializeArmedAlarm(rang));
       this.patchAlarm({ armed: rang, problem: null });
       this.smartWake.cancel();
-      const following = followingWakeAt(plan.minutes, live.wakeAt);
+      const following = followingWakeAt(plan.minutes, live.wakeAt, plan.days, this.alarmOverrides());
       try {
         const reading = await armAlarm(conn.session, following, nowSeconds());
         const next: ArmedAlarm = { wakeAt: reading.wakeAt, armedAt: nowSeconds(), confirmed: true, rangEarlyAt: rangAt };
@@ -1402,8 +1433,9 @@ export class AppController {
         await store.setSetting(USER_DATA_KEY, serializeUserData(next));
         setNetworkPrefs(next.network);
         this.patch({ userData: next });
-        if (patch.notifications !== undefined || patch.weeklyPlan !== undefined) void this.refreshNotifications();
+        if (patch.notifications !== undefined || patch.weeklyPlan !== undefined || patch.windDown !== undefined) void this.refreshNotifications();
         if (patch.widgetValues !== undefined) void this.refreshWidgets();
+        if (patch.jetLagShiftAlarm !== undefined || (patch.jetLagPlan !== undefined && next.jetLagShiftAlarm)) void this.reapplyAlarm();
         return true;
       } catch (error) {
         setNetworkPrefs(network);
@@ -1696,7 +1728,9 @@ export class AppController {
       const prefs = userData.notifications;
       const delivered = permission === 'granted';
       const settled = reconcile(this.notificationState, now, delivered, stillScheduled);
-      const active = prefs.enabled && delivered;
+      const wind = userData.windDown;
+      const winding = windDownAlert(wind, now) !== null || settled.pending.some((alert) => alert.kind === 'windDown');
+      const active = (prefs.enabled || winding) && delivered;
       const recentIds = [...settled.pending.map((alert) => alert.id), ...settled.sent];
       const failure = options.syncFailed === true ? syncFailedAlert(now, prefs, recentIds) : null;
       const fresh: Alert[] = failure === null ? [] : [failure];
@@ -1714,6 +1748,7 @@ export class AppController {
             lastSyncAt: this.lastSyncAt === null ? null : this.lastSyncAt * 1000,
             watchBand: settings.dataSource === 'band' && this.deviceRow !== null,
             fresh,
+            windDown: wind,
           })
         : [];
       this.patch({ notificationPermission: permission });
@@ -1760,6 +1795,13 @@ export class AppController {
       await new Promise<void>((resolve) => setTimeout(resolve, PIN_WAIT_MS));
     }
     await this.refreshWidgets();
+  };
+
+  requestNotificationPermission = async (): Promise<PermissionState> => {
+    const channel = translate(this.snapshot.settings.language, 'notif.channel');
+    const permission = await this.notifier.request(channel).catch((): PermissionState => 'denied');
+    this.patch({ notificationPermission: permission });
+    return permission;
   };
 
   setNotificationsEnabled = async (enabled: boolean): Promise<PermissionState> => {
@@ -1812,12 +1854,38 @@ export class AppController {
           onset: request.onset,
           offset: request.offset,
           createdAt: nowSeconds(),
+          removed: false,
         });
         await this.recompute(row.id, recomputeFrom(request, previous));
         return 'saved';
       } catch (error) {
         this.fail(error);
         return 'error';
+      } finally {
+        this.patch({ syncProgress: null });
+      }
+    });
+
+  removeDetectedSleep = (item: EditableSleep): Promise<boolean> =>
+    this.exclusive(async () => {
+      try {
+        const row = this.deviceRow;
+        if (row === null || item.editId !== null || item.removed || item.targetOnset === null || item.targetOffset === null) return false;
+        await this.requireApp().store.saveSleepEdit({
+          id: null,
+          deviceId: row.id,
+          targetOnset: item.targetOnset,
+          targetOffset: item.targetOffset,
+          onset: item.onset,
+          offset: item.offset,
+          createdAt: nowSeconds(),
+          removed: true,
+        });
+        await this.recompute(row.id, recomputeFrom({ onset: item.onset, targetOnset: item.targetOnset }, null));
+        return true;
+      } catch (error) {
+        this.fail(error);
+        return false;
       } finally {
         this.patch({ syncProgress: null });
       }
@@ -2179,12 +2247,14 @@ export class AppController {
       routeFor: this.routeFor,
       saveSleepEdit: this.saveSleepEdit,
       deleteSleepEdit: this.deleteSleepEdit,
+      removeDetectedSleep: this.removeDetectedSleep,
       saveActivity: this.saveActivity,
       deleteActivity: this.deleteActivity,
       undoDelete: this.undoDelete,
       clearNotice: this.clearNotice,
       refreshNotifications: this.refreshNotifications,
       setNotificationsEnabled: this.setNotificationsEnabled,
+      requestNotificationPermission: this.requestNotificationPermission,
       refreshWidgets: this.refreshWidgets,
       refreshWidgetsAfterPin: this.refreshWidgetsAfterPin,
       markInboxRead: this.markInboxRead,

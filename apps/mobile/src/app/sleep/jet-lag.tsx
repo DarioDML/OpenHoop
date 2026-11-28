@@ -9,6 +9,8 @@ import {
   parseTripForm,
   sameSavedPlan,
   stepsNeeded,
+  trackSpans,
+  zoneCity,
   type FormProblem,
   type JetLagPlan,
   type LightWindow,
@@ -26,9 +28,13 @@ import { Chip } from '@/ui/Chip';
 import { Button, Field } from '@/ui/controls';
 import { Callout, Page } from '@/ui/daily/bits';
 import { ZonePicker } from '@/ui/daily/ZonePicker';
+import { CoachAsk } from '@/ui/CoachAsk';
+import { Icon } from '@/ui/Icon';
+import { ToggleRow } from '@/ui/manage/rows';
+import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { PARITY } from '@/ui/parity';
-import { spacing, useTheme } from '@/ui/theme';
+import { radius, spacing, useTheme } from '@/ui/theme';
 
 function formState(saved: SavedJetLagPlan | null, history: { bedMinutes: number; wakeMinutes: number } | null, home: string | null): TripForm {
   if (saved !== null) {
@@ -88,8 +94,140 @@ function PreDaysStepper({ value, effective, auto, max, onChange }: { value: numb
   );
 }
 
+function weekdayShort(date: string, language: 'nl' | 'en'): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'short', timeZone: 'UTC' }).replace('.', '');
+}
+
+function weekdayLong(date: string, language: 'nl' | 'en'): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'long', timeZone: 'UTC' });
+}
+
+function decimal(value: number, language: 'nl' | 'en'): string {
+  const text = String(Math.abs(value));
+  return language === 'nl' ? text.replace('.', ',') : text;
+}
+
+function hoursMinutes(hours: number): string {
+  const minutes = Math.round(Math.abs(hours) * 60);
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+function RouteHero({ plan, homeZone, destZone, date }: { plan: JetLagPlan | null; homeZone: string | null; destZone: string | null; date: string }) {
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  if (plan === null || homeZone === null || destZone === null) {
+    return (
+      <AppText variant="title" testID="jetlag-route-empty">
+        {t('jetlagx.trip')}
+      </AppText>
+    );
+  }
+  const shift = `${plan.zoneShiftH < 0 ? '−' : '+'}${decimal(plan.zoneShiftH, language)} h`;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }} testID="jetlag-route">
+      <Num size={44} adjustsFontSizeToFit style={{ flex: 1 }} testID="jetlag-route-home">
+        {zoneCity(homeZone)}
+      </Num>
+      <View style={{ alignItems: 'center', gap: 4 }}>
+        <Icon name="plane" color={colors.levelC} size={24} />
+        <AppText variant="label" color={colors.levelC} numeric testID="jetlag-route-shift">
+          {t('jetlagx.route', { shift, date: formatLongDay(date, language) })}
+        </AppText>
+      </View>
+      <Num size={44} adjustsFontSizeToFit style={{ flex: 1, textAlign: 'right' }} testID="jetlag-route-dest">
+        {zoneCity(destZone)}
+      </Num>
+    </View>
+  );
+}
+
+function TrackBar({ from, to, color, testID }: { from: number; to: number; color: string; testID: string }) {
+  return (
+    <>
+      {trackSpans(from, to).map(([a, b]) => (
+        <View
+          key={a}
+          testID={testID}
+          style={{ position: 'absolute', top: 0, bottom: 0, left: `${(a / 1440) * 100}%`, width: `${((b - a) / 1440) * 100}%`, borderRadius: 6, backgroundColor: color }}
+        />
+      ))}
+    </>
+  );
+}
+
+function ShiftPlanCard({ plan }: { plan: JetLagPlan }) {
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  return (
+    <Card testID="jetlag-shift-plan" style={{ gap: spacing.md }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <AppText variant="cardTitle">{t('jetlagx.shiftPlan')}</AppText>
+        <AppText variant="capSmall" muted>
+          {plan.days.length === 1 ? t('jetlagx.daysOne') : t('jetlagx.daysMany', { count: plan.days.length })}
+        </AppText>
+      </View>
+      <View style={{ gap: 10 }}>
+        {plan.days.map((day) => (
+          <View key={day.offset} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} testID={`jetlag-shift-${day.offset}`}>
+            <AppText variant="caption" muted style={{ width: 44 }}>
+              {weekdayShort(day.date, language)}
+            </AppText>
+            <View style={{ flex: 1, height: 20, borderRadius: 6, backgroundColor: colors.surfaceAlt }}>
+              <TrackBar from={day.bed.dest.minutes} to={day.wake.dest.minutes} color={colors.stage.rem} testID={`jetlag-shift-${day.offset}-sleep`} />
+              {day.seek !== null ? <TrackBar from={day.seek.start.dest.minutes} to={day.seek.end.dest.minutes} color={colors.gold} testID={`jetlag-shift-${day.offset}-light`} /> : null}
+            </View>
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 16, rowGap: 8 }}>
+        {[
+          { color: colors.stage.rem, label: t('jetlagx.sleep') },
+          { color: colors.gold, label: t('jetlagx.light') },
+        ].map((item) => (
+          <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: item.color }} />
+            <AppText variant="caption" muted>
+              {item.label}
+            </AppText>
+          </View>
+        ))}
+        <AppText variant="caption" muted>
+          {t('jetlagx.destTime')}
+        </AppText>
+      </View>
+    </Card>
+  );
+}
+
+function TipCard({ plan }: { plan: JetLagPlan }) {
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  const first = plan.days[0];
+  if (first === undefined || plan.direction === 'none') return null;
+  const arrival = plan.days.find((day) => day.phase !== 'before' && day.seek !== null) ?? null;
+  const rate = `${decimal(plan.ratePerDay, language)} h`;
+  const bedTip = t(plan.direction === 'east' ? 'jetlagx.tipEast' : 'jetlagx.tipWest', { rate, day: weekdayLong(first.date, language) });
+  const light = arrival?.seek ?? null;
+  const lightStart = light === null ? null : formatMinutes(light.start.dest.minutes);
+  const lightEnd = light === null ? null : formatMinutes(light.end.dest.minutes);
+  return (
+    <View testID="jetlag-tip" style={{ backgroundColor: colors.coach.surface, borderRadius: radius.md, padding: spacing.lg, gap: spacing.md }}>
+      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+        <Icon name="sparkle" color={colors.text} size={18} />
+        <AppText variant="body" color={colors.textSoft} style={{ flex: 1 }} testID="jetlag-tip-text">
+          {lightStart === null || lightEnd === null ? bedTip : `${bedTip} ${t('jetlagx.tipLight', { start: lightStart, end: lightEnd })}`}
+        </AppText>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <Chip label={t('jetlagx.chipBed', { rate: `${plan.direction === 'east' ? '−' : '+'}${hoursMinutes(plan.ratePerDay)}` })} tone="purple" testID="jetlag-chip-bed" />
+        {lightStart !== null && lightEnd !== null ? <Chip label={t('jetlagx.chipLight', { start: lightStart, end: lightEnd })} tone="warning" testID="jetlag-chip-light" /> : null}
+      </View>
+    </View>
+  );
+}
+
 export default function JetLagScreen() {
-  const { days, userData, updateUserData } = useAppData();
+  const { days, userData, updateUserData, alarm } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const saved = userData.jetLagPlan;
@@ -162,7 +300,29 @@ export default function JetLagScreen() {
   );
 
   return (
-    <Page title={t('sleepx.jetLag')} tint="sleep" testID="sleep-jet-lag">
+    <Page
+      title={t('sleepx.jetLag')}
+      tint="sleep"
+      testID="sleep-jet-lag"
+      hero={<RouteHero plan={plan} homeZone={parsed.ok ? parsed.saved.homeZone : null} destZone={parsed.ok ? parsed.saved.destZone : null} date={parsed.ok ? parsed.saved.departureDate : ''} />}>
+      {plan !== null && plan.days.length > 0 ? (
+        <>
+          <ShiftPlanCard plan={plan} />
+          <TipCard plan={plan} />
+          <CoachAsk question={t('jetlagx.ask')} testID="jetlag-coach" />
+        </>
+      ) : null}
+      <Card style={{ paddingVertical: spacing.xs }}>
+        <ToggleRow
+          title={t('jetlagx.shiftAlarm')}
+          subtitle={saved === null || dirty ? t('jetlagx.shiftAlarmSave') : !alarm.plan.enabled ? t('jetlagx.shiftAlarmOff') : t('jetlagx.shiftAlarmHint')}
+          value={userData.jetLagShiftAlarm}
+          disabled={saved === null && !userData.jetLagShiftAlarm}
+          onChange={(jetLagShiftAlarm) => void updateUserData({ jetLagShiftAlarm })}
+          testID="jetlag-shift-alarm"
+        />
+      </Card>
+
       <AppText variant="body" muted>
         {t('jetlag.intro')}
       </AppText>

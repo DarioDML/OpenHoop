@@ -12,7 +12,7 @@ function isRecord(value: Json | undefined): value is { [key: string]: Json } {
 }
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
-const ALERT_ID = /^(digest:\d{4}-\d{2}-\d{2}|risk:\d{1,15}|sync:\d{1,15}|goal:(load|sleep|strength):\d{4}-\d{2}-\d{2})$/;
+const ALERT_ID = /^(digest:\d{4}-\d{2}-\d{2}|risk:\d{1,15}|sync:\d{1,15}|goal:(load|sleep|strength):\d{4}-\d{2}-\d{2}|wind:\d{1,15})$/;
 
 function score(value: Json | undefined, max: number): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max ? value : null;
@@ -37,6 +37,10 @@ function parseAlert(value: Json | undefined): Alert | null {
     const scoreMin = value.scoreMin === undefined || value.scoreMin === null ? null : score(value.scoreMin, 100);
     if (goal === 'sleep' && scoreMin === null) return null;
     return { kind, id, at, goal, week, count, target, scoreMin };
+  }
+  if (kind === 'windDown' && id === `wind:${at}`) {
+    const bed = typeof value.bed === 'number' && Number.isInteger(value.bed) && value.bed >= 0 && value.bed < 1440 ? value.bed : null;
+    return bed === null ? null : { kind, id, at, bed };
   }
   if (kind === 'dataAtRisk' && id.startsWith('risk:')) {
     const days = typeof value.days === 'number' && Number.isInteger(value.days) && value.days > 0 && value.days <= 3650 ? value.days : null;

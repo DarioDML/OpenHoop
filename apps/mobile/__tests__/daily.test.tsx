@@ -565,7 +565,8 @@ describe('Sleep', () => {
     expect(screen.getByTestId('asleep-total')).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('hypnogram')).toBeTruthy());
     expect(sleepStagesBetween).toHaveBeenCalledWith(main?.onset, (main?.offset ?? 0) + 1);
-    expect(screen.getByTestId('stage-split-deep')).toBeTruthy();
+    expect(screen.getByTestId('time-in-stage-deep')).toBeTruthy();
+    expect(screen.getByTestId('stage-legend')).toBeTruthy();
     expect(screen.getByText(/Deep sleep tends to read high/)).toBeTruthy();
     expect(screen.queryByTestId('not-built-stages')).toBeNull();
   });
