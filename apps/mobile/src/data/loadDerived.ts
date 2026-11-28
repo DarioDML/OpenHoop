@@ -174,6 +174,27 @@ export function hourlyStepBars(day: DayRecord, nowS: number): HourBar[] | null {
   return out;
 }
 
+export interface HourSlot {
+  key: string;
+  hour: number;
+  steps: number | null;
+  blank: boolean;
+}
+
+export const HOUR_TICK = 6;
+
+export function hourAxis(bars: readonly HourBar[]): HourSlot[] {
+  const first = bars[0];
+  const last = bars[bars.length - 1];
+  const slot = (bar: HourBar): HourSlot => ({ key: String(bar.t), hour: bar.hour, steps: bar.steps, blank: false });
+  if (first === undefined || last === undefined) return [];
+  if (last.hour - first.hour !== bars.length - 1) return bars.map(slot);
+  return Array.from({ length: 24 }, (_, hour) => {
+    const bar = bars[hour - first.hour];
+    return bar === undefined ? { key: `h${hour}`, hour, steps: null, blank: true } : slot(bar);
+  });
+}
+
 export function compactThousands(value: number): number {
   return Math.round(value / 100) / 10;
 }

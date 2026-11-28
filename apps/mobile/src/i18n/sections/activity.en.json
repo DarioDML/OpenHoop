@@ -325,6 +325,7 @@
   "loadWeek.blocks": "Daily blocks",
   "loadWeek.legendReadiness": "Readiness %",
   "loadWeek.dayA11y": "{day}: readiness {readiness}, load {load}",
+  "loadWeek.loadA11y": "{day}: load {load}",
   "loadWeek.noValue": "no value",
   "loadWeek.gap.line": "{day}: {text}",
   "loadWeek.gap.future": "still to come",

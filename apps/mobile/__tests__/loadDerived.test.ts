@@ -8,6 +8,7 @@ import {
   aimAt,
   compactThousands,
   daysOnTarget,
+  hourAxis,
   hourlyStepBars,
   isoWeekNumber,
   loadBandAt,
@@ -217,5 +218,33 @@ describe('weekBlockGaps', () => {
     expect(gaps[2]).toMatchObject({ load: 'open', soFar: 3.1 });
     expect(gaps[3]).toMatchObject({ load: 'future', readiness: 'future' });
     expect(weekBlockGaps([null], '2026-11-20', '2026-11-25')[0]).toMatchObject({ load: 'noData', readiness: 'noData' });
+  });
+});
+
+describe('hourAxis', () => {
+  const bar = (hour: number, steps: number | null) => ({ t: 1_000_000 + hour * 3600, hour, steps });
+
+  it('spreads one day of hours over a 0 to 23 axis with blank hours around them', () => {
+    const slots = hourAxis([bar(0, 68)]);
+    expect(slots).toHaveLength(24);
+    expect(slots[0]).toEqual({ key: String(bar(0, 68).t), hour: 0, steps: 68, blank: false });
+    expect(slots.slice(1).every((slot) => slot.blank && slot.steps === null)).toBe(true);
+    expect(slots.map((slot) => slot.hour)).toEqual(Array.from({ length: 24 }, (_, h) => h));
+  });
+
+  it('keeps a missing hour inside the range as a gap, not a blank', () => {
+    const slots = hourAxis([bar(7, 300), bar(8, null), bar(9, 120)]);
+    expect(slots[8]).toEqual({ key: String(bar(8, null).t), hour: 8, steps: null, blank: false });
+    expect(slots[6]?.blank).toBe(true);
+    expect(slots[10]?.blank).toBe(true);
+  });
+
+  it('keeps the bars as they are when they cross midnight', () => {
+    const bars = [bar(23, 10), { ...bar(0, 20), t: bar(23, 10).t + 3600 }];
+    expect(hourAxis(bars).map((slot) => slot.hour)).toEqual([23, 0]);
+  });
+
+  it('is empty without bars', () => {
+    expect(hourAxis([])).toEqual([]);
   });
 });

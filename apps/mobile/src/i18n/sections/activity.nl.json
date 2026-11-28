@@ -325,6 +325,7 @@
   "loadWeek.blocks": "Dagblokken",
   "loadWeek.legendReadiness": "Paraatheid %",
   "loadWeek.dayA11y": "{day}: paraatheid {readiness}, belasting {load}",
+  "loadWeek.loadA11y": "{day}: belasting {load}",
   "loadWeek.noValue": "geen waarde",
   "loadWeek.gap.line": "{day}: {text}",
   "loadWeek.gap.future": "moet nog komen",

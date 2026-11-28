@@ -231,6 +231,10 @@ describe('Steps screen', () => {
     expect(hours.length).toBeGreaterThan(0);
     for (const hour of hours) expect(screen.getByTestId(`steps-by-hour-${hour.t}`)).toBeTruthy();
     expect(screen.getByTestId(`steps-by-hour-${hours[0]?.t}`).props.accessibilityLabel).toBe(`7:00: ${hours[0]?.steps}`);
+    const chart = within(screen.getByTestId('steps-by-hour'));
+    for (const tick of ['0', '6', '12', '18']) expect(chart.getByText(tick, { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId('steps-by-hour-h0', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByTestId('steps-by-hour-h0')).toBeNull();
     const week = days.slice(-7);
     for (const day of week) expect(screen.getByTestId(`steps-week-${day.day}`)).toBeTruthy();
     expect(screen.getByTestId(`steps-week-${last.day}`)).toHaveTextContent(new RegExp(`^${(Math.round(steps / 100) / 10).toFixed(1).replace('.', '\\.')}`));
@@ -283,6 +287,13 @@ describe('Load trends screen', () => {
     expect(screen.getByText('A load day is a day with a load of 7 or more.')).toBeTruthy();
   });
 
+  it('leaves readiness out of the legend when no readiness line is drawn', async () => {
+    const noReadiness = days.map((d) => ({ ...d, readiness: { ...d.readiness, value: null, reason: 'needs-history' } }));
+    await render(withAppData(<LoadTrendsScreen />, 'en', { days: noReadiness }));
+    expect(screen.getByTestId('trend-legend')).toHaveTextContent('Load (0–21)');
+    expect(screen.getByTestId('trend-legend')).not.toHaveTextContent(/Readiness/);
+  });
+
   it('shows the start and end date on longer ranges', async () => {
     await render(withAppData(<LoadTrendsScreen />));
     await fireEvent.press(screen.getByText('1M'));
@@ -314,6 +325,8 @@ describe('Weekly overview', () => {
     expect(week).toHaveLength(7);
     for (let i = 0; i < 7; i++) expect(screen.getByTestId(`week-day-${i}`)).toBeTruthy();
     expect(screen.getByTestId('week-legend')).toHaveTextContent('Readiness %Load');
+    expect(screen.getByTestId('week-row-readiness')).toHaveTextContent('Readiness %');
+    expect(screen.getByTestId('week-row-load')).toHaveTextContent('Load');
     week.forEach((d, i) => {
       const date = addDays(start, i);
       if (d === null && date > lastDay().day) expect(screen.getByTestId(`week-gap-${date}`)).toHaveTextContent(/: still to come$/);
