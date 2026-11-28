@@ -5,6 +5,7 @@ import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import type { ReactNode } from 'react';
 
 import ReportScreen from '@/app/health/report';
+import { DEFAULT_REPORT_SECTIONS } from '@/data/healthReport';
 import { removeLeftoverReports } from '@/data/reportFiles';
 import { ShareUnavailableError, shareReportPdf } from '@/data/reportShare';
 import { defaultUserData } from '@/data/userData';
@@ -26,6 +27,9 @@ jest.mock('expo-sharing', () => ({ isAvailableAsync: jest.fn(), shareAsync: jest
 
 const mockDelete = jest.fn();
 const mockFiles: Array<{ uri: string; name: string; exists: boolean; delete: () => void }> = [];
+const mockCreateFile = jest.fn();
+const mockWrite = jest.fn();
+const mockPick = jest.fn();
 
 jest.mock('expo-file-system', () => {
   class File {
@@ -39,15 +43,26 @@ jest.mock('expo-file-system', () => {
     delete(): void {
       mockDelete(this.uri);
     }
+    async bytes(): Promise<Uint8Array> {
+      return new Uint8Array([37, 80, 68, 70]);
+    }
+    async write(content: Uint8Array): Promise<void> {
+      mockWrite(this.uri, content);
+    }
   }
   class Directory {
     uri: string;
     exists = true;
+    static pickDirectoryAsync = (initialUri?: string): Promise<Directory> => mockPick(initialUri);
     constructor(...parts: Array<string | { uri: string }>) {
       this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
     }
     list(): File[] {
       return mockFiles.map((entry) => Object.assign(new File(entry.uri), { name: entry.name }));
+    }
+    createFile(name: string, mime: string): File {
+      mockCreateFile(name, mime);
+      return new File(this.uri, name);
     }
   }
   return { File, Directory, Paths: { cache: { uri: 'file:///cache' } } };
@@ -68,6 +83,10 @@ beforeEach(() => {
   mockAvailable.mockResolvedValue(true);
   mockShare.mockResolvedValue(undefined);
   mockPrint.mockResolvedValue({ uri: 'file:///cache/Print/abc.pdf', numberOfPages: 1 });
+  mockPick.mockImplementation(async () => {
+    const { Directory } = jest.requireMock<{ Directory: new (uri: string) => object }>('expo-file-system');
+    return new Directory('content://downloads');
+  });
 });
 
 afterEach(() => {
@@ -98,20 +117,72 @@ describe('health report screen', () => {
     expect(screen.getAllByText(/of 90 days/).length).toBeGreaterThan(5);
   });
 
-  it('removes a section from the preview when it is switched off', async () => {
+  it('removes a section from the preview and the summary when its chip is switched off', async () => {
     await render(withAppData(<ReportScreen />, 'en'));
     expect(screen.getByTestId('report-section-vitals')).toBeTruthy();
-    await fireEvent(screen.getByTestId('report-toggle-vitals'), 'valueChange', false);
+    expect(screen.getByTestId('report-stat-rhr')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('report-toggle-vitals'));
     expect(screen.queryByTestId('report-section-vitals')).toBeNull();
+    expect(screen.queryByTestId('report-stat-rhr')).toBeNull();
+    expect(screen.getByTestId('report-stat-asleep')).toBeTruthy();
   });
 
-  it('asks for a section when none is selected and disables sharing', async () => {
+  it('asks for a section when none is selected and disables both actions', async () => {
     await render(withAppData(<ReportScreen />, 'en'));
-    for (const id of ['scores', 'sleep', 'vitals', 'energy', 'body', 'labs']) {
-      await fireEvent(screen.getByTestId(`report-toggle-${id}`), 'valueChange', false);
+    for (const id of DEFAULT_REPORT_SECTIONS) {
+      await fireEvent.press(screen.getByTestId(`report-toggle-${id}`));
     }
     expect(screen.getByTestId('report-preview-empty')).toBeTruthy();
+    expect(screen.getByTestId('report-summary-empty')).toBeTruthy();
     expect(screen.getByTestId('report-share').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('report-export').props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('summarises the period with stats and the ECG count', async () => {
+    const ecgRecordings = [{ id: 7, deviceId: 1, t: Math.floor(FIXTURE_NOW.getTime() / 1000) - 86_400, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left' as const }];
+    await render(withAppData(<ReportScreen />, 'en', { ecgRecordings }));
+    expect(screen.getByTestId('report-stat-ecg-value')).toHaveTextContent('1');
+    expect(screen.getByTestId('report-stat-hrv-value')).toHaveTextContent(/ms/);
+    expect(screen.getByTestId('report-section-ecg')).toHaveTextContent(/30 s|0:30|band on left wrist/);
+  });
+
+  it('leaves cycle out until its chip is chosen', async () => {
+    const cycle = { periods: [{ id: 1, startDay: '2026-11-10', endDay: '2026-11-14', flow: 2 as const, createdAt: 0 }], symptoms: [], pregnancy: null };
+    await render(withAppData(<ReportScreen />, 'en', { cycle }));
+    expect(screen.queryByTestId('report-section-cycle')).toBeNull();
+    await fireEvent.press(screen.getByTestId('report-toggle-cycle'));
+    expect(screen.getByTestId('report-section-cycle')).toHaveTextContent(/2026-11-10/);
+  });
+
+  it('builds a custom period and blocks the actions while the dates are wrong', async () => {
+    await render(withAppData(<ReportScreen />, 'en'));
+    await fireEvent.press(screen.getByTestId('report-period-custom'));
+    await fireEvent.changeText(screen.getByTestId('report-custom-from'), '2026-11-11');
+    await fireEvent.changeText(screen.getByTestId('report-custom-to'), '2026-11-20');
+    expect(screen.getAllByText(/of 10 days/).length).toBeGreaterThan(3);
+    await fireEvent.changeText(screen.getByTestId('report-custom-to'), '2027-01-01');
+    expect(screen.getByTestId('report-share').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('report-custom-hint')).toHaveTextContent(/Check the dates/);
+  });
+
+  it('exports the PDF into a chosen folder without opening a share sheet', async () => {
+    await render(withAppData(<ReportScreen />, 'en'));
+    await fireEvent.press(screen.getByTestId('report-export'));
+    expect(await screen.findByTestId('report-saved')).toBeTruthy();
+    expect(mockCreateFile).toHaveBeenCalledWith(expect.stringMatching(/^openhoop-health-report-.*\.pdf$/), 'application/pdf');
+    expect(mockWrite).toHaveBeenCalled();
+    expect(mockShare).not.toHaveBeenCalled();
+    expect(mockDelete).toHaveBeenCalledWith('file:///cache/Print/abc.pdf');
+  });
+
+  it('does nothing when the folder picker is cancelled', async () => {
+    mockPick.mockRejectedValue(Object.assign(new Error('cancel'), { code: 'ERR_PICKER_CANCELLED' }));
+    await render(withAppData(<ReportScreen />, 'en'));
+    await fireEvent.press(screen.getByTestId('report-export'));
+    await waitFor(() => expect(mockPick).toHaveBeenCalled());
+    expect(mockPrint).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('report-error')).toBeNull();
+    expect(screen.queryByTestId('report-saved')).toBeNull();
   });
 
   it('only offers the name when one is set', async () => {

@@ -1,6 +1,7 @@
 import { Pressable, View } from 'react-native';
 
 import { AppText } from './AppText';
+import { Icon } from './Icon';
 import { radius, useTheme, type ColorTokens } from './theme';
 
 export type ChipTone = 'positive' | 'warning' | 'negative' | 'info' | 'neutral' | 'purple' | 'pink' | 'gold';
@@ -70,6 +71,42 @@ export function Pill({ label, selected, onPress, testID }: PillProps) {
         backgroundColor: selected ? colors.primary : colors.surfaceAlt,
       }}>
       <AppText variant="label" color={selected ? colors.primaryOn : colors.textSoft} style={{ fontWeight: '600' }}>
+        {label}
+      </AppText>
+    </Pressable>
+  );
+}
+
+interface CheckChipProps {
+  label: string;
+  checked: boolean;
+  onToggle: (next: boolean) => void;
+  testID?: string;
+}
+
+export function CheckChip({ label, checked, onToggle, testID }: CheckChipProps) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={label}
+      onPress={() => onToggle(!checked)}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        minHeight: 44,
+        paddingHorizontal: 16,
+        borderRadius: radius.pill,
+        borderWidth: 1.5,
+        borderColor: checked ? colors.positive : colors.borderStrong,
+        backgroundColor: checked ? colors.surface : 'transparent',
+        opacity: pressed ? 0.8 : 1,
+      })}>
+      {checked ? <Icon name="check" size={16} color={colors.positive} strokeWidth={2.25} /> : null}
+      <AppText variant="body" color={checked ? colors.text : colors.textMuted} style={{ fontWeight: '500' }}>
         {label}
       </AppText>
     </Pressable>
