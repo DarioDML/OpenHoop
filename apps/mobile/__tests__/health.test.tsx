@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import type { JournalAnswer } from '@/data/userData';
 import { defaultUserData } from '@/data/userData';
-import { createFixtureDays } from '@/data/fixtureSource';
+import { createFixtureDays, createFixtureSettings } from '@/data/fixtureSource';
 import { addDays } from '@/data/derived';
 import { answerIsYes, breathPositionAt, BREATH_PATTERNS, compareBehaviour, latestVitalsIndex, vitalReadings, vitalsSummary, yesRate } from '@/data/healthDerived';
 import { todayIso } from '@/lib/format';
@@ -118,6 +118,26 @@ describe('health screens', () => {
     expect(screen.getByTestId('health-tile-labs-value')).toHaveTextContent('1/1');
     expect(screen.getByTestId('health-tile-body-value')).toHaveTextContent('78.0 kg');
     expect(screen.getByTestId('health-tile-cycle-value')).toBeTruthy();
+  });
+
+  it('keeps the live card hidden until the band already streams and shows band status and level', async () => {
+    const startLive = jest.fn();
+    await render(withAppData(<VitalsScreen />, 'en', { startLive }));
+    expect(screen.queryByTestId('vitals-live')).toBeNull();
+    expect(screen.getByTestId('vitals-band-status')).toBeTruthy();
+    expect(screen.getByTestId('vitals-level')).toBeTruthy();
+    expect(screen.getByTestId('vital-temp')).toBeTruthy();
+    expect(startLive).not.toHaveBeenCalled();
+  });
+
+  it('shows the live heart rate while the stream runs', async () => {
+    await render(withAppData(<VitalsScreen />, 'en', { live: { active: true, heartRate: 72, lastRrMs: 830, updatedAt: 1 } }));
+    expect(screen.getByTestId('vitals-live-value')).toHaveTextContent('72 bpm');
+  });
+
+  it('shows skin temperature in the chosen unit', async () => {
+    await render(withAppData(<VitalsScreen />, 'en', { settings: { ...createFixtureSettings('en', FIXTURE_NOW), units: 'imperial' } }));
+    expect(screen.getByTestId('vital-temp')).toHaveTextContent(/°F/);
   });
 
   it('shows 24h heart rate stats from the day record and requests the 5-minute series', async () => {

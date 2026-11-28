@@ -12,16 +12,20 @@ interface Props {
   back?: boolean;
   withTabBar?: boolean;
   footer?: ReactNode;
+  refreshing?: boolean;
+  onRefresh?: () => void;
   children: ReactNode;
   testID?: string;
 }
 
-export function HealthPage({ title, tint = 'health', hero, right, back = true, withTabBar = false, footer, children, testID }: Props) {
+export function HealthPage({ title, tint = 'health', hero, right, back = true, withTabBar = false, footer, refreshing, onRefresh, children, testID }: Props) {
   return (
     <Screen
       tint={tint}
       withTabBar={withTabBar}
       footer={footer}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
       testID={testID}
       header={
         <>
