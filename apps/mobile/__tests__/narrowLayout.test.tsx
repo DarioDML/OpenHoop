@@ -24,8 +24,10 @@ jest.mock('expo-router', () => ({
   Link: ({ children }: { children: ReactNode }) => children,
 }));
 
+const mockInsets = { top: 0, bottom: 0, left: 0, right: 0 };
+
 jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  useSafeAreaInsets: () => mockInsets,
 }));
 
 jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { version: '1.2.3' } } }));
@@ -59,6 +61,7 @@ function row() {
 
 afterEach(() => {
   Object.assign(mockWindow, { width: 412, height: 915, fontScale: 1 });
+  Object.assign(mockInsets, { top: 0, bottom: 0 });
 });
 
 describe('ListRow chip', () => {
@@ -136,8 +139,16 @@ describe('bottom sheets at S24 size', () => {
     const ids = testIdsInOrder(screen.toJSON());
     expect(ids.indexOf('safety-nothing-sent')).toBeGreaterThan(-1);
     expect(ids.indexOf('safety-nothing-sent')).toBeLessThan(ids.indexOf('danger-confirm'));
+    expect(within(screen.getByTestId('safety-lock-footer')).getByTestId('safety-nothing-sent')).toBeTruthy();
     expect(within(screen.getByTestId('safety-lock-footer')).getByTestId('danger-confirm')).toBeTruthy();
     expect(within(screen.getByTestId('safety-lock-footer')).getByTestId('safety-cancel')).toBeTruthy();
+  });
+
+  it('keeps the pinned footer above the gesture bar', async () => {
+    s24();
+    Object.assign(mockInsets, { top: 24, bottom: 48 });
+    await render(withAppData(<SafetyLockScreen />));
+    expect(screen.getByTestId('safety-lock-sheet')).toHaveStyle({ paddingBottom: 48 + 16 });
   });
 });
 

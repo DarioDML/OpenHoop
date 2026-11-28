@@ -32,16 +32,16 @@ export default function SafetyLockScreen() {
       testID="safety-lock"
       footer={
         <View style={{ gap: spacing.sm }}>
+          <View testID="safety-nothing-sent" style={{ flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: colors.warningSoft }}>
+            <Icon name="info" color={colors.warning} size={16} />
+            <AppText variant="caption" style={{ flex: 1, minWidth: 0 }}>
+              {t('device.safety.nothingSent')}
+            </AppText>
+          </View>
           <Button label={t('device.safety.confirmNothing')} variant="outlineDanger" disabled={!matches} onPress={confirm} testID="danger-confirm" />
           <Button label={t('common.cancel')} onPress={goBack} testID="safety-cancel" />
         </View>
       }>
-      <View testID="safety-nothing-sent" style={{ flexDirection: 'row', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.warningSoft }}>
-        <Icon name="info" color={colors.warning} size={18} />
-        <AppText variant="label" style={{ flex: 1 }}>
-          {t('device.safety.nothingSent')}
-        </AppText>
-      </View>
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
         <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.negativeSoft, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="lock" color={colors.negative} size={24} />
