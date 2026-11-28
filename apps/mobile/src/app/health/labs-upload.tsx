@@ -24,7 +24,10 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Pill } from '@/ui/Chip';
 import { Button, Field, Segmented } from '@/ui/controls';
+import { Callout } from '@/ui/health/Callout';
+import { CenteredIntro } from '@/ui/health/CenteredIntro';
 import { HealthPage } from '@/ui/health/HealthPage';
+import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { markerName } from '@/ui/health/labsText';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { spacing, useTheme } from '@/ui/theme';
@@ -50,6 +53,7 @@ export default function LabsUploadScreen() {
   const [draft, setDraft] = useState<LabDraft>(() => (existing === null ? emptyLabDraft(today(), preset) : draftFromResult(existing)));
   const [invalid, setInvalid] = useState<LabField[]>([]);
   const [saving, setSaving] = useState(false);
+  const [manual, setManual] = useState(entryId !== null || preset !== '');
   const has = (field: LabField): boolean => invalid.includes(field);
 
   const patch = (change: Partial<LabDraft>): void => {
@@ -80,6 +84,45 @@ export default function LabsUploadScreen() {
   const showConversion = catalogueUnits !== null && draft.value.trim() !== '' && Number.isFinite(typedValue);
   const editing = existing !== null;
   const missingEntry = entryId !== null && existing === null;
+
+  if (!manual) {
+    return (
+      <HealthPage title={t('health.labsUpload.chooseTitle')} testID="health-labs-upload">
+        <CenteredIntro
+          icon="flask"
+          iconColor={colors.positive}
+          iconBackground={colors.tint.health}
+          heading={t('health.labsUpload.chooseHeading')}
+          body={t('health.labsUpload.chooseBody')}
+          testID="labs-choose-intro"
+        />
+        <ListGroup>
+          <ListRow
+            testID="labs-choose-csv"
+            icon={{ icon: 'upload', color: colors.positive, background: colors.tint.health }}
+            title={t('health.labsUpload.option.csv')}
+            subtitle={t('health.labsUpload.option.csvBody')}
+            onPress={() => router.push({ pathname: '/health/labs-import', params: { source: 'csv' } })}
+          />
+          <ListRow
+            testID="labs-import-open"
+            icon={{ icon: 'file', color: colors.textSoft, background: colors.surfaceAlt }}
+            title={t('health.labsUpload.option.report')}
+            subtitle={t('health.labsUpload.option.reportBody')}
+            onPress={() => router.push('/health/labs-import')}
+          />
+          <ListRow
+            testID="labs-choose-manual"
+            icon={{ icon: 'edit', color: colors.textSoft, background: colors.surfaceAlt }}
+            title={t('health.labsUpload.option.manual')}
+            subtitle={t('health.labsUpload.option.manualBody')}
+            onPress={() => setManual(true)}
+          />
+        </ListGroup>
+        <Callout icon="link" tone="neutral" title={t('health.labsUpload.bookingTitle')} body={t('health.labsUpload.bookingBody')} testID="labs-booking" />
+      </HealthPage>
+    );
+  }
 
   return (
     <HealthPage

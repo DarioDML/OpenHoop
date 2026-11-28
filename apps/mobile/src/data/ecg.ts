@@ -1,6 +1,7 @@
-import type { EcgSummary } from '@openhoop/core';
+import type { EcgSummary, EcgSymptom } from '@openhoop/core';
 
 export const ECG_STRIP_S = 5;
+
 
 export interface TraceColumn {
   min: number;
@@ -71,4 +72,43 @@ export function ecgCsv(recording: EcgSummary, samples: readonly number[]): strin
 
 export function ecgFileName(recording: EcgSummary): string {
   return `openhoop-ecg-${isoUtc(recording.t).slice(0, 19).replace(/[:T]/g, '-')}.csv`;
+}
+
+export type EcgContact = 'checking' | 'none' | 'weak' | 'good';
+
+export const ECG_CONTACT = {
+  minSamples: 50,
+  flatSpan: 8,
+  clipLimit: 32000,
+  maxClipped: 0.02,
+  maxRoughness: 0.2,
+  bandGood: 3,
+} as const;
+
+function quantile(sorted: readonly number[], q: number): number {
+  return sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(q * (sorted.length - 1))))] ?? 0;
+}
+
+function traceContact(tail: readonly number[]): Exclude<EcgContact, 'checking'> {
+  const sorted = [...tail].sort((a, b) => a - b);
+  const span = quantile(sorted, 0.99) - quantile(sorted, 0.01);
+  if (span <= ECG_CONTACT.flatSpan) return 'none';
+  const clipped = tail.filter((v) => Math.abs(v) >= ECG_CONTACT.clipLimit).length / tail.length;
+  if (clipped > ECG_CONTACT.maxClipped) return 'weak';
+  const steps = tail.slice(1).map((v, i) => Math.abs(v - (tail[i] ?? v))).sort((a, b) => a - b);
+  return quantile(steps, 0.5) / span > ECG_CONTACT.maxRoughness ? 'weak' : 'good';
+}
+
+export function ecgContact(tail: readonly number[], bandQuality: number | null): EcgContact {
+  if (bandQuality === 0) return 'none';
+  if (tail.length < ECG_CONTACT.minSamples) return 'checking';
+  const fromTrace = traceContact(tail);
+  if (bandQuality === null || fromTrace !== 'good') return fromTrace;
+  return bandQuality >= ECG_CONTACT.bandGood ? 'good' : 'weak';
+}
+
+export function toggleEcgSymptom(current: readonly EcgSymptom[], symptom: EcgSymptom): EcgSymptom[] {
+  if (current.includes(symptom)) return current.filter((s) => s !== symptom);
+  if (symptom === 'none') return ['none'];
+  return [...current.filter((s) => s !== 'none'), symptom];
 }

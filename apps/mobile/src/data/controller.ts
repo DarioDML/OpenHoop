@@ -29,6 +29,13 @@ import {
   wipeAllData,
   type StorageStats,
   deleteLabResult,
+  deleteCuffReading,
+  insertCuffReading,
+  listCuffReadings,
+  setEcgSymptoms,
+  type CuffReading,
+  type CuffReadingInput,
+  type EcgSymptom,
   consoleLinesCsv,
   exportCsv,
   importBodyMeasurements,
@@ -203,7 +210,9 @@ import {
 import { runHealthConnectSync } from './healthConnectSync';
 import { switchHealthConnectTypes } from './healthConnectSwitch';
 import { removeLeftoverReports } from './reportFiles';
+import { removeLeftoverCuffFiles } from './cuffShare';
 import { removeLeftoverEcgFiles } from './ecgShare';
+import { wipedState } from './wipe';
 import {
   NOTIFICATION_STATE_KEY,
   emptyNotificationState,
@@ -221,6 +230,7 @@ import { summariseImport, type VendorImportResult } from './vendorExport/summary
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
 import { buzzIfConnected } from './bandBuzz';
 import { LoadBuzzRunner } from './loadBuzzRunner';
+import { loadTargetsHidden } from './pregnancyPrefs';
 import { changesAppData } from './liveData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, storeProfile } from './settingsCodec';
 import { analyticsProfileOf, emptyProfile, mergeProfile } from './profile';
@@ -292,6 +302,7 @@ export interface Snapshot {
   bodyMeasurements: BodyMeasurement[];
   journalNotes: JournalNote[];
   labResults: LabResult[];
+  cuffReadings: CuffReading[];
   vendorData: VendorData;
   cycle: CycleData;
   strength: StrengthData;
@@ -332,7 +343,7 @@ const SYNC_FAILURES_NOT_ALERTED = new Set<TranslationKey>(['error.noBandPaired',
 
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null, dayLoad: null };
 const BUZZ_LOOPS: Readonly<Record<BandBuzz, number>> = { test: TEST_BUZZ_LOOPS, target: TEST_BUZZ_LOOPS, top: WARN_BUZZ_LOOPS, find: FIND_BAND_LOOPS };
-const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
+const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [], quality: null };
 const ECG_PROGRESS_MS = 200;
 const RING_WAIT_MS = 40_000;
 
@@ -420,7 +431,7 @@ export class AppController {
     connected: () => this.conn !== null && this.conn.session.isConnected,
     syncing: () => this.syncRun !== null,
     days: () => this.snapshot.days,
-    prefs: () => this.snapshot.userData.loadBuzz,
+    prefs: () => (loadTargetsHidden(this.snapshot.userData.pregnancyPrefs, this.snapshot.cycle) ? { ...this.snapshot.userData.loadBuzz, atTarget: false, overTop: false } : this.snapshot.userData.loadBuzz),
     buzz: (kind) => this.bandActionSet.buzz(kind),
     save: (last) => this.updateUserData({ loadBuzz: { ...this.snapshot.userData.loadBuzz, ...last } }),
     nowMs: () => Date.now(),
@@ -458,6 +469,7 @@ export class AppController {
       bodyMeasurements: [],
       journalNotes: [],
       labResults: [],
+      cuffReadings: [],
       vendorData: emptyVendorData(),
       cycle: emptyCycleData(),
       strength: emptyStrengthData(),
@@ -557,6 +569,7 @@ export class AppController {
       removeLeftoverExports();
       removeLeftoverReports();
       removeLeftoverEcgFiles();
+      removeLeftoverCuffFiles();
       removeLeftoverDonations();
     } catch {
       // a leftover export or report is removed again before the next one
@@ -597,6 +610,7 @@ export class AppController {
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
     const healthConnectState = parseHealthConnectState(await store.getSetting(HEALTH_CONNECT_STATE_KEY));
     const labResults = await listLabResults(this.app.driver);
+    const cuffReadings = await listCuffReadings(this.app.driver);
     const vendorData = await listVendorData(this.app.driver);
     const cycle = await loadCycleData(this.app.driver);
     const strength = await listStrengthData(this.app.driver);
@@ -608,6 +622,7 @@ export class AppController {
       bodyMeasurements,
       journalNotes,
       labResults,
+      cuffReadings,
       vendorData,
       cycle,
       inbox: this.notificationState.inbox,
@@ -1305,6 +1320,17 @@ export class AppController {
       if (this.deviceRow !== null) this.patch({ ecgRecordings: await listEcgRecordings(store.driver, this.deviceRow.id) });
       return removed;
     },
+    setSymptoms: async (id: number, symptoms: readonly EcgSymptom[]) => {
+      try {
+        const { store } = this.requireApp();
+        const saved = await setEcgSymptoms(store.driver, id, symptoms);
+        if (this.deviceRow !== null) this.patch({ ecgRecordings: await listEcgRecordings(store.driver, this.deviceRow.id) });
+        return saved;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    },
   };
 
   private async startEcg(wrist: Wrist): Promise<number | null> {
@@ -1328,7 +1354,7 @@ export class AppController {
             const now = Date.now();
             if (now - lastProgress < ECG_PROGRESS_MS) return;
             lastProgress = now;
-            this.patch({ ecgLive: { active: true, elapsedMs: progress.elapsedMs, samples: progress.samples, tail: progress.tail } });
+            this.patch({ ecgLive: { active: true, elapsedMs: progress.elapsedMs, samples: progress.samples, tail: progress.tail, quality: progress.quality } });
           },
         });
         if (capture.stopConfirmed) await store.setSetting(ecgCleanupKey(conn.deviceId), '');
@@ -1509,7 +1535,7 @@ export class AppController {
         if (patch.theme !== undefined) setThemePreference(next.theme);
         if (retentionChanged(patch)) void this.exclusive(() => this.pruneRaw());
         if (patch.notifications !== undefined || patch.weeklyPlan !== undefined || patch.windDown !== undefined) void this.refreshNotifications();
-        if (patch.widgetValues !== undefined) void this.refreshWidgets();
+        if (patch.widgetValues !== undefined || patch.pregnancyPrefs !== undefined) void this.refreshWidgets();
         if (patch.jetLagShiftAlarm !== undefined || (patch.jetLagPlan !== undefined && next.jetLagShiftAlarm)) void this.reapplyAlarm();
         return true;
       } catch (error) {
@@ -1668,6 +1694,30 @@ export class AppController {
 
   removeLabResult = (id: number): Promise<boolean> => this.runLabChange((driver) => deleteLabResult(driver, id));
 
+  private runCuffChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const done = await task(driver);
+        this.patch({ cuffReadings: await listCuffReadings(driver) });
+        return done;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
+  saveCuffReading = (input: CuffReadingInput): Promise<boolean> =>
+    this.runCuffChange(async (driver) => {
+      await insertCuffReading(driver, input, nowSeconds());
+      return true;
+    });
+
+  removeCuffReading = (id: number): Promise<boolean> => this.runCuffChange((driver) => deleteCuffReading(driver, id));
+
   savePeriod = (id: number | null, input: PeriodInput): Promise<boolean> =>
     this.runCycleChange(async (driver) => {
       if (id === null) {
@@ -1687,19 +1737,29 @@ export class AppController {
 
   removeSymptom = (id: number): Promise<boolean> => this.runCycleChange((driver) => deleteSymptom(driver, id), false);
 
-  savePregnancy = (dueDay: string): Promise<boolean> =>
-    this.runCycleChange(async (driver) => {
+  savePregnancy = async (dueDay: string): Promise<boolean> => {
+    const saved = await this.runCycleChange(async (driver) => {
       await setPregnancy(driver, dueDay, nowSeconds());
       return true;
     }, false);
+    void this.refreshWidgets();
+    return saved;
+  };
 
-  removePregnancy = (): Promise<boolean> => this.runCycleChange((driver) => clearPregnancy(driver), false);
+  removePregnancy = async (): Promise<boolean> => {
+    const removed = await this.runCycleChange((driver) => clearPregnancy(driver), false);
+    void this.refreshWidgets();
+    return removed;
+  };
 
-  removeAllCycleData = (): Promise<boolean> =>
-    this.runCycleChange(async (driver) => {
+  removeAllCycleData = async (): Promise<boolean> => {
+    const removed = await this.runCycleChange(async (driver) => {
       await deleteAllCycleData(driver);
       return true;
     }, false);
+    void this.refreshWidgets();
+    return removed;
+  };
 
   private readonly strengthActionSet: StrengthActions = this.strengthActions();
 
@@ -1876,7 +1936,7 @@ export class AppController {
           syncedAt: this.lastSyncAt,
           language: settings.language,
           readinessNightsLeft: readinessNightsLeft(days, days.length - 1),
-          loadTarget: loadTargetBand(days),
+          loadTarget: loadTargetsHidden(userData.pregnancyPrefs, this.snapshot.cycle) ? null : loadTargetBand(days),
         }),
       );
     });
@@ -2310,28 +2370,13 @@ export class AppController {
     this.smartWake.cancel();
     await this.notifier.cancelAll().catch(() => undefined);
     this.notificationState = emptyNotificationState();
-    const userData = defaultUserData();
-    setNetworkPrefs(userData.network);
-    setThemePreference(userData.theme);
+    const wiped = wipedState(this.snapshot);
+    setNetworkPrefs(wiped.userData.network);
+    setThemePreference(wiped.userData.theme);
     this.deviceRow = null;
     this.demoBand = null;
     this.connection = 'disconnected';
-    this.patch({
-      userData,
-      settings: { ...this.snapshot.settings, dataSource: 'demo', ownerSince: null, units: 'metric' },
-      profile: { birthYear: null, maxHeartRate: null },
-      bodyMeasurements: [],
-      journalNotes: [],
-      labResults: [],
-      vendorData: emptyVendorData(),
-      cycle: emptyCycleData(),
-      strength: emptyStrengthData(),
-      inbox: [],
-      healthConnect: { ...this.snapshot.healthConnect, state: defaultHealthConnectState() },
-      alarm: { ...this.snapshot.alarm, plan: DEFAULT_ALARM_PLAN, armed: null, events: [], problem: null },
-      ecgRecordings: [],
-      notice: null,
-    });
+    this.patch(wiped);
     await this.loadActiveDevice();
     void this.refreshWidgets();
     return true;
@@ -2420,6 +2465,8 @@ export class AppController {
       removeJournalNote: this.removeJournalNote,
       saveLabResult: this.saveLabResult,
       removeLabResult: this.removeLabResult,
+      saveCuffReading: this.saveCuffReading,
+      removeCuffReading: this.removeCuffReading,
       importVendorFiles: this.importVendorFiles,
       removeVendorData: this.removeVendorData,
       savePeriod: this.savePeriod,

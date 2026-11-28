@@ -5,6 +5,7 @@ import { formatWeekday, isLoadDay, periodStats } from '@/data/activityDerived';
 import { useAppData } from '@/data/context';
 import { series } from '@/data/derived';
 import { daysOnTarget, LOAD_SCALE_MAX } from '@/data/loadDerived';
+import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { useT } from '@/i18n/useT';
 import { formatNumber, formatShortDay } from '@/lib/format';
 import { NoDataScreen } from '@/ui/activity/parts';
@@ -22,7 +23,8 @@ import { TopBar } from '@/ui/TopBar';
 type Range = '7' | '30' | '180';
 
 export default function LoadTrendsScreen() {
-  const { days } = useAppData();
+  const { days, userData, cycle } = useAppData();
+  const targetsHidden = loadTargetsHidden(userData.pregnancyPrefs, cycle);
   const { t, language } = useT();
   const { colors } = useTheme();
   const [range, setRange] = useState<Range>('7');
@@ -103,17 +105,28 @@ export default function LoadTrendsScreen() {
         />
       </View>
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
-        <MetricTile
-          label={t('loadTrends.onTarget')}
-          value={onTarget.measured === 0 ? null : onTarget.on}
-          format={(on) => `${on}/${onTarget.measured}`}
-          level={PARITY.load}
-          reason="needs-history"
-          size={40}
-          chip={share === null ? null : { label: t('loadTrends.onTargetShare', { percent: share }), tone: share >= 50 ? 'positive' : 'neutral' }}
-          style={{ flex: 1 }}
-          testID="trend-ontarget"
-        />
+        {targetsHidden ? (
+          <Card style={{ flex: 1, gap: 10 }} testID="trend-ontarget">
+            <AppText variant="capSmall" muted>
+              {t('loadTrends.onTarget')}
+            </AppText>
+            <AppText variant="label" muted testID="trend-ontarget-hidden">
+              {t('loadTarget.hidden.pill')}
+            </AppText>
+          </Card>
+        ) : (
+          <MetricTile
+            label={t('loadTrends.onTarget')}
+            value={onTarget.measured === 0 ? null : onTarget.on}
+            format={(on) => `${on}/${onTarget.measured}`}
+            level={PARITY.load}
+            reason="needs-history"
+            size={40}
+            chip={share === null ? null : { label: t('loadTrends.onTargetShare', { percent: share }), tone: share >= 50 ? 'positive' : 'neutral' }}
+            style={{ flex: 1 }}
+            testID="trend-ontarget"
+          />
+        )}
         <MetricTile label={t('loadTrends.total')} value={total} decimals={1} level={PARITY.load} size={40} style={{ flex: 1 }} testID="trend-total" />
       </View>
       <AppText variant="label" muted testID="trend-loaddays">
@@ -122,8 +135,8 @@ export default function LoadTrendsScreen() {
       <AppText variant="caption" muted>
         {t('loadx.trends.loadDayNote')}
       </AppText>
-      <AppText variant="caption" muted>
-        {t('loadTrends.onTargetNote')}
+      <AppText variant="caption" muted testID="trend-ontarget-note">
+        {targetsHidden ? t('loadTarget.hidden.body') : t('loadTrends.onTargetNote')}
       </AppText>
     </Screen>
   );

@@ -1,8 +1,15 @@
 import type { PeriodEntry, SymptomEntry } from '@openhoop/core';
 
 import {
+  applyDayFlow,
   buildTimeline,
   computeCycleStats,
+  cyclePhases,
+  cycleWheel,
+  dayFlow,
+  fertileWindow,
+  latestDeviation,
+  tempFitsPhase,
   dayOfCycle,
   daysBetween,
   estimateNextPeriod,
@@ -241,5 +248,89 @@ describe('parseTimelineRange', () => {
   it('falls back to 90 days', () => {
     expect(parseTimelineRange('30')).toBe(30);
     expect(parseTimelineRange('7')).toBe(90);
+  });
+});
+
+describe('cycle phases (estimates)', () => {
+  it('splits a cycle into period, follicular, ovulation and a 14-day second half', () => {
+    expect(cyclePhases(28, 5)).toEqual([
+      { phase: 'menstrual', from: 1, to: 5 },
+      { phase: 'follicular', from: 6, to: 12 },
+      { phase: 'ovulation', from: 13, to: 15 },
+      { phase: 'luteal', from: 16, to: 28 },
+    ]);
+    expect(cyclePhases(16, 12)[0]).toEqual({ phase: 'menstrual', from: 1, to: 8 });
+  });
+
+  it('places today on the wheel from the logs, or on a typical cycle until there is history', () => {
+    const logged = computeCycleStats([period(1, '2026-09-01', '2026-09-05'), period(2, '2026-09-29', '2026-10-03'), period(3, '2026-10-29', '2026-11-02')]);
+    expect(cycleWheel(logged, '2026-11-12')).toMatchObject({ day: 15, length: 29, typicalLength: false, phase: 'ovulation', daysLeftInPhase: 1, overdue: false });
+    expect(cycleWheel(logged, TODAY)).toMatchObject({ day: 28, phase: 'luteal', daysLeftInPhase: 1 });
+    expect(cycleWheel(logged, '2026-12-01')).toMatchObject({ day: 34, overdue: true, daysLeftInPhase: 0 });
+    const one = computeCycleStats([period(4, '2026-11-09')]);
+    expect(cycleWheel(one, TODAY)).toMatchObject({ day: 17, length: 28, typicalLength: true, phase: 'luteal', daysLeftInPhase: 11 });
+    expect(cycleWheel(computeCycleStats([]), TODAY)).toBeNull();
+  });
+
+  it('counts the fertile window back from the next estimated period', () => {
+    const next = estimateNextPeriod(computeCycleStats([period(1, '2026-09-01'), period(2, '2026-09-29'), period(3, '2026-10-27')]), TODAY);
+    expect(fertileWindow(next)).toEqual({ from: '2026-11-05', to: '2026-11-11' });
+    expect(fertileWindow({ ok: false, reason: 'no-data' })).toBeNull();
+  });
+
+  it('takes the newest skin temperature only from recent nights', () => {
+    const days = createFixtureDays(FIXTURE_NOW);
+    const latest = latestDeviation(days, TODAY, 3);
+    expect(latest === null || latest.day >= '2026-11-22').toBe(true);
+    expect(latestDeviation(days, '2030-01-01', 3)).toBeNull();
+  });
+
+  it('says whether the temperature fits the usual pattern of the phase', () => {
+    expect(tempFitsPhase('luteal', 0.3)).toBe('typical');
+    expect(tempFitsPhase('luteal', -0.2)).toBe('different');
+    expect(tempFitsPhase('follicular', -0.1)).toBe('typical');
+    expect(tempFitsPhase('menstrual', 0.4)).toBe('different');
+    expect(tempFitsPhase('ovulation', 0.4)).toBeNull();
+  });
+});
+
+describe('flow for one day', () => {
+  const ongoing = period(5, '2026-11-23', null, 2);
+  const done = period(6, '2026-10-20', '2026-10-24', 1);
+
+  it('reads the flow of the period that covers the day', () => {
+    expect(dayFlow([ongoing, done], TODAY, TODAY)).toBe(2);
+    expect(dayFlow([ongoing, done], '2026-10-22', TODAY)).toBe(1);
+    expect(dayFlow([ongoing, done], '2026-11-01', TODAY)).toBe(0);
+  });
+
+  it('starts a period, extends one that ended the day before, or changes its flow', () => {
+    expect(applyDayFlow([], TODAY, 3, TODAY)).toEqual({ kind: 'newPeriod', input: { startDay: TODAY, endDay: null, flow: 3 } });
+    expect(applyDayFlow([], '2026-11-10', 1, TODAY)).toEqual({ kind: 'newPeriod', input: { startDay: '2026-11-10', endDay: '2026-11-10', flow: 1 } });
+    expect(applyDayFlow([done], '2026-10-25', 1, TODAY)).toEqual({ kind: 'update', id: 6, input: { startDay: '2026-10-20', endDay: '2026-10-25', flow: 1 } });
+    expect(applyDayFlow([done], '2026-10-19', 2, TODAY)).toEqual({ kind: 'update', id: 6, input: { startDay: '2026-10-19', endDay: '2026-10-24', flow: 2 } });
+    expect(applyDayFlow([ongoing], TODAY, 3, TODAY)).toEqual({ kind: 'update', id: 5, input: { startDay: '2026-11-23', endDay: null, flow: 3 } });
+    expect(applyDayFlow([ongoing], TODAY, 2, TODAY)).toEqual({ kind: 'none' });
+  });
+
+  it('joins a day after a skipped day or two to the period instead of starting a new one', () => {
+    const firstDays = period(8, '2026-10-01', '2026-10-03', 2);
+    expect(applyDayFlow([firstDays], '2026-10-05', 2, TODAY)).toEqual({ kind: 'update', id: 8, input: { startDay: '2026-10-01', endDay: '2026-10-05', flow: 2 } });
+    expect(applyDayFlow([firstDays], '2026-10-06', 2, TODAY)).toEqual({ kind: 'update', id: 8, input: { startDay: '2026-10-01', endDay: '2026-10-06', flow: 2 } });
+    expect(applyDayFlow([firstDays], '2026-10-07', 2, TODAY)).toEqual({ kind: 'newPeriod', input: { startDay: '2026-10-07', endDay: '2026-10-07', flow: 2 } });
+    expect(applyDayFlow([period(9, '2026-10-12', '2026-10-14')], '2026-10-10', 1, TODAY)).toEqual({ kind: 'update', id: 9, input: { startDay: '2026-10-10', endDay: '2026-10-14', flow: 1 } });
+    expect(applyDayFlow([period(10, '2026-10-01', '2026-10-13')], '2026-10-15', 2, TODAY)).toEqual({ kind: 'newPeriod', input: { startDay: '2026-10-15', endDay: '2026-10-15', flow: 2 } });
+  });
+
+  it('ends or removes a period when the day has no flow, and leaves the middle of one alone', () => {
+    expect(applyDayFlow([ongoing], TODAY, 0, TODAY)).toEqual({ kind: 'update', id: 5, input: { startDay: '2026-11-23', endDay: '2026-11-24', flow: 2 } });
+    expect(applyDayFlow([ongoing], '2026-11-23', 0, TODAY)).toEqual({ kind: 'update', id: 5, input: { startDay: '2026-11-24', endDay: null, flow: 2 } });
+    expect(applyDayFlow([ongoing], '2026-11-24', 0, TODAY)).toEqual({ kind: 'inside' });
+    expect(applyDayFlow([period(7, TODAY)], TODAY, 0, TODAY)).toEqual({ kind: 'delete', id: 7 });
+    expect(applyDayFlow([done], '2026-10-24', 0, TODAY)).toEqual({ kind: 'update', id: 6, input: { startDay: '2026-10-20', endDay: '2026-10-23', flow: 1 } });
+    expect(applyDayFlow([done], '2026-10-20', 0, TODAY)).toEqual({ kind: 'update', id: 6, input: { startDay: '2026-10-21', endDay: '2026-10-24', flow: 1 } });
+    expect(applyDayFlow([done], '2026-10-22', 0, TODAY)).toEqual({ kind: 'inside' });
+    expect(applyDayFlow([done], '2026-11-01', 0, TODAY)).toEqual({ kind: 'none' });
+    expect(applyDayFlow([], '2026-12-01', 2, TODAY)).toEqual({ kind: 'invalid' });
   });
 });

@@ -43,6 +43,7 @@ export const EXPORT_TABLES: ReadonlyArray<ExportTable> = [
   'vendor_journal',
   'route_points',
   'ecg_recordings',
+  'cuff_readings',
 ];
 
 const PLAINTEXT_NAME = 'openhoop.db';

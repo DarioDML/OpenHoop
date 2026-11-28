@@ -193,9 +193,14 @@ const EXPORTS: Record<ExportTable, ExportSpec> = {
     order: 'activity_id, seq',
   },
   ecg_recordings: {
-    columns: ['id', 'device_id', 't', 'duration_ms', 'sample_count', 'rate_hz', 'wrist', 'samples_i16le'],
-    select: 'id, device_id, t, duration_ms, sample_count, rate_hz, wrist, hex(data) AS samples_i16le',
+    columns: ['id', 'device_id', 't', 'duration_ms', 'sample_count', 'rate_hz', 'wrist', 'symptoms', 'samples_i16le'],
+    select: 'id, device_id, t, duration_ms, sample_count, rate_hz, wrist, symptoms, hex(data) AS samples_i16le',
     order: 'device_id, t, id',
+  },
+  cuff_readings: {
+    columns: ['id', 't', 'systolic', 'diastolic', 'pulse', 'created_at'],
+    select: 'id, t, systolic, diastolic, pulse, created_at',
+    order: 't, id',
   },
 };
 

@@ -317,8 +317,8 @@ describe('custom period, ECG and cycle sections', () => {
   it('lists ECG recordings in the period and never gives a verdict', () => {
     const t = Date.UTC(2026, 10, 20, 9, 30) / 1000;
     const recordings = [
-      { id: 1, deviceId: 1, t, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'right' as const },
-      { id: 2, deviceId: 1, t: Date.UTC(2025, 0, 1) / 1000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: null },
+      { id: 1, deviceId: 1, t, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'right' as const, symptoms: [] },
+      { id: 2, deviceId: 1, t: Date.UTC(2025, 0, 1) / 1000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: null, symptoms: [] },
     ];
     const model = buildReport(input({ sections: ['ecg'], ecgRecordings: recordings }));
     expect(model.sections[0]?.ecg.map((e) => e.id)).toEqual([1]);
@@ -343,7 +343,7 @@ describe('custom period, ECG and cycle sections', () => {
 
   it('puts a recording at 00:30 local time on that local day', () => {
     const t = new Date(2026, 10, 11, 0, 30).getTime() / 1000;
-    const recording = { id: 9, deviceId: 1, t, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: null };
+    const recording = { id: 9, deviceId: 1, t, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: null, symptoms: [] };
     const model = buildReport(input({ sections: ['ecg'], ecgRecordings: [recording], custom: { from: '2026-11-11', to: '2026-11-11' } }));
     expect(model.sections[0]?.ecg.map((e) => e.id)).toEqual([9]);
     expect(localDay(t)).toBe('2026-11-11');

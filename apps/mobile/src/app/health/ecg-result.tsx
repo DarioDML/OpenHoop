@@ -1,28 +1,46 @@
-import type { EcgSummary } from '@openhoop/core';
+import type { EcgSummary, EcgSymptom } from '@openhoop/core';
+import { ECG_SYMPTOMS } from '@openhoop/core/ecg-symptoms';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
+import type { Language } from '@/data/types';
 import { singleParam } from '@/data/dailyDerived';
-import { ECG_STRIP_S, ecgStrips, stripLength, traceRange } from '@/data/ecg';
+import { ECG_STRIP_S, ecgStrips, stripLength, toggleEcgSymptom, traceRange } from '@/data/ecg';
+import { ecgReportHtml } from '@/data/ecgReport';
 import { shareEcgCsv } from '@/data/ecgShare';
+import { shareReportPdf } from '@/data/reportShare';
 import { useT, type TFunction } from '@/i18n/useT';
-import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
+import { deviceTzOffsetS, todayIsoDate, unixToIsoDate } from '@/lib/dates';
 import { formatClock, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/controls';
-import { EcgTrace } from '@/ui/health/EcgTrace';
+import { Callout } from '@/ui/health/Callout';
+import { EcgPanel, EcgTrace } from '@/ui/health/EcgTrace';
 import { HealthPage } from '@/ui/health/HealthPage';
+import { SelectChip } from '@/ui/health/SelectChip';
+import { useLayout } from '@/ui/layout';
+import { LevelNote } from '@/ui/LevelNote';
+import { ListGroup, ListRow } from '@/ui/ListGroup';
 import { KeyValueRow } from '@/ui/manage/rows';
-import { ParityBadge } from '@/ui/ParityBadge';
+import { Num } from '@/ui/Num';
 import { StateCard } from '@/ui/StateCard';
 import { spacing, useTheme } from '@/ui/theme';
+import { IconButton } from '@/ui/TopBar';
 
-function when(language: 'nl' | 'en', unixS: number): string {
-  const tz = deviceTzOffsetS(new Date(unixS * 1000));
-  return `${formatShortDay(unixToIsoDate(unixS, tz), language)} ${formatClock(unixS, tz)}`;
+function dayLabel(t: TFunction, language: Language, unixS: number): string {
+  const day = unixToIsoDate(unixS, deviceTzOffsetS(new Date(unixS * 1000)));
+  return day === todayIsoDate() ? t('ecg.today') : formatShortDay(day, language);
+}
+
+function clock(unixS: number): string {
+  return formatClock(unixS, deviceTzOffsetS(new Date(unixS * 1000)));
+}
+
+function when(t: TFunction, language: Language, unixS: number): string {
+  return `${dayLabel(t, language, unixS)} ${clock(unixS)}`;
 }
 
 function wristText(t: TFunction, recording: EcgSummary): string {
@@ -30,42 +48,101 @@ function wristText(t: TFunction, recording: EcgSummary): string {
   return t(recording.wrist === 'left' ? 'ecg.wristLeft' : 'ecg.wristRight');
 }
 
+function symptomsText(t: TFunction, symptoms: readonly EcgSymptom[]): string {
+  return symptoms.length === 0 ? t('ecg.feel.notSaid') : symptoms.map((symptom) => t(`ecg.feel.${symptom}`)).join(', ');
+}
+
+function seconds(t: TFunction, recording: EcgSummary): string {
+  return t('ecg.seconds', { seconds: Math.round(recording.durationMs / 1000) });
+}
+
 export default function EcgResultScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
+  const layout = useLayout();
   const { ecgRecordings, ecgActions, heartRateBetween } = useAppData();
   const params = useLocalSearchParams<{ id?: string }>();
   const wanted = Number(singleParam(params.id) ?? NaN);
   const [picked, setPicked] = useState<number | null>(null);
   const selected = ecgRecordings.find((r) => r.id === (picked ?? wanted)) ?? ecgRecordings[0] ?? null;
   const [loaded, setLoaded] = useState<{ id: number; samples: number[] | null; avgHr: number | null } | null>(null);
-  const [sharing, setSharing] = useState(false);
+  const [exporting, setExporting] = useState<'pdf' | 'csv' | null>(null);
+  const [tags, setTags] = useState<{ id: number; symptoms: EcgSymptom[] } | null>(null);
+  const tagWrites = useRef<Promise<void>>(Promise.resolve());
+
+  const selectedId = selected?.id ?? null;
+  const selectedStart = selected?.t ?? 0;
+  const selectedLength = selected?.durationMs ?? 0;
 
   useEffect(() => {
-    if (selected === null) return;
+    if (selectedId === null) return;
     let cancelled = false;
     void (async () => {
-      const samples = await ecgActions.samples(selected.id);
-      const hr = await heartRateBetween(selected.t, selected.t + Math.ceil(selected.durationMs / 1000), 1);
+      const samples = await ecgActions.samples(selectedId);
+      const hr = await heartRateBetween(selectedStart, selectedStart + Math.ceil(selectedLength / 1000), 1);
       const avgHr = hr.length === 0 ? null : Math.round(hr.reduce((sum, point) => sum + point.hr, 0) / hr.length);
-      if (!cancelled) setLoaded({ id: selected.id, samples, avgHr });
+      if (!cancelled) setLoaded({ id: selectedId, samples, avgHr });
     })();
     return () => {
       cancelled = true;
     };
-  }, [selected, ecgActions, heartRateBetween]);
+  }, [selectedId, selectedStart, selectedLength, ecgActions, heartRateBetween]);
 
   const current = selected !== null && loaded?.id === selected.id ? loaded : null;
+  const symptoms = selected === null ? [] : tags !== null && tags.id === selected.id ? tags.symptoms : selected.symptoms;
 
-  const share = async (): Promise<void> => {
+  const feel = (symptom: EcgSymptom): void => {
+    if (selected === null) return;
+    const next = toggleEcgSymptom(symptoms, symptom);
+    const id = selected.id;
+    setTags({ id, symptoms: next });
+    tagWrites.current = tagWrites.current.then(async () => {
+      if (!(await ecgActions.setSymptoms(id, next))) setTags((current) => (current !== null && current.id === id && current.symptoms === next ? null : current));
+    });
+  };
+
+  const summaryRows = (recording: EcgSummary, avgHr: number | null): Array<{ id: string; label: string; value: string }> => [
+    { id: 'recorded', label: t('ecg.recorded'), value: when(t, language, recording.t) },
+    { id: 'length', label: t('ecg.length'), value: seconds(t, recording) },
+    { id: 'wrist', label: t('ecg.wrist'), value: wristText(t, recording) },
+    { id: 'rate', label: t('ecg.rate'), value: recording.rateHz === null ? t('band.unknown') : t('ecg.rateValue', { rate: Math.round(recording.rateHz) }) },
+    { id: 'samples', label: t('ecg.sampleCount'), value: String(recording.sampleCount) },
+    { id: 'band-hr', label: t('ecg.bandHr'), value: avgHr === null ? t('ecg.bandHrNone') : t('ecg.bandHrValue', { bpm: avgHr }) },
+    { id: 'felt', label: t('ecg.feel.title'), value: symptomsText(t, symptoms) },
+  ];
+
+  const exportPdf = async (): Promise<void> => {
     if (selected === null || current?.samples == null) return;
-    setSharing(true);
+    setExporting('pdf');
+    try {
+      await shareReportPdf(
+        ecgReportHtml({
+          title: t('ecg.pdf.title'),
+          rows: summaryRows(selected, current.avgHr),
+          stripsTitle: t('ecg.strips', { seconds: ECG_STRIP_S }),
+          samples: current.samples,
+          rateHz: selected.rateHz,
+          durationMs: selected.durationMs,
+          notes: [t('ecg.bandHrNote'), t('ecg.info.body'), t('ecg.levelD'), t('health.mg.disclaimer')],
+          language,
+        }),
+      );
+    } catch {
+      Alert.alert(t('ecg.shareFailed'));
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const exportCsv = async (): Promise<void> => {
+    if (selected === null || current?.samples == null) return;
+    setExporting('csv');
     try {
       await shareEcgCsv(selected, current.samples);
     } catch {
       Alert.alert(t('ecg.shareFailed'));
     } finally {
-      setSharing(false);
+      setExporting(null);
     }
   };
 
@@ -77,50 +154,55 @@ export default function EcgResultScreen() {
     ]);
   };
 
+  const canExport = exporting === null && current?.samples != null && current.samples.length > 0;
+
+  const hero =
+    selected === null ? (
+      <View style={{ gap: spacing.sm }}>
+        <AppText variant="h2" accessibilityRole="header">
+          {t('health.ecgResult.heading')}
+        </AppText>
+        <AppText variant="lead" muted>
+          {t('health.ecgResult.body')}
+        </AppText>
+      </View>
+    ) : (
+      <View style={{ gap: spacing.sm }} testID="ecg-hero">
+        <AppText variant="capLarge" muted>
+          {t('ecg.recorded')}
+        </AppText>
+        <View style={{ flexDirection: layout.narrow ? 'column' : 'row', alignItems: layout.narrow ? 'flex-start' : 'flex-end', justifyContent: 'space-between', gap: spacing.sm }}>
+          <Num size={layout.narrow ? 56 : 72} testID="ecg-hero-time">
+            {clock(selected.t)}
+          </Num>
+          <AppText variant="body" color={colors.textSoft} style={{ paddingBottom: 8 }} testID="ecg-hero-when">
+            {`${dayLabel(t, language, selected.t)} · ${seconds(t, selected)}`}
+          </AppText>
+        </View>
+      </View>
+    );
+
   return (
     <HealthPage
       title={t('health.ecgResult.title')}
+      tint="heart"
       testID="health-ecg-result"
-      hero={
-        <View style={{ gap: spacing.sm }}>
-          <AppText variant="h2" accessibilityRole="header">
-            {t('health.ecgResult.heading')}
-          </AppText>
-          <AppText variant="lead" muted>
-            {t('health.ecgResult.body')}
-          </AppText>
-        </View>
-      }>
+      right={selected === null ? undefined : <IconButton icon="share" label={t('ecg.exportPdf')} onPress={() => void exportPdf()} testID="ecg-share-top" />}
+      hero={hero}>
       {selected === null ? (
         <StateCard icon="pulse" tone="pink" title={t('ecg.none.title')} body={t('ecg.none.body')} actionLabel={t('ecg.start')} onAction={() => router.push('/health/ecg')} testID="ecg-none" />
       ) : (
         <>
-          <Card style={{ gap: spacing.xs }} testID="ecg-summary">
-            <KeyValueRow label={t('ecg.recorded')} value={when(language, selected.t)} />
-            <KeyValueRow label={t('ecg.length')} value={t('ecg.seconds', { seconds: Math.round(selected.durationMs / 1000) })} />
-            <KeyValueRow label={t('ecg.wrist')} value={wristText(t, selected)} />
-            <KeyValueRow label={t('ecg.rate')} value={selected.rateHz === null ? t('band.unknown') : t('ecg.rateValue', { rate: Math.round(selected.rateHz) })} />
-            <KeyValueRow label={t('ecg.sampleCount')} value={String(selected.sampleCount)} />
-            <KeyValueRow
-              label={t('ecg.bandHr')}
-              value={current?.avgHr == null ? t('ecg.bandHrNone') : t('ecg.bandHrValue', { bpm: current.avgHr })}
-              testID="ecg-band-hr"
-            />
-            <AppText variant="caption" muted>
-              {t('ecg.bandHrNote')}
-            </AppText>
-          </Card>
-
-          <Card style={{ gap: spacing.md }} testID="ecg-strips">
-            <AppText variant="capSmall" muted>
+          <EcgPanel testID="ecg-strips">
+            <AppText variant="capSmall" muted style={{ paddingHorizontal: spacing.sm, paddingTop: spacing.sm }}>
               {t('ecg.strips', { seconds: ECG_STRIP_S })}
             </AppText>
             {current === null ? (
-              <AppText variant="label" muted>
+              <AppText variant="label" muted style={{ padding: spacing.sm }}>
                 {t('ecg.loading')}
               </AppText>
             ) : current.samples === null || current.samples.length === 0 ? (
-              <AppText variant="label" muted>
+              <AppText variant="label" muted style={{ padding: spacing.sm }}>
                 {t('ecg.unreadable')}
               </AppText>
             ) : (
@@ -129,44 +211,79 @@ export default function EcgResultScreen() {
                 const perStrip = stripLength(samples.length, selected.rateHz, selected.durationMs);
                 const range = traceRange(samples);
                 return ecgStrips(samples, selected.rateHz, selected.durationMs).map((strip, i) => (
-                  <EcgTrace key={i} samples={strip} height={72} range={range} fraction={strip.length / perStrip} testID={`ecg-strip-${i}`} />
+                  <EcgTrace key={i} samples={strip} height={72} range={range} fraction={strip.length / perStrip} grid testID={`ecg-strip-${i}`} />
                 ));
               })()
             )}
-          </Card>
+          </EcgPanel>
 
-          <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
-            <ParityBadge level="D" />
-            <AppText variant="label" muted style={{ flex: 1 }}>
-              {t('ecg.levelD')}
+          <Callout icon="info" title={t('ecg.info.title')} body={t('ecg.info.body')} testID="ecg-info" />
+
+          <View style={{ gap: spacing.sm }} testID="ecg-feel">
+            <AppText variant="capLarge" muted>
+              {t('ecg.feel.question')}
+            </AppText>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {ECG_SYMPTOMS.map((symptom) => (
+                <SelectChip key={symptom} label={t(`ecg.feel.${symptom}`)} selected={symptoms.includes(symptom)} onPress={() => feel(symptom)} testID={`ecg-feel-${symptom}`} />
+              ))}
+            </View>
+            <AppText variant="caption" muted>
+              {t('ecg.feel.hint')}
             </AppText>
           </View>
 
-          <View style={{ gap: spacing.sm }}>
-            <Button label={sharing ? t('ecg.sharing') : t('ecg.share')} variant="secondary" onPress={() => void share()} disabled={sharing || current?.samples == null} testID="ecg-share" />
-            <Button label={t('ecg.delete')} variant="tertiary" onPress={remove} testID="ecg-delete" />
+          <View style={{ flexDirection: layout.narrow ? 'column' : 'row', gap: spacing.md }}>
+            <Button
+              label={exporting === 'pdf' ? t('ecg.sharing') : t('ecg.exportPdf')}
+              icon="file"
+              variant="soft"
+              onPress={() => void exportPdf()}
+              disabled={!canExport}
+              style={{ flex: layout.narrow ? undefined : 1, paddingHorizontal: spacing.md }}
+              testID="ecg-export-pdf"
+            />
+            <Button
+              label={exporting === 'csv' ? t('ecg.sharing') : t('ecg.exportCsv')}
+              icon="download"
+              variant="soft"
+              onPress={() => void exportCsv()}
+              disabled={!canExport}
+              style={{ flex: layout.narrow ? undefined : 1, paddingHorizontal: spacing.md }}
+              testID="ecg-share"
+            />
           </View>
 
-          {ecgRecordings.length > 1 ? (
-            <Card style={{ gap: 0 }} testID="ecg-history-list">
-              <AppText variant="capSmall" muted>
-                {t('ecg.historyTitle')}
-              </AppText>
-              {ecgRecordings.map((recording) => (
-                <Pressable
+          <ListGroup title={t('ecg.historyTitle')}>
+            {ecgRecordings.map((recording) => {
+              const shown = recording.id === selected.id;
+              return (
+                <ListRow
                   key={recording.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: recording.id === selected.id }}
-                  onPress={() => setPicked(recording.id)}
                   testID={`ecg-item-${recording.id}`}
-                  style={{ minHeight: 44, justifyContent: 'center' }}>
-                  <AppText variant="body" color={recording.id === selected.id ? colors.accent : undefined}>
-                    {`${when(language, recording.t)} · ${t('ecg.seconds', { seconds: Math.round(recording.durationMs / 1000) })}`}
-                  </AppText>
-                </Pressable>
-              ))}
-            </Card>
-          ) : null}
+                  icon={{ icon: 'pulse', color: colors.ecg, background: colors.pinkSoft }}
+                  title={when(t, language, recording.t)}
+                  subtitle={`${seconds(t, recording)} · ${t('ecg.feel.short', { tags: symptomsText(t, shown ? symptoms : recording.symptoms) })}`}
+                  value={shown ? t('ecg.shown') : undefined}
+                  onPress={() => setPicked(recording.id)}
+                  chevron={!shown}
+                />
+              );
+            })}
+          </ListGroup>
+
+          <Card style={{ gap: spacing.xs }} testID="ecg-summary">
+            {summaryRows(selected, current?.avgHr ?? null).map((row) => (
+              <KeyValueRow key={row.id} label={row.label} value={row.value} testID={`ecg-${row.id}`} />
+            ))}
+            <AppText variant="caption" muted>
+              {t('ecg.bandHrNote')}
+            </AppText>
+          </Card>
+
+          <LevelNote level="D" text={t('ecg.levelD')} />
+
+          <Button label={t('ecg.delete')} variant="tertiary" onPress={remove} testID="ecg-delete" />
         </>
       )}
       <AppText variant="caption" muted testID="mg-disclaimer">

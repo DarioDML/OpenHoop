@@ -12,9 +12,10 @@ import { NoDataPage } from '@/ui/daily/bits';
 import { LevelNote } from '@/ui/LevelNote';
 import { PARITY } from '@/ui/parity';
 import { readinessBand, useTheme } from '@/ui/theme';
+import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 
 export default function MorningBriefScreen() {
-  const { days, userData } = useAppData();
+  const { days, userData, cycle } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const index = days.length - 1;
@@ -52,7 +53,7 @@ export default function MorningBriefScreen() {
     },
   ];
   const heading = userData.name ? t('home.goodMorningName', { name: userData.name }) : t('home.goodMorning');
-  const plan = morningPlan(t, language, days, index, userData.journal, userData.journalQuestions);
+  const plan = morningPlan(t, language, days, index, userData.journal, userData.journalQuestions, loadTargetsHidden(userData.pregnancyPrefs, cycle));
 
   return (
     <BriefShell testID="morning-brief" title={t('home.brief')} tint="community" icon="sun" iconColor={colors.gold} heading={heading} sub={<StatChips stats={stats} />}>

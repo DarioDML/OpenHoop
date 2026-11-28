@@ -12,11 +12,12 @@ import { radius, spacing, useTheme } from '@/ui/theme';
 
 interface Props {
   aim: AimRange | null;
+  hidden?: boolean;
   load: number | null;
   testID?: string;
 }
 
-export function LoadTargetCard({ aim, load, testID }: Props): ReactElement {
+export function LoadTargetCard({ aim, hidden = false, load, testID }: Props): ReactElement {
   const { colors } = useTheme();
   const { t, language } = useT();
   const low = aim === null ? null : formatNumber(aim.low, 1, language);
@@ -26,7 +27,7 @@ export function LoadTargetCard({ aim, load, testID }: Props): ReactElement {
     <Pressable
       testID={testID}
       accessibilityRole="link"
-      accessibilityLabel={low === null || high === null ? `${t('readinessScreen.target.title')}. ${t('readinessScreen.target.calibrating')}` : t('readinessScreen.target.a11y', { low, high })}
+      accessibilityLabel={low === null || high === null ? `${t('readinessScreen.target.title')}. ${hidden ? t('loadTarget.hidden.pill') : t('readinessScreen.target.calibrating')}` : t('readinessScreen.target.a11y', { low, high })}
       onPress={() => router.push('/load/target')}
       style={({ pressed }) => ({
         flexDirection: 'row',
@@ -43,8 +44,8 @@ export function LoadTargetCard({ aim, load, testID }: Props): ReactElement {
           {t('readinessScreen.target.title')}
         </AppText>
         {low === null || high === null ? (
-          <AppText variant="label" soft testID={testID === undefined ? undefined : `${testID}-calibrating`}>
-            {t('readinessScreen.target.calibrating')}
+          <AppText variant="label" soft testID={testID === undefined ? undefined : hidden ? `${testID}-hidden` : `${testID}-calibrating`}>
+            {hidden ? t('loadTarget.hidden.pill') : t('readinessScreen.target.calibrating')}
           </AppText>
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>

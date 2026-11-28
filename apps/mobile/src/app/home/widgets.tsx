@@ -3,6 +3,7 @@ import { Platform, View } from 'react-native';
 import { requestPinWidget } from 'react-native-android-widget';
 
 import { loadTargetBand } from '@/data/activityDerived';
+import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { useAppData } from '@/data/context';
 import { readinessNightsLeft } from '@/data/progress';
 import { useT } from '@/i18n/useT';
@@ -34,7 +35,7 @@ const HOME_WIDGETS: ReadonlyArray<HomeWidget> = [
 ];
 
 export default function WidgetsScreen() {
-  const { days, device, userData, updateUserData, refreshWidgetsAfterPin } = useAppData();
+  const { days, device, userData, cycle, updateUserData, refreshWidgetsAfterPin } = useAppData();
   const { t, language } = useT();
   const [pinFailed, setPinFailed] = useState(false);
   const android = Platform.OS === 'android';
@@ -45,7 +46,7 @@ export default function WidgetsScreen() {
     syncedAt: device.lastSyncAt,
     language,
     readinessNightsLeft: readinessNightsLeft(days, days.length - 1),
-    loadTarget: loadTargetBand(days),
+    loadTarget: loadTargetsHidden(userData.pregnancyPrefs, cycle) ? null : loadTargetBand(days),
   });
   const view = widgetView(file, { nowS: Math.floor(now.getTime() / 1000), today: todayIso(now), fallbackLanguage: language });
 

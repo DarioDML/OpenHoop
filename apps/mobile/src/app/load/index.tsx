@@ -71,7 +71,7 @@ export default function LoadScreen() {
               onExplain={() => explain.why(target)}
             />
             <View style={{ alignItems: 'center', gap: spacing.xs }}>
-              <TargetPill view={today.view} marker onPress={() => router.push('/load/target')} testID="load-target-pill" />
+              <TargetPill view={today.view} hidden={today.targetsHidden} marker onPress={() => router.push('/load/target')} testID="load-target-pill" />
               {today.soFar && device.lastSyncAt !== null ? (
                 <AppText variant="caption" muted>
                   {t('loadx.soFarCaption', { time: formatClock(device.lastSyncAt, day.tzOffsetS) })}

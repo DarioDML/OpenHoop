@@ -45,7 +45,7 @@ export function fixtureAlarmActions(): AlarmActions {
 }
 
 export function fixtureEcgActions(): EcgActions {
-  return { start: async () => 1, stop: () => undefined, samples: async () => [], remove: async () => true };
+  return { start: async () => 1, stop: () => undefined, samples: async () => [], remove: async () => true, setSymptoms: async () => true };
 }
 
 export type AppDataOverrides = Partial<AppData & LiveData>;
@@ -55,7 +55,7 @@ export function fixtureLiveData(overrides: AppDataOverrides = {}): LiveData {
     live: overrides.live ?? { active: false, heartRate: null, lastRrMs: null, updatedAt: null },
     syncProgress: overrides.syncProgress ?? null,
     pendingDelete: overrides.pendingDelete ?? null,
-    ecgLive: overrides.ecgLive ?? { active: false, elapsedMs: 0, samples: 0, tail: [] },
+    ecgLive: overrides.ecgLive ?? { active: false, elapsedMs: 0, samples: 0, tail: [], quality: null },
   };
 }
 
@@ -80,6 +80,7 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     userData: { ...defaultUserData(), onboardingDone: true },
     bodyMeasurements: [],
     labResults: [],
+    cuffReadings: [],
     cycle: { periods: [], symptoms: [], pregnancy: null },
     strength: { customExercises: [], templates: [], sessions: [] },
     strengthActions: fixtureStrengthActions(),
@@ -116,6 +117,8 @@ export function fixtureAppData(language: Language = 'en', overrides: AppDataOver
     removeBodyMeasurement: async () => true,
     saveLabResult: async () => true,
     removeLabResult: async () => true,
+    saveCuffReading: async () => true,
+    removeCuffReading: async () => true,
     savePeriod: async () => true,
     removePeriod: async () => true,
     saveSymptom: async () => true,

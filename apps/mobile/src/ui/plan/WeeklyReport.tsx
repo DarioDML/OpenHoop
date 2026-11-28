@@ -2,6 +2,7 @@ import { useState, type ReactElement } from 'react';
 import { View } from 'react-native';
 
 import { enoughForReport, formatWeekday, loadTargetBand, mergeSteps, MIN_REPORT_DAYS, periodStats, periodWindows } from '@/data/activityDerived';
+import { loadTargetsHidden } from '@/data/pregnancyPrefs';
 import { useAppData } from '@/data/context';
 import { formatHm, formatMinutes } from '@/data/dailyDerived';
 import { balancePoints, balanceShade, bedtimePoints, bedtimeSpread, averageConsistency, clockFromNoon, LOAD_MAX, weekVerdict, type WeekVerdict } from '@/data/periodReport';
@@ -31,7 +32,7 @@ export function verdictText(t: TFunction, verdict: WeekVerdict, language: Langua
 }
 
 export function WeeklyReport({ testID }: { testID: string }): ReactElement {
-  const { days, userData, strength, activities, healthConnect } = useAppData();
+  const { days, userData, strength, activities, healthConnect, cycle } = useAppData();
   const { t, language } = useT();
   const { colors } = useTheme();
   const [sharing, setSharing] = useState(false);
@@ -44,7 +45,7 @@ export function WeeklyReport({ testID }: { testID: string }): ReactElement {
   const prev = periodStats(previous);
   const enough = enoughForReport(current);
   const comparable = enoughForReport(previous);
-  const band = loadTargetBand(days);
+  const band = loadTargetsHidden(userData.pregnancyPrefs, cycle) ? null : loadTargetBand(days);
   const points = balancePoints(current, band);
   const verdict = verdictText(t, weekVerdict(points, cur, comparable ? prev : null, band), language);
   const range = formatDayRange(current[0]?.day ?? first.day, last.day, language);

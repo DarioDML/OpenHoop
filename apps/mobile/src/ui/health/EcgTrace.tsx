@@ -1,21 +1,23 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 
 import { traceColumns, type TraceRange } from '@/data/ecg';
-import { useTheme } from '@/ui/theme';
+import { radius, spacing, useTheme } from '@/ui/theme';
 
 interface Props {
   samples: readonly number[];
   height?: number;
   range?: TraceRange | null;
   fraction?: number;
+  grid?: boolean;
   testID?: string;
 }
 
 const PAD = 4;
+const GRID_STEP = 12;
 
-export function EcgTrace({ samples, height = 96, range = null, fraction = 1, testID }: Props) {
+export function EcgTrace({ samples, height = 96, range = null, fraction = 1, grid = false, testID }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const onLayout = (event: LayoutChangeEvent): void => setWidth(Math.round(event.nativeEvent.layout.width));
@@ -43,10 +45,33 @@ export function EcgTrace({ samples, height = 96, range = null, fraction = 1, tes
     <View testID={testID} onLayout={onLayout} style={{ height }} accessible accessibilityRole="image">
       {width > 0 && columns.length > 0 ? (
         <Svg width={width} height={height}>
-          <Line x1={0} x2={width} y1={height / 2} y2={height / 2} stroke={colors.grid} strokeWidth={1} />
-          <Path d={path} stroke={colors.pink} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
+          {grid
+            ? [
+                ...Array.from({ length: Math.floor(width / GRID_STEP) + 1 }, (_, i) => (
+                  <Line key={`v${i}`} x1={i * GRID_STEP} x2={i * GRID_STEP} y1={0} y2={height} stroke={colors.ecg} strokeOpacity={i % 5 === 0 ? 0.22 : 0.1} strokeWidth={1} />
+                )),
+                ...Array.from({ length: Math.floor(height / GRID_STEP) + 1 }, (_, i) => (
+                  <Line key={`h${i}`} x1={0} x2={width} y1={i * GRID_STEP} y2={i * GRID_STEP} stroke={colors.ecg} strokeOpacity={i % 5 === 0 ? 0.22 : 0.1} strokeWidth={1} />
+                )),
+              ]
+            : <Line x1={0} x2={width} y1={height / 2} y2={height / 2} stroke={colors.grid} strokeWidth={1} />}
+          <Path d={path} stroke={colors.ecg} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
         </Svg>
       ) : null}
+    </View>
+  );
+}
+
+interface PanelProps {
+  children: ReactNode;
+  testID?: string;
+}
+
+export function EcgPanel({ children, testID }: PanelProps) {
+  const { colors } = useTheme();
+  return (
+    <View testID={testID} style={{ backgroundColor: colors.ecgPaper, borderRadius: radius.md, padding: spacing.sm, gap: spacing.md }}>
+      {children}
     </View>
   );
 }

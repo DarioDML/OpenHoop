@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { deleteEcgRecording, ecgSamples, exportCsv, insertEcgRecording, listEcgRecordings, openStore, sampleRate } from '../src/index';
+import { deleteEcgRecording, ecgSamples, exportCsv, insertEcgRecording, listEcgRecordings, normalizeEcgSymptoms, openStore, parseEcgSymptoms, sampleRate, setEcgSymptoms } from '../src/index';
 import type { Store } from '../src/index';
 import { openStrictDriver } from './strictDriver';
 
@@ -33,8 +33,25 @@ describe('ECG recordings', () => {
   it('exports the samples as little-endian hex', async () => {
     await insertEcgRecording(store.driver, deviceId, { startedAt: 100, durationMs: 1000, samples: [1, -1], rateHz: 128, wrist: 'left' });
     const csv = await exportCsv(store, 'ecg_recordings');
-    expect(csv.split(/\r?\n/)[0]).toBe('id,device_id,t,duration_ms,sample_count,rate_hz,wrist,samples_i16le');
+    expect(csv.split(/\r?\n/)[0]).toBe('id,device_id,t,duration_ms,sample_count,rate_hz,wrist,symptoms,samples_i16le');
     expect(csv).toContain('0100FFFF');
+  });
+
+  it('stores how the wearer felt with the recording, with none only on its own', async () => {
+    const id = await insertEcgRecording(store.driver, deviceId, { startedAt: 100, durationMs: 1000, samples: [1], rateHz: 128, wrist: 'left' });
+    expect((await listEcgRecordings(store.driver, deviceId))[0]?.symptoms).toEqual([]);
+    expect(await setEcgSymptoms(store.driver, id, ['dizzy', 'palpitations', 'none'])).toBe(true);
+    expect((await listEcgRecordings(store.driver, deviceId))[0]?.symptoms).toEqual(['palpitations', 'dizzy']);
+    expect(await setEcgSymptoms(store.driver, id, ['none'])).toBe(true);
+    expect((await listEcgRecordings(store.driver, deviceId))[0]?.symptoms).toEqual(['none']);
+    expect(await setEcgSymptoms(store.driver, id + 1, ['none'])).toBe(false);
+    expect(await exportCsv(store, 'ecg_recordings')).toContain(',none,');
+  });
+
+  it('reads only known symptom tags', () => {
+    expect(parseEcgSymptoms('')).toEqual([]);
+    expect(parseEcgSymptoms('chestPain, bogus,shortBreath')).toEqual(['shortBreath', 'chestPain']);
+    expect(normalizeEcgSymptoms(['none', 'none'])).toEqual(['none']);
   });
 
   it('measures the sample rate as the median per record, so partial records do not skew it', () => {

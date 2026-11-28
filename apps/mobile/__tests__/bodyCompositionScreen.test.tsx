@@ -56,8 +56,8 @@ describe('body composition screen', () => {
     await render(
       withAppData(<BodyCompositionScreen />, 'en', { userData: { ...userData, heightCm: null }, bodyMeasurements: [entry(1, '2026-11-24', 80)] }),
     );
-    expect(screen.getByTestId('body-bmi-missing')).toBeTruthy();
-    expect(screen.getByTestId('body-lean-missing')).toBeTruthy();
+    expect(screen.getByTestId('body-bmi-reason')).toBeTruthy();
+    expect(screen.getByTestId('body-lean-reason')).toBeTruthy();
     expect(screen.getByTestId('body-change-few')).toBeTruthy();
   });
 
@@ -65,7 +65,7 @@ describe('body composition screen', () => {
     const bodyMeasurements = [entry(1, '2026-01-10', 90), entry(2, '2026-11-24', 80)];
     await render(withAppData(<BodyCompositionScreen />, 'en', { userData, bodyMeasurements }));
     expect(screen.getByTestId('body-change-few')).toBeTruthy();
-    await fireEvent.press(screen.getByText('1 year'));
+    await fireEvent.press(screen.getByText('1Y'));
     expect(within(screen.getByTestId('body-change')).getByText(/−10.0/)).toBeTruthy();
   });
 
@@ -118,6 +118,49 @@ describe('body composition screen', () => {
     await fireEvent.press(screen.getByTestId('body-delete-3'));
     await fireEvent.press(screen.getByTestId('body-confirm-3'));
     await waitFor(() => expect(remove).toHaveBeenCalledWith(3));
+  });
+
+  it('shows weight in pounds and saves it in kilograms for imperial units', async () => {
+    const save = jest.fn<Promise<boolean>, [number | null, BodyMeasurementInput]>(async () => true);
+    const settings = { language: 'en' as const, dataSource: 'demo' as const, ownerSince: null, units: 'imperial' as const };
+    await render(withAppData(<BodyCompositionScreen />, 'en', { userData, settings, bodyMeasurements: [entry(1, '2026-11-24', 80)], saveBodyMeasurement: save }));
+    expect(within(screen.getByTestId('body-latest')).getByText(/176.4/)).toBeTruthy();
+    expect(screen.getAllByText(/lb/).length).toBeGreaterThan(0);
+    await fireEvent.changeText(screen.getByTestId('body-input-weight'), '176.4');
+    await fireEvent.press(screen.getByTestId('body-save'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(null, { day: '2026-11-25', weightKg: 80.01, bodyFatPct: null }));
+  });
+
+  it('colours the weight change by an optional goal and stores the goal', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const bodyMeasurements = [entry(1, '2026-10-30', 82, 22), entry(2, '2026-11-24', 80, 20)];
+    await render(withAppData(<BodyCompositionScreen />, 'en', { userData: { ...userData, weightGoalKg: 75 }, bodyMeasurements, updateUserData }));
+    expect(screen.getByTestId('body-latest-chip')).toHaveTextContent('↓ 2.0 kg');
+    expect(screen.getByTestId('body-goal-line')).toHaveTextContent(/75.0 kg/);
+    await fireEvent.press(screen.getByTestId('body-goal'));
+    await fireEvent.changeText(screen.getByTestId('body-goal-input'), '78');
+    await fireEvent.press(screen.getByTestId('body-goal-save'));
+    expect(updateUserData).toHaveBeenCalledWith({ weightGoalKg: 78 });
+  });
+
+  it('pauses the weight goal in pregnancy mode', async () => {
+    const bodyMeasurements = [entry(1, '2026-10-30', 82), entry(2, '2026-11-24', 80)];
+    await render(
+      withAppData(<BodyCompositionScreen />, 'en', {
+        userData: { ...userData, weightGoalKg: 75, pregnancyPrefs: { hideLoadTargets: false, pauseWeightGoals: true } },
+        cycle: { periods: [], symptoms: [], pregnancy: { dueDay: '2027-03-01', createdAt: 1 } },
+        bodyMeasurements,
+      }),
+    );
+    expect(screen.getByText('Paused while pregnancy mode is on')).toBeTruthy();
+    expect(screen.queryByTestId('body-goal-line')).toBeNull();
+  });
+
+  it('names Health Connect and the scale app as the source', async () => {
+    const synced: BodyMeasurement = { ...entry(5, '2026-11-24', 80), source: 'health_connect', origin: 'Withings' };
+    await render(withAppData(<BodyCompositionScreen />, 'en', { userData, bodyMeasurements: [synced] }));
+    expect(screen.getByText('Health Connect · Withings')).toBeTruthy();
+    expect(screen.getByTestId('body-source-5')).toBeTruthy();
   });
 
   it('renders in Dutch', async () => {

@@ -221,7 +221,7 @@ function StartBuzzRow({ today }: { today: LoadToday }) {
   const { t, language } = useT();
   const buzz = useLoadBuzz(today);
   const aim = today.aim;
-  const base = aim === null ? t('activity.start.buzz.noTarget') : t('activity.start.buzz.body', { value: formatNumber(aim.low, 1, language) });
+  const base = today.targetsHidden ? t('loadTarget.hidden.buzz') : aim === null ? t('activity.start.buzz.noTarget') : t('activity.start.buzz.body', { value: formatNumber(aim.low, 1, language) });
   const subtitle = buzz.prefs.atTarget && buzz.doneToday.target ? t('loadBuzz.doneToday', { text: base }) : base;
   return <ToggleRow title={t('activity.start.buzz.title')} subtitle={subtitle} value={buzz.prefs.atTarget} onChange={(on) => buzz.set('target', on)} testID="start-buzz" />;
 }
