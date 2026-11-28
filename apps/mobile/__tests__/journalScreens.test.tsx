@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import JournalCustomizeScreen from '@/app/journal/customize';
 import JournalScreen from '@/app/journal/index';
 import { addDays } from '@/data/derived';
+import { JOURNAL_QUESTIONS } from '@/data/journalQuestions';
 import { defaultUserData } from '@/data/userData';
 import { todayIso } from '@/lib/format';
 
@@ -71,5 +73,44 @@ describe('journal day screen', () => {
     await render(withAppData(<JournalScreen />, 'nl', { userData: { ...base, journalQuestions: ['cold-plunge'] } }));
     expect(screen.getByText('IJsbad?')).toBeTruthy();
     expect(screen.getByText('Of vertel gewoon wat er gebeurde…')).toBeTruthy();
+  });
+});
+
+describe('customize journal', () => {
+  it('groups the catalogue by category and searches it', async () => {
+    await render(withAppData(<JournalCustomizeScreen />, 'en', { userData: base }));
+    expect(screen.getByText('Body and rest')).toBeTruthy();
+    expect(screen.getByPlaceholderText(`Search ${JOURNAL_QUESTIONS.length} behaviours`)).toBeTruthy();
+    expect(screen.getByTestId('customize-count')).toHaveTextContent('6 of 40 behaviours in your journal');
+    await fireEvent.changeText(screen.getByTestId('customize-search'), 'plunge');
+    expect(screen.getByTestId('customize-cold-plunge')).toBeTruthy();
+    expect(screen.queryByTestId('customize-alcohol')).toBeNull();
+    expect(screen.queryByText('Nutrition')).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('customize-search'), 'qqqq');
+    expect(screen.getByTestId('customize-no-results')).toBeTruthy();
+  });
+
+  it('adds and removes behaviours in catalogue order', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<JournalCustomizeScreen />, 'en', { userData: base, updateUserData }));
+    expect(screen.getByLabelText('Remove Alcohol')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('customize-toggle-cold-plunge'));
+    expect(updateUserData).toHaveBeenLastCalledWith({ journalQuestions: ['alcohol', 'caffeine-late', 'screens-bed', 'read-before-sleep', 'sauna', 'melatonin', 'cold-plunge'] });
+    await fireEvent.press(screen.getByTestId('customize-toggle-alcohol'));
+    expect(updateUserData).toHaveBeenLastCalledWith({ journalQuestions: ['caffeine-late', 'screens-bed', 'read-before-sleep', 'sauna', 'melatonin'] });
+    await fireEvent.press(screen.getByTestId('customize-reset'));
+    expect(updateUserData).toHaveBeenLastCalledWith({ journalQuestions: null });
+  });
+
+  it('stops adding at the limit but still allows removing', async () => {
+    const updateUserData = jest.fn(async () => true);
+    const many = JOURNAL_QUESTIONS.slice(0, 40).map((q) => q.id);
+    await render(withAppData(<JournalCustomizeScreen />, 'en', { userData: { ...base, journalQuestions: many }, updateUserData }));
+    expect(screen.getByTestId('customize-count')).toHaveTextContent(/the most at one time/);
+    const last = JOURNAL_QUESTIONS[45];
+    if (!last) throw new Error('catalogue too small');
+    expect(screen.getByTestId(`customize-toggle-${last.id}`).props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(screen.getByTestId('customize-toggle-alcohol'));
+    expect(updateUserData).toHaveBeenCalledWith({ journalQuestions: many.filter((id) => id !== 'alcohol') });
   });
 });

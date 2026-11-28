@@ -161,5 +161,12 @@
   "journal.less": "Less",
   "journal.more": "More",
   "journal.notesTitle": "Notes for this day",
-  "journal.noQuestions": "No questions are switched on. Add behaviours under Customize questions."
+  "journal.noQuestions": "No questions are switched on. Add behaviours under Customize questions.",
+  "journal.customize.search": "Search {count} behaviours",
+  "journal.customize.searchLabel": "Search behaviours",
+  "journal.customize.count": "{count} of {max} behaviours in your journal",
+  "journal.customize.full": "Your journal holds {max} behaviours, the most at one time. Remove one to add another.",
+  "journal.customize.noResults": "No behaviour matches your search.",
+  "journal.customize.add": "Add {name}",
+  "journal.customize.remove": "Remove {name}"
 }

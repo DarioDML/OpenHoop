@@ -161,5 +161,12 @@
   "journal.less": "Minder",
   "journal.more": "Meer",
   "journal.notesTitle": "Notities bij deze dag",
-  "journal.noQuestions": "Er staan geen vragen aan. Voeg gewoontes toe via Vragen aanpassen."
+  "journal.noQuestions": "Er staan geen vragen aan. Voeg gewoontes toe via Vragen aanpassen.",
+  "journal.customize.search": "Zoek in {count} gewoontes",
+  "journal.customize.searchLabel": "Gewoontes zoeken",
+  "journal.customize.count": "{count} van {max} gewoontes in je dagboek",
+  "journal.customize.full": "Je dagboek bevat {max} gewoontes, het maximum tegelijk. Verwijder er een om een andere toe te voegen.",
+  "journal.customize.noResults": "Geen enkele gewoonte past bij je zoekopdracht.",
+  "journal.customize.add": "{name} toevoegen",
+  "journal.customize.remove": "{name} verwijderen"
 }
