@@ -176,6 +176,7 @@ ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL 
 - Consumes: Task 2 `signalsFromPacket` and `insertSignals`.
 - Produces:
   - `SyncResult.signalRange: { from: number; to: number } | null`, the min and max `t` of signal rows committed in this run.
+  - `rebuildFromRaw(...)` returns `{ chunks: number; samples: number; signalRange: { from: number; to: number } | null }`.
   - `RawPruneResult.signals: number`.
 
 - [ ] **Step 1: Write failing tests:**
@@ -185,7 +186,7 @@ ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL 
   - `pruneRawBefore prunes live rows by time`: an `imu_blocks` row with `chunk_id` NULL and `t` < cutoff is deleted; a `strength_set_motion` row and `ecg_recordings.movement_g` stay.
   - `decoder version 3 triggers a rebuild` (extend `redecode.test.ts`).
 - [ ] **Step 2:** Run `npx vitest run packages/core` and expect FAIL.
-- [ ] **Step 3:** Implement. Signals are added in `addFrameKind`'s `record` case for every frame at or after `ownerFloor`.
+- [ ] **Step 3:** Implement. Signals are added in `addFrameKind`'s `record` case for every frame at or after `ownerFloor`. `rebuildFromRaw` returns `signalRange` too, so Task 10 can run `afterSignals` after a backfill. **(owner)**
 - [ ] **Step 4:** Run `npx vitest run packages/core` and `npm run typecheck`. Expect PASS.
 - [ ] **Step 5:** Commit `feat: keep the band's optical windows and raw records from history`.
 
@@ -255,7 +256,8 @@ ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL 
   - A 1 s cap check runs while any owner is active.
   - Workout-owned `LiveImuSecond`s are written to `imu_blocks` (`chunk_id` NULL, `t` = floor(t)) through `insertSignals`.
   - Busy rules:
-    - `startEcg` and `sync` refuse while a developer owner is active (`error.bandBusy`).
+    - `startEcg` refuses while **any** stream owner (developer or workout) is active, because the ECG also uses packet 43. **(owner)**
+    - `sync` refuses while a developer owner is active (`error.bandBusy`).
     - `start('developer', …)` refuses while an ECG reading or a sync runs.
     - A workout owner does not block sync or live heart rate; the fail-safe is off during sync.
   - The developer owner is released when the app goes to the background (`AppState` change). The workout owner is kept until its session ends or its cap expires.
@@ -355,7 +357,7 @@ ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL 
   - `MotionSecond { t: number; rateHz: number; accel: [number[], number[], number[]]; gyro: [number[], number[], number[]] }`, in g and °/s, with invalid gyro already NaN.
   - `Bout { start: number; end: number }`.
   - `findBouts(seconds: readonly MotionSecond[], from: number, to: number): Bout[]`.
-  - `lastBoutBefore(seconds: readonly MotionSecond[], doneAt: number): Bout | null`.
+  - `lastBoutBefore(seconds: readonly MotionSecond[], doneAt: number, after: number): Bout | null`. The search runs from max(`doneAt` − 120, `after`) to `doneAt`, and a bout must start after `after`, which is the previous set's `doneAt` or the previous bout's end. **(owner)**
   - `SetMotion { status: 'readable' | 'unreadable' | 'none'; reps: number | null; tutS: number | null; tempoS: number | null; velocityLoss: number | null; coverage: number }`.
   - `analyseBout(seconds: readonly MotionSecond[], bout: Bout): SetMotion`.
   - `tempoFactor(tempoS: number | null, referenceTempos: readonly number[]): number`.
@@ -374,6 +376,7 @@ ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL 
   - `factor 1 below three references`.
   - `factor clamps to 0.7–1.3`.
   - `findBouts finds 3 bouts in 3 sets separated by walks`.
+  - `a quick set cannot take the previous set's bout`: set 1's bout ends at 40 s, and set 2's `doneAt` is 60 s with only stillness in between. `lastBoutBefore(…, 60, 40)` returns null.
 - [ ] **Step 2:** Run `npx vitest run packages/analytics/test/strengthMotion.test.ts` and expect FAIL.
 - [ ] **Step 3:** Implement.
 - [ ] **Step 4:** Run `npx vitest run packages/analytics` and expect PASS.
@@ -393,9 +396,9 @@ ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL 
   - `toMotionSecond(s: ImuSecond): MotionSecond`: accelerometer / 4096, gyro / 16.384, and −32768 becomes NaN.
   - `computeSessionMotion(driver: SqlDriver, deviceId: number, session: StrengthSession, offsetS: number): Promise<SetMotionRow[]>`.
     - It loads the IMU from (`startedAt` − 120) to (last `doneAt` + 5), in band time.
-    - It finds each set's bout with `lastBoutBefore`.
+    - It finds each set's bout with `lastBoutBefore`. Its lower bound is the previous set's `doneAt` (band time) or the previous bout's end, whichever is later; for the first set it is the session start.
     - **Fallback:** when more than half the sets have no bout, it runs `findBouts` over the whole session. If the bout count equals the set count, bouts are assigned in order; otherwise the sets without one get `unmatched`.
-    - The factor comes from `tempoFactor`, with references from earlier readable sets of the same `exerciseKey`.
+    - The factor comes from `tempoFactor`. Its references are readable sets of the same `exerciseKey` whose `doneAt` is strictly earlier than the current set's, in this session or earlier ones. The current set and later sets never count, also during live recomputes. **(owner)**
     - It upserts with `INSERT OR REPLACE`.
   - `listSetMotion(driver: SqlDriver, sessionIds: readonly number[]): Promise<Map<number, SetMotionRow>>`.
   - `sessionsNeedingMotion(driver: SqlDriver, fromBand: number, toBand: number, offsetS: number): Promise<number[]>`: sessions overlapping the range that have a set without a `readable` row.
@@ -408,6 +411,7 @@ ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL 
   - `unequal bout count leaves sets unmatched`.
   - `post-sync range finds the session and fills it`: first no IMU (status `none`), then insert rows and call `afterSignals`; the status becomes `readable`.
   - `clock offset shifts set windows`: offset +30 s.
+  - `references exclude the current and later sets`: three sets of one exercise; recomputing set 2 uses only set 1 (and older sessions), even when set 3 already has a row.
   - `ECG movement is stored once and survives pruneSignalsBefore`.
 - [ ] **Step 2:** Run `npx vitest run packages/core/test/strengthMotion.test.ts` and expect FAIL.
 - [ ] **Step 3:** Implement.
@@ -418,7 +422,9 @@ ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL 
 
 **Files:**
 - Modify:
-  - `apps/mobile/src/data/controller.ts`: the setting `strength.highRateMotion`; the workout owner tied to the open session; Record on band; `afterSignals` after `sync` when `signalRange` is set; recompute after `addStrengthSet`.
+  - `apps/mobile/src/data/controller.ts`: the setting `strength.highRateMotion`; the workout owner tied to the open session; Record on band; recompute after `addStrengthSet`. `afterSignals` runs whenever a `signalRange` is set:
+    - after `sync`;
+    - after `redecodeStoredSamples`, through `rebuildFromRaw`'s range, so backfilled ECGs and sessions get their values. **(owner)**
   - `apps/mobile/src/data/types.ts`: `motion: { highRate: boolean; bandRecording: boolean }` and `setMotion: Map<number, SetMotionRow>`.
   - `apps/mobile/src/data/strength.ts`: `muscleLoad(sets, factors?: ReadonlyMap<number, number>)`, plus `export const MOTION_FACTOR_ENABLED = false`.
   - `apps/mobile/src/app/settings/device.tsx`: an enabled toggle; the not-built chip is removed; the body states the battery cost.
@@ -461,12 +467,17 @@ ALTER TABLE ecg_recordings ADD COLUMN movement_g REAL CHECK (movement_g IS NULL 
 
 **Interfaces:**
 - Consumes: Task 9 `EcgSummary.movementG`.
-- Produces: `movementBand(g: number): 'still' | 'some' | 'lots'`, with still < 0.02 g and some < 0.08 g. It lives in `apps/mobile/src/data/ecg.ts`.
+- Produces, in `apps/mobile/src/data/ecg.ts`:
+  - `movementBand(g: number): 'still' | 'some' | 'lots'`, with still < 0.02 g and some < 0.08 g.
+  - `movementMissing(recordingT: number, durationMs: number, lastSyncNewestT: number | null): 'awaitingSync' | 'noData'`. It returns `awaitingSync` only when the reading ends after the newest synced sample (`SyncStateRow.newestSampleT`, null counts as waiting). **(owner)**
 
 - [ ] **Step 1: Write failing tests:**
   - `movementBand` boundaries at 0.0199, 0.02, 0.0799 and 0.08.
   - The result shows "Wrist movement: still (0.01 g)" when `movementG` is 0.01.
-  - When `movementG` is null, it shows the "after the next sync" reason, never a bare dash.
+  - When `movementG` is null, it shows the reason, never a bare dash:
+    - for a reading newer than the last sync, "after the next sync";
+    - for an older reading, "no motion data for this reading".
+  - `movementMissing` boundaries.
 - [ ] **Step 2:** Run `cd apps/mobile && npx jest __tests__/ecgScreens.test.tsx` and expect FAIL.
 - [ ] **Step 3:** Implement, following artboard (d).
 - [ ] **Step 4:** Run `cd apps/mobile && npx jest && npx tsc --noEmit` and expect PASS.
