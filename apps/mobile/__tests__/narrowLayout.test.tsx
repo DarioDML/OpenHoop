@@ -40,6 +40,7 @@ import LoadScreen from '@/app/load/index';
 import WelcomeScreen from '@/app/onboarding/index';
 import ConnectProviderScreen from '@/app/settings/connect-provider';
 import VitalsScreen from '@/app/health/vitals';
+import HapticAlarmScreen from '@/app/sleep/alarm';
 
 type Rendered = ReturnType<typeof screen.toJSON>;
 
@@ -173,6 +174,20 @@ describe('small labels at S24 size', () => {
     Object.assign(mockWindow, { width: 600, height: 960, fontScale: 1 });
     await render(withAppData(<LoadScreen />));
     expect(screen.getByTestId('load-ready-actions')).toHaveStyle({ flexDirection: 'row' });
+  });
+});
+
+describe('alarm actions at S24 size', () => {
+  it('stacks Test vibration above Save on a 360dp phone', async () => {
+    Object.assign(mockWindow, { width: 360, height: 780, fontScale: 1 });
+    await render(withAppData(<HapticAlarmScreen />));
+    expect(screen.getByTestId('alarm-actions')).toHaveStyle({ flexDirection: 'column' });
+  });
+
+  it('keeps them side by side when both fit', async () => {
+    Object.assign(mockWindow, { width: 600, height: 960, fontScale: 1 });
+    await render(withAppData(<HapticAlarmScreen />));
+    expect(screen.getByTestId('alarm-actions')).toHaveStyle({ flexDirection: 'row' });
   });
 });
 
