@@ -190,5 +190,16 @@
   "journal.voice.saveFailed": "The entries could not be saved. Try again.",
   "journal.voice.useAsNote": "Keep the words as a note",
   "journal.voice.minutes": "{minutes} min",
-  "journal.voice.chipA11y": "{name}: {detail}"
+  "journal.voice.chipA11y": "{name}: {detail}",
+  "journal.trends.streak": "Streak",
+  "journal.trends.thisMonth": "This month",
+  "journal.trends.best": "Best",
+  "journal.trends.statsNote": "Streak is the number of days in a row with a yes, up to today. This month counts the yes days so far. Best is your longest streak.",
+  "journal.trends.prevMonth": "Previous month",
+  "journal.trends.nextMonth": "Next month",
+  "journal.trends.notLogged": "not logged",
+  "journal.trends.perWeek": "Times per week",
+  "journal.trends.weekShort": "W{week}",
+  "journal.trends.weekA11y": "Week {week}",
+  "journal.trends.overview": "All behaviours"
 }

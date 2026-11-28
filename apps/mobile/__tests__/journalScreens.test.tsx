@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 
 import JournalCustomizeScreen from '@/app/journal/customize';
 import JournalScreen from '@/app/journal/index';
+import JournalTrendsScreen from '@/app/journal/trends';
 import { addDays } from '@/data/derived';
 import { JOURNAL_QUESTIONS } from '@/data/journalQuestions';
 import { defaultUserData } from '@/data/userData';
@@ -112,5 +113,44 @@ describe('customize journal', () => {
     expect(screen.getByTestId(`customize-toggle-${last.id}`).props.accessibilityState.disabled).toBe(true);
     await fireEvent.press(screen.getByTestId('customize-toggle-alcohol'));
     expect(updateUserData).toHaveBeenCalledWith({ journalQuestions: many.filter((id) => id !== 'alcohol') });
+  });
+});
+
+describe('behaviour trends screen', () => {
+  function journalFor(today: string) {
+    const out: Record<string, Record<string, boolean>> = {};
+    for (let i = 1; i <= 3; i++) out[addDays(today, -i)] = { 'read-before-sleep': true, sauna: i === 2 };
+    out[addDays(today, -4)] = { 'read-before-sleep': false, sauna: false };
+    return out;
+  }
+
+  it('shows streak, month, best, the calendar and weekly bars for one behaviour', async () => {
+    const today = todayIso(new Date());
+    await render(withAppData(<JournalTrendsScreen />, 'en', { userData: { ...base, journal: journalFor(today) } }));
+    expect(screen.getByTestId('trend-title')).toHaveTextContent('Read before sleep');
+    expect(screen.getByLabelText('Streak: 3')).toBeTruthy();
+    expect(screen.getByLabelText('Best: 3')).toBeTruthy();
+    expect(screen.getByTestId(`trend-day-${today}`)).toBeTruthy();
+    expect(screen.getByTestId(`trend-dot-${addDays(today, -1)}`)).toBeTruthy();
+    expect(screen.queryByTestId(`trend-dot-${addDays(today, -4)}`)).toBeNull();
+    expect(screen.getByTestId('trend-week-bars')).toBeTruthy();
+    expect(screen.getByTestId('trend-read-before-sleep-rate')).toHaveTextContent('Yes on 3 of 4 answered days');
+  });
+
+  it('switches behaviour from the picker and the overview', async () => {
+    const today = todayIso(new Date());
+    await render(withAppData(<JournalTrendsScreen />, 'en', { userData: { ...base, journal: journalFor(today) } }));
+    await fireEvent.press(screen.getByTestId('trend-pick-sauna'));
+    expect(screen.getByTestId('trend-title')).toHaveTextContent('Sauna');
+    expect(screen.getByLabelText('Streak: 0')).toBeTruthy();
+    expect(screen.getByLabelText('Best: 1')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('trend-read-before-sleep'));
+    expect(screen.getByTestId('trend-title')).toHaveTextContent('Read before sleep');
+  });
+
+  it('keeps the honest empty state without answers', async () => {
+    await render(withAppData(<JournalTrendsScreen />, 'en', { userData: base }));
+    expect(screen.getByTestId('trends-empty')).toBeTruthy();
+    expect(screen.queryByTestId('trend-stats')).toBeNull();
   });
 });

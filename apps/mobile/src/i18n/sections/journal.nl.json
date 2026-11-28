@@ -190,5 +190,16 @@
   "journal.voice.saveFailed": "De antwoorden konden niet bewaard worden. Probeer opnieuw.",
   "journal.voice.useAsNote": "Bewaar de tekst als notitie",
   "journal.voice.minutes": "{minutes} min",
-  "journal.voice.chipA11y": "{name}: {detail}"
+  "journal.voice.chipA11y": "{name}: {detail}",
+  "journal.trends.streak": "Reeks",
+  "journal.trends.thisMonth": "Deze maand",
+  "journal.trends.best": "Record",
+  "journal.trends.statsNote": "De reeks is het aantal dagen na elkaar met een ja, tot vandaag. Deze maand telt de ja-dagen tot nu. Het record is je langste reeks.",
+  "journal.trends.prevMonth": "Vorige maand",
+  "journal.trends.nextMonth": "Volgende maand",
+  "journal.trends.notLogged": "niet ingevuld",
+  "journal.trends.perWeek": "Keer per week",
+  "journal.trends.weekShort": "W{week}",
+  "journal.trends.weekA11y": "Week {week}",
+  "journal.trends.overview": "Alle gewoontes"
 }
