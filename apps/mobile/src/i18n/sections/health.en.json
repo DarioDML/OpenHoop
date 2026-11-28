@@ -227,6 +227,7 @@
   "health.bodyComposition.source.manualHc": "Entered by you. Health Connect can bring in a smart scale.",
   "health.bodyComposition.source.title": "Source",
   "health.bodyComposition.title": "Body composition",
+  "health.bodyComposition.unit.points": "% pt",
   "health.bodyComposition.trend.change": "Change over {days} days",
   "health.bodyComposition.trend.empty": "No entries in the last {days} days.",
   "health.bodyComposition.trend.enteredNote": "Entered by you, not measured by the band. BMI and lean mass are plain calculations from the numbers you typed. They are not medical advice.",

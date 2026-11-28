@@ -227,6 +227,7 @@
   "health.bodyComposition.source.manualHc": "Door jou ingevoerd. Health Connect kan een slimme weegschaal binnenhalen.",
   "health.bodyComposition.source.title": "Bron",
   "health.bodyComposition.title": "Lichaamssamenstelling",
+  "health.bodyComposition.unit.points": "%-punt",
   "health.bodyComposition.trend.change": "Verandering in {days} dagen",
   "health.bodyComposition.trend.empty": "Geen metingen in de laatste {days} dagen.",
   "health.bodyComposition.trend.enteredNote": "Door jou ingevuld, niet gemeten door de band. BMI en vetvrije massa zijn gewone berekeningen op de cijfers die jij hebt ingetypt. Het is geen medisch advies.",
