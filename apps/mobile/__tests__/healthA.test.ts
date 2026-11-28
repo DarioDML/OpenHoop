@@ -1,12 +1,16 @@
 import type { BodyMeasurement, DayRecord, LabResult, StrengthSession } from '@openhoop/core';
 
-import { PACE_MIN_DAYS, bodyAgeHeadline, latestFitnessAge, latestPhenoAge, paceOfAging, phenoAgeHistory, yearsDifference } from '@/data/bodyAgeDerived';
+import { PACE_MIN_DAYS, bodyAgeHeadline, fractionalAge, latestFitnessAge, latestPhenoAge, paceFromLabs, paceOfAging, phenoAgeHistory, yearsDifference } from '@/data/bodyAgeDerived';
 import { CONTRIBUTOR_IDS, CONTRIBUTOR_WINDOW_DAYS, STEPS_TARGET, bodyAgeContributors, contributorById, contributorScale, statusFor, type ContributorInput } from '@/data/contributors';
 import { addDays } from '@/data/derived';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { FITNESS_LEVELS, fitnessLevel, scalePosition } from '@/data/healthspanDerived';
 import { bucketSpo2, hrStats, nearestPoint, pointsIn, restingSeries, tabWindows, windowSpan } from '@/data/heartRateView';
 import type { Profile } from '@/data/types';
+import { translate } from '@/i18n';
+import type { TFunction } from '@/i18n/useT';
+import { contributorSource, contributorStatus, contributorTone, zoneTone } from '@/ui/health/contributorText';
+import { bodyAgeCaption } from '@/ui/health/hubTiles';
 import { todayIso } from '@/lib/format';
 
 import { FIXTURE_NOW } from './support/appData';
@@ -15,6 +19,7 @@ const days = createFixtureDays(FIXTURE_NOW);
 const today = todayIso(FIXTURE_NOW);
 const PROFILE: Profile = { birthYear: 1981, maxHeartRate: null };
 const NO_AGE: Profile = { birthYear: null, maxHeartRate: null };
+const BORN: Profile = { birthYear: 1981, maxHeartRate: null, birthDate: '1981-06-15' };
 
 const PANEL: ReadonlyArray<Pick<LabResult, 'biomarker' | 'unit' | 'value'>> = [
   { biomarker: 'albumin', unit: 'g/dL', value: 4.3 },
@@ -66,15 +71,15 @@ describe('body age headline', () => {
 
 describe('pace of aging', () => {
   it('needs two complete blood panels far enough apart', () => {
-    const one = phenoAgeHistory(panel('2026-01-10', 1), PROFILE);
+    const one = phenoAgeHistory(panel('2026-01-10', 1), BORN);
     expect(one).toHaveLength(1);
     expect(paceOfAging(one)).toEqual({ ok: false, reason: 'needs-two-draws', draws: 1 });
-    const close = phenoAgeHistory([...panel('2026-01-10', 1), ...panel(addDays('2026-01-10', PACE_MIN_DAYS - 10), 20)], PROFILE);
+    const close = phenoAgeHistory([...panel('2026-01-10', 1), ...panel(addDays('2026-01-10', PACE_MIN_DAYS - 10), 20)], BORN);
     expect(paceOfAging(close)).toMatchObject({ ok: false, reason: 'too-close' });
   });
 
   it('divides the change in Phenotypic Age by the calendar time between draws', () => {
-    const history = phenoAgeHistory([...panel('2025-11-01', 1), ...panel('2026-11-01', 20, { crp: 0.5 })], PROFILE);
+    const history = phenoAgeHistory([...panel('2025-11-01', 1), ...panel('2026-11-01', 20, { crp: 0.5 })], BORN);
     expect(history).toHaveLength(2);
     const pace = paceOfAging(history);
     if (!pace.ok) throw new Error(pace.reason);
@@ -83,9 +88,24 @@ describe('pace of aging', () => {
     expect(pace.pace).toBeCloseTo((last.phenoAge - first.phenoAge) / (365 / 365.25), 9);
   });
 
+  it('ages each draw to the day, so a birthday between identical panels does not jump', () => {
+    const history = phenoAgeHistory([...panel('2026-05-01', 1), ...panel(addDays('2026-05-01', 181), 20)], BORN);
+    const pace = paceOfAging(history);
+    if (!pace.ok) throw new Error(pace.reason);
+    expect(pace.pace).toBeGreaterThan(0.85);
+    expect(pace.pace).toBeLessThan(0.95);
+  });
+
+  it('needs a full birth date, not only a birth year', () => {
+    expect(paceFromLabs([...panel('2025-11-01', 1), ...panel('2026-11-01', 20)], PROFILE)).toEqual({ ok: false, reason: 'needs-birth-date', draws: 0 });
+    expect(paceFromLabs([...panel('2025-11-01', 1), ...panel('2026-11-01', 20)], BORN).ok).toBe(true);
+    expect(fractionalAge(BORN, '2026-06-15')).toBeCloseTo((Date.UTC(2026, 5, 15) - Date.UTC(1981, 5, 15)) / 86_400_000 / 365.25, 9);
+    expect(fractionalAge(PROFILE, '2026-06-15')).toBeNull();
+  });
+
   it('skips draw days whose panel is incomplete or too old', () => {
     const partial = panel('2026-03-01', 40).slice(0, 3);
-    expect(phenoAgeHistory([...panel('2025-11-01', 1), ...partial], PROFILE).map((p) => p.day)).toEqual(['2025-11-01']);
+    expect(phenoAgeHistory([...panel('2025-11-01', 1), ...partial], BORN).map((p) => p.day)).toEqual(['2025-11-01']);
   });
 });
 
@@ -122,9 +142,17 @@ describe('body age contributors', () => {
     expect(zones.targetReason).toBe('none-published');
   });
 
+  it('counts every zone towards the WHO minutes, so a zone 4 runner is not below target', () => {
+    const hard: DayRecord[] = days.map((d) => ({ ...d, zoneSeconds: [0, 0, 0, 0, 3600, 0] }));
+    const mv = contributorById(input({ days: hard }), 'moderateVigorous');
+    expect(mv.value).toBeCloseTo(420, 6);
+    expect(mv.status).toBe('above');
+    expect(contributorById(input({ days: hard }), 'zones45').value).toBeCloseTo(420, 6);
+  });
+
   it('says when there are too few days', () => {
     const few: DayRecord[] = days.slice(-3);
-    expect(contributorById(input({ days: few }), 'zones13')).toMatchObject({ value: null, reason: 'needs-days' });
+    expect(contributorById(input({ days: few }), 'moderateVigorous')).toMatchObject({ value: null, reason: 'needs-days' });
     expect(contributorById(input({ days: few }), 'sleepHours')).toMatchObject({ value: null, reason: 'needs-nights' });
   });
 
@@ -178,7 +206,7 @@ describe('VO2 max fitness level', () => {
 });
 
 describe('contributor scale', () => {
-  const base = { id: 'zones13' as const, minutes: null, measured: 10, targetReason: null, status: null, reason: null };
+  const base = { id: 'moderateVigorous' as const, minutes: null, measured: 10, targetReason: null, status: null, reason: null };
 
   it('puts a two-sided target in the middle third', () => {
     const scale = contributorScale({ ...base, value: 225, target: { kind: 'range', low: 150, high: 300, basis: 'adults' } });
@@ -234,5 +262,28 @@ describe('heart rate tabs', () => {
     const series = restingSeries(days, days.length - 1, 5);
     expect(series).toHaveLength(5);
     expect(series[4]).toBe(days[days.length - 1]?.restingHr.value ?? null);
+  });
+});
+
+describe('contributor and hub wording', () => {
+  const t: TFunction = (key, params) => translate('en', key, params);
+
+  it('treats a resting heart rate below your own range as good and never calls your range a target', () => {
+    const rhr = { id: 'restingHr' as const, value: 50, minutes: null, measured: 7, target: { kind: 'range' as const, low: 52, high: 58, basis: 'own' as const }, targetReason: null, status: 'below' as const, reason: null };
+    expect(contributorTone(rhr)).toBe('positive');
+    expect(contributorTone({ ...rhr, value: 62, status: 'above' })).toBe('warning');
+    expect(contributorStatus(rhr, t)).toBe('Below your usual');
+    expect(zoneTone(rhr, 'below')).toBe('info');
+  });
+
+  it('names where the hub body age comes from', () => {
+    expect(bodyAgeCaption({ kind: 'age', source: 'pheno', age: 40, ownAge: 43.2, day: null }, { t, language: 'en' })).toBe('Blood tests · 3.2 years younger');
+    expect(bodyAgeCaption({ kind: 'age', source: 'fitness', age: 40, ownAge: null, day: null }, { t, language: 'en' })).toBe('Fitness');
+  });
+
+  it('picks the custom-zone wording for zone contributors', () => {
+    expect(contributorSource('moderateVigorous', true)).toBe('health.contrib.moderateVigorous.sourceCustom');
+    expect(contributorSource('moderateVigorous', false)).toBe('health.contrib.moderateVigorous.source');
+    expect(contributorSource('steps', true)).toBe('health.contrib.steps.source');
   });
 });

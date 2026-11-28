@@ -11,8 +11,7 @@ import {
   fitnessBand,
   latestFitnessAge,
   latestPhenoAge,
-  paceOfAging,
-  phenoAgeHistory,
+  paceFromLabs,
   yearsDifference,
   type BodyAgeHeadline,
   type FitnessAgeView,
@@ -361,7 +360,7 @@ export default function BodyAgeScreen() {
   const fitness = latestFitnessAge(days, profile, userData.sex);
   const pheno = latestPhenoAge(labResults, profile);
   const headline = bodyAgeHeadline(fitness, pheno);
-  const pace = paceOfAging(phenoAgeHistory(labResults, profile));
+  const pace = paceFromLabs(labResults, profile);
   const contributors = bodyAgeContributors({ days, profile, sex: userData.sex, sessions: strength.sessions, bodyMeasurements, today: todayIso(new Date(Date.now())) });
 
   return (

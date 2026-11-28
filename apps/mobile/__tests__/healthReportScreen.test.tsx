@@ -141,9 +141,11 @@ describe('health report screen', () => {
   it('summarises the period with stats and the ECG count', async () => {
     const ecgRecordings = [{ id: 7, deviceId: 1, t: Math.floor(FIXTURE_NOW.getTime() / 1000) - 86_400, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left' as const }];
     await render(withAppData(<ReportScreen />, 'en', { ecgRecordings }));
+    expect(screen.queryByTestId('report-section-ecg')).toBeNull();
+    await fireEvent.press(screen.getByTestId('report-toggle-ecg'));
     expect(screen.getByTestId('report-stat-ecg-value')).toHaveTextContent('1');
     expect(screen.getByTestId('report-stat-hrv-value')).toHaveTextContent(/ms/);
-    expect(screen.getByTestId('report-section-ecg')).toHaveTextContent(/30 s|0:30|band on left wrist/);
+    expect(screen.getByTestId('report-section-ecg')).toHaveTextContent(/\d{4}-\d{2}-\d{2} at \d{2}:\d{2} · .+ · band on left wrist/);
   });
 
   it('leaves cycle out until its chip is chosen', async () => {
@@ -169,7 +171,8 @@ describe('health report screen', () => {
     await render(withAppData(<ReportScreen />, 'en'));
     await fireEvent.press(screen.getByTestId('report-export'));
     expect(await screen.findByTestId('report-saved')).toBeTruthy();
-    expect(mockCreateFile).toHaveBeenCalledWith(expect.stringMatching(/^openhoop-health-report-.*\.pdf$/), 'application/pdf');
+    expect(mockCreateFile).toHaveBeenCalledWith(expect.stringMatching(/^openhoop-health-report-\d{4}-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}-\d{6}\.pdf$/), 'application/pdf');
+    expect(screen.getByTestId('report-saved')).toHaveTextContent(/Saved as openhoop-health-report-.*\.pdf/);
     expect(mockWrite).toHaveBeenCalled();
     expect(mockShare).not.toHaveBeenCalled();
     expect(mockDelete).toHaveBeenCalledWith('file:///cache/Print/abc.pdf');

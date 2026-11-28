@@ -62,12 +62,12 @@ export function BreathBlob({ size, target, durationMs, testID }: Props): ReactEl
 
   return (
     <View testID={testID} style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={{ position: 'absolute', width: size, height: size, transform: [{ scale }, { rotate }] }}>
+      <Animated.View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: 'absolute', width: size, height: size, transform: [{ scale }, { rotate }] }}>
         <Svg width={size} height={size}>
           <Path d={blobPath(size, 0.09)} fill={colors.accentSoft} stroke={colors.info} strokeWidth={3} />
         </Svg>
       </Animated.View>
-      <Animated.View style={{ position: 'absolute', width: size, height: size, transform: [{ scale: inner }, { rotate }] }}>
+      <Animated.View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: 'absolute', width: size, height: size, transform: [{ scale: inner }, { rotate }] }}>
         <Svg width={size} height={size}>
           <Path d={blobPath(size, 0.07, Math.PI / 4)} fill={colors.info} opacity={0.45} />
         </Svg>

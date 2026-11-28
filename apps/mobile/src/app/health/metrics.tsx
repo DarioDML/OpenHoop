@@ -34,11 +34,16 @@ const CHIP_LABEL: Record<MetricCategory, TranslationKey> = {
   raw: 'health.metrics.chip.raw',
 };
 
+function withNote(text: string, noteKey: TranslationKey | undefined, t: TFunction): string {
+  return noteKey === undefined ? text : `${text} · ${t(noteKey)}`;
+}
+
 function readingText(reading: MetricReading, t: TFunction, language: Language): string {
-  if (reading.kind === 'none') return t('health.metrics.noData');
+  if (reading.kind === 'none') return reading.reasonKey === undefined ? t('health.metrics.noData') : t(reading.reasonKey);
   if (reading.kind === 'duration') return formatDuration(t, reading.seconds);
+  if (reading.kind === 'text') return withNote(t(reading.key, reading.params), reading.noteKey, t);
   const number = formatNumber(reading.value, reading.decimals, language);
-  return reading.unitKey ? `${number} ${t(reading.unitKey)}` : number;
+  return withNote(reading.unitKey ? `${number} ${t(reading.unitKey)}` : number, reading.noteKey, t);
 }
 
 function matches(item: CatalogueItem, query: string, t: TFunction): boolean {

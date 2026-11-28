@@ -38,11 +38,13 @@ export function DotCloud({ size, color, children, testID }: Props): ReactElement
   const fill = color ?? colors.positive;
   return (
     <View testID={testID} style={{ width: size, height: size, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        {DOTS.map((dot, i) => (
-          <Circle key={i} cx={dot.x * size} cy={dot.y * size} r={dot.r} fill={fill} opacity={dot.opacity} />
-        ))}
-      </Svg>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: 'absolute', width: size, height: size }}>
+        <Svg width={size} height={size}>
+          {DOTS.map((dot, i) => (
+            <Circle key={i} cx={dot.x * size} cy={dot.y * size} r={dot.r} fill={fill} opacity={dot.opacity} />
+          ))}
+        </Svg>
+      </View>
       {children}
     </View>
   );

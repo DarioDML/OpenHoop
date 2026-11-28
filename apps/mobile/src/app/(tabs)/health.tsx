@@ -88,7 +88,7 @@ export default function HealthScreen() {
       right={<IconButton icon="file" label={t('health.hub.report')} onPress={() => router.push('/health/report')} color={colors.text} testID="health-report-button" />}
       hero={
         <Pressable
-          accessibilityRole="search"
+          accessibilityRole="button"
           accessibilityLabel={t('health.hub.findMetric')}
           onPress={() => router.push('/health/metrics')}
           testID="health-find-metric"

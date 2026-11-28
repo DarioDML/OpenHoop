@@ -1,7 +1,7 @@
 import type { BodyMeasurement, DayRecord, LabResult } from '@openhoop/core';
 
 import { createFixtureDays } from '@/data/fixtureSource';
-import { DEFAULT_REPORT_SECTIONS, REPORT_SECTIONS, buildReport, checkCustomRange, parseReportPeriod, periodDates, reportStats, trendOf, type ReportInput, type ReportModel, type ReportRow } from '@/data/healthReport';
+import { DEFAULT_REPORT_SECTIONS, REPORT_SECTIONS, buildReport, checkCustomRange, localDay, parseReportPeriod, periodDates, reportStats, trendOf, type ReportInput, type ReportModel, type ReportRow } from '@/data/healthReport';
 import { escapeHtml, renderReportHtml, sparklineSvg } from '@/data/healthReportHtml';
 import type { Language } from '@/data/types';
 import { defaultUserData } from '@/data/userData';
@@ -338,6 +338,15 @@ describe('custom period, ECG and cycle sections', () => {
     expect(model.sections[0]?.cycle).toMatchObject({ startsInPeriod: ['2026-11-10'], averageCycleDays: 28, cyclesUsed: 2, lastStartDay: '2026-11-10' });
     expect(html(model)).toContain('Average cycle: 28.0 days (from 2 cycles)');
     expect(DEFAULT_REPORT_SECTIONS).not.toContain('cycle');
+    expect(DEFAULT_REPORT_SECTIONS).not.toContain('ecg');
+  });
+
+  it('puts a recording at 00:30 local time on that local day', () => {
+    const t = new Date(2026, 10, 11, 0, 30).getTime() / 1000;
+    const recording = { id: 9, deviceId: 1, t, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: null };
+    const model = buildReport(input({ sections: ['ecg'], ecgRecordings: [recording], custom: { from: '2026-11-11', to: '2026-11-11' } }));
+    expect(model.sections[0]?.ecg.map((e) => e.id)).toEqual([9]);
+    expect(localDay(t)).toBe('2026-11-11');
   });
 
   it('adds steps and zone minutes under activity', () => {

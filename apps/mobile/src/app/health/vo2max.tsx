@@ -125,6 +125,9 @@ export default function Vo2maxScreen() {
               {level !== null && view.norm !== null ? (
                 <AppText variant="lead" testID="vo2-class">
                   {classLine(t, level, view.norm.norm)}
+                  <AppText variant="lead" muted>
+                    {` · ${t('health.vo2max.estimateSee', { see: fmt(view.result.value.seeMlKgMin, 1) })}`}
+                  </AppText>
                 </AppText>
               ) : (
                 <AppText variant="label" muted testID="vo2-class-reason">

@@ -120,7 +120,7 @@ export function HeartRateChart({ points, startS, endS, tzOffsetS, bands, bucketS
             }
           : {})}>
         {width > 0 ? (
-          <Svg width={width} height={height}>
+          <Svg width={width} height={height} pointerEvents="none">
             {bands.map((band, index) => {
               const left = Math.max(0, x(band.from));
               const right = Math.min(width, x(band.to));

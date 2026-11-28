@@ -24,8 +24,9 @@ function isCancel(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' && CANCEL_CODES.has(error.code);
 }
 
-export function reportFileName(from: string, to: string): string {
-  return `openhoop-health-report-${from}-${to}.pdf`;
+export function reportFileName(from: string, to: string, now: Date): string {
+  const pad = (n: number): string => `${n}`.padStart(2, '0');
+  return `openhoop-health-report-${from}-${to}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`;
 }
 
 export async function shareReportPdf(html: string): Promise<void> {

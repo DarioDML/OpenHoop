@@ -39,14 +39,13 @@ interface Text {
 }
 
 export function bodyAgeCaption(headline: BodyAgeHeadline, { t, language }: Text): string {
-  const diff = yearsDifference(headline);
-  if (diff !== null) {
-    const years = formatNumber(Math.abs(diff), 1, language);
-    if (Number(years.replace(',', '.')) === 0) return t('health.bodyAge.same');
-    return diff > 0 ? t('health.bodyAge.younger', { years }) : t('health.bodyAge.older', { years });
-  }
   if (headline.kind === 'none') return t('health.hub.tile.bodyAgeHint');
-  return headline.source === 'pheno' ? t('health.bodyAge.fromBlood') : t('health.bodyAge.fromFitness');
+  const source = t(`health.bodyAge.sourceShort.${headline.source}`);
+  const diff = yearsDifference(headline);
+  if (diff === null) return source;
+  const years = formatNumber(Math.abs(diff), 1, language);
+  if (Number(years.replace(',', '.')) === 0) return `${source} · ${t('health.bodyAge.same')}`;
+  return `${source} · ${diff > 0 ? t('health.bodyAge.younger', { years }) : t('health.bodyAge.older', { years })}`;
 }
 
 export function bodyAgeMissing(headline: BodyAgeHeadline, t: TFunction): string {

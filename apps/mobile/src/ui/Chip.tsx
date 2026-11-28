@@ -52,16 +52,20 @@ interface PillProps {
   label: string;
   selected: boolean;
   onPress: () => void;
+  role?: 'button' | 'tab';
   testID?: string;
 }
 
-export function Pill({ label, selected, onPress, testID }: PillProps) {
+const PILL_HIT_SLOP = { top: 4, bottom: 4, left: 2, right: 2 } as const;
+
+export function Pill({ label, selected, onPress, role = 'button', testID }: PillProps) {
   const { colors } = useTheme();
   return (
     <Pressable
       testID={testID}
-      accessibilityRole="button"
+      accessibilityRole={role}
       accessibilityState={{ selected }}
+      hitSlop={PILL_HIT_SLOP}
       onPress={onPress}
       style={{
         height: 36,

@@ -10,6 +10,7 @@ import {
   buildReport,
   checkCustomRange,
   parseReportPeriod,
+  localDay,
   reportStats,
   type ReportLab,
   type ReportRow,
@@ -40,8 +41,9 @@ import { todayIso } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { CheckChip } from '@/ui/Chip';
-import { Button, Field, Segmented, Toggle } from '@/ui/controls';
+import { Button, Field, Segmented } from '@/ui/controls';
 import { HealthPage } from '@/ui/health/HealthPage';
+import { ToggleRow } from '@/ui/manage/rows';
 import { useLayout } from '@/ui/layout';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { Section } from '@/ui/Section';
@@ -62,17 +64,6 @@ const STAT_LABEL: Readonly<Record<ReportStat['id'], TranslationKey>> = {
   asleep: 'health.report.stat.asleep',
   ecg: 'health.report.stat.ecg',
 };
-
-function ToggleRow({ label, value, onChange, disabled = false, testID }: { label: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean; testID: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48, gap: spacing.md }}>
-      <Toggle value={value} onChange={onChange} label={label} disabled={disabled} testID={testID} />
-      <AppText variant="body" muted={disabled} style={{ flex: 1 }}>
-        {label}
-      </AppText>
-    </View>
-  );
-}
 
 function PreviewRow({ row, text }: { row: ReportRow; text: ReportText }) {
   const { t } = text;
@@ -143,7 +134,12 @@ function PreviewLab({ lab, text }: { lab: ReportLab; text: ReportText }) {
   );
 }
 
-function PreviewLines({ lines, empty, note, testID }: { lines: readonly string[]; empty: string; note: string; testID: string }) {
+interface Line {
+  key: string;
+  text: string;
+}
+
+function PreviewLines({ lines, empty, note, testID }: { lines: readonly Line[]; empty: string; note: string; testID: string }) {
   return (
     <>
       {lines.length === 0 ? (
@@ -152,8 +148,8 @@ function PreviewLines({ lines, empty, note, testID }: { lines: readonly string[]
         </AppText>
       ) : (
         lines.map((line) => (
-          <AppText key={line} variant="label" numeric>
-            {line}
+          <AppText key={line.key} variant="label" numeric>
+            {line.text}
           </AppText>
         ))
       )}
@@ -184,9 +180,9 @@ function PreviewSection({ section, text }: { section: ReportSection; text: Repor
         </>
       );
   } else if (section.id === 'ecg') {
-    body = <PreviewLines lines={section.ecg.map((entry) => ecgLine(entry, text))} empty={t('health.report.ecg.empty')} note={t('health.report.ecg.note')} testID="report-ecg" />;
+    body = <PreviewLines lines={section.ecg.map((entry) => ({ key: `ecg-${entry.id}`, text: ecgLine(entry, text) }))} empty={t('health.report.ecg.empty')} note={t('health.report.ecg.note')} testID="report-ecg" />;
   } else if (section.id === 'cycle') {
-    body = <PreviewLines lines={section.cycle === null ? [] : cycleLines(section.cycle, text)} empty={t('health.report.cycle.empty')} note={t('health.report.cycle.note')} testID="report-cycle" />;
+    body = <PreviewLines lines={section.cycle === null ? [] : cycleLines(section.cycle, text).map((line, i) => ({ key: `cycle-${i}`, text: line }))} empty={t('health.report.cycle.empty')} note={t('health.report.cycle.note')} testID="report-cycle" />;
   } else {
     body = section.rows.map((row) => <PreviewRow key={row.id} row={row} text={text} />);
   }
@@ -233,7 +229,7 @@ export default function ReportScreen() {
   const [includeName, setIncludeName] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
   const [failed, setFailed] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
 
   const hasName = userData.name !== null;
   const text: ReportText = useMemo(() => ({ t, language }), [t, language]);
@@ -254,7 +250,7 @@ export default function ReportScreen() {
         today,
         ecgRecordings,
         periods: cycle.periods,
-      }),
+      }, localDay),
     [days, bodyMeasurements, labResults, userData, profile, period, custom, selected, includeName, hasName, today, ecgRecordings, cycle.periods],
   );
   const stats = reportStats(model);
@@ -268,14 +264,15 @@ export default function ReportScreen() {
   const run = async (kind: Exclude<Busy, null>): Promise<void> => {
     setBusy(kind);
     setFailed(false);
-    setSaved(false);
+    setSaved(null);
     try {
       const html = renderReportHtml(model, text);
       if (kind === 'share') {
         await shareReportPdf(html);
       } else {
-        const outcome = await exportReportPdf(html, reportFileName(model.from, model.to));
-        setSaved(outcome === 'saved');
+        const name = reportFileName(model.from, model.to, new Date(Date.now()));
+        const outcome = await exportReportPdf(html, name);
+        setSaved(outcome === 'saved' ? name : null);
       }
     } catch {
       setFailed(true);
@@ -344,7 +341,7 @@ export default function ReportScreen() {
             <CheckChip key={id} label={sectionTitle(id, t)} checked={selected.includes(id)} onToggle={(on) => toggleSection(id, on)} testID={`report-toggle-${id}`} />
           ))}
         </View>
-        <ToggleRow label={t('health.report.include.name')} value={includeName && hasName} onChange={setIncludeName} disabled={!hasName} testID="report-toggle-name" />
+        <ToggleRow title={t('health.report.include.name')} value={includeName && hasName} onChange={setIncludeName} disabled={!hasName} testID="report-toggle-name" />
         {hasName ? null : (
           <AppText variant="caption" muted testID="report-name-missing">
             {t('health.report.include.nameMissing')}
@@ -357,9 +354,9 @@ export default function ReportScreen() {
           {t('health.report.error')}
         </AppText>
       ) : null}
-      {saved ? (
+      {saved !== null ? (
         <AppText variant="label" color={colors.positive} accessibilityRole="alert" testID="report-saved">
-          {t('health.report.saved')}
+          {t('health.report.saved', { name: saved })}
         </AppText>
       ) : null}
       <View style={{ flexDirection: narrow ? 'column' : 'row', gap: spacing.md }}>

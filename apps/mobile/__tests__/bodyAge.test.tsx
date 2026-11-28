@@ -180,12 +180,12 @@ describe('Body age hero, pace and contributors', () => {
     expect(screen.getByTestId('body-age-value')).toHaveTextContent(pheno.result.value.phenoAge.toFixed(1));
     const diff = 45 - pheno.result.value.phenoAge;
     expect(screen.getByTestId('body-age-diff')).toHaveTextContent(`${Math.abs(diff).toFixed(1)} years ${diff > 0 ? 'younger' : 'older'} than your age`);
-    expect(screen.getByTestId('body-age-pace-note')).toHaveTextContent(/Complete panels now: 1/);
+    expect(screen.getByTestId('body-age-pace-note')).toHaveTextContent(/full birth date/);
   });
 
   it('shows a pace of aging from two panels a year apart', async () => {
     const labs = [...panel('2025-11-01'), ...panel('2026-11-01').map((r) => ({ ...r, id: r.id + 100 }))];
-    await render(withAppData(<BodyAgeScreen />, 'en', { profile: PROFILE, userData: MAN, labResults: labs }));
+    await render(withAppData(<BodyAgeScreen />, 'en', { profile: { ...PROFILE, birthDate: '1981-03-02' }, userData: MAN, labResults: labs }));
     expect(screen.getByTestId('body-age-pace-value')).toHaveTextContent(/×$/);
   });
 

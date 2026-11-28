@@ -164,6 +164,7 @@ describe('health screens', () => {
     await fireEvent(screen.getByTestId('hr-chart-touch'), 'layout', { nativeEvent: { layout: { width: 300, height: 180, x: 0, y: 0 } } });
     await fireEvent(screen.getByTestId('hr-chart-touch'), 'responderGrant', { nativeEvent: { locationX: 0 } });
     expect(screen.getByTestId('hr-chart-scrub')).toHaveTextContent(/60 bpm/);
+    expect(screen.getByTestId('hr-tab-resting').props.accessibilityRole).toBe('tab');
     await fireEvent.press(screen.getByTestId('hr-tab-resting'));
     expect(screen.getByTestId('hr-resting')).toBeTruthy();
     expect(screen.queryByTestId('hr-spo2')).toBeNull();
@@ -184,8 +185,13 @@ describe('health screens', () => {
 
   it('shows body age in all metrics once it can be worked out', async () => {
     await render(withAppData(<MetricsScreen />, 'en', { profile: { birthYear: 1981, maxHeartRate: null }, userData: { ...defaultUserData(), onboardingDone: true, sex: 'male' } }));
-    expect(screen.getByTestId('metric-bodyAge')).toHaveTextContent(/years/);
+    expect(screen.getByTestId('metric-bodyAge')).toHaveTextContent(/years · Fitness/);
     expect(screen.getByTestId('metric-bodyAge-about')).toBeTruthy();
+  });
+
+  it('says why body age is missing in all metrics instead of No data', async () => {
+    await render(withAppData(<MetricsScreen />, 'en', { profile: { birthYear: 1981, maxHeartRate: null } }));
+    expect(screen.getByTestId('metric-bodyAge')).toHaveTextContent(/Set your sex in your profile/);
   });
 
   it('filters the metric list and says when a value has no data', async () => {

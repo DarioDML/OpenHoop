@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { CONTRIBUTOR_WINDOW_DAYS, contributorById, contributorScale, isContributorId, type ContributorId, type ScaleZone } from '@/data/contributors';
+import { CONTRIBUTOR_WINDOW_DAYS, contributorById, contributorScale, isContributorId, type ContributorId } from '@/data/contributors';
 import { useAppData } from '@/data/context';
 import { summarizeBiomarkers } from '@/data/labs';
 import {
@@ -23,10 +23,10 @@ import { useUnits } from '@/lib/units';
 import { StatRow, StatTile } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Chip } from '@/ui/Chip';
+import { Chip, type ChipTone } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { SemiGauge } from '@/ui/Gauge';
-import { CONTRIBUTOR_NAME, contributorReason, contributorTarget, contributorTone, contributorValue, targetBasis } from '@/ui/health/contributorText';
+import { CONTRIBUTOR_NAME, contributorReason, contributorSource, contributorStatus, contributorTarget, contributorTone, contributorValue, targetBasis, zoneTone } from '@/ui/health/contributorText';
 import { HealthPage } from '@/ui/health/HealthPage';
 import { MethodCard } from '@/ui/health/MethodCard';
 import type { IconName } from '@/ui/Icon';
@@ -228,10 +228,19 @@ function Detail({ id, pillars }: { id: PillarId; pillars: HealthspanPillars }) {
   );
 }
 
-function zoneColor(colors: ColorTokens, zone: ScaleZone): string {
-  if (zone === 'below') return colors.negative;
-  if (zone === 'target') return colors.positive;
-  return colors.textFaint;
+function toneColor(colors: ColorTokens, tone: ChipTone): string {
+  switch (tone) {
+    case 'negative':
+      return colors.negative;
+    case 'warning':
+      return colors.warning;
+    case 'positive':
+      return colors.positive;
+    case 'info':
+      return colors.info;
+    default:
+      return colors.textFaint;
+  }
 }
 
 function ContributorDetail({ id }: { id: ContributorId }) {
@@ -249,7 +258,7 @@ function ContributorDetail({ id }: { id: ContributorId }) {
   const labs = summarizeBiomarkers(labResults);
   const newest = labs.reduce<string | null>((max, s) => (max === null || s.latest.day > max ? s.latest.day : max), null);
   const size = Math.min(300, width - gutter * 2 - 40);
-  const status = c.status === null ? (value === null ? null : t('health.contrib.status.none')) : t(`health.contrib.status.${c.status}`);
+  const status = contributorStatus(c, t);
 
   return (
     <HealthPage
@@ -262,7 +271,7 @@ function ContributorDetail({ id }: { id: ContributorId }) {
               size={size}
               stroke={18}
               gap={0.02}
-              segments={scale.segments.map((s) => ({ from: s.from, to: s.to, color: zoneColor(colors, s.zone) }))}
+              segments={scale.segments.map((s) => ({ from: s.from, to: s.to, color: toneColor(colors, zoneTone(c, s.zone)) }))}
               marker={scale.position}
               testID="contributor-gauge"
             />
@@ -328,7 +337,7 @@ function ContributorDetail({ id }: { id: ContributorId }) {
         />
         <ListRow testID="contributor-pillars" title={t('health.pillar.title')} subtitle={t('health.hub.pillarsHint')} icon={{ icon: 'target', color: colors.textSoft, background: colors.surfaceAlt }} href="/health/pillar" />
       </ListGroup>
-      <LevelNote level={PARITY.pillars} text={t(`health.contrib.${id}.source`)} testID="contributor-source" />
+      <LevelNote level={PARITY.pillars} text={t(contributorSource(id, profile.zoneMode === 'custom'))} testID="contributor-source" />
     </HealthPage>
   );
 }

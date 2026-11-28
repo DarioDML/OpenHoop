@@ -207,7 +207,7 @@ export default function HeartRateScreen() {
         <View style={{ gap: spacing.md }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }} accessibilityRole="tablist" testID="hr-tabs">
             {HR_TABS.map((id) => (
-              <Pill key={id} label={t(TAB_LABEL[id])} selected={tab === id} onPress={() => setTab(id)} testID={`hr-tab-${id}`} />
+              <Pill key={id} label={t(TAB_LABEL[id])} selected={tab === id} onPress={() => setTab(id)} role="tab" testID={`hr-tab-${id}`} />
             ))}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

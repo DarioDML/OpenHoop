@@ -7,7 +7,7 @@ import { ageOnDay, healthspanPillars, latestVo2 } from './healthspanDerived';
 import type { Profile } from './types';
 import type { UserData } from './userData';
 
-export const CONTRIBUTOR_IDS = ['sleepConsistency', 'sleepHours', 'zones13', 'zones45', 'strength', 'steps', 'vo2max', 'restingHr', 'leanMass'] as const;
+export const CONTRIBUTOR_IDS = ['sleepConsistency', 'sleepHours', 'moderateVigorous', 'zones45', 'strength', 'steps', 'vo2max', 'restingHr', 'leanMass'] as const;
 export type ContributorId = (typeof CONTRIBUTOR_IDS)[number];
 
 export function isContributorId(value: unknown): value is ContributorId {
@@ -146,8 +146,8 @@ export function bodyAgeContributors(input: ContributorInput): Contributor[] {
         return nightly(id, days.map((d) => d.sleep.consistency.value), NO_TARGET, 'none-published');
       case 'sleepHours':
         return nightly(id, days.map((d) => d.sleep.asleepS), sleepTarget(age), null);
-      case 'zones13':
-        return zoneMinutesPerWeek(id, days, [1, 2, 3], { kind: 'range', low: WHO_MODERATE_MIN.low, high: WHO_MODERATE_MIN.high, basis: 'adults' }, null);
+      case 'moderateVigorous':
+        return zoneMinutesPerWeek(id, days, [1, 2, 3, 4, 5], { kind: 'range', low: WHO_MODERATE_MIN.low, high: WHO_MODERATE_MIN.high, basis: 'adults' }, null);
       case 'zones45':
         return zoneMinutesPerWeek(id, days, [4, 5], NO_TARGET, 'none-published');
       case 'strength':

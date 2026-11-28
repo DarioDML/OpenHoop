@@ -223,9 +223,9 @@ describe('Contributor detail', () => {
   });
 
   it('shows one contributor against the WHO target with advice, labs and the way back to the pillars', async () => {
-    mockParams.contributor = 'zones13';
+    mockParams.contributor = 'moderateVigorous';
     await render(withAppData(<PillarScreen />, 'en', { profile: PROFILE, userData: MAN }));
-    expect(screen.getByTestId('health-contributor-zones13')).toBeTruthy();
+    expect(screen.getByTestId('health-contributor-moderateVigorous')).toBeTruthy();
     expect(screen.getByTestId('contributor-gauge')).toBeTruthy();
     expect(screen.getByTestId('contributor-target')).toHaveTextContent('150–300 min/wk');
     expect(screen.getByTestId('contributor-basis')).toHaveTextContent('Target for adults');
@@ -264,7 +264,7 @@ describe('VO2 max fitness level', () => {
     const level = fitnessLevel(view.result.value.vo2max, view.norm.norm).level;
     const name = level.charAt(0).toUpperCase() + level.slice(1);
     await render(withAppData(<Vo2maxScreen />, 'en', { profile: PROFILE, userData: MAN }));
-    expect(screen.getByTestId('vo2-class')).toHaveTextContent(`${name} for men aged 30–39`);
+    expect(screen.getByTestId('vo2-class')).toHaveTextContent(new RegExp(`^${name} for men aged 30–39 · estimate ±\\d\\.\\d$`));
     expect(screen.getByTestId(`vo2-scale-${level}-current`)).toBeTruthy();
     expect(screen.getByText(/split that group into fifths/)).toBeTruthy();
   });

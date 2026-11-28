@@ -115,23 +115,14 @@ function BandStatus(): ReactElement {
   const { colors } = useTheme();
   const { device } = useAppData();
   const explain = useExplain();
-  const link = <View style={{ flex: 1, minWidth: 8, height: 1, backgroundColor: colors.borderStrong }} />;
   const synced = device.lastSyncAt !== null;
-  const tick = <Icon name="check" size={16} color={synced ? colors.positive : colors.textFaint} strokeWidth={2} />;
   return (
     <Card testID="vitals-band-status" style={{ gap: spacing.sm }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <AppText variant="body" numeric>
-          {device.batteryPercent === null ? t('health.vitals.band') : t('health.vitals.bandBattery', { pct: device.batteryPercent })}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Icon name={synced ? 'check' : 'sync'} size={18} color={synced ? colors.positive : colors.textMuted} strokeWidth={2} />
+        <AppText variant="body" numeric style={{ flex: 1 }}>
+          {[device.batteryPercent === null ? t('health.vitals.band') : t('health.vitals.bandBattery', { pct: device.batteryPercent }), synced ? t('health.vitals.storedLocal') : t('health.vitals.nothingStored')].join(' · ')}
         </AppText>
-        {link}
-        {tick}
-        {link}
-        <AppText variant="body">{t('health.vitals.phone')}</AppText>
-        {link}
-        {tick}
-        {link}
-        <AppText variant="body">{t('health.vitals.local')}</AppText>
       </View>
       <AppText variant="label" muted testID="vitals-last-sync">
         {device.lastSyncAt === null ? t('health.vitals.notSynced') : t('health.vitals.lastSync', { ago: formatAgo(t, explain.nowS(), device.lastSyncAt) })}
@@ -159,13 +150,8 @@ export default function VitalsScreen() {
 
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
-    try {
-      await sync();
-    } catch {
-      // sync failures reach the user through the notice card
-    } finally {
-      setRefreshing(false);
-    }
+    await sync().catch(() => undefined);
+    setRefreshing(false);
   };
 
   const tile = (reading: VitalReading, wide: boolean): ReactElement => {

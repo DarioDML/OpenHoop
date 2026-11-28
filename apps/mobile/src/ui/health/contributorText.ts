@@ -1,4 +1,4 @@
-import type { Contributor, ContributorId } from '@/data/contributors';
+import type { Contributor, ContributorId, ScaleZone } from '@/data/contributors';
 import type { Language, Units } from '@/data/types';
 import type { TranslationKey } from '@/i18n';
 import type { TFunction } from '@/i18n/useT';
@@ -9,7 +9,7 @@ import type { ChipTone } from '@/ui/Chip';
 export const CONTRIBUTOR_NAME: Readonly<Record<ContributorId, TranslationKey>> = {
   sleepConsistency: 'health.contrib.sleepConsistency',
   sleepHours: 'health.contrib.sleepHours',
-  zones13: 'health.contrib.zones13',
+  moderateVigorous: 'health.contrib.moderateVigorous',
   zones45: 'health.contrib.zones45',
   strength: 'health.contrib.strength',
   steps: 'health.contrib.steps',
@@ -41,7 +41,7 @@ export function formatContributor(id: ContributorId, value: number, text: Contri
       return `${formatNumber(value, 0, language)}%`;
     case 'sleepHours':
       return hoursMinutes(value);
-    case 'zones13':
+    case 'moderateVigorous':
     case 'zones45':
       return weekMinutes(value, text);
     case 'strength':
@@ -69,7 +69,7 @@ export function contributorTarget(c: Contributor, text: ContributorText): string
   if (target.kind === 'none') return null;
   if (c.id === 'sleepHours') return t('health.contrib.fmt.hours', { low: formatNumber(target.low / 3600, 0, language), high: formatNumber((target.high ?? target.low) / 3600, 0, language) });
   if (c.id === 'strength') return t('health.contrib.fmt.atLeastDays', { value: formatNumber(target.low, 0, language) });
-  if (c.id === 'zones13') return t('health.contrib.fmt.minRange', { low: formatNumber(target.low, 0, language), high: formatNumber(target.high ?? target.low, 0, language) });
+  if (c.id === 'moderateVigorous') return t('health.contrib.fmt.minRange', { low: formatNumber(target.low, 0, language), high: formatNumber(target.high ?? target.low, 0, language) });
   if (c.id === 'steps') return t('health.contrib.fmt.perDay', { value: `${formatNumber(target.low, 0, language)}–${formatNumber(target.high ?? target.low, 0, language)}` });
   const low = formatNumber(target.low, 0, language);
   const high = target.high === null ? null : formatNumber(target.high, 0, language);
@@ -88,7 +88,28 @@ export function contributorReason(c: Contributor, t: TFunction): string {
 
 export function contributorTone(c: Contributor): ChipTone {
   if (c.status === null) return 'neutral';
+  if (c.id === 'restingHr') return c.status === 'above' ? 'warning' : 'positive';
   if (c.status === 'below') return 'warning';
-  if (c.status === 'above' && (c.id === 'sleepHours' || c.id === 'restingHr')) return 'warning';
+  if (c.status === 'above' && c.id === 'sleepHours') return 'warning';
   return 'positive';
+}
+
+export function zoneTone(c: Contributor, zone: ScaleZone): ChipTone {
+  if (c.id === 'restingHr') return zone === 'above' ? 'warning' : zone === 'below' ? 'info' : 'positive';
+  if (zone === 'below') return 'negative';
+  if (zone === 'target') return 'positive';
+  return c.id === 'sleepHours' ? 'warning' : 'neutral';
+}
+
+export function contributorStatus(c: Contributor, t: TFunction): string | null {
+  if (c.value === null) return null;
+  if (c.status === null) return t('health.contrib.status.none');
+  if (c.target.kind === 'range' && c.target.basis === 'own') return t(`health.contrib.statusOwn.${c.status}`);
+  return t(`health.contrib.status.${c.status}`);
+}
+
+export function contributorSource(id: ContributorId, customZones: boolean): TranslationKey {
+  if (customZones && id === 'moderateVigorous') return 'health.contrib.moderateVigorous.sourceCustom';
+  if (customZones && id === 'zones45') return 'health.contrib.zones45.sourceCustom';
+  return `health.contrib.${id}.source`;
 }

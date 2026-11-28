@@ -2,6 +2,7 @@ import type { BodyMeasurement, DayRecord, EcgSummary, LabResult, PeriodEntry } f
 import type { Wrist } from '@openhoop/protocol';
 
 import type { TranslationKey } from '@/i18n';
+import { todayIso } from '@/lib/format';
 
 import { sortMeasurements } from './bodyComposition';
 import { computeCycleStats, daysBetween } from './cycle';
@@ -20,7 +21,7 @@ export function parseReportPeriod(value: string): ReportPeriod {
 
 export const REPORT_SECTIONS = ['scores', 'sleep', 'vitals', 'energy', 'body', 'labs', 'activity', 'ecg', 'cycle'] as const;
 export type ReportSectionId = (typeof REPORT_SECTIONS)[number];
-export const DEFAULT_REPORT_SECTIONS: readonly ReportSectionId[] = REPORT_SECTIONS.filter((id) => id !== 'cycle');
+export const DEFAULT_REPORT_SECTIONS: readonly ReportSectionId[] = REPORT_SECTIONS.filter((id) => id !== 'cycle' && id !== 'ecg');
 export const CHIP_ORDER: readonly ReportSectionId[] = ['vitals', 'sleep', 'activity', 'ecg', 'cycle', 'scores', 'energy', 'body', 'labs'];
 
 export const CUSTOM_MAX_DAYS = 366;
@@ -233,8 +234,8 @@ export function periodDates(to: string, period: number): string[] {
   return Array.from({ length: period }, (_, i) => addDays(to, i - period + 1));
 }
 
-export function utcDay(t: number): string {
-  return new Date(t * 1000).toISOString().slice(0, 10);
+export function localDay(t: number): string {
+  return todayIso(new Date(t * 1000));
 }
 
 function ecgFor(recordings: readonly EcgSummary[], from: string, to: string, dayOf: (t: number) => string): ReportEcg[] {
@@ -383,7 +384,7 @@ function labsFor(results: readonly LabResult[], from: string, to: string): Repor
   return labs;
 }
 
-export function buildReport(input: ReportInput, ecgDay: (t: number) => string = utcDay): ReportModel {
+export function buildReport(input: ReportInput, ecgDay: (t: number) => string = localDay): ReportModel {
   const to = input.custom?.to ?? input.today;
   const length = input.custom ? daysBetween(input.custom.from, input.custom.to) + 1 : input.period;
   const dates = periodDates(to, length);

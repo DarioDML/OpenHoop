@@ -80,7 +80,9 @@ export interface PhenoAgeView {
   result: { ok: true; value: PhenoAgeEstimate } | { ok: false; reason: PhenoViewReason };
 }
 
-export function latestPhenoAge(labResults: readonly LabResult[], profile: Profile): PhenoAgeView {
+export type AgeAt = (day: string) => number | null;
+
+export function latestPhenoAge(labResults: readonly LabResult[], profile: Profile, ageAt: AgeAt = (day) => ageOnDay(profile, day)): PhenoAgeView {
   const latest = PHENO_MARKERS.map((marker) => {
     const history = resultsFor(labResults, marker.id);
     return { marker, result: history[history.length - 1] ?? null };
@@ -100,7 +102,7 @@ export function latestPhenoAge(labResults: readonly LabResult[], profile: Profil
 
   const used = markers.filter((m) => m.status === 'ok').map((m) => m.latest?.day ?? '');
   const oldestDay = used.length === 0 ? null : used.reduce((min, day) => (day < min ? day : min));
-  const ageYears = newestDay === null ? null : ageOnDay(profile, newestDay);
+  const ageYears = newestDay === null ? null : ageAt(newestDay);
   const view = { newestDay, oldestDay, ageYears, markers };
 
   if (markers.some((m) => m.status !== 'ok')) return { ...view, result: { ok: false, reason: 'incomplete' } };
@@ -121,6 +123,12 @@ export function latestPhenoAge(labResults: readonly LabResult[], profile: Profil
   };
   const result = phenotypicAge(inputs);
   return { ...view, result: result.ok ? result : { ok: false, reason: result.reason } };
+}
+
+const DAYS_PER_YEAR = 365.25;
+
+function dayNumber(day: string): number {
+  return Date.parse(`${day}T00:00:00Z`) / 86_400_000;
 }
 
 export type BodyAgeSource = 'pheno' | 'fitness';
@@ -149,6 +157,15 @@ export interface PhenoPoint {
   phenoAge: number;
 }
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export function fractionalAge(profile: Profile, day: string): number | null {
+  const born = profile.birthDate ?? null;
+  if (born === null || !ISO_DAY.test(born) || ageOnDay(profile, day) === null) return null;
+  const years = (dayNumber(day) - dayNumber(born)) / DAYS_PER_YEAR;
+  return Number.isFinite(years) ? years : null;
+}
+
 export function phenoAgeHistory(labResults: readonly LabResult[], profile: Profile): PhenoPoint[] {
   const drawDays = [...new Set(labResults.map((r) => r.day))].sort();
   const points: PhenoPoint[] = [];
@@ -156,6 +173,7 @@ export function phenoAgeHistory(labResults: readonly LabResult[], profile: Profi
     const view = latestPhenoAge(
       labResults.filter((r) => r.day <= day),
       profile,
+      (at) => fractionalAge(profile, at),
     );
     if (view.result.ok && view.newestDay === day) points.push({ day, phenoAge: view.result.value.phenoAge });
   }
@@ -164,13 +182,8 @@ export function phenoAgeHistory(labResults: readonly LabResult[], profile: Profi
 
 export const PACE_MIN_DAYS = 180;
 export const PACE_SCALE = { min: -1, max: 3 } as const;
-const DAYS_PER_YEAR = 365.25;
 
-export type PaceOfAging = { ok: true; pace: number; from: PhenoPoint; to: PhenoPoint } | { ok: false; reason: 'needs-two-draws' | 'too-close'; draws: number };
-
-function dayNumber(day: string): number {
-  return Date.parse(`${day}T00:00:00Z`) / 86_400_000;
-}
+export type PaceOfAging = { ok: true; pace: number; from: PhenoPoint; to: PhenoPoint } | { ok: false; reason: 'needs-birth-date' | 'needs-two-draws' | 'too-close'; draws: number };
 
 export function paceOfAging(history: readonly PhenoPoint[]): PaceOfAging {
   const from = history[0];
@@ -179,4 +192,10 @@ export function paceOfAging(history: readonly PhenoPoint[]): PaceOfAging {
   const span = dayNumber(to.day) - dayNumber(from.day);
   if (!(span >= PACE_MIN_DAYS)) return { ok: false, reason: 'too-close', draws: history.length };
   return { ok: true, pace: (to.phenoAge - from.phenoAge) / (span / DAYS_PER_YEAR), from, to };
+}
+
+export function paceFromLabs(labResults: readonly LabResult[], profile: Profile): PaceOfAging {
+  const born = profile.birthDate ?? null;
+  if (born === null || !ISO_DAY.test(born)) return { ok: false, reason: 'needs-birth-date', draws: 0 };
+  return paceOfAging(phenoAgeHistory(labResults, profile));
 }
