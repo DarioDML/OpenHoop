@@ -18,7 +18,7 @@ interface Props {
   error?: boolean;
 }
 
-const WIDTHS: Readonly<Record<BirthPart, number>> = { day: 34, month: 34, year: 60 };
+const WIDTHS: Readonly<Record<BirthPart, number>> = { day: 44, month: 44, year: 64 };
 const LENGTHS: Readonly<Record<BirthPart, number>> = { day: 2, month: 2, year: 4 };
 
 export function BirthDateField({ label, day, month, year, onChange, partLabels, placeholders, hint, error = false }: Props) {

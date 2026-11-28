@@ -22,7 +22,7 @@ export function CheckPill({ label, selected, onPress, role = 'checkbox', testID 
       accessibilityLabel={label}
       onPress={onPress}
       style={({ pressed }) => ({
-        minHeight: 40,
+        minHeight: 44,
         paddingHorizontal: 16,
         borderRadius: radius.pill,
         borderWidth: 1,
