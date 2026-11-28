@@ -1,6 +1,6 @@
 import { Pressable, Switch, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 
-import { AppText } from './AppText';
+import { AppText, WordFitText } from './AppText';
 import { Chip } from './Chip';
 import { Icon, type IconName } from './Icon';
 import { fonts, radius, spacing, useTheme } from './theme';
@@ -97,15 +97,21 @@ export function Segmented<T extends string>({ options, value, onChange, wrap = f
               borderRadius: radius.pill,
               backgroundColor: selected ? colors.primary : 'transparent',
             }}>
-            <AppText
-              variant="label"
-              color={selected ? colors.primaryOn : colors.textMuted}
-              numberOfLines={wrap ? 2 : 1}
-              adjustsFontSizeToFit={!wrap}
-              minimumFontScale={0.7}
-              style={{ fontFamily: fonts.semibold, fontWeight: '600', textAlign: 'center' }}>
-              {option.label}
-            </AppText>
+            {wrap ? (
+              <WordFitText variant="label" color={selected ? colors.primaryOn : colors.textMuted} numberOfLines={2} style={{ fontFamily: fonts.semibold, fontWeight: '600', textAlign: 'center' }}>
+                {option.label}
+              </WordFitText>
+            ) : (
+              <AppText
+                variant="label"
+                color={selected ? colors.primaryOn : colors.textMuted}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+                style={{ fontFamily: fonts.semibold, fontWeight: '600', textAlign: 'center' }}>
+                {option.label}
+              </AppText>
+            )}
           </Pressable>
         );
       })}

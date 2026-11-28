@@ -89,11 +89,11 @@ export default function BatteryPackScreen() {
   return (
     <Screen header={header} tint="neutral" testID="battery-pack">
       <Card style={{ gap: spacing.md }} testID="pack-charges">
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <AppText variant="capSmall" muted>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.md }}>
+          <AppText variant="capSmall" muted style={{ flex: 1, minWidth: 0 }}>
             {t('device.pack.chargesTitle')}
           </AppText>
-          <AppText variant="label" muted>
+          <AppText variant="label" muted style={{ flexShrink: 0 }}>
             {t('device.pack.chargesUnit')}
           </AppText>
         </View>

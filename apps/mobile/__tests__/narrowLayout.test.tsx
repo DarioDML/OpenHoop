@@ -32,6 +32,7 @@ import ActionCenterScreen from '@/app/action-center';
 import DatePickerScreen from '@/app/home/date-picker';
 import AccuracyScreen from '@/app/settings/accuracy';
 import SafetyLockScreen from '@/app/settings/safety-lock';
+import LoadScreen from '@/app/load/index';
 import ConnectProviderScreen from '@/app/settings/connect-provider';
 import VitalsScreen from '@/app/health/vitals';
 
@@ -122,5 +123,19 @@ describe('bottom sheets at S24 size', () => {
     const ids = testIdsInOrder(screen.toJSON());
     expect(ids.indexOf('danger-confirm')).toBeGreaterThan(-1);
     expect(ids.indexOf('danger-confirm')).toBeLessThan(ids.indexOf('safety-nothing-sent'));
+  });
+});
+
+describe('small labels at S24 size', () => {
+  it('stacks Start activity and Buzz at target so neither label is cut', async () => {
+    s24();
+    await render(withAppData(<LoadScreen />));
+    expect(screen.getByTestId('load-ready-actions')).toHaveStyle({ flexDirection: 'column' });
+    expect(screen.getByTestId('load-buzz-label').props.numberOfLines).toBe(2);
+  });
+
+  it('keeps them side by side on a roomy screen', async () => {
+    await render(withAppData(<LoadScreen />));
+    expect(screen.getByTestId('load-ready-actions')).toHaveStyle({ flexDirection: 'row' });
   });
 });

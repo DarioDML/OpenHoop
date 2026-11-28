@@ -414,7 +414,7 @@
   "device.tile.batteryMissing": "Onbekend tot de band is uitgelezen",
   "device.tile.measured": "Gelezen: {ago}",
   "device.tile.charging": "Laadt op",
-  "device.tile.health": "Batterijconditie",
+  "device.tile.health": "Staat batterij",
   "device.tile.healthMissing": "Niet gemeld",
   "device.tile.healthCaption": "De band deelt niet hoe versleten de batterij is.",
   "device.wear.title": "Draagplek",

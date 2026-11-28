@@ -35,7 +35,7 @@
   "onboarding.body.male": "Male",
   "onboarding.body.female": "Female",
   "onboarding.body.other": "Other",
-  "onboarding.body.none": "Prefer not to say",
+  "onboarding.body.none": "Rather not say",
   "onboarding.body.sexNote": "Sex at birth only tunes physiological reference values, such as VO₂ max norms and the calorie estimate.",
   "onboarding.body.invalid": "Check your input: height {heightMin} to {heightMax} {heightUnit}, weight {weightMin} to {weightMax} {weightUnit}, a real birth date that is not in the future, maximum heart rate 120 to 230.",
   "onboarding.goals.title": "What do you want to improve?",
