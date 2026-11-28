@@ -19,7 +19,7 @@ import { useAppData } from '@/data/context';
 import { bmi } from '@/data/healthDerived';
 import { weightGoalsPaused } from '@/data/pregnancyPrefs';
 import { useT } from '@/i18n/useT';
-import { appNameForPackage } from '@/lib/appNames';
+import { appNameList } from '@/lib/appNames';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { formatNumber, formatShortDay, formatSigned } from '@/lib/format';
 import { formatWeight, useUnits, weightIn, weightToKg, weightUnit } from '@/lib/units';
@@ -87,7 +87,7 @@ export default function BodyCompositionScreen() {
   const lastPoint = trend.points[trend.points.length - 1];
   const toward = firstPoint === undefined || lastPoint === undefined ? null : towardGoal(firstPoint.weightKg, lastPoint.weightKg, goalKg);
   const fromHealthConnect = bodyMeasurements.filter((entry) => entry.source === 'health_connect');
-  const apps = [...new Set(fromHealthConnect.map((entry) => entry.origin).filter((origin): origin is string => origin !== null).map(appNameForPackage))];
+  const apps = appNameList(fromHealthConnect.map((entry) => entry.origin));
   const android = Platform.OS === 'android';
 
   const arrow = (change: number, decimals: number, suffix: string): string => `${change > 0 ? '↑' : change < 0 ? '↓' : '→'} ${fmt(Math.abs(change), decimals)}${suffix}`;
@@ -369,7 +369,9 @@ export default function BodyCompositionScreen() {
                 </AppText>
                 {entry.source === 'health_connect' ? (
                   <AppText variant="caption" muted testID={`body-source-${entry.id}`}>
-                    {entry.origin === null ? t('health.bodyComposition.entries.fromHealthConnect') : t('health.bodyComposition.entries.fromHealthConnectApp', { app: appNameForPackage(entry.origin) })}
+                    {appNameList([entry.origin]).length === 0
+                      ? t('health.bodyComposition.entries.fromHealthConnect')
+                      : t('health.bodyComposition.entries.fromHealthConnectApp', { app: appNameList([entry.origin]).join(', ') })}
                   </AppText>
                 ) : null}
               </View>

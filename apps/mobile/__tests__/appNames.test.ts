@@ -1,4 +1,4 @@
-import { appNameForPackage } from '@/lib/appNames';
+import { appNameForPackage, appNameList } from '@/lib/appNames';
 
 describe('appNameForPackage', () => {
   it('maps known Health Connect packages to app names', () => {
@@ -10,6 +10,14 @@ describe('appNameForPackage', () => {
   it('falls back to the vendor part of an unknown package', () => {
     expect(appNameForPackage('com.yunmai.scale')).toBe('Yunmai');
     expect(appNameForPackage('nl.example_scale.android')).toBe('Example scale');
+  });
+
+  it('ignores prototype keys and returns null for empty input', () => {
+    expect(appNameForPackage('constructor')).toBe('constructor');
+    expect(appNameForPackage('toString')).toBe('toString');
+    expect(appNameForPackage('')).toBeNull();
+    expect(appNameForPackage('   ')).toBeNull();
+    expect(appNameList(['com.renpho.health', 'com.qingniu.renpho', ' ', null])).toEqual(['Renpho']);
   });
 
   it('keeps names that are not packages, trimmed and capped', () => {
