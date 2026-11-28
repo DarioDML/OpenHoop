@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '@/i18n/useT';
@@ -25,7 +25,7 @@ export function SheetScreen({ title, children, onClose = goBack, surface = 'surf
   const insets = useSafeAreaInsets();
   const { gutter } = useLayout();
   return (
-    <View style={{ flex: 1, justifyContent: 'flex-end' }} testID={testID}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }} testID={testID}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('common.close')}
@@ -63,6 +63,6 @@ export function SheetScreen({ title, children, onClose = goBack, surface = 'surf
           {children}
         </ScrollView>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
