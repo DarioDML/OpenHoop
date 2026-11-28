@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RawStreamError, Session, StreamCollector, isLiveSignal, startBandRecording, stopBandRecording, switchStreams } from '@openhoop/core';
 import type { LiveImuSecond, LiveOpticalSecond } from '@openhoop/core';
-import { encodeImu } from '@openhoop/protocol';
+import { Command, encodeImu } from '@openhoop/protocol';
 import { SimBand } from '../src/index';
 import type { SimOptions } from '../src/index';
 
@@ -92,5 +92,18 @@ describe('raw streams on the simulated band', () => {
     expect(isLiveSignal({ kind: 'record', packetType: 47, layout: 21, recordIndex: 1, unixS: NOW_S, subsec: 0, record: { type: 'unknown', reason: 'length' } })).toBe(false);
     expect(isLiveSignal({ kind: 'record', packetType: 43, layout: 17, recordIndex: 1, unixS: NOW_S, subsec: 0, record: { type: 'unknown', reason: 'length' } })).toBe(false);
     expect(live.length).toBe(history.length);
+  });
+});
+
+describe('refusing single commands', () => {
+  it('refuses only the listed commands', async () => {
+    const { band, session } = await openBand({ rawRefuse: [Command.TOGGLE_OPTICAL_MODE, Command.STOP_RAW_DATA] });
+    await switchStreams(session, ['imu'], true);
+    await expect(switchStreams(session, ['optical'], true)).rejects.toBeInstanceOf(RawStreamError);
+    await expect(stopBandRecording(session)).rejects.toBeInstanceOf(RawStreamError);
+    expect(band.imuOn).toBe(true);
+    expect(band.opticalOn).toBe(false);
+    await switchStreams(session, ['imu'], false);
+    await session.close();
   });
 });

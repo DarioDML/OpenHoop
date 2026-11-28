@@ -63,6 +63,24 @@ export class StreamOwners {
     return this.claims.has(owner);
   }
 
+  releaseKinds(owner: StreamOwner, kinds: readonly StreamKind[]): void {
+    const claim = this.claims.get(owner);
+    if (claim === undefined) return;
+    for (const kind of kinds) claim.kinds.delete(kind);
+    if (claim.kinds.size === 0) this.claims.delete(owner);
+  }
+
+  dropKind(kind: StreamKind): void {
+    for (const [owner, claim] of [...this.claims.entries()]) {
+      claim.kinds.delete(kind);
+      if (claim.kinds.size === 0) this.claims.delete(owner);
+    }
+  }
+
+  releaseAll(): void {
+    this.claims.clear();
+  }
+
   kindsOf(owner: StreamOwner): StreamKind[] {
     const claim = this.claims.get(owner);
     return claim === undefined ? [] : KINDS.filter((kind) => claim.kinds.has(kind));
@@ -81,17 +99,28 @@ export function onBackground(owners: StreamOwners): StreamKind[] {
   return owners.release('developer');
 }
 
-export interface ConnectAction {
-  reassert: StreamKind[];
-  switchOff: StreamKind[];
-  stopBand: boolean;
+export interface ReconcileState {
+  target: readonly StreamKind[];
+  confirmed: readonly StreamKind[];
+  mayBeOn: readonly StreamKind[];
+  bandWanted: boolean;
+  bandConfirmed: boolean;
+  bandMayBeOn: boolean;
 }
 
-export function connectAction(active: readonly StreamKind[], flags: StreamFlags, bandOwner: boolean): ConnectAction {
+export interface ReconcilePlan {
+  off: StreamKind[];
+  on: StreamKind[];
+  stopBand: boolean;
+  startBand: boolean;
+}
+
+export function planReconcile(state: ReconcileState): ReconcilePlan {
   return {
-    reassert: KINDS.filter((kind) => active.includes(kind)),
-    switchOff: KINDS.filter((kind) => flags[kind] && !active.includes(kind)),
-    stopBand: flags.band && !bandOwner,
+    off: KINDS.filter((kind) => state.mayBeOn.includes(kind) && !state.target.includes(kind)),
+    on: KINDS.filter((kind) => state.target.includes(kind) && !state.confirmed.includes(kind)),
+    stopBand: state.bandMayBeOn && !state.bandWanted,
+    startBand: state.bandWanted && !state.bandConfirmed,
   };
 }
 

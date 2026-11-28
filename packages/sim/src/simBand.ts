@@ -46,6 +46,7 @@ export interface SimOptions {
   ecgIntervalMs?: number;
   alarmRingMs?: number;
   rawUnsupported?: boolean;
+  rawRefuse?: readonly number[];
   rawIntervalMs?: number;
 }
 
@@ -245,6 +246,7 @@ export class SimBand implements Transport {
   private readonly ecgUnsupported: boolean;
   private readonly ecgIntervalMs: number;
   private readonly rawUnsupported: boolean;
+  private readonly rawRefuse: readonly number[];
   private readonly rawIntervalMs: number;
   private rawTimer: Timer | null = null;
   private rawIndex = 0;
@@ -275,6 +277,7 @@ export class SimBand implements Transport {
     this.ecgUnsupported = opts.ecgUnsupported === true;
     this.ecgIntervalMs = opts.ecgIntervalMs ?? DEFAULT_ECG_INTERVAL_MS;
     this.rawUnsupported = opts.rawUnsupported === true;
+    this.rawRefuse = opts.rawRefuse ?? [];
     this.rawIntervalMs = opts.rawIntervalMs ?? DEFAULT_RAW_INTERVAL_MS;
     this.alarmRingMs = opts.alarmRingMs ?? DEFAULT_ALARM_RING_MS;
     this.wireLogCap = opts.wireLogCap ?? DEFAULT_WIRE_CAP;
@@ -708,7 +711,7 @@ export class SimBand implements Transport {
       case Command.STOP_RAW_DATA:
         this.writesReceived += 1;
         this.rawSessionBodies.push(args.slice());
-        this.reply(command, seq, this.rawUnsupported ? FAILURE : SUCCESS, Uint8Array.of(1, 0, 0));
+        this.reply(command, seq, this.rawUnsupported || this.rawRefuse.includes(command) ? FAILURE : SUCCESS, Uint8Array.of(1, 0, 0));
         return true;
       case Command.TOGGLE_LABRADOR_DATA_GENERATION:
         this.writesReceived += 1;
@@ -742,7 +745,7 @@ export class SimBand implements Transport {
   }
 
   private rawSwitch(command: number, seq: number, args: Uint8Array): void {
-    if (this.rawUnsupported || args[0] !== 1 || args.length < 2) {
+    if (this.rawUnsupported || this.rawRefuse.includes(command) || args[0] !== 1 || args.length < 2) {
       this.reply(command, seq, FAILURE);
       return;
     }

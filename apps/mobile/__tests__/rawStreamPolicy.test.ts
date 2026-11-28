@@ -1,4 +1,4 @@
-import { FailSafe, STREAM_CAPS_MS, StreamOwners, connectAction, onBackground, parseFlags, serializeFlags } from '@/data/rawStreamPolicy';
+import { FailSafe, STREAM_CAPS_MS, StreamOwners, onBackground, parseFlags, planReconcile, serializeFlags } from '@/data/rawStreamPolicy';
 
 describe('stream owners', () => {
   it('claim and release share kinds between owners', () => {
@@ -21,6 +21,26 @@ describe('stream owners', () => {
     expect(owners.kindsOf('workout')).toEqual(['imu']);
     owners.release('developer');
     expect(owners.kindsOf('developer')).toEqual([]);
+  });
+
+  it('releases some kinds of one owner and keeps its others', () => {
+    const owners = new StreamOwners();
+    owners.claim('developer', ['imu', 'optical'], 0);
+    owners.releaseKinds('developer', ['optical']);
+    expect(owners.kindsOf('developer')).toEqual(['imu']);
+    owners.releaseKinds('developer', ['imu']);
+    expect(owners.has('developer')).toBe(false);
+  });
+
+  it('drops one kind from every owner and releases everything', () => {
+    const owners = new StreamOwners();
+    owners.claim('developer', ['imu', 'optical'], 0);
+    owners.claim('workout', ['imu'], 0);
+    owners.dropKind('imu');
+    expect(owners.kindsOf('developer')).toEqual(['optical']);
+    expect(owners.has('workout')).toBe(false);
+    owners.releaseAll();
+    expect(owners.active()).toEqual([]);
   });
 
   it('a second claim by the same owner adds only new kinds', () => {
@@ -51,21 +71,29 @@ describe('stream owners', () => {
   });
 });
 
-describe('connectAction', () => {
-  it('cleanup when no owner', () => {
-    expect(connectAction([], { imu: true, optical: false, band: true }, false)).toEqual({ reassert: [], switchOff: ['imu'], stopBand: true });
+describe('planReconcile', () => {
+  const idle = { target: [], confirmed: [], mayBeOn: [], bandWanted: false, bandConfirmed: false, bandMayBeOn: false } as const;
+
+  it('switches off what may be on but nobody wants', () => {
+    expect(planReconcile({ ...idle, mayBeOn: ['imu'], bandMayBeOn: true })).toEqual({ off: ['imu'], on: [], stopBand: true, startBand: false });
   });
 
-  it('reassert when owner active', () => {
-    expect(connectAction(['imu'], { imu: true, optical: false, band: false }, false)).toEqual({ reassert: ['imu'], switchOff: [], stopBand: false });
+  it('switches on every wanted kind that is not confirmed, also after a reconnect', () => {
+    expect(planReconcile({ ...idle, target: ['imu'], mayBeOn: ['imu'] })).toEqual({ off: [], on: ['imu'], stopBand: false, startBand: false });
+    expect(planReconcile({ ...idle, target: ['imu'], confirmed: ['imu'], mayBeOn: ['imu'] })).toEqual({ off: [], on: [], stopBand: false, startBand: false });
   });
 
-  it('switches off a flagged kind no owner needs while re-asserting the owned one', () => {
-    expect(connectAction(['imu'], { imu: true, optical: true, band: true }, true)).toEqual({ reassert: ['imu'], switchOff: ['optical'], stopBand: false });
+  it('switches off a flagged kind no owner needs while keeping the owned one', () => {
+    expect(planReconcile({ ...idle, target: ['imu'], confirmed: ['imu'], mayBeOn: ['imu', 'optical'] })).toEqual({ off: ['optical'], on: [], stopBand: false, startBand: false });
   });
 
-  it('does nothing when nothing was flagged and nothing is owned', () => {
-    expect(connectAction([], { imu: false, optical: false, band: false }, false)).toEqual({ reassert: [], switchOff: [], stopBand: false });
+  it('starts the on-band recording once and leaves a wanted one alone', () => {
+    expect(planReconcile({ ...idle, bandWanted: true })).toEqual({ off: [], on: [], stopBand: false, startBand: true });
+    expect(planReconcile({ ...idle, bandWanted: true, bandConfirmed: true, bandMayBeOn: true })).toEqual({ off: [], on: [], stopBand: false, startBand: false });
+  });
+
+  it('does nothing when nothing may be on and nothing is wanted', () => {
+    expect(planReconcile(idle)).toEqual({ off: [], on: [], stopBand: false, startBand: false });
   });
 });
 

@@ -11,7 +11,9 @@
     "./thresholds": "./src/thresholds.ts",
     "./cuff-readings": "./src/cuffReadings.ts",
     "./ecg-symptoms": "./src/ecgSymptoms.ts",
-    "./versions": "./src/versions.ts"
+    "./versions": "./src/versions.ts",
+    "./raw-streams": "./src/rawStreams.ts",
+    "./session": "./src/session.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",

@@ -57,6 +57,22 @@ describe('optical and motion history', () => {
     expect(once).toEqual({ imu: 2, optical: 1 });
   });
 
+  it('rebuild replaces chunk-backed signal rows decoded by an older decoder', async () => {
+    const [chunkId] = await store.listChunkIds(deviceId);
+    const stale: ImuSecond = { deviceId, t: T0, rateHz: 100, accel: [[1], [1], [1]], gyro: [[], [], []] };
+    await insertSignals(store.driver, { imu: [stale], optical: [] }, chunkId ?? null);
+    await rebuildFromRaw(store, deviceId);
+    const [row] = await imuBetween(store.driver, deviceId, T0, T0);
+    expect(row?.accel[2]).toHaveLength(100);
+  });
+
+  it('rebuild keeps live rows that have no raw chunk', async () => {
+    const live: ImuSecond = { deviceId, t: T0 + 500, rateHz: 100, accel: STILL, gyro: STILL };
+    await insertSignals(store.driver, { imu: [live], optical: [] }, null);
+    await rebuildFromRaw(store, deviceId);
+    expect((await imuBetween(store.driver, deviceId, T0 + 500, T0 + 500)).map((s) => s.t)).toEqual([T0 + 500]);
+  });
+
   it('pruneRawBefore prunes live rows by time and keeps derived values', async () => {
     await rebuildFromRaw(store, deviceId);
     const live: ImuSecond = { deviceId, t: T0 + 50, rateHz: 100, accel: STILL, gyro: STILL };

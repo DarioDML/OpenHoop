@@ -699,6 +699,8 @@ export async function rebuildFromRaw(
     const chunkIds = await inner.listChunkIds(deviceId);
     // History whose raw chunk was pruned has no chunk_id and cannot be rebuilt, so only chunk-backed rows are replaced.
     await tx.run("DELETE FROM samples_1hz WHERE device_id = ? AND source = 'history' AND chunk_id IS NOT NULL", [deviceId]);
+    await tx.run('DELETE FROM imu_blocks WHERE device_id = ? AND chunk_id IS NOT NULL', [deviceId]);
+    await tx.run('DELETE FROM optical_bursts WHERE device_id = ? AND chunk_id IS NOT NULL', [deviceId]);
     await inner.clearDerived(deviceId);
     let samples = 0;
     let signalRange: { from: number; to: number } | null = null;
