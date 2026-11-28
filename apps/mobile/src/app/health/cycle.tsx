@@ -223,7 +223,7 @@ export default function CycleScreen() {
           value={temp === null ? null : temp.value}
           unit={temp?.unit}
           missing={deviationGap(days, today, RECENT_TEMP_DAYS) === 'learning' ? t('health.cycle.tile.tempLearning') : t('health.cycle.tile.noTemp')}
-          caption={deviation === null ? undefined : t(`health.cycle.tile.tempDir.${tempDirection(deviation.value)}`)}
+          caption={deviation === null ? undefined : t(`health.cycle.tile.tempDir.${tempDirection(deviation.value, units)}`)}
           header={
             <MetricName
               target={{ term: 'skinTempChange', index: deviationIndex, shown: temp === null ? null : { value: temp.value, unit: temp.unit, reason: null } }}

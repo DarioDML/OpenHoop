@@ -4,6 +4,7 @@ import { parseIsoDate } from '@/lib/dates';
 
 import { shiftIsoDay } from './bodyComposition';
 import { metricValue, type MetricKey } from './derived';
+import type { Units } from './types';
 
 export const CYCLE_LIMITS = {
   minCycleDays: 15,
@@ -382,9 +383,10 @@ export function deviationGap(days: readonly DayRecord[], today: string, maxAgeDa
 
 export type TempDirection = 'same' | 'above' | 'below';
 
-export function tempDirection(deviationC: number): TempDirection {
-  if (Math.abs(deviationC) < 0.05) return 'same';
-  return deviationC > 0 ? 'above' : 'below';
+export function tempDirection(deviationC: number, units: Units, decimals = 1): TempDirection {
+  const shown = Number((units === 'imperial' ? (deviationC * 9) / 5 : deviationC).toFixed(decimals));
+  if (shown === 0) return 'same';
+  return shown > 0 ? 'above' : 'below';
 }
 
 export type TempFit = 'typical' | 'different';

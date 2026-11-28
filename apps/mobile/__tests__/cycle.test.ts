@@ -24,6 +24,7 @@ import {
   validateSymptomDraft,
 } from '@/data/cycle';
 import { createFixtureDays } from '@/data/fixtureSource';
+import { formatTemperatureDelta } from '@/lib/units';
 
 import { FIXTURE_NOW } from './support/appData';
 
@@ -300,11 +301,19 @@ describe('skin temperature tile', () => {
   const days = createFixtureDays(FIXTURE_NOW);
   const last = days[days.length - 1];
 
-  it('names the direction so 0.0 reads as "same as usual"', () => {
-    expect(tempDirection(0)).toBe('same');
-    expect(tempDirection(-0.04)).toBe('same');
-    expect(tempDirection(0.3)).toBe('above');
-    expect(tempDirection(-0.2)).toBe('below');
+  it('names the direction from the value as shown, so 0.0 reads as "same as usual"', () => {
+    expect(tempDirection(0, 'metric')).toBe('same');
+    expect(tempDirection(-0.04, 'metric')).toBe('same');
+    expect(tempDirection(0.3, 'metric')).toBe('above');
+    expect(tempDirection(-0.2, 'metric')).toBe('below');
+  });
+
+  it('agrees with the shown Fahrenheit value', () => {
+    expect(formatTemperatureDelta(0.04, 'imperial', 'en').value).toBe('+0.1');
+    expect(tempDirection(0.04, 'imperial')).toBe('above');
+    expect(formatTemperatureDelta(0.02, 'imperial', 'en').value).toBe('0.0');
+    expect(tempDirection(0.02, 'imperial')).toBe('same');
+    expect(tempDirection(-0.04, 'imperial')).toBe('below');
   });
 
   it('says the range is still being learned when a night exists without a deviation', () => {
