@@ -1,7 +1,7 @@
 import { ALGO } from '@openhoop/analytics';
 import { DAY_RECORD_VERSION, SAMPLE_DECODER_VERSION, SCHEMA_VERSION } from '@openhoop/core/versions';
 import Constants from 'expo-constants';
-import type { StreamKind } from '@openhoop/core';
+import type { LiveImuSecond, LiveOpticalSecond, StreamKind } from '@openhoop/core';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -216,7 +216,7 @@ function ChannelTrace({ channel }: { channel: OpticalChannelTail }) {
     <View style={{ gap: 6, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }} testID={`channel-${channel.block}${channel.slot}`}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color }} />
-        <Pressable accessibilityRole="button" accessibilityLabel={t('explain.whatIs', { name })} onPress={() => setOpen((v) => !v)} style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('explain.whatIs', { name })} accessibilityState={{ expanded: open }} onPress={() => setOpen((v) => !v)} style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <AppText variant="label" style={{ fontWeight: '500', flexShrink: 1 }}>
             {name}
           </AppText>
@@ -284,8 +284,21 @@ function MotionTraces({ tail }: { tail: ImuTail }) {
 
 interface StreamRecording {
   at: Date;
-  imu: number;
-  optical: number;
+  imuLast: LiveImuSecond | null;
+  opticalLast: LiveOpticalSecond | null;
+}
+
+function after<T>(buffer: readonly T[], last: T | null): readonly T[] {
+  if (last === null) return buffer;
+  const index = buffer.indexOf(last);
+  return index < 0 ? buffer : buffer.slice(index + 1);
+}
+
+async function saveRecording(recording: StreamRecording, imu: readonly LiveImuSecond[], optical: readonly LiveOpticalSecond[]): Promise<void> {
+  const imuPart = after(imu, recording.imuLast);
+  const opticalPart = after(optical, recording.opticalLast);
+  if (imuPart.length > 0) await saveRawStream('imu', recording.at, imuCsv(imuPart));
+  if (opticalPart.length > 0) await saveRawStream('ppg', recording.at, opticalCsv(opticalPart));
 }
 
 function StreamsTab() {
@@ -299,12 +312,14 @@ function StreamsTab() {
   const [recording, setRecording] = useState<StreamRecording | null>(null);
   const [recordFailed, setRecordFailed] = useState(false);
   const developer = raw.owners.developer;
-  const owns = useRef(developer.length > 0);
-  owns.current = developer.length > 0;
+  const recordingRef = useRef<StreamRecording | null>(null);
+  recordingRef.current = recording;
 
   useEffect(
     () => () => {
-      if (owns.current) void rawStreams.stop('developer');
+      const open = recordingRef.current;
+      if (open !== null) void saveRecording(open, rawStreams.imuSeconds(), rawStreams.opticalSeconds()).catch(() => undefined);
+      void rawStreams.stop('developer');
     },
     [rawStreams],
   );
@@ -328,17 +343,12 @@ function StreamsTab() {
   const toggleRecording = async (): Promise<void> => {
     if (recording === null) {
       setRecordFailed(false);
-      setRecording({ at: new Date(), imu: rawStreams.imuSeconds().length, optical: rawStreams.opticalSeconds().length });
+      setRecording({ at: new Date(), imuLast: rawStreams.imuSeconds().at(-1) ?? null, opticalLast: rawStreams.opticalSeconds().at(-1) ?? null });
       return;
     }
-    const imu = rawStreams.imuSeconds();
-    const optical = rawStreams.opticalSeconds();
-    const imuPart = imu.slice(Math.min(recording.imu, imu.length));
-    const opticalPart = optical.slice(Math.min(recording.optical, optical.length));
     setRecording(null);
     try {
-      if (imuPart.length > 0) await saveRawStream('imu', recording.at, imuCsv(imuPart));
-      if (opticalPart.length > 0) await saveRawStream('ppg', recording.at, opticalCsv(opticalPart));
+      await saveRecording(recording, rawStreams.imuSeconds(), rawStreams.opticalSeconds());
     } catch {
       setRecordFailed(true);
     }

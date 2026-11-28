@@ -4,6 +4,7 @@ import type { OpticalBlock } from '@openhoop/protocol';
 import { channelRole } from '@/data/opticalChannels';
 import { rawStreamName } from '@/data/rawSessions';
 import { imuCsv, opticalCsv } from '@/data/signalCsv';
+import { tracePath } from '@/ui/dev/SignalTrace';
 
 function imu(t: number, n: number): LiveImuSecond {
   const fill = (v: number): number[] => new Array<number>(n).fill(v);
@@ -24,6 +25,22 @@ describe('motion CSV', () => {
     expect(lines[2]).toBe('1795878769510,0.0000,-0.5000,1.0000,,0.000,-10.010');
     expect(lines[3]?.startsWith('1795878769520,')).toBe(true);
     expect(lines[4]).toBe('');
+  });
+});
+
+describe('motion CSV gaps', () => {
+  it('leaves a missing accelerometer sample empty instead of writing zero', () => {
+    const second: LiveImuSecond = { t: 1, recordIndex: 1, rateHz: 100, accel: [[4096, 4096], [0], [0, 0]], gyro: [[0, 0], [0, 0], [0, 0]] };
+    const lines = imuCsv([second]).split('\r\n');
+    expect(lines[2]).toBe('1010,1.0000,,0.0000,0.000,0.000,0.000');
+  });
+});
+
+describe('trace path', () => {
+  it('breaks the line at gaps and never writes NaN', () => {
+    const d = tracePath([1, Number.NaN, Number.NaN, 2, 3], 5, 20, 0, 4);
+    expect(d).not.toContain('NaN');
+    expect(d.match(/M/g)).toHaveLength(2);
   });
 });
 

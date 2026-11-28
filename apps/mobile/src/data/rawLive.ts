@@ -44,7 +44,7 @@ function keep(previous: readonly number[], added: readonly number[], limit: numb
 export function appendImuTail(tail: ImuTail, second: LiveImuSecond): ImuTail {
   const limit = Math.max(1, second.rateHz) * TAIL_SECONDS;
   const g = (axis: readonly number[]): number[] => axis.map((v) => v / ACCEL_LSB_PER_G);
-  const dps = (axis: readonly number[]): number[] => axis.filter((v) => v !== GYRO_INVALID).map((v) => v / GYRO_LSB_PER_DPS);
+  const dps = (axis: readonly number[]): number[] => axis.map((v) => (v === GYRO_INVALID ? Number.NaN : v / GYRO_LSB_PER_DPS));
   return {
     ax: keep(tail.ax, g(second.accel[0]), limit),
     ay: keep(tail.ay, g(second.accel[1]), limit),

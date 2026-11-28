@@ -12,7 +12,10 @@ export function imuCsv(seconds: readonly LiveImuSecond[]): string {
   for (const s of seconds) {
     const n = s.accel[0].length;
     for (let i = 0; i < n; i++) {
-      const g = (axis: readonly number[]): string => ((axis[i] ?? 0) / ACCEL_LSB_PER_G).toFixed(4);
+      const g = (axis: readonly number[]): string => {
+        const v = axis[i];
+        return v === undefined ? '' : (v / ACCEL_LSB_PER_G).toFixed(4);
+      };
       const dps = (axis: readonly number[]): string => {
         const v = axis[i];
         return v === undefined || v === GYRO_INVALID ? '' : (v / GYRO_LSB_PER_DPS).toFixed(3);

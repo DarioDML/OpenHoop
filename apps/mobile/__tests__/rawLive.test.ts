@@ -37,9 +37,10 @@ describe('live motion tail', () => {
     expect(tail.gy[0]).toBeCloseTo(10, 5);
   });
 
-  it('drops invalid gyro samples instead of drawing -2000 degrees per second', () => {
+  it('keeps invalid gyro samples as gaps so the axes stay aligned', () => {
     const tail = appendImuTail(EMPTY_IMU_TAIL, imu(0, 100, -32768));
-    expect(tail.gx).toEqual([]);
+    expect(tail.gx).toHaveLength(100);
+    expect(tail.gx.every((v) => Number.isNaN(v))).toBe(true);
     expect(tail.gy).toHaveLength(100);
     expect(tail.ax).toHaveLength(100);
   });

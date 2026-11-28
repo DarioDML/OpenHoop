@@ -2,7 +2,6 @@ import { useState, type ReactElement } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 
-import { traceColumns } from '@/data/ecg';
 import { useTheme } from '@/ui/theme';
 
 export interface TraceSeries {
@@ -18,6 +17,35 @@ interface Props {
 }
 
 const PAD = 4;
+
+export function tracePath(values: readonly number[], width: number, height: number, low: number, high: number): string {
+  const columns = Math.max(1, Math.min(Math.round(width), values.length));
+  const span = high > low ? high - low : 1;
+  const y = (v: number): string => (PAD + (1 - (v - low) / span) * (height - 2 * PAD)).toFixed(1);
+  const step = columns > 1 ? width / (columns - 1) : 0;
+  const parts: string[] = [];
+  let drawing = false;
+  for (let c = 0; c < columns; c++) {
+    const from = Math.floor((c * values.length) / columns);
+    const to = Math.max(from + 1, Math.floor(((c + 1) * values.length) / columns));
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
+    for (let i = from; i < to; i++) {
+      const v = values[i];
+      if (v === undefined || !Number.isFinite(v)) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    if (!Number.isFinite(min)) {
+      drawing = false;
+      continue;
+    }
+    const x = (c * step).toFixed(1);
+    parts.push(`${drawing ? 'L' : 'M'}${x} ${y(max)} L${x} ${y(min)}`);
+    drawing = true;
+  }
+  return parts.join(' ');
+}
 
 function bounds(series: readonly TraceSeries[]): { low: number; high: number } {
   let low = Number.POSITIVE_INFINITY;
@@ -38,13 +66,7 @@ export function SignalTrace({ series, height = 56, label, testID }: Props): Reac
   const [width, setWidth] = useState(0);
   const onLayout = (event: LayoutChangeEvent): void => setWidth(Math.round(event.nativeEvent.layout.width));
   const { low, high } = bounds(series);
-  const y = (value: number): number => PAD + (1 - (value - low) / (high - low)) * (height - 2 * PAD);
-  const paths = series.map((s) => {
-    const columns = traceColumns(s.values, Math.max(1, width));
-    const step = columns.length > 1 ? width / (columns.length - 1) : 0;
-    const d = columns.map((c, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)} ${y(c.max).toFixed(1)} L${(i * step).toFixed(1)} ${y(c.min).toFixed(1)}`).join(' ');
-    return { d, color: s.color };
-  });
+  const paths = series.map((s) => ({ d: tracePath(s.values, Math.max(1, width), height, low, high), color: s.color }));
   return (
     <View testID={testID} onLayout={onLayout} style={{ height }} accessible accessibilityRole="image" accessibilityLabel={label}>
       {width > 0 ? (
