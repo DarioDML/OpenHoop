@@ -171,6 +171,23 @@ describe('health screens', () => {
     expect(screen.getByTestId('hr-window')).toBeTruthy();
   });
 
+  it('filters all metrics by category chip into one flat list and back', async () => {
+    await render(withAppData(<MetricsScreen />));
+    await fireEvent.press(screen.getByTestId('metrics-chip-sleep'));
+    expect(screen.getByTestId('metric-asleep')).toBeTruthy();
+    expect(screen.queryByTestId('metric-hrv')).toBeNull();
+    expect(screen.queryByText('Readiness inputs')).toBeNull();
+    await fireEvent.press(screen.getByTestId('metrics-chip-sleep'));
+    expect(screen.getByTestId('metric-hrv')).toBeTruthy();
+    expect(screen.getByText('Readiness inputs')).toBeTruthy();
+  });
+
+  it('shows body age in all metrics once it can be worked out', async () => {
+    await render(withAppData(<MetricsScreen />, 'en', { profile: { birthYear: 1981, maxHeartRate: null }, userData: { ...defaultUserData(), onboardingDone: true, sex: 'male' } }));
+    expect(screen.getByTestId('metric-bodyAge')).toHaveTextContent(/years/);
+    expect(screen.getByTestId('metric-bodyAge-about')).toBeTruthy();
+  });
+
   it('filters the metric list and says when a value has no data', async () => {
     await render(withAppData(<MetricsScreen />));
     expect(screen.getByTestId('metric-hrv')).toBeTruthy();

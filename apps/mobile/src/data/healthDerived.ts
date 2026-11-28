@@ -1,15 +1,16 @@
-import type { DayRecord, Derived } from '@openhoop/core';
+import type { DayRecord, Derived, LabResult } from '@openhoop/core';
 import type { Href } from 'expo-router';
 
 import type { TranslationKey } from '@/i18n';
 
 import type { TermId } from './terms';
 
+import { bodyAgeHeadline, latestFitnessAge, latestPhenoAge } from './bodyAgeDerived';
 import { addDays, baselineAt, mean, metricValue, rangeStatus, type Baseline, type MetricKey, type RangeStatus } from './derived';
 import { latestStressScore } from './stressDerived';
 import type { ParityLevel, Profile } from './types';
 import { latestVo2 } from './healthspanDerived';
-import type { JournalAnswer } from './userData';
+import type { JournalAnswer, UserData } from './userData';
 
 export type VitalId = 'hrv' | 'rhr' | 'resp' | 'spo2' | 'temp';
 
@@ -126,7 +127,12 @@ export interface CatalogueItem {
   category: MetricCategory;
   level: ParityLevel | null;
   href: Href;
-  read: (days: readonly DayRecord[], weightKg: number | null, profile: Profile) => MetricReading;
+  read: (days: readonly DayRecord[], weightKg: number | null, profile: Profile, extra?: CatalogueExtra) => MetricReading;
+}
+
+export interface CatalogueExtra {
+  sex: UserData['sex'];
+  labResults: readonly LabResult[];
 }
 
 function numeric(key: MetricKey, decimals: number, unitKey: TranslationKey | null): CatalogueItem['read'] {
@@ -173,10 +179,22 @@ export const CATALOGUE: readonly CatalogueItem[] = [
       return avg === null ? { kind: 'none' } : { kind: 'number', value: avg, decimals: 0, unitKey: 'unit.bpm' };
     },
   },
-  { id: 'bodyAge', term: null, labelKey: 'health.metrics.bodyAge', category: 'health', level: 'C', href: '/health/body-age', read: none },
+  {
+    id: 'bodyAge',
+    term: 'bodyAge',
+    labelKey: 'health.metrics.bodyAge',
+    category: 'health',
+    level: 'C',
+    href: '/health/body-age',
+    read: (days, _weightKg, profile, extra) => {
+      if (extra === undefined) return { kind: 'none' };
+      const headline = bodyAgeHeadline(latestFitnessAge(days, profile, extra.sex), latestPhenoAge(extra.labResults, profile));
+      return headline.kind === 'age' ? { kind: 'number', value: headline.age, decimals: 1, unitKey: 'health.bodyAge.years' } : { kind: 'none' };
+    },
+  },
   {
     id: 'vo2max',
-    term: null,
+    term: 'vo2max',
     labelKey: 'health.metrics.vo2max',
     category: 'health',
     level: 'C',
