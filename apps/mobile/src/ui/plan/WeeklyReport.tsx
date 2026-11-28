@@ -116,6 +116,7 @@ export function WeeklyReport({ testID }: { testID: string }): ReactElement {
               yLabel={t('plan.chart.readinessAxis')}
               emptyLabel={t('plan.chart.noBalance')}
               accessibilityLabel={verdict}
+              testID="report-balance-chart"
             />
             <AppText variant="caption" muted>
               {band === null ? t('plan.chart.balanceNoBand') : t('plan.chart.balanceNote')}

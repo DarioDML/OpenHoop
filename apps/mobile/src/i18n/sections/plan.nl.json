@@ -226,5 +226,6 @@
   "profile.achOne.workouts": "1 workout vastgelegd",
   "profile.achOne.steps10k": "1 dag met {steps} stappen of meer",
   "profile.achOne.highLoad": "1 dag met een belasting van {load} of meer",
-  "profile.achOne.readyStreak": "1 dag met een paraatheid van {readiness} of meer"
+  "profile.achOne.readyStreak": "1 dag met een paraatheid van {readiness} of meer",
+  "plan.report.before": "Daarvoor: {value}"
 }

@@ -226,5 +226,6 @@
   "profile.achOne.workouts": "1 workout recorded",
   "profile.achOne.steps10k": "1 day with {steps} steps or more",
   "profile.achOne.highLoad": "1 day with a load of {load} or more",
-  "profile.achOne.readyStreak": "1 day with a readiness of {readiness} or more"
+  "profile.achOne.readyStreak": "1 day with a readiness of {readiness} or more",
+  "plan.report.before": "Before: {value}"
 }
