@@ -39,13 +39,13 @@ interface Text {
 }
 
 export function bodyAgeCaption(headline: BodyAgeHeadline, { t, language }: Text): string {
-  if (headline.kind === 'none') return t('health.hub.tile.bodyAgeHint');
+  if (headline.kind === 'none') return t(`health.hub.tile.bodyAgeWhy.${headline.reason}`);
   const source = t(`health.bodyAge.sourceShort.${headline.source}`);
   const diff = yearsDifference(headline);
   if (diff === null) return source;
   const years = formatNumber(Math.abs(diff), 1, language);
-  if (Number(years.replace(',', '.')) === 0) return `${source} · ${t('health.bodyAge.same')}`;
-  return `${source} · ${diff > 0 ? t('health.bodyAge.younger', { years }) : t('health.bodyAge.older', { years })}`;
+  if (Number(years.replace(',', '.')) === 0) return t('health.bodyAge.same');
+  return diff > 0 ? t('health.bodyAge.younger', { years }) : t('health.bodyAge.older', { years });
 }
 
 export function bodyAgeMissing(headline: BodyAgeHeadline, t: TFunction): string {
@@ -57,7 +57,8 @@ export function bodyAgeMissing(headline: BodyAgeHeadline, t: TFunction): string 
 function bodyAgeTile(input: HubInput, text: Text): HubTileText {
   const headline = bodyAgeHeadline(latestFitnessAge(input.days, input.profile, input.userData.sex), latestPhenoAge(input.labResults, input.profile));
   if (headline.kind === 'age') return { value: formatNumber(headline.age, 1, text.language), caption: bodyAgeCaption(headline, text) };
-  return { value: null, missing: bodyAgeMissing(headline, text.t), caption: bodyAgeCaption(headline, text) };
+  const missing = headline.kind === 'none' ? text.t('health.hub.tile.noEstimate') : bodyAgeMissing(headline, text.t);
+  return { value: null, missing, caption: bodyAgeCaption(headline, text) };
 }
 
 function vitalsTile(input: HubInput, { t }: Text): HubTileText {
@@ -69,7 +70,7 @@ function vitalsTile(input: HubInput, { t }: Text): HubTileText {
   return {
     value: null,
     missing: t('health.hub.tile.calibrating'),
-    caption: progress === null ? t('health.vitals.calibrating') : t('health.hub.tile.nightsLeft', { count: remaining(progress) }),
+    caption: progress === null ? t('health.hub.tile.calibratingHint') : t('health.hub.tile.nightsLeft', { count: remaining(progress) }),
   };
 }
 
@@ -126,7 +127,7 @@ function vo2Tile(input: HubInput, { t, language }: Text): HubTileText {
     };
   }
   const { vo2max } = view.result.value;
-  const caption = view.norm !== null ? t(`health.vo2max.level.forAge.${fitnessLevel(vo2max, view.norm.norm).level}`) : t(`health.vo2max.short.norm.${view.normReason ?? 'no-age'}`);
+  const caption = view.norm !== null ? t(`health.hub.tile.vo2Level.${fitnessLevel(vo2max, view.norm.norm).level}`) : t(`health.vo2max.short.norm.${view.normReason ?? 'no-age'}`);
   return { value: formatNumber(vo2max, 0, language), caption };
 }
 

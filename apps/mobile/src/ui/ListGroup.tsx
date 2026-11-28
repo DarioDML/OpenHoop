@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { AppText } from './AppText';
 import { Icon, type IconName } from './Icon';
+import { useLayout } from './layout';
 import { radius, spacing, useTheme } from './theme';
 
 interface GroupProps {
@@ -44,6 +45,7 @@ interface RowProps {
   icon?: IconTileStyle;
   leading?: ReactNode;
   right?: ReactNode;
+  chip?: ReactNode;
   value?: string;
   href?: Href;
   onPress?: () => void;
@@ -53,8 +55,10 @@ interface RowProps {
   testID?: string;
 }
 
-export function ListRow({ title, subtitle, icon, leading, right, value, href, onPress, chevron, destructive = false, disabled = false, testID }: RowProps) {
+export function ListRow({ title, subtitle, icon, leading, right, chip, value, href, onPress, chevron, destructive = false, disabled = false, testID }: RowProps) {
   const { colors } = useTheme();
+  const { compact } = useLayout();
+  const chipBelow = chip !== undefined && chip !== null && compact;
   const press = onPress ?? (href ? () => router.push(href) : undefined);
   const showChevron = chevron ?? press !== undefined;
   const content = (
@@ -65,7 +69,7 @@ export function ListRow({ title, subtitle, icon, leading, right, value, href, on
           <Icon name={icon.icon} color={icon.color} size={18} />
         </View>
       ) : null}
-      <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
+      <View style={{ flex: 1, gap: 3, minWidth: 0 }} testID={testID === undefined ? undefined : `${testID}-text`}>
         <AppText variant="body" color={destructive ? colors.negative : undefined} style={{ fontWeight: '500' }}>
           {title}
         </AppText>
@@ -74,12 +78,14 @@ export function ListRow({ title, subtitle, icon, leading, right, value, href, on
             {subtitle}
           </AppText>
         ) : null}
+        {chipBelow ? <View style={{ flexDirection: 'row', marginTop: 3 }}>{chip}</View> : null}
       </View>
       {value ? (
         <AppText variant="label" muted numeric style={{ flexShrink: 1, maxWidth: '45%', textAlign: 'right' }}>
           {value}
         </AppText>
       ) : null}
+      {chipBelow ? null : chip}
       {right}
       {showChevron ? <Icon name="chevronRight" color={colors.textMuted} size={18} /> : null}
     </View>

@@ -276,9 +276,10 @@ describe('contributor and hub wording', () => {
     expect(zoneTone(rhr, 'below')).toBe('info');
   });
 
-  it('names where the hub body age comes from', () => {
-    expect(bodyAgeCaption({ kind: 'age', source: 'pheno', age: 40, ownAge: 43.2, day: null }, { t, language: 'en' })).toBe('Blood tests · 3.2 years younger');
+  it('keeps the hub body age caption to one short line', () => {
+    expect(bodyAgeCaption({ kind: 'age', source: 'pheno', age: 40, ownAge: 43.2, day: null }, { t, language: 'en' })).toBe('3.2 years younger');
     expect(bodyAgeCaption({ kind: 'age', source: 'fitness', age: 40, ownAge: null, day: null }, { t, language: 'en' })).toBe('Fitness');
+    expect(bodyAgeCaption({ kind: 'none', reason: 'no-vo2' }, { t, language: 'en' })).toBe('Needs VO₂ max');
   });
 
   it('picks the custom-zone wording for zone contributors', () => {

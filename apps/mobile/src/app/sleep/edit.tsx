@@ -314,7 +314,7 @@ export default function EditSleepScreen() {
                 testID={`edit-item-${item.key}`}
                 title={label(item)}
                 subtitle={t('sleepx.editRange', { start: clock(item.onset), end: clock(item.offset), asleep: formatDuration(t, item.asleepS) })}
-                right={sourceChip(item)}
+                chip={sourceChip(item)}
                 onPress={() => pick(item)}
               />
             </View>

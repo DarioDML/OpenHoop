@@ -77,7 +77,7 @@ export default function HealthScreen() {
   };
   const text = { t, language };
   const hr = days[latestHeartRateDayIndex(days)]?.heartRate;
-  const mgBadge = { label: t('health.mg.badge'), color: colors.pink, background: colors.pinkSoft };
+  const mgBadge = { label: t('health.mg.short'), color: colors.pink, background: colors.pinkSoft };
 
   return (
     <HealthPage
@@ -159,7 +159,7 @@ export default function HealthScreen() {
           title={t('health.hub.bloodPressure')}
           subtitle={t('health.hub.bloodPressureHint')}
           icon={{ icon: 'drop', color: colors.pink, background: colors.pinkSoft }}
-          right={isMg ? undefined : <Chip label={t('health.mg.badge')} tone="pink" small />}
+          chip={isMg ? undefined : <Chip label={t('health.mg.short')} tone="pink" small testID="health-entry-blood-pressure-mg" />}
           href="/health/blood-pressure"
         />
         <ListRow

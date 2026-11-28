@@ -1,4 +1,4 @@
-import { COMPACT_GUTTER, GUTTER, heroRingSize, layoutFor } from '@/ui/layout';
+import { COMPACT_GUTTER, GUTTER, estimateWordWidth, heroRingSize, layoutFor, wordFitScale } from '@/ui/layout';
 
 describe('layoutFor', () => {
   it('keeps the roomy layout on a wide phone at normal text size', () => {
@@ -38,5 +38,29 @@ describe('heroRingSize', () => {
     const size = heroRingSize(layout);
     expect(size * 3 + 8 * 2).toBeLessThanOrEqual(width - layout.gutter * 2);
     expect(size).toBeLessThanOrEqual(104);
+  });
+});
+
+describe('wordFitScale', () => {
+  const label = { fontSize: 13, bold: true };
+
+  it('lets a short word grow with the system text size', () => {
+    expect(wordFitScale('Log', 80, label)).toBeGreaterThan(1.3);
+  });
+
+  it('shrinks a label so its longest word fits a narrow S24 action tile', () => {
+    const scale = wordFitScale('Log symptoms', 77, label);
+    expect(scale).toBeLessThan(1.3);
+    expect(estimateWordWidth('symptoms', { ...label, fontSize: 13 * scale })).toBeLessThanOrEqual(77.01);
+  });
+
+  it('counts letter spacing and capitals for cap labels', () => {
+    const plain = estimateWordWidth('battery', { fontSize: 11 });
+    const caps = estimateWordWidth('battery', { fontSize: 11, uppercase: true, letterSpacing: 1.5 });
+    expect(caps).toBeGreaterThan(plain + 7 * 1.5);
+  });
+
+  it('never shrinks below the minimum scale', () => {
+    expect(wordFitScale('Supercalifragilistic', 20, label)).toBe(0.7);
   });
 });

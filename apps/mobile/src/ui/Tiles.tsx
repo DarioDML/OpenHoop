@@ -2,7 +2,7 @@ import { router, type Href } from 'expo-router';
 import type { ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { AppText } from './AppText';
+import { AppText, WordFitText } from './AppText';
 import { Icon, type IconName } from './Icon';
 import { Num } from './Num';
 import { radius, spacing, useTheme } from './theme';
@@ -96,30 +96,30 @@ export function MetricLinkTile({ icon, iconColor, iconBackground, label, value, 
       onPress={press}
       style={({ pressed }) => ({
         flex: 1,
-        minHeight: 140,
         borderRadius: radius.md,
         backgroundColor: colors.surface,
-        padding: spacing.lg,
-        gap: 10,
+        paddingVertical: 14,
+        paddingHorizontal: 14,
+        gap: 6,
         opacity: pressed ? 0.85 : 1,
       })}>
-      <View style={{ width: 36, height: 36, borderRadius: radius.sm, backgroundColor: iconBackground, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name={icon} color={iconColor} size={18} />
+      <View style={{ width: 32, height: 32, borderRadius: radius.sm, backgroundColor: iconBackground, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+        <Icon name={icon} color={iconColor} size={17} />
       </View>
-      <AppText variant="capSmall" muted>
+      <WordFitText variant="capSmall" muted numberOfLines={2}>
         {label}
-      </AppText>
+      </WordFitText>
       {value === null ? (
-        <AppText variant={missing === undefined ? 'label' : 'bodyStrong'} muted testID={testID === undefined ? undefined : `${testID}-missing`}>
+        <WordFitText variant="bodyStrong" muted numberOfLines={2} testID={testID === undefined ? undefined : `${testID}-missing`}>
           {missing ?? '–'}
-        </AppText>
+        </WordFitText>
       ) : (
-        <Num size={30} adjustsFontSizeToFit testID={testID === undefined ? undefined : `${testID}-value`}>
+        <Num size={28} adjustsFontSizeToFit testID={testID === undefined ? undefined : `${testID}-value`}>
           {value}
         </Num>
       )}
       {caption === undefined ? null : (
-        <AppText variant="caption" muted>
+        <AppText variant="caption" muted numberOfLines={2} testID={testID === undefined ? undefined : `${testID}-caption`}>
           {caption}
         </AppText>
       )}
