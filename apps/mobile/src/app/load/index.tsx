@@ -7,6 +7,7 @@ import { useAppData } from '@/data/context';
 import { LOAD_SCALE_MAX } from '@/data/loadDerived';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatDuration, formatNumber, formatShortDay } from '@/lib/format';
+import { sliceEndingAt } from '@/data/dailyDerived';
 import { CaloriesCard, CaloriesTile } from '@/ui/activity/CaloriesCard';
 import { entryHref, UndoBar } from '@/ui/activity/entries';
 import { NoDataScreen, StatRow, StatTile } from '@/ui/activity/parts';
@@ -23,6 +24,7 @@ import { ReadyCard } from '@/ui/load/ReadyCard';
 import { StepsTile } from '@/ui/load/StepsTile';
 import { TargetPill } from '@/ui/load/TargetPill';
 import { useLoadToday } from '@/ui/load/useLoadToday';
+import { useDayIndex } from '@/ui/daily/useDayParam';
 import { ZoneRows } from '@/ui/load/ZoneRows';
 import { PARITY } from '@/ui/parity';
 import { Screen } from '@/ui/Screen';
@@ -36,12 +38,12 @@ export default function LoadScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
   const explain = useExplain();
-  const today = useLoadToday();
+  const today = useLoadToday(useDayIndex(days));
 
   if (today === null) return <NoDataScreen title={t('score.load')} />;
 
   const { day, index } = today;
-  const recent = days.slice(-14);
+  const recent = sliceEndingAt(days, 14, index);
   const zoneTotal = displayedZones(day.zoneSeconds).reduce((a, b) => a + b, 0);
   const steps = stepsForDay(day, healthConnect.state.steps);
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);

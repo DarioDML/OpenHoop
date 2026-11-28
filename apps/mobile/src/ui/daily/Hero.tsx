@@ -17,6 +17,7 @@ import { missingStatus } from '@/ui/explain/whyText';
 import { Ring } from '@/ui/Ring';
 import type { BuildingRing } from '@/ui/ScoreRing';
 import { readinessBand, readinessColor, spacing, useTheme } from '@/ui/theme';
+import { pastDayOf, withDay } from '@/ui/daily/useDayParam';
 
 interface RingProps {
   label: string;
@@ -265,6 +266,7 @@ export function Hero({ days, index, variant, footnote }: HeroProps) {
   const v = useHeroValues(days, index);
   if (!v.day) return null;
   const { day } = v;
+  const pastDay = pastDayOf(days, index);
 
   if (variant === 'compact') {
     return (
@@ -280,7 +282,7 @@ export function Hero({ days, index, variant, footnote }: HeroProps) {
             explain={v.readinessTarget}
             building={v.building}
             caption={v.bandLabel}
-            href="/recovery"
+            href={withDay('/recovery', pastDay)}
             size={compactRingSize}
           />
           <View style={{ flex: 1, gap: spacing.md }}>
@@ -288,7 +290,7 @@ export function Hero({ days, index, variant, footnote }: HeroProps) {
               label={t('metric.hrv')}
               value={day.hrv.value === null ? null : formatNumber(day.hrv.value, 0, language)}
               unit={t('unit.ms')}
-              href="/recovery/metric/hrv"
+              href={withDay('/recovery/metric/hrv', pastDay)}
               explain={v.hrvTarget}
               testID="stat-hrv"
             />
@@ -296,7 +298,7 @@ export function Hero({ days, index, variant, footnote }: HeroProps) {
               label={t('score.load')}
               value={v.load.value === null ? null : formatNumber(v.load.value, 1, language)}
               unit=""
-              href="/load"
+              href={withDay('/load', pastDay)}
               explain={v.loadTarget}
               caption={v.load.soFar ? t('load.soFar') : null}
               testID="stat-load"
@@ -305,7 +307,7 @@ export function Hero({ days, index, variant, footnote }: HeroProps) {
               label={t('score.sleep')}
               value={day.sleep.score.value === null ? null : formatNumber(day.sleep.score.value, 0, language)}
               unit="%"
-              href="/sleep"
+              href={withDay('/sleep', pastDay)}
               explain={v.sleepTarget}
               testID="stat-sleep"
             />
@@ -328,7 +330,7 @@ export function Hero({ days, index, variant, footnote }: HeroProps) {
           percent
           tick={v.yesterdaySleep}
           explain={v.sleepTarget}
-          href="/sleep"
+          href={withDay('/sleep', pastDay)}
           size={ringSize}
         />
         <HeroRing
@@ -342,7 +344,7 @@ export function Hero({ days, index, variant, footnote }: HeroProps) {
           explain={v.readinessTarget}
           building={v.building}
           caption={v.bandLabel}
-          href="/recovery"
+          href={withDay('/recovery', pastDay)}
           size={ringSize}
         />
         <HeroRing
@@ -356,7 +358,7 @@ export function Hero({ days, index, variant, footnote }: HeroProps) {
           explain={v.loadTarget}
           caption={v.load.soFar ? t('load.soFar') : null}
           a11yLabel={v.load.soFar && v.load.value !== null ? t('load.soFarA11y', { value: formatNumber(v.load.value, 1, language), max: LOAD_MAX }) : undefined}
-          href="/load"
+          href={withDay('/load', pastDay)}
           size={ringSize}
         />
       </View>

@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
 import { formatHm, formatLongDay, formatMinutes, mainNightSpan, sliceEndingAt } from '@/data/dailyDerived';
+import { pastDayOf, useDayIndex, withDay } from '@/ui/daily/useDayParam';
 import {
   SLEEP_STRESS_BUCKET_S,
   effectiveGoal,
@@ -70,7 +71,8 @@ export default function SleepScreen() {
   const { colors } = useTheme();
   const explain = useExplain();
   const units = useUnits();
-  const index = days.length - 1;
+  const index = useDayIndex(days);
+  const pastDay = pastDayOf(days, index);
   const day = days[index];
   const night = day ? mainNightSpan(day) : null;
   const heart = useNightHeartRate(night, SLEEP_STRESS_BUCKET_S);
@@ -287,11 +289,11 @@ export default function SleepScreen() {
         {t('sleep.signals')}
       </AppText>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
-        <MetricTile {...tile} explain={{ term: 'hrv', index }} label={t('metric.hrv')} value={day.hrv.value} reason={day.hrv.reason} unit={t('unit.ms')} level={PARITY.hrv} caption={coverage(day.hrv.coverage)} href="/recovery/metric/hrv" />
-        <MetricTile {...tile} explain={{ term: 'restingHr', index }} label={t('metric.restingHr')} value={day.restingHr.value} reason={day.restingHr.reason} unit={t('unit.bpm')} level={PARITY.restingHr} caption={coverage(day.restingHr.coverage)} href="/recovery/metric/rhr" />
-        <MetricTile {...tile} explain={{ term: 'respiratoryRate', index }} label={t('metric.respiratoryRate')} value={day.respiratoryRate.value} reason={day.respiratoryRate.reason} unit={t('unit.perMin')} level={PARITY.respiratoryRate} decimals={1} caption={coverage(day.respiratoryRate.coverage)} href="/recovery/metric/resp" />
-        <MetricTile {...tile} explain={{ term: 'spo2', index }} label={t('metric.spo2')} value={day.spo2.value} reason={day.spo2.reason} unit={t('unit.percent')} level={PARITY.spo2} decimals={1} caption={coverage(day.spo2.coverage)} href="/recovery/metric/spo2" />
-        <MetricTile {...tile} explain={{ term: 'skinTemp', index }} label={t('metric.skinTemp')} value={day.skinTempC.value} reason={day.skinTempC.reason} unit={temperatureUnit(units)} format={(v) => formatTemperature(v, units, language).value} level={PARITY.skinTemp} caption={coverage(day.skinTempC.coverage)} href="/recovery/metric/temp" />
+        <MetricTile {...tile} explain={{ term: 'hrv', index }} label={t('metric.hrv')} value={day.hrv.value} reason={day.hrv.reason} unit={t('unit.ms')} level={PARITY.hrv} caption={coverage(day.hrv.coverage)} href={withDay('/recovery/metric/hrv', pastDay)} />
+        <MetricTile {...tile} explain={{ term: 'restingHr', index }} label={t('metric.restingHr')} value={day.restingHr.value} reason={day.restingHr.reason} unit={t('unit.bpm')} level={PARITY.restingHr} caption={coverage(day.restingHr.coverage)} href={withDay('/recovery/metric/rhr', pastDay)} />
+        <MetricTile {...tile} explain={{ term: 'respiratoryRate', index }} label={t('metric.respiratoryRate')} value={day.respiratoryRate.value} reason={day.respiratoryRate.reason} unit={t('unit.perMin')} level={PARITY.respiratoryRate} decimals={1} caption={coverage(day.respiratoryRate.coverage)} href={withDay('/recovery/metric/resp', pastDay)} />
+        <MetricTile {...tile} explain={{ term: 'spo2', index }} label={t('metric.spo2')} value={day.spo2.value} reason={day.spo2.reason} unit={t('unit.percent')} level={PARITY.spo2} decimals={1} caption={coverage(day.spo2.coverage)} href={withDay('/recovery/metric/spo2', pastDay)} />
+        <MetricTile {...tile} explain={{ term: 'skinTemp', index }} label={t('metric.skinTemp')} value={day.skinTempC.value} reason={day.skinTempC.reason} unit={temperatureUnit(units)} format={(v) => formatTemperature(v, units, language).value} level={PARITY.skinTemp} caption={coverage(day.skinTempC.coverage)} href={withDay('/recovery/metric/temp', pastDay)} />
         <MetricTile {...tile} explain={{ term: 'skinTempChange', index }} label={t('metric.skinTempDeviation')} value={day.skinTempDeviationC.value} reason={day.skinTempDeviationC.reason} unit={temperatureUnit(units)} format={(v) => formatTemperatureDelta(v, units, language, 2).value} level={PARITY.skinTemp} caption={coverage(day.skinTempDeviationC.coverage)} />
       </View>
 

@@ -4,6 +4,7 @@ import { Pressable, ScrollView, View, type LayoutChangeEvent, type ScrollViewIns
 
 import { useAppData } from '@/data/context';
 import { sliceEndingAt, singleParam, TREND_RANGES, type TrendRange } from '@/data/dailyDerived';
+import { useDayIndex } from '@/ui/daily/useDayParam';
 import { baselineAt, percentFromBaseline, rangeStatus } from '@/data/derived';
 import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
@@ -62,7 +63,7 @@ export default function MetricDetailScreen() {
     const x = slug === null ? undefined : chipX.current.get(slug);
     if (x !== undefined) scrollChipsTo(chipsRef.current, x);
   }, [slug]);
-  const index = days.length - 1;
+  const index = useDayIndex(days);
   const day = days[index];
 
   if (!isMetricSlug(slug)) return <NoDataPage title={t('metricDetail.title')} body={t('metricDetail.unknown')} />;
