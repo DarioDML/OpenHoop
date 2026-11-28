@@ -56,7 +56,7 @@ function StepIcon({ status, step }: { status: SetupStepStatus; step: SetupStepId
 export default function SetupScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const { sync, readBandConfig, notice, device } = useAppData();
+  const { sync, readBandConfig, clearNotice, notice, device } = useAppData();
   const syncProgress = useSyncProgress();
   const [run, setRun] = useState<Run>('backup');
   const [startedS, setStartedS] = useState<number | null>(null);
@@ -68,6 +68,7 @@ export default function SetupScreen() {
     setStartedS(Math.floor(Date.now() / 1000));
     setRun('backup');
     await readBandConfig();
+    clearNotice();
     setRun('sync');
     await sync();
     setRun('ended');

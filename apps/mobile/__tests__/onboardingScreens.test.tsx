@@ -334,8 +334,10 @@ describe('Setup (A8)', () => {
   });
 
   it('says when the configuration could not be backed up and carries on', async () => {
-    await render(withAppData(<SetupScreen />, 'en', { readBandConfig: jest.fn(async () => undefined), sync: jest.fn(async () => undefined) }));
+    const clearNotice = jest.fn();
+    await render(withAppData(<SetupScreen />, 'en', { readBandConfig: jest.fn(async () => undefined), sync: jest.fn(async () => undefined), clearNotice }));
     expect(await screen.findByTestId('setup-continue')).toBeTruthy();
+    expect(clearNotice).toHaveBeenCalled();
     expect(screen.getByTestId('setup-step-backup-detail')).toHaveTextContent(/Band configuration/);
   });
 
