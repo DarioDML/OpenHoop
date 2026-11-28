@@ -364,6 +364,8 @@ describe('pipeline', () => {
       const record = (await storedDays()).find((d) => d.day === dayKey(sleepAt, TZ_S));
       const main = record?.sleep.periods.find((p) => !p.nap);
       expect(main?.bedOnset).toBe((walk.at(-1)?.t ?? 0) + 1);
+      expect(main?.sleepOnset).toBeGreaterThanOrEqual(stillAt);
+      expect(main?.sleepOnset).toBeLessThanOrEqual(sleepAt);
       expect(Math.abs((main?.bedOffset ?? 0) - upAt)).toBeLessThanOrEqual(150);
       expect(main?.onset).toBe(stillAt);
       expect(Math.abs((main?.offset ?? 0) - wokeAt)).toBeLessThanOrEqual(60);

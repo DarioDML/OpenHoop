@@ -210,6 +210,7 @@ describe('lying still before the band flags sleep', () => {
     expect(period?.offset).toBe(band?.offset);
     expect(period?.inBedS).toBe((band?.inBedS ?? 0) + LEAD_S);
     expect(period?.asleepS).toBe((band?.asleepS ?? 0) + LEAD_S - 4 * 60);
+    expect(period?.sleepOnset).toBe(T0 + 1800 + 4 * 60);
   });
 
   it('leaves a night alone when the wearer was moving right up to the band flagging sleep', () => {
@@ -264,6 +265,8 @@ describe('time in bed before and after the sleep', () => {
     expect(period?.asleepS).toBe(withoutBed?.asleepS);
     expect(period?.bedOnset).toBe(T0 + WALK_S);
     expect(period?.bedOffset).toBe(period?.offset);
+    expect(period?.sleepOnset).toBeGreaterThanOrEqual(period?.onset ?? Infinity);
+    expect(period?.sleepOnset).toBeLessThanOrEqual(T0 + WALK_S + PHONE_S + STILL_S);
     expect(period?.inBedS).toBe((period?.offset ?? 0) - T0 - WALK_S + 1);
   });
 
