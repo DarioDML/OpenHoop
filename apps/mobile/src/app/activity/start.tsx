@@ -57,18 +57,17 @@ export default function StartActivityScreen() {
   const fmt = (v: number, d = 0): string => formatNumber(v, d, language);
 
   useEffect(() => {
-    if (!canPreview) return undefined;
-    if (!liveRef.current.active) {
-      preview.current = true;
-      void startLive();
-    }
-    return () => {
-      if (preview.current && !handedOff.current) {
-        preview.current = false;
-        void stopRef.current();
-      }
-    };
+    if (!canPreview || preview.current || liveRef.current.active) return;
+    preview.current = true;
+    void startLive();
   }, [canPreview, startLive]);
+
+  useEffect(
+    () => () => {
+      if (preview.current && !handedOff.current) void stopRef.current();
+    },
+    [],
+  );
 
   const connect = (): void => {
     preview.current = true;
@@ -90,7 +89,7 @@ export default function StartActivityScreen() {
   };
 
   const begin = (): void => {
-    handedOff.current = preview.current && liveRef.current.active;
+    handedOff.current = preview.current;
     const next: Record<string, string> = { type, start: '1' };
     if (buzzOn) next.buzz = '1';
     if (handedOff.current) next.live = '1';

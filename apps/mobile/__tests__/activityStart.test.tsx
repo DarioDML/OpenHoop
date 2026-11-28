@@ -76,7 +76,7 @@ describe('start activity screen', () => {
     expect(screen.getByTestId('start-gps').props.value).toBe(true);
     expect(screen.getByTestId('start-gps-note')).toHaveTextContent(/only while this activity records/);
     await fireEvent.press(screen.getByTestId('start-begin'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: { type: 'running', start: '1', buzz: '1' } });
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/gps', params: { type: 'running', start: '1', buzz: '1', live: '1' } });
   });
 
   it('records without a route when GPS is switched off, and without a buzz when it is off', async () => {
@@ -86,7 +86,7 @@ describe('start activity screen', () => {
     await fireEvent(screen.getByTestId('start-buzz'), 'valueChange', false);
     expect(screen.queryByTestId('start-gps-note')).toBeNull();
     await fireEvent.press(screen.getByTestId('start-begin'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'running', start: '1' } });
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: { type: 'running', start: '1', live: '1' } });
   });
 
   it('changes the activity with the Change link and its type picker', async () => {
@@ -128,11 +128,26 @@ describe('start activity screen', () => {
 
   it('does not connect by itself when the band is not connected, and offers to connect', async () => {
     const startLive = jest.fn(async () => undefined);
-    await render(withAppData(<StartActivityScreen />, 'en', { startLive, device: { ...device, connection: 'disconnected' } }));
+    const stopLive = jest.fn(async () => undefined);
+    const view = await render(withAppData(<StartActivityScreen />, 'en', { startLive, stopLive, device: { ...device, connection: 'disconnected' } }));
     expect(screen.getByTestId('start-band-status')).toHaveTextContent('Not connected');
     expect(startLive).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('start-band-connect'));
     expect(startLive).toHaveBeenCalled();
+    await view.unmount();
+    expect(stopLive).toHaveBeenCalled();
+  });
+
+  it('hands over a preview that is still connecting, so the live screen never starts a second stream', async () => {
+    mockParams = { type: 'yoga' };
+    const startLive = jest.fn(async () => undefined);
+    const stopLive = jest.fn(async () => undefined);
+    const view = await render(withAppData(<StartActivityScreen />, 'en', { startLive, stopLive, live: idle }));
+    await waitFor(() => expect(startLive).toHaveBeenCalledTimes(1));
+    await fireEvent.press(screen.getByTestId('start-begin'));
+    expect(router.replace).toHaveBeenCalledWith({ pathname: '/activity/live', params: expect.objectContaining({ live: '1' }) });
+    await view.unmount();
+    expect(stopLive).not.toHaveBeenCalled();
   });
 
   it('switches the heart-rate broadcast on the band', async () => {

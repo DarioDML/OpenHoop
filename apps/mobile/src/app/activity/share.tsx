@@ -220,7 +220,7 @@ function ShareBody({ resolved }: { resolved: ResolvedEntry }) {
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <Button
           label={busy === 'save' ? t('activity.share.sharing') : t('activity.share.save')}
-          icon="import"
+          icon="download"
           variant="secondary"
           onPress={() => void save()}
           disabled={busy !== null}
