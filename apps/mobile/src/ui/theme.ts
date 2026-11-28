@@ -39,6 +39,8 @@ export interface ColorTokens {
   goldSoft: string;
   levelC: string;
   grid: string;
+  ecg: string;
+  ecgPaper: string;
   metric: {
     sleep: string;
     load: string;
@@ -55,7 +57,7 @@ export interface ColorTokens {
   zones: [string, string, string, string, string];
 }
 
-export type Tint = 'home' | 'sleep' | 'load' | 'health' | 'community' | 'coach' | 'neutral' | 'recovery' | 'recoveryHigh' | 'recoveryLow';
+export type Tint = 'home' | 'sleep' | 'load' | 'health' | 'community' | 'coach' | 'neutral' | 'recovery' | 'recoveryHigh' | 'recoveryLow' | 'heart' | 'cycle';
 
 export const darkColors: ColorTokens = {
   background: '#0D1114',
@@ -93,6 +95,8 @@ export const darkColors: ColorTokens = {
   goldSoft: '#3A341C',
   levelC: '#CFC7FF',
   grid: '#FFFFFF14',
+  ecg: '#FF6B8B',
+  ecgPaper: '#1A1418',
   metric: {
     sleep: '#7FA6C2',
     load: '#0A93E8',
@@ -115,6 +119,8 @@ export const darkColors: ColorTokens = {
     recovery: '#3F4337',
     recoveryHigh: '#283F33',
     recoveryLow: '#3F3239',
+    heart: '#3A2B47',
+    cycle: '#3A2238',
   },
   stage: { awake: '#D9DDE0', light: '#B8A9F5', deep: '#F28BCB', rem: '#9A5CF0' },
   zones: ['#5AB4FF', '#2FD3BF', '#16EC06', '#FFB347', '#FF2D46'],
@@ -156,6 +162,8 @@ export const lightColors: ColorTokens = {
   goldSoft: '#F3EBD0',
   levelC: '#5B45D6',
   grid: '#0D11141A',
+  ecg: '#C8325A',
+  ecgPaper: '#FBF0F3',
   metric: {
     sleep: '#3E6E91',
     load: '#0A6FC0',
@@ -178,6 +186,8 @@ export const lightColors: ColorTokens = {
     recovery: '#E6E7DC',
     recoveryHigh: '#DCEBDF',
     recoveryLow: '#EEDDE2',
+    heart: '#EEDDF0',
+    cycle: '#F3DDEA',
   },
   stage: { awake: '#8A9298', light: '#7A66D9', deep: '#C2458F', rem: '#6A2FC0' },
   zones: ['#1C6FC0', '#138F80', '#138A0A', '#B36B00', '#C81E33'],

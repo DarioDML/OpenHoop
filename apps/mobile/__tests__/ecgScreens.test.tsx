@@ -1,11 +1,16 @@
 import type { EcgSummary } from '@openhoop/core';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { ecgCsv, ecgStrips, stripLength, traceColumns, traceRange } from '@/data/ecg';
+import { AppDataContext, LiveDataContext } from '@/data/context';
+import { ECG_CONTACT, ecgContact, ecgCsv, ecgStrips, stripLength, toggleEcgSymptom, traceColumns, traceRange } from '@/data/ecg';
+import { ecgReportHtml } from '@/data/ecgReport';
+import { shareEcgCsv } from '@/data/ecgShare';
 import { createFixtureDevice } from '@/data/fixtureSource';
+import { shareReportPdf } from '@/data/reportShare';
+import type { LiveData, LiveDataStore } from '@/data/types';
 
-import { FIXTURE_NOW, fixtureEcgActions, withAppData } from './support/appData';
+import { FIXTURE_NOW, fixtureAppData, fixtureEcgActions, fixtureLiveData, withAppData } from './support/appData';
 
 let mockParams: Record<string, string | undefined> = {};
 const mockPush = jest.fn();
@@ -22,19 +27,44 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@/data/ecgShare', () => ({ shareEcgCsv: jest.fn(async () => undefined), removeLeftoverEcgFiles: jest.fn() }));
+jest.mock('@/data/reportShare', () => ({ shareReportPdf: jest.fn(async () => undefined), ShareUnavailableError: class extends Error {} }));
 
-import BloodPressureScreen from '@/app/health/blood-pressure';
 import EcgResultScreen from '@/app/health/ecg-result';
 import EcgScreen from '@/app/health/ecg';
+import BloodPressureScreen from '@/app/health/blood-pressure';
 import IrregularRhythmScreen from '@/app/health/irregular-rhythm';
 
 const MG = { ...createFixtureDevice(FIXTURE_NOW), model: 'MG' as const };
-const RECORDING: EcgSummary = { id: 4, deviceId: 1, t: 1_795_700_000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left' };
+const RECORDING: EcgSummary = { id: 4, deviceId: 1, t: 1_795_700_000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'left', symptoms: [] };
 const OLDER: EcgSummary = { ...RECORDING, id: 2, t: 1_795_600_000, wrist: 'right' };
+const BEAT = Array.from({ length: 128 }, (_, i) => (i === 40 ? 1200 : i === 41 ? -300 : i > 70 && i < 90 ? 200 : 0));
+const HEALTHY_TAIL = [...BEAT, ...BEAT, ...BEAT, ...BEAT];
+
+function mutableLive(initial: LiveData): { store: LiveDataStore; set: (next: Partial<LiveData>) => void } {
+  let data = initial;
+  const listeners = new Set<() => void>();
+  return {
+    store: {
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+      getSnapshot: () => data,
+    },
+    set: (next) => {
+      data = { ...data, ...next };
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
 
 beforeEach(() => {
   mockParams = {};
   mockPush.mockClear();
+  jest.mocked(shareEcgCsv).mockClear();
+  jest.mocked(shareReportPdf).mockClear();
 });
 
 describe('ECG recording screen', () => {
@@ -42,6 +72,8 @@ describe('ECG recording screen', () => {
     const start = jest.fn(async () => 9);
     await render(withAppData(<EcgScreen />, 'en', { device: MG, ecgActions: { ...fixtureEcgActions(), start } }));
     expect(screen.queryByTestId('needs-mg')).toBeNull();
+    expect(screen.getByTestId('ecg-mg-ready')).toBeTruthy();
+    expect(screen.getByTestId('ecg-countdown-value').props.children).toContain('30');
     await fireEvent.press(screen.getByText('Right wrist'));
     await fireEvent.press(screen.getByTestId('ecg-start'));
     expect(start).toHaveBeenCalledWith('right');
@@ -56,19 +88,62 @@ describe('ECG recording screen', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('shows progress and a stop button while recording', async () => {
+  it('cannot start on a band without the MG sensors', async () => {
+    await render(withAppData(<EcgScreen />));
+    expect(screen.getByTestId('needs-mg')).toBeTruthy();
+    expect(screen.getByTestId('ecg-start').props.accessibilityState).toEqual({ disabled: true });
+  });
+
+  it('shows the countdown, samples, signal and a stop button while recording', async () => {
     const stop = jest.fn();
     await render(
       withAppData(<EcgScreen />, 'en', {
         device: MG,
         ecgActions: { ...fixtureEcgActions(), stop },
-        ecgLive: { active: true, elapsedMs: 12_400, samples: 1500, tail: [1, 5, 2] },
+        ecgLive: { active: true, elapsedMs: 12_400, samples: 1500, tail: HEALTHY_TAIL, quality: 3 },
       }),
     );
     expect(screen.getByTestId('ecg-elapsed').props.children).toBe('Recording: 12 of 30 s');
-    expect(screen.getByText('1500 samples received')).toBeTruthy();
+    expect(screen.getByTestId('ecg-countdown-value').props.children).toContain('12');
+    expect(screen.getByText('of 30 s')).toBeTruthy();
+    expect(screen.getByTestId('ecg-samples-value').props.children).toContain('1500');
+    expect(screen.getByTestId('ecg-signal-value').props.children).toContain('Good');
+    expect(screen.getByText('contact')).toBeTruthy();
+    expect(screen.queryByText(/bpm/)).toBeNull();
     await fireEvent.press(screen.getByTestId('ecg-stop'));
     expect(stop).toHaveBeenCalled();
+  });
+
+  it('says there is no contact when the band reports none', async () => {
+    await render(withAppData(<EcgScreen />, 'en', { device: MG, ecgLive: { active: true, elapsedMs: 2_000, samples: 512, tail: HEALTHY_TAIL, quality: 0 } }));
+    expect(screen.getByTestId('ecg-signal-value').props.children).toContain('No contact');
+    expect(screen.getByText('touch the band')).toBeTruthy();
+  });
+
+  it('cancel stops the band and throws the recording away', async () => {
+    let finish: (id: number | null) => void = () => undefined;
+    const start = jest.fn(() => new Promise<number | null>((resolve) => (finish = resolve)));
+    const stop = jest.fn();
+    const remove = jest.fn(async () => true);
+    const live = mutableLive(fixtureLiveData());
+    const data = fixtureAppData('en', { device: MG, ecgActions: { ...fixtureEcgActions(), start, stop, remove } });
+    await render(
+      <LiveDataContext.Provider value={live.store}>
+        <AppDataContext.Provider value={data}>
+          <EcgScreen />
+        </AppDataContext.Provider>
+      </LiveDataContext.Provider>,
+    );
+    await fireEvent.press(screen.getByTestId('ecg-start'));
+    await act(async () => live.set({ ecgLive: { active: true, elapsedMs: 4_000, samples: 400, tail: HEALTHY_TAIL, quality: 3 } }));
+    await fireEvent.press(screen.getByTestId('ecg-cancel'));
+    expect(stop).toHaveBeenCalled();
+    await act(async () => {
+      live.set({ ecgLive: { active: false, elapsedMs: 0, samples: 0, tail: [], quality: null } });
+      finish(12);
+    });
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(12));
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
 
@@ -88,22 +163,39 @@ describe('ECG result screen', () => {
     await waitFor(() => expect(screen.getByTestId('ecg-strip-5')).toBeTruthy());
     expect(screen.queryByTestId('ecg-strip-6')).toBeNull();
     expect(screen.getByText('62 bpm average')).toBeTruthy();
+    expect(screen.getByTestId('ecg-info')).toBeTruthy();
+    expect(screen.getByTestId('ecg-hero-when').props.children).toContain('30 s');
     expect(heartRateBetween).toHaveBeenCalledWith(RECORDING.t, RECORDING.t + 30, 1);
     expect(screen.getByText('Left wrist')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('ecg-item-2'));
     await waitFor(() => expect(screen.getByText('Right wrist')).toBeTruthy());
     expect(screen.queryByText(/normal|sinus|atrial|irregular/i)).toBeNull();
   });
-});
 
-describe('screens OpenHoop does not offer', () => {
-  it.each([
-    ['irregular rhythm', IrregularRhythmScreen],
-    ['blood pressure', BloodPressureScreen],
-  ])('%s says it is not part of OpenHoop', async (_name, Screen) => {
-    await render(withAppData(<Screen />));
-    expect(screen.getByTestId('not-offered')).toBeTruthy();
-    expect(screen.queryByTestId('not-built-mg')).toBeNull();
+  it('stores how the wearer felt with the recording, with none on its own', async () => {
+    const setSymptoms = jest.fn(async () => true);
+    await render(withAppData(<EcgResultScreen />, 'en', { ecgRecordings: [{ ...RECORDING, symptoms: ['none'] }], ecgActions: { ...fixtureEcgActions(), setSymptoms } }));
+    expect(screen.getByTestId('ecg-feel-none').props.accessibilityState).toEqual({ checked: true });
+    await fireEvent.press(screen.getByTestId('ecg-feel-palpitations'));
+    expect(setSymptoms).toHaveBeenLastCalledWith(4, ['palpitations']);
+    await fireEvent.press(screen.getByTestId('ecg-feel-dizzy'));
+    expect(setSymptoms).toHaveBeenLastCalledWith(4, ['palpitations', 'dizzy']);
+    await fireEvent.press(screen.getByTestId('ecg-feel-none'));
+    expect(setSymptoms).toHaveBeenLastCalledWith(4, ['none']);
+  });
+
+  it('exports the trace as a PDF and the raw samples as CSV', async () => {
+    const samples = jest.fn(async () => Array.from({ length: 1280 }, (_, i) => (i % 128 === 40 ? 900 : 0)));
+    await render(withAppData(<EcgResultScreen />, 'en', { ecgRecordings: [{ ...RECORDING, symptoms: ['dizzy'] }], ecgActions: { ...fixtureEcgActions(), samples } }));
+    await waitFor(() => expect(screen.getByTestId('ecg-strip-0')).toBeTruthy());
+    await fireEvent.press(screen.getByTestId('ecg-export-pdf'));
+    await waitFor(() => expect(shareReportPdf).toHaveBeenCalledTimes(1));
+    const html = jest.mocked(shareReportPdf).mock.calls[0]?.[0] ?? '';
+    expect(html).toContain('OpenHoop ECG recording');
+    expect(html).toContain('Dizzy');
+    expect(html).not.toMatch(/sinus|atrial|fibrillation|normal rhythm/i);
+    await fireEvent.press(screen.getByTestId('ecg-share'));
+    await waitFor(() => expect(shareEcgCsv).toHaveBeenCalledTimes(1));
   });
 });
 
@@ -131,8 +223,61 @@ describe('ECG helpers', () => {
     expect(traceColumns([3], 10)).toEqual([{ min: 3, max: 3 }]);
   });
 
+  it('reads contact from the band flag and the shape of the trace', () => {
+    let seed = 7;
+    const noise = Array.from({ length: 512 }, () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return (seed % 2001) - 1000;
+    });
+    const flat = Array.from({ length: 512 }, () => 12);
+    const clipped = HEALTHY_TAIL.map((v, i) => (i % 20 === 0 ? 32767 : v));
+    expect(ecgContact(HEALTHY_TAIL.slice(0, ECG_CONTACT.minSamples - 1), null)).toBe('checking');
+    expect(ecgContact(HEALTHY_TAIL, 0)).toBe('none');
+    expect(ecgContact(HEALTHY_TAIL, null)).toBe('good');
+    expect(ecgContact(HEALTHY_TAIL, 3)).toBe('good');
+    expect(ecgContact(HEALTHY_TAIL, 1)).toBe('weak');
+    expect(ecgContact(flat, 3)).toBe('none');
+    expect(ecgContact(noise, 3)).toBe('weak');
+    expect(ecgContact(clipped, 3)).toBe('weak');
+  });
+
+  it('keeps none apart from the symptoms that were felt', () => {
+    expect(toggleEcgSymptom([], 'dizzy')).toEqual(['dizzy']);
+    expect(toggleEcgSymptom(['none'], 'dizzy')).toEqual(['dizzy']);
+    expect(toggleEcgSymptom(['dizzy', 'chestPain'], 'none')).toEqual(['none']);
+    expect(toggleEcgSymptom(['dizzy', 'chestPain'], 'dizzy')).toEqual(['chestPain']);
+  });
+
+  it('builds a PDF page with every strip and escaped text', () => {
+    const html = ecgReportHtml({
+      title: 'ECG <test>',
+      rows: [{ label: 'Wrist', value: 'Left & right' }],
+      stripsTitle: 'Strips',
+      samples: Array.from({ length: 1300 }, (_, i) => i % 50),
+      rateHz: 128,
+      durationMs: 10_000,
+      notes: ['Not a diagnosis'],
+      language: 'en',
+    });
+    expect(html).toContain('ECG &lt;test&gt;');
+    expect(html).toContain('Left &amp; right');
+    expect(html.match(/class="strip"/g)?.length).toBe(3);
+    expect(html).toContain('Not a diagnosis');
+  });
+
   it('writes index, time and value per sample', () => {
     expect(ecgCsv(RECORDING, [10, -20])).toBe('index,t_ms,value\r\n0,0,10\r\n1,8,-20\r\n');
     expect(ecgCsv({ ...RECORDING, rateHz: null }, [1])).toBe('index,t_ms,value\r\n0,,1\r\n');
+  });
+});
+
+describe('screens OpenHoop does not offer', () => {
+  it.each([
+    ['irregular rhythm', IrregularRhythmScreen],
+    ['blood pressure', BloodPressureScreen],
+  ])('%s says it is not part of OpenHoop', async (_name, Screen) => {
+    await render(withAppData(<Screen />));
+    expect(screen.getByTestId('not-offered')).toBeTruthy();
+    expect(screen.queryByTestId('not-built-mg')).toBeNull();
   });
 });

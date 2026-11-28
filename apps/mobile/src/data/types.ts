@@ -1,7 +1,7 @@
 import type { Interval, ZoneFloors } from '@openhoop/analytics';
 import type { Wrist } from '@openhoop/protocol';
 import type { StorageStats } from '@openhoop/core';
-import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, EcgSummary, StageEpochRow, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
+import type { ActivityRow, ActivitySource, AlarmEvent, BandModel, BandStatus, EcgSummary, StageEpochRow, BatteryPackState, BodyMeasurement, BodyMeasurementInput, CuffReading, CuffReadingInput, CustomExerciseInput, CycleData, DayRecord, DonationDay, DonationProgress, DonationResult, EcgSymptom, JournalNote, JournalNoteInput, LabResult, LabResultInput, PeriodInput, PlannedExercise, RoutePoint, SleepEditProblem, SleepEditRow, StrengthData, StrengthSetInput, StrengthTemplateInput, SymptomInput, VendorData, WorkoutRecord } from '@openhoop/core';
 
 import type { StorageProblem } from '@/data/storageProblem';
 import type { TranslationKey, TranslationParams } from '@/i18n';
@@ -188,6 +188,7 @@ export interface EcgLiveState {
   elapsedMs: number;
   samples: number;
   tail: readonly number[];
+  quality: number | null;
 }
 
 export interface EcgActions {
@@ -195,6 +196,7 @@ export interface EcgActions {
   stop(): void;
   samples(id: number): Promise<number[] | null>;
   remove(id: number): Promise<boolean>;
+  setSymptoms(id: number, symptoms: readonly EcgSymptom[]): Promise<boolean>;
 }
 
 export interface LiveData {
@@ -225,6 +227,7 @@ export interface AppData {
   userData: UserData;
   bodyMeasurements: BodyMeasurement[];
   labResults: LabResult[];
+  cuffReadings: CuffReading[];
   cycle: CycleData;
   strength: StrengthData;
   strengthActions: StrengthActions;
@@ -264,6 +267,8 @@ export interface AppData {
   removeBodyMeasurement(id: number): Promise<boolean>;
   saveLabResult(id: number | null, input: LabResultInput): Promise<boolean>;
   removeLabResult(id: number): Promise<boolean>;
+  saveCuffReading(input: CuffReadingInput): Promise<boolean>;
+  removeCuffReading(id: number): Promise<boolean>;
   savePeriod(id: number | null, input: PeriodInput): Promise<boolean>;
   removePeriod(id: number): Promise<boolean>;
   saveSymptom(input: SymptomInput): Promise<boolean>;

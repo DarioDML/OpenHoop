@@ -22,6 +22,7 @@ export * from './wear';
 export * from './bandStatus';
 export * from './bodyMeasurements';
 export * from './cycle';
+export * from './cuffReadings';
 export * from './strength';
 export * from './journalNotes';
 export * from './vendorImport';

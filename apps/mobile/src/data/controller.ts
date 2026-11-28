@@ -29,6 +29,13 @@ import {
   wipeAllData,
   type StorageStats,
   deleteLabResult,
+  deleteCuffReading,
+  insertCuffReading,
+  listCuffReadings,
+  setEcgSymptoms,
+  type CuffReading,
+  type CuffReadingInput,
+  type EcgSymptom,
   consoleLinesCsv,
   exportCsv,
   importBodyMeasurements,
@@ -292,6 +299,7 @@ export interface Snapshot {
   bodyMeasurements: BodyMeasurement[];
   journalNotes: JournalNote[];
   labResults: LabResult[];
+  cuffReadings: CuffReading[];
   vendorData: VendorData;
   cycle: CycleData;
   strength: StrengthData;
@@ -332,7 +340,7 @@ const SYNC_FAILURES_NOT_ALERTED = new Set<TranslationKey>(['error.noBandPaired',
 
 const IDLE_LIVE: LiveState = { active: false, heartRate: null, lastRrMs: null, updatedAt: null, dayLoad: null };
 const BUZZ_LOOPS: Readonly<Record<BandBuzz, number>> = { test: TEST_BUZZ_LOOPS, target: TEST_BUZZ_LOOPS, top: WARN_BUZZ_LOOPS, find: FIND_BAND_LOOPS };
-const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [] };
+const IDLE_ECG: EcgLiveState = { active: false, elapsedMs: 0, samples: 0, tail: [], quality: null };
 const ECG_PROGRESS_MS = 200;
 const RING_WAIT_MS = 40_000;
 
@@ -458,6 +466,7 @@ export class AppController {
       bodyMeasurements: [],
       journalNotes: [],
       labResults: [],
+      cuffReadings: [],
       vendorData: emptyVendorData(),
       cycle: emptyCycleData(),
       strength: emptyStrengthData(),
@@ -597,6 +606,7 @@ export class AppController {
     const bodyMeasurements = await listBodyMeasurements(this.app.driver);
     const healthConnectState = parseHealthConnectState(await store.getSetting(HEALTH_CONNECT_STATE_KEY));
     const labResults = await listLabResults(this.app.driver);
+    const cuffReadings = await listCuffReadings(this.app.driver);
     const vendorData = await listVendorData(this.app.driver);
     const cycle = await loadCycleData(this.app.driver);
     const strength = await listStrengthData(this.app.driver);
@@ -608,6 +618,7 @@ export class AppController {
       bodyMeasurements,
       journalNotes,
       labResults,
+      cuffReadings,
       vendorData,
       cycle,
       inbox: this.notificationState.inbox,
@@ -1305,6 +1316,17 @@ export class AppController {
       if (this.deviceRow !== null) this.patch({ ecgRecordings: await listEcgRecordings(store.driver, this.deviceRow.id) });
       return removed;
     },
+    setSymptoms: async (id: number, symptoms: readonly EcgSymptom[]) => {
+      try {
+        const { store } = this.requireApp();
+        const saved = await setEcgSymptoms(store.driver, id, symptoms);
+        if (this.deviceRow !== null) this.patch({ ecgRecordings: await listEcgRecordings(store.driver, this.deviceRow.id) });
+        return saved;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    },
   };
 
   private async startEcg(wrist: Wrist): Promise<number | null> {
@@ -1328,7 +1350,7 @@ export class AppController {
             const now = Date.now();
             if (now - lastProgress < ECG_PROGRESS_MS) return;
             lastProgress = now;
-            this.patch({ ecgLive: { active: true, elapsedMs: progress.elapsedMs, samples: progress.samples, tail: progress.tail } });
+            this.patch({ ecgLive: { active: true, elapsedMs: progress.elapsedMs, samples: progress.samples, tail: progress.tail, quality: progress.quality } });
           },
         });
         if (capture.stopConfirmed) await store.setSetting(ecgCleanupKey(conn.deviceId), '');
@@ -1667,6 +1689,30 @@ export class AppController {
     });
 
   removeLabResult = (id: number): Promise<boolean> => this.runLabChange((driver) => deleteLabResult(driver, id));
+
+  private runCuffChange(task: (driver: AppStore['driver']) => Promise<boolean>): Promise<boolean> {
+    const run = this.userDataChain.then(async () => {
+      try {
+        const { driver } = this.requireApp();
+        const done = await task(driver);
+        this.patch({ cuffReadings: await listCuffReadings(driver) });
+        return done;
+      } catch (error) {
+        this.fail(error);
+        return false;
+      }
+    });
+    this.userDataChain = run.then(() => undefined);
+    return run;
+  }
+
+  saveCuffReading = (input: CuffReadingInput): Promise<boolean> =>
+    this.runCuffChange(async (driver) => {
+      await insertCuffReading(driver, input, nowSeconds());
+      return true;
+    });
+
+  removeCuffReading = (id: number): Promise<boolean> => this.runCuffChange((driver) => deleteCuffReading(driver, id));
 
   savePeriod = (id: number | null, input: PeriodInput): Promise<boolean> =>
     this.runCycleChange(async (driver) => {
@@ -2420,6 +2466,8 @@ export class AppController {
       removeJournalNote: this.removeJournalNote,
       saveLabResult: this.saveLabResult,
       removeLabResult: this.removeLabResult,
+      saveCuffReading: this.saveCuffReading,
+      removeCuffReading: this.removeCuffReading,
       importVendorFiles: this.importVendorFiles,
       removeVendorData: this.removeVendorData,
       savePeriod: this.savePeriod,

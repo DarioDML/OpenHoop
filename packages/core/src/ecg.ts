@@ -35,6 +35,7 @@ export interface EcgProgress {
   elapsedMs: number;
   samples: number;
   tail: readonly number[];
+  quality: number | null;
 }
 
 export interface RecordEcgOptions {
@@ -122,7 +123,7 @@ export async function recordEcg(session: Session, opts: RecordEcgOptions): Promi
     if (startedMs === null || packet.kind !== 'record' || packet.layout !== ECG_LAYOUT || packet.record.type !== 'ecgFiltered') return;
     blocks.push({ t: packet.unixS + packet.subsec / SUBSEC_TICKS, count: packet.record.samples.length });
     samples.push(...packet.record.samples);
-    opts.onProgress?.({ elapsedMs: session.clock.now() - startedMs, samples: samples.length, tail: samples.slice(-TAIL_SAMPLES) });
+    opts.onProgress?.({ elapsedMs: session.clock.now() - startedMs, samples: samples.length, tail: samples.slice(-TAIL_SAMPLES), quality: packet.record.quality });
   });
   let armed = false;
   try {
@@ -156,6 +157,23 @@ export async function recordEcg(session: Session, opts: RecordEcgOptions): Promi
   };
 }
 
+export const ECG_SYMPTOMS = ['none', 'palpitations', 'dizzy', 'shortBreath', 'chestPain'] as const;
+export type EcgSymptom = (typeof ECG_SYMPTOMS)[number];
+
+export function isEcgSymptom(value: string): value is EcgSymptom {
+  return (ECG_SYMPTOMS as readonly string[]).includes(value);
+}
+
+export function normalizeEcgSymptoms(symptoms: readonly string[]): EcgSymptom[] {
+  const known = ECG_SYMPTOMS.filter((symptom) => symptoms.includes(symptom));
+  const felt = known.filter((symptom) => symptom !== 'none');
+  return felt.length > 0 ? felt : known;
+}
+
+export function parseEcgSymptoms(text: string): EcgSymptom[] {
+  return normalizeEcgSymptoms(text.split(',').map((part) => part.trim()));
+}
+
 export interface EcgSummary {
   id: number;
   deviceId: number;
@@ -164,9 +182,10 @@ export interface EcgSummary {
   sampleCount: number;
   rateHz: number | null;
   wrist: Wrist | null;
+  symptoms: EcgSymptom[];
 }
 
-const ECG_COLUMNS = 'id, device_id, t, duration_ms, sample_count, rate_hz, wrist';
+const ECG_COLUMNS = 'id, device_id, t, duration_ms, sample_count, rate_hz, wrist, symptoms';
 
 function packSamples(samples: readonly number[]): Uint8Array {
   const out = new Uint8Array(samples.length * 2);
@@ -183,7 +202,7 @@ export function unpackSamples(data: Uint8Array): number[] {
 }
 
 function toSummary(row: Record<string, SqlValue>): EcgSummary {
-  const { id, device_id: deviceId, t, duration_ms: durationMs, sample_count: sampleCount, rate_hz: rateHz, wrist } = row;
+  const { id, device_id: deviceId, t, duration_ms: durationMs, sample_count: sampleCount, rate_hz: rateHz, wrist, symptoms } = row;
   if (typeof id !== 'number' || typeof deviceId !== 'number' || typeof t !== 'number' || typeof durationMs !== 'number' || typeof sampleCount !== 'number') {
     throw new Error('Invalid ECG recording row in database');
   }
@@ -195,6 +214,7 @@ function toSummary(row: Record<string, SqlValue>): EcgSummary {
     sampleCount,
     rateHz: typeof rateHz === 'number' ? rateHz : null,
     wrist: wrist === 'left' || wrist === 'right' ? wrist : null,
+    symptoms: typeof symptoms === 'string' ? parseEcgSymptoms(symptoms) : [],
   };
 }
 
@@ -225,6 +245,11 @@ export async function ecgSamples(driver: SqlDriver, id: number): Promise<number[
   const rows = await driver.all<{ data: SqlValue }>('SELECT data FROM ecg_recordings WHERE id = ?', [id]);
   const data = rows[0]?.data;
   return data instanceof Uint8Array ? unpackSamples(data) : null;
+}
+
+export async function setEcgSymptoms(driver: SqlDriver, id: number, symptoms: readonly EcgSymptom[]): Promise<boolean> {
+  const result = await driver.run('UPDATE ecg_recordings SET symptoms = ? WHERE id = ?', [normalizeEcgSymptoms(symptoms).join(','), id]);
+  return result.changes > 0;
 }
 
 export async function deleteEcgRecording(driver: SqlDriver, id: number): Promise<boolean> {

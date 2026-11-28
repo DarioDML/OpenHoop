@@ -117,6 +117,19 @@ describe('store', () => {
     await raw.close();
   });
 
+  it('migration 17 keeps existing ECG recordings without symptom tags and adds cuff readings', async () => {
+    const raw = openStrictDriver();
+    for (const script of MIGRATIONS.slice(0, 16)) await raw.exec(script);
+    await raw.exec('PRAGMA user_version = 16');
+    await raw.exec("INSERT INTO devices (id, ble_id) VALUES (1, 'AA:BB')");
+    await raw.exec("INSERT INTO ecg_recordings (device_id, t, data, duration_ms, sample_count) VALUES (1, 100, x'0100', 1000, 1)");
+    await openStore(raw);
+    expect(await raw.all('SELECT symptoms FROM ecg_recordings')).toEqual([{ symptoms: '' }]);
+    await expect(raw.exec('INSERT INTO cuff_readings (t, systolic, diastolic, pulse, created_at) VALUES (1, 80, 90, NULL, 1)')).rejects.toThrow();
+    await raw.exec('INSERT INTO cuff_readings (t, systolic, diastolic, pulse, created_at) VALUES (1, 120, 80, 61, 1)');
+    await raw.close();
+  });
+
   it('migrations are idempotent and record the version', async () => {
     const before = await store.driver.all<{ user_version: number }>('PRAGMA user_version');
     const again = await openStore(store.driver);

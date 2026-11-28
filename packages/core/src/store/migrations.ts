@@ -504,7 +504,21 @@ const V16 = `
 ALTER TABLE sleep_edits ADD COLUMN removed INTEGER NOT NULL DEFAULT 0 CHECK (removed IN (0, 1));
 `;
 
-export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16];
+const V17 = `
+ALTER TABLE ecg_recordings ADD COLUMN symptoms TEXT NOT NULL DEFAULT '' CHECK (length(symptoms) <= 120);
+CREATE TABLE cuff_readings (
+  id INTEGER PRIMARY KEY,
+  t INTEGER NOT NULL CHECK (t > 0),
+  systolic INTEGER NOT NULL CHECK (systolic BETWEEN 60 AND 260),
+  diastolic INTEGER NOT NULL CHECK (diastolic BETWEEN 30 AND 160),
+  pulse INTEGER CHECK (pulse IS NULL OR pulse BETWEEN 30 AND 220),
+  created_at INTEGER NOT NULL,
+  CHECK (diastolic < systolic)
+);
+CREATE INDEX cuff_readings_t ON cuff_readings (t, id);
+`;
+
+export const MIGRATIONS: readonly string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16, V17];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
