@@ -72,9 +72,11 @@ export function BarChart({ data, height = 110, max, formatTick, startLabel, endL
           <AppText variant="caption" muted>
             {startLabel}
           </AppText>
-          <AppText variant="caption" muted>
-            {endLabel}
-          </AppText>
+          {startLabel === endLabel ? null : (
+            <AppText variant="caption" muted>
+              {endLabel}
+            </AppText>
+          )}
         </View>
       ) : null}
     </View>

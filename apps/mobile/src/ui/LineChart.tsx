@@ -3,6 +3,7 @@ import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { AppText } from './AppText';
+import { flatDomain } from './chartScale';
 import { useTheme } from './theme';
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
   endLabel?: string;
   minSpan?: number;
   color?: string;
-  band?: { low: number; high: number } | null;
+  band?: { low: number | null; high: number | null } | null;
   domain?: { min: number; max: number } | null;
   guide?: number | null;
   testID?: string;
@@ -42,11 +43,14 @@ export function LineChart({ data, height = 120, formatTick, emptyLabel, startLab
   }
 
   const lineColor = color ?? colors.accent;
-  const lo = Math.min(...values, ...(band ? [band.low] : []));
-  const hi = Math.max(...values, ...(band ? [band.high] : []));
+  const bandLow = band?.low ?? null;
+  const bandHigh = band?.high ?? null;
+  const lo = Math.min(...values, ...(bandLow === null ? [] : [bandLow]));
+  const hi = Math.max(...values, ...(bandHigh === null ? [] : [bandHigh]));
   const pad = Math.max((hi - lo) * 0.15, (minSpan - (hi - lo)) / 2, 0);
-  const min = domain ? Math.min(domain.min, lo) : lo - pad;
-  const max = domain ? Math.max(domain.max, hi) : hi + pad;
+  const flat = domain === null && hi === lo ? flatDomain(lo, minSpan) : null;
+  const min = domain ? Math.min(domain.min, lo) : (flat?.min ?? lo - pad);
+  const max = domain ? Math.max(domain.max, hi) : (flat?.max ?? hi + pad);
   const span = max - min || 1;
   const plotH = height - PAD_Y * 2;
   const x = (i: number): number => (data.length <= 1 ? width / 2 : PAD_X + (i / (data.length - 1)) * (width - PAD_X * 2));
@@ -66,6 +70,7 @@ export function LineChart({ data, height = 120, formatTick, emptyLabel, startLab
 
   const lastIndex = data.length - 1 - [...data].reverse().findIndex((v) => v !== null);
   const lastValue = data[lastIndex] ?? null;
+  const singleX = data.length <= 1 || (startLabel !== undefined && startLabel === endLabel);
 
   return (
     <View testID={testID} style={{ gap: 4 }}>
@@ -78,14 +83,22 @@ export function LineChart({ data, height = 120, formatTick, emptyLabel, startLab
             {formatTick(min)}
           </AppText>
         </View>
-        <View style={{ flex: 1 }} onLayout={onLayout}>
+        <View style={{ flex: 1 }} onLayout={onLayout} testID={testID ? `${testID}-plot` : undefined}>
           {width > 0 ? (
             <Svg width={width} height={height}>
               {[0, 0.5, 1].map((f) => (
                 <Line key={f} x1={0} x2={width} y1={PAD_Y + plotH * f} y2={PAD_Y + plotH * f} stroke={colors.grid} strokeWidth={1} />
               ))}
-              {band ? (
-                <Rect x={0} y={y(band.high)} width={width} height={Math.max(2, y(band.low) - y(band.high))} fill={lineColor} opacity={0.14} />
+              {band && (bandLow !== null || bandHigh !== null) ? (
+                <Rect
+                  testID={testID ? `${testID}-band` : undefined}
+                  x={0}
+                  y={y(bandHigh ?? max)}
+                  width={width}
+                  height={Math.max(2, y(bandLow ?? min) - y(bandHigh ?? max))}
+                  fill={lineColor}
+                  opacity={0.14}
+                />
               ) : null}
               {guide !== null ? (
                 <Line testID={testID ? `${testID}-guide` : undefined} x1={0} x2={width} y1={y(guide)} y2={y(guide)} stroke={colors.textMuted} strokeWidth={1} strokeDasharray="3 4" />
@@ -102,7 +115,13 @@ export function LineChart({ data, height = 120, formatTick, emptyLabel, startLab
           ) : null}
         </View>
       </View>
-      {startLabel || endLabel ? (
+      {singleX && (endLabel ?? startLabel) ? (
+        <View style={{ alignItems: 'center', paddingLeft: AXIS_WIDTH }} testID={testID ? `${testID}-x-single` : undefined}>
+          <AppText variant="caption" muted>
+            {endLabel ?? startLabel}
+          </AppText>
+        </View>
+      ) : startLabel || endLabel ? (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: AXIS_WIDTH }}>
           <AppText variant="caption" muted>
             {startLabel}
