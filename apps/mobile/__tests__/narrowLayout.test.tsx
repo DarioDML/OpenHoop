@@ -150,3 +150,16 @@ describe('welcome at S24 size', () => {
     expect(screen.getByTestId('welcome-ring', { includeHiddenElements: true })).toHaveStyle({ flex: 1 });
   });
 });
+
+describe('ListRow value at S24 size', () => {
+  it('puts the value on the title line so the description gets the full width', async () => {
+    s24();
+    await render(<ListRow testID="goal" title="Weight goal" subtitle="Optional. Colours the change and draws a line on the chart." value="Not set" onPress={() => undefined} />);
+    expect(within(screen.getByTestId('goal-text')).getByTestId('goal-value')).toHaveTextContent('Not set');
+  });
+
+  it('keeps the value at the right edge on a roomy screen', async () => {
+    await render(<ListRow testID="goal" title="Weight goal" subtitle="Optional." value="Not set" onPress={() => undefined} />);
+    expect(within(screen.getByTestId('goal-text')).queryByTestId('goal-value')).toBeNull();
+  });
+});

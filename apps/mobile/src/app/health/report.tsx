@@ -48,7 +48,7 @@ import { useLayout } from '@/ui/layout';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { Section } from '@/ui/Section';
 import { Sparkline } from '@/ui/Sparkline';
-import { spacing, useTheme } from '@/ui/theme';
+import { radius, spacing, useTheme } from '@/ui/theme';
 
 type PeriodChoice = '30' | '90' | 'custom';
 type Busy = 'export' | 'share' | null;
@@ -199,17 +199,19 @@ function PreviewSection({ section, text }: { section: ReportSection; text: Repor
 function StatRow({ stat, text, last }: { stat: ReportStat; text: ReportText; last: boolean }) {
   const { t } = text;
   const { colors } = useTheme();
+  const { paper } = colors;
   const { row } = stat;
+  const missing = row !== null && row.average === null;
   const value = row === null ? `${stat.count ?? 0}` : row.average === null ? missingText(row.reason ?? 'no-data', text) : rowValue(row, row.average, text);
   return (
     <View
       testID={`report-stat-${stat.id}`}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 44, paddingVertical: 6, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.border }}>
-      <AppText variant="body" style={{ flex: 1 }}>
+      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 36, paddingVertical: 5, borderBottomWidth: last ? 0 : 1, borderBottomColor: paper.rule }}>
+      <AppText variant="label" color={paper.ink} style={{ flex: 1, minWidth: 0 }}>
         {t(STAT_LABEL[stat.id])}
       </AppText>
-      {row !== null && row.average !== null ? <Sparkline data={row.series} width={64} height={22} color={colors.metric.sleep} accessibilityLabel={trendText(row.trend, t)} /> : null}
-      <AppText variant="bodyStrong" numeric muted={row !== null && row.average === null} style={{ flexShrink: 1, textAlign: 'right' }} testID={`report-stat-${stat.id}-value`}>
+      {row !== null && row.average !== null ? <Sparkline data={row.series} width={48} height={18} color={paper.line} accessibilityLabel={trendText(row.trend, t)} /> : null}
+      <AppText variant="label" numeric color={missing ? paper.inkMuted : paper.ink} style={{ flexShrink: 1, textAlign: 'right', fontWeight: '600' }} testID={`report-stat-${stat.id}-value`}>
         {value}
       </AppText>
     </View>
@@ -312,15 +314,17 @@ export default function ReportScreen() {
         </Card>
       ) : null}
 
-      <Card testID="report-summary">
-        <AppText variant="cardTitle" accessibilityRole="header">
+      <View
+        testID="report-summary"
+        style={{ backgroundColor: colors.paper.surface, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.paper.rule, paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, gap: spacing.sm }}>
+        <AppText variant="bodyStrong" color={colors.paper.ink} accessibilityRole="header">
           {t('health.report.summary.title', { from: model.from, to: model.to })}
         </AppText>
-        <AppText variant="label" muted>
+        <AppText variant="caption" color={colors.paper.inkMuted} style={{ paddingBottom: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.paper.rule }}>
           {[model.name, t('health.report.summary.byline')].filter((part): part is string => part !== null).join(' · ')}
         </AppText>
         {stats.length === 0 ? (
-          <AppText variant="body" muted testID="report-summary-empty">
+          <AppText variant="label" color={colors.paper.inkMuted} testID="report-summary-empty">
             {t('health.report.summary.empty')}
           </AppText>
         ) : (
@@ -330,7 +334,7 @@ export default function ReportScreen() {
             ))}
           </View>
         )}
-      </Card>
+      </View>
 
       <View style={{ gap: spacing.sm }}>
         <AppText variant="capLarge" muted>

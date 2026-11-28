@@ -35,8 +35,8 @@ interface ToggleRowProps {
 
 export function ToggleRow({ title, subtitle, value, onChange, disabled = false, testID }: ToggleRowProps) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: subtitle ? 68 : 56, opacity: disabled ? 0.6 : 1 }}>
-      <View style={{ flex: 1, gap: 3 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: subtitle ? 68 : 56, paddingVertical: spacing.sm, opacity: disabled ? 0.6 : 1 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
         <AppText variant="body" style={{ fontWeight: '500' }}>
           {title}
         </AppText>

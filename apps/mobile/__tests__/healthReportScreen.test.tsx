@@ -3,12 +3,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { printToFileAsync } from 'expo-print';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import type { ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
 
 import ReportScreen from '@/app/health/report';
 import { DEFAULT_REPORT_SECTIONS } from '@/data/healthReport';
 import { removeLeftoverReports } from '@/data/reportFiles';
 import { ShareUnavailableError, shareReportPdf } from '@/data/reportShare';
 import { defaultUserData } from '@/data/userData';
+import { darkColors, lightColors } from '@/ui/theme';
 
 import { FIXTURE_NOW, withAppData } from './support/appData';
 
@@ -102,6 +104,14 @@ describe('health report screen', () => {
     expect(screen.getByTestId('report-row-hrv')).toBeTruthy();
     expect(screen.getAllByText(/of 30 days/).length).toBeGreaterThan(5);
     expect(screen.getByTestId('report-footer').props.children).toContain('Not a medical device');
+  });
+
+  it('draws the summary as a light paper document in both themes', async () => {
+    await render(withAppData(<ReportScreen />, 'en'));
+    const background: unknown = StyleSheet.flatten(screen.getByTestId('report-summary').props.style).backgroundColor;
+    expect([darkColors.paper.surface, lightColors.paper.surface]).toContain(background);
+    expect(darkColors.paper.surface).not.toBe(darkColors.surface);
+    expect(lightColors.paper.ink).toBe(lightColors.text);
   });
 
   it('shows the reason instead of a number when data is missing', async () => {
