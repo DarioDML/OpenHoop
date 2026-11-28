@@ -1,13 +1,16 @@
 import type { BodyMeasurement, BodyMeasurementInput } from '@openhoop/core';
 
 import { parseIsoDate } from '@/lib/dates';
+import { weightToKg } from '@/lib/units';
+
+import type { Units } from './types';
 
 export const BODY_LIMITS = {
   weightKg: { min: 25, max: 300 },
   bodyFatPct: { min: 2, max: 70 },
 } as const;
 
-export const BODY_RANGES = [30, 90, 365] as const;
+export const BODY_RANGES = [30, 90, 180, 365] as const;
 export type BodyRange = (typeof BODY_RANGES)[number];
 
 export function parseBodyRange(value: string): BodyRange {
@@ -105,6 +108,7 @@ export interface BodyTrend {
   latest: BodyMeasurement | null;
   changeKg: number | null;
   changeBodyFatPct: number | null;
+  changeLeanKg: number | null;
   firstDay: string | null;
   lastDay: string | null;
   leanMass: LeanMass | null;
@@ -138,6 +142,10 @@ export function computeTrend(entries: readonly BodyMeasurement[], range: BodyRan
     latest,
     changeKg: first !== undefined && last !== undefined && points.length >= 2 ? last.weightKg - first.weightKg : null,
     changeBodyFatPct: firstFat !== undefined && lastFat !== undefined && withFat.length >= 2 ? lastFat.bodyFatPct - firstFat.bodyFatPct : null,
+    changeLeanKg:
+      firstFat !== undefined && lastFat !== undefined && withFat.length >= 2
+        ? leanMassKg(lastFat.weightKg, lastFat.bodyFatPct) - leanMassKg(firstFat.weightKg, firstFat.bodyFatPct)
+        : null,
     firstDay: first?.day ?? null,
     lastDay: last?.day ?? null,
     leanMass:
@@ -145,4 +153,16 @@ export function computeTrend(entries: readonly BodyMeasurement[], range: BodyRan
         ? { kg: leanMassKg(newestWithFat.weightKg, newestWithFat.bodyFatPct), day: newestWithFat.day, fromNewest: newestWithFat.id === latest?.id }
         : null,
   };
+}
+
+export function towardGoal(firstKg: number, lastKg: number, goalKg: number | null): boolean | null {
+  if (goalKg === null || firstKg === lastKg) return null;
+  return Math.abs(lastKg - goalKg) < Math.abs(firstKg - goalKg);
+}
+
+export function weightDraftToKg(text: string, units: Units): string {
+  const trimmed = text.trim();
+  if (units === 'metric' || trimmed === '') return text;
+  const value = Number(trimmed.replace(',', '.'));
+  return Number.isFinite(value) && /^\d{1,3}([.,]\d{1,2})?$/.test(trimmed) ? (Math.round(weightToKg(value, units) * 100) / 100).toString() : text;
 }

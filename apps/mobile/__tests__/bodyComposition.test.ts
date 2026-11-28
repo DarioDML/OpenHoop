@@ -1,6 +1,6 @@
 import type { BodyMeasurement } from '@openhoop/core';
 
-import { computeTrend, parseBodyRange, leanMassKg, newestChanged, newestMeasurement, shiftIsoDay, validateBodyDraft } from '@/data/bodyComposition';
+import { computeTrend, parseBodyRange, leanMassKg, newestChanged, newestMeasurement, shiftIsoDay, towardGoal, validateBodyDraft, weightDraftToKg } from '@/data/bodyComposition';
 
 const TODAY = '2026-11-25';
 
@@ -146,5 +146,28 @@ describe('parseBodyRange', () => {
     expect(parseBodyRange('30')).toBe(30);
     expect(parseBodyRange('365')).toBe(365);
     expect(parseBodyRange('7')).toBe(90);
+  });
+});
+
+describe('weight goal and units', () => {
+  it('says whether the weight moved toward an optional goal', () => {
+    expect(towardGoal(82, 80, 75)).toBe(true);
+    expect(towardGoal(80, 82, 75)).toBe(false);
+    expect(towardGoal(80, 82, null)).toBeNull();
+    expect(towardGoal(80, 80, 75)).toBeNull();
+  });
+
+  it('turns a weight typed in pounds into kilograms before checking it', () => {
+    expect(weightDraftToKg('176.4', 'imperial')).toBe('80.01');
+    expect(weightDraftToKg('80,5', 'metric')).toBe('80,5');
+    expect(weightDraftToKg('abc', 'imperial')).toBe('abc');
+  });
+
+  it('reports the lean mass change over the period', () => {
+    const entries: BodyMeasurement[] = [
+      { id: 1, day: '2026-11-01', weightKg: 82, bodyFatPct: 22, createdAt: 1, source: 'manual', origin: null },
+      { id: 2, day: '2026-11-20', weightKg: 80, bodyFatPct: 20, createdAt: 2, source: 'manual', origin: null },
+    ];
+    expect(computeTrend(entries, 90, '2026-11-25').changeLeanKg).toBeCloseTo(0.04, 5);
   });
 });

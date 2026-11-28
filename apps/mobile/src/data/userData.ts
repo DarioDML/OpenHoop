@@ -101,6 +101,7 @@ export interface UserData {
   officialAppMode: OfficialAppMode | null;
   cuffLog: boolean;
   pregnancyPrefs: PregnancyPrefs;
+  weightGoalKg: number | null;
 }
 
 export const DEFAULT_DASHBOARD: DashboardTile[] = ['hrv', 'restingHr', 'steps', 'respiratoryRate'];
@@ -140,6 +141,7 @@ export function defaultUserData(): UserData {
     officialAppMode: null,
     cuffLog: false,
     pregnancyPrefs: defaultPregnancyPrefs(),
+    weightGoalKg: null,
   };
 }
 
@@ -291,6 +293,7 @@ export function parseUserData(raw: string | null): UserData {
     officialAppMode: oneOf(parsed.officialAppMode, OFFICIAL_APP_MODES),
     cuffLog: parsed.cuffLog === true,
     pregnancyPrefs: parsePregnancyPrefs(parsed.pregnancyPrefs),
+    weightGoalKg: numberIn(parsed.weightGoalKg, 25, 300),
   };
 }
 
