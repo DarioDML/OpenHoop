@@ -30,9 +30,18 @@ function weightText(kg: number | null, units: Units): string {
   return kg === null ? '' : oneDecimal(weightIn(kg, units));
 }
 
-function convert(text: string, toMetric: (value: number) => number, fromMetric: (value: number) => number): string {
-  const value = parseDecimal(text);
-  return Number.isNaN(value) ? text : oneDecimal(fromMetric(toMetric(value)));
+interface TypedMeasure {
+  text: string;
+  units: Units;
+  stored: boolean;
+}
+
+type Convert = (value: number, units: Units) => number;
+
+function shownText(measure: TypedMeasure, units: Units, toMetric: Convert, fromMetric: Convert): string {
+  if (measure.units === units) return measure.text;
+  const value = parseDecimal(measure.text);
+  return Number.isNaN(value) ? measure.text : oneDecimal(fromMetric(toMetric(value, measure.units), units));
 }
 
 export default function BodyScreen() {
@@ -41,8 +50,8 @@ export default function BodyScreen() {
   const { profile, settings, userData, updateProfile, updateSettings, updateUserData } = useAppData();
   const born = birthDateParts(profile.birthDate);
   const [units, setUnits] = useState<Units>(settings.units);
-  const [height, setHeight] = useState(heightText(userData.heightCm, settings.units));
-  const [weight, setWeight] = useState(weightText(userData.weightKg, settings.units));
+  const [height, setHeight] = useState<TypedMeasure>({ text: heightText(userData.heightCm, settings.units), units: settings.units, stored: true });
+  const [weight, setWeight] = useState<TypedMeasure>({ text: weightText(userData.weightKg, settings.units), units: settings.units, stored: true });
   const [birth, setBirth] = useState<Record<BirthPart, string>>({
     day: born ? String(born.day).padStart(2, '0') : '',
     month: born ? String(born.month).padStart(2, '0') : '',
@@ -51,16 +60,17 @@ export default function BodyScreen() {
   const [maxHr, setMaxHr] = useState(profile.maxHeartRate?.toString() ?? '');
   const [sex, setSex] = useState<SexChoice>(userData.sex ?? 'none');
   const [invalid, setInvalid] = useState(false);
+  const [birthInvalid, setBirthInvalid] = useState(false);
 
   const today = todayIsoDate();
   const year = Number(today.slice(0, 4));
   const fallbackMaxHr = defaultMaxHr(birth.year, year);
   const limits = measureLimits(units);
+  const heightShown = shownText(height, units, heightToCm, heightIn);
+  const weightShown = shownText(weight, units, weightToKg, weightIn);
 
   const switchUnits = (next: Units): void => {
     if (next === units) return;
-    setHeight((text) => convert(text, (value) => heightToCm(value, units), (cm) => heightIn(cm, next)));
-    setWeight((text) => convert(text, (value) => weightToKg(value, units), (kg) => weightIn(kg, next)));
     setUnits(next);
     setInvalid(false);
     void updateSettings({ units: next });
@@ -69,16 +79,15 @@ export default function BodyScreen() {
   const next = async (): Promise<void> => {
     const birthCheck = parseBirthFields(birth.day, birth.month, birth.year, today);
     const profileCheck = checkProfile(birth.year, maxHr, year);
-    const heightCheck = checkMeasure(height, limits.height);
-    const weightCheck = checkMeasure(weight, limits.weight);
+    const heightCheck = checkMeasure(height.text, measureLimits(height.units).height);
+    const weightCheck = checkMeasure(weight.text, measureLimits(weight.units).weight);
     if (!birthCheck.ok || !profileCheck.ok || !heightCheck.ok || !weightCheck.ok) {
       setInvalid(true);
+      setBirthInvalid(!birthCheck.ok);
       return;
     }
-    const heightCm =
-      height === heightText(userData.heightCm, units) ? userData.heightCm : heightCheck.value === null ? null : Math.round(heightToCm(heightCheck.value, units) * 10) / 10;
-    const weightKg =
-      weight === weightText(userData.weightKg, units) ? userData.weightKg : weightCheck.value === null ? null : Math.round(weightToKg(weightCheck.value, units) * 100) / 100;
+    const heightCm = height.stored ? userData.heightCm : heightCheck.value === null ? null : Math.round(heightToCm(heightCheck.value, height.units) * 10) / 10;
+    const weightKg = weight.stored ? userData.weightKg : weightCheck.value === null ? null : Math.round(weightToKg(weightCheck.value, weight.units) * 100) / 100;
     try {
       await updateProfile({ birthYear: birthCheck.birthYear, birthDate: birthCheck.birthDate, maxHeartRate: profileCheck.maxHeartRate });
       if (!(await updateUserData({ heightCm, weightKg, sex: sex === 'none' ? null : sex }))) return;
@@ -90,6 +99,11 @@ export default function BodyScreen() {
 
   const touch = (setter: (value: string) => void) => (value: string) => {
     setter(value);
+    setInvalid(false);
+  };
+
+  const typed = (setter: (value: TypedMeasure) => void) => (text: string) => {
+    setter({ text, units, stored: false });
     setInvalid(false);
   };
 
@@ -110,10 +124,10 @@ export default function BodyScreen() {
       />
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Field label={t('onboarding.body.height')} suffix={heightUnit(units)} value={height} onChangeText={touch(setHeight)} keyboardType="decimal-pad" maxLength={5} testID="height-input" />
+          <Field label={t('onboarding.body.height')} suffix={heightUnit(units)} value={heightShown} onChangeText={typed(setHeight)} keyboardType="decimal-pad" maxLength={5} testID="height-input" />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Field label={t('onboarding.body.weight')} suffix={weightUnit(units)} value={weight} onChangeText={touch(setWeight)} keyboardType="decimal-pad" maxLength={5} testID="weight-input" />
+          <Field label={t('onboarding.body.weight')} suffix={weightUnit(units)} value={weightShown} onChangeText={typed(setWeight)} keyboardType="decimal-pad" maxLength={5} testID="weight-input" />
         </View>
       </View>
       <BirthDateField
@@ -124,10 +138,12 @@ export default function BodyScreen() {
         onChange={(part, value) => {
           setBirth((current) => ({ ...current, [part]: value }));
           setInvalid(false);
+          setBirthInvalid(false);
         }}
         partLabels={{ day: t('onboarding.body.birthDay'), month: t('onboarding.body.birthMonth'), year: t('onboarding.body.birthYear') }}
         placeholders={{ day: t('onboarding.body.placeholderDay'), month: t('onboarding.body.placeholderMonth'), year: t('onboarding.body.placeholderYear') }}
         hint={t('onboarding.body.birthHint')}
+        error={birthInvalid}
       />
       <View style={{ gap: 6 }}>
         <AppText variant="capSmall" muted>

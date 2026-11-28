@@ -107,6 +107,33 @@ describe('Body (A3)', () => {
     expect(screen.getByText('lb')).toBeTruthy();
   });
 
+  it('converts back from the value as typed, so a round trip does not drift', async () => {
+    const base = fixtureAppData();
+    const updateUserData = jest.fn(async () => true);
+    await render(
+      withAppData(<BodyScreen />, 'en', { updateUserData, settings: { ...base.settings, units: 'metric' }, userData: { ...base.userData, heightCm: 180, weightKg: 80 } }),
+    );
+    await fireEvent.press(screen.getByTestId('units-imperial'));
+    expect(screen.getByTestId('height-input').props.value).toBe('70.9');
+    await fireEvent.press(screen.getByTestId('units-metric'));
+    expect(screen.getByTestId('height-input').props.value).toBe('180');
+    expect(screen.getByTestId('weight-input').props.value).toBe('80');
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith(expect.objectContaining({ heightCm: 180, weightKg: 80 })));
+  });
+
+  it('keeps a freshly typed value exact through a unit round trip', async () => {
+    const base = fixtureAppData();
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<BodyScreen />, 'en', { updateUserData, settings: { ...base.settings, units: 'metric' } }));
+    await fireEvent.changeText(screen.getByTestId('height-input'), '183');
+    await fireEvent.press(screen.getByTestId('units-imperial'));
+    await fireEvent.press(screen.getByTestId('units-metric'));
+    expect(screen.getByTestId('height-input').props.value).toBe('183');
+    await fireEvent.press(screen.getByTestId('onboarding-primary'));
+    await waitFor(() => expect(updateUserData).toHaveBeenCalledWith(expect.objectContaining({ heightCm: 183 })));
+  });
+
   it('stores the full birth date, sex and measures in metric', async () => {
     const base = fixtureAppData();
     const updateProfile = jest.fn(async () => undefined);
