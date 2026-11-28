@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Linking } from 'react-native';
 
 import BodyScreen from '@/app/onboarding/body';
+import CalibrationScreen from '@/app/onboarding/calibration';
 import PairConnectedScreen from '@/app/onboarding/connected';
 import GoalsScreen from '@/app/onboarding/goals';
 import WelcomeScreen from '@/app/onboarding/index';
@@ -11,6 +12,9 @@ import OfficialAppScreen from '@/app/onboarding/official-app';
 import PairScanScreen from '@/app/onboarding/pair';
 import PermissionsScreen from '@/app/onboarding/permissions';
 import ProfileScreen from '@/app/onboarding/profile';
+import SetupScreen from '@/app/onboarding/setup';
+import WearGuideScreen from '@/app/onboarding/wear';
+import { buildSnapshot, serializeSnapshot } from '@/data/bandConfig';
 import { defaultHealthConnectState } from '@/data/healthConnectState';
 import { HC_EXPORT_TYPES } from '@/lib/healthConnectMapping';
 
@@ -306,5 +310,95 @@ describe('Pair connected (A7)', () => {
     await render(withAppData(<PairConnectedScreen />, 'en', { device: { ...base.device, lockState: 'locked' } }));
     expect(screen.getByTestId('fact-signal-missing')).toHaveTextContent('Unknown');
     expect(screen.getByTestId('connected-locked')).toBeTruthy();
+  });
+});
+
+describe('Setup (A8)', () => {
+  const freshSnapshot = (): string => serializeSnapshot(buildSnapshot(Math.floor(Date.now() / 1000) + 3_600, 'band', [{ key: 'enable_sig12', valueText: '2', valueHex: null }], []));
+
+  it('backs up the band configuration before reading history', async () => {
+    const order: string[] = [];
+    const readBandConfig = jest.fn(async () => {
+      order.push('backup');
+    });
+    const sync = jest.fn(async () => {
+      order.push('sync');
+    });
+    const base = fixtureAppData();
+    await render(withAppData(<SetupScreen />, 'en', { readBandConfig, sync, device: { ...base.device, configSnapshot: freshSnapshot() } }));
+    expect(await screen.findByTestId('setup-continue')).toBeTruthy();
+    expect(order).toEqual(['backup', 'sync']);
+    expect(screen.getByTestId('setup-step-backup').props.accessibilityState).toEqual({ busy: false, checked: true });
+    expect(screen.getByTestId('setup-step-compute').props.accessibilityState).toEqual({ busy: false, checked: true });
+    expect(screen.getByTestId('setup-firmware')).toHaveTextContent('We never update firmware. Version 50.36.2.0 is recorded with your data.');
+  });
+
+  it('says when the configuration could not be backed up and carries on', async () => {
+    await render(withAppData(<SetupScreen />, 'en', { readBandConfig: jest.fn(async () => undefined), sync: jest.fn(async () => undefined) }));
+    expect(await screen.findByTestId('setup-continue')).toBeTruthy();
+    expect(screen.getByTestId('setup-step-backup-detail')).toHaveTextContent(/Band configuration/);
+  });
+
+  it('shows the page progress and lets the sync run in the background', async () => {
+    const sync = jest.fn(() => new Promise<void>(() => undefined));
+    const syncProgress = { phase: 'transfer' as const, chunks: 3, percent: 64, daysDone: 0, daysTotal: 0, pagesRead: 6016, pagesTotal: 9400, historyDays: 20 };
+    await render(withAppData(<SetupScreen />, 'en', { sync, syncProgress }));
+    expect(await screen.findByTestId('setup-step-history-detail')).toHaveTextContent('Page 6016 of 9400 · about 20 days');
+    expect(screen.getByTestId('setup-percent')).toHaveTextContent(/64/);
+    expect(screen.getByTestId('setup-phase')).toHaveTextContent('Reading history');
+    await fireEvent.press(screen.getByTestId('setup-background'));
+    expect(router.push).toHaveBeenCalledWith('/onboarding/wear');
+  });
+
+  it('offers a retry when the sync stopped', async () => {
+    await render(withAppData(<SetupScreen />, 'en', { sync: jest.fn(async () => undefined), notice: { key: 'error.disconnected' } }));
+    expect(await screen.findByTestId('setup-retry')).toBeTruthy();
+    expect(screen.getByTestId('setup-step-history').props.accessibilityState).toEqual({ busy: false, checked: false });
+  });
+});
+
+describe('Wear guide (A9)', () => {
+  it('stores the picked wear location, with a choice of place for garments', async () => {
+    const updateUserData = jest.fn(async () => true);
+    await render(withAppData(<WearGuideScreen />, 'en', { updateUserData }));
+    expect(screen.getByTestId('onboarding-dots').props.accessibilityLabel).toBe('Your band, step 4 of 4');
+    expect(screen.queryByTestId('wear-note')).toBeNull();
+    await fireEvent.press(screen.getByTestId('wear-bicep'));
+    expect(updateUserData).toHaveBeenLastCalledWith({ wearLocation: 'bicep' });
+    expect(screen.getByTestId('wear-bicep').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByTestId('wear-note')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('wear-garment'));
+    expect(updateUserData).toHaveBeenLastCalledWith({ wearLocation: 'torso' });
+    await fireEvent.press(screen.getByTestId('wear-waist'));
+    expect(updateUserData).toHaveBeenLastCalledWith({ wearLocation: 'waist' });
+    expect(screen.getByTestId('wear-garment').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByTestId('wear-tips')).toHaveTextContent(/Keep the sensor clean and dry/);
+    await fireEvent.press(screen.getByTestId('wear-done'));
+    expect(router.push).toHaveBeenCalledWith('/onboarding/calibration');
+  });
+
+  it('shows the stored location as picked', async () => {
+    const base = fixtureAppData();
+    await render(withAppData(<WearGuideScreen />, 'en', { userData: { ...base.userData, wearLocation: 'calf' } }));
+    expect(screen.getByTestId('wear-garment').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByTestId('wear-calf').props.accessibilityState).toEqual({ selected: true });
+  });
+});
+
+describe('Calibration (A10)', () => {
+  it('marks recorded nights with a check and the rest with their number', async () => {
+    const base = fixtureAppData();
+    const withSleep = base.days.filter((day) => day.sleep.asleepS !== null);
+    await render(withAppData(<CalibrationScreen />, 'en', { days: withSleep.slice(0, 3) }));
+    expect(screen.getByTestId('night-1').props.accessibilityLabel).toBe('Night 1, recorded');
+    expect(screen.getByTestId('night-4').props.accessibilityLabel).toBe('Night 4, still to come');
+    expect(screen.getByTestId('calibration-status')).toHaveTextContent('1 more night to go');
+    expect(screen.getByTestId('milestone-3')).toHaveTextContent(/Reached/);
+    expect(screen.getByTestId('milestone-4')).not.toHaveTextContent(/Reached/);
+  });
+
+  it('says the normal range is ready after four nights', async () => {
+    await render(withAppData(<CalibrationScreen />));
+    expect(screen.getByTestId('calibration-status')).toHaveTextContent('Your normal range is ready');
   });
 });
