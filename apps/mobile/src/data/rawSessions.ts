@@ -3,7 +3,9 @@ import { Directory, File, Paths } from 'expo-file-system';
 import type { PacketEntry } from '@/ble/packetLog';
 
 const FOLDER = 'raw-sessions';
-const NAME = /^raw-session-\d{8}-\d{6}\.csv$/;
+const NAME = /^raw-(session|imu|ppg)-\d{8}-\d{6}\.csv$/;
+
+export type RawStreamFile = 'imu' | 'ppg';
 
 export interface RawSessionFile {
   name: string;
@@ -14,10 +16,16 @@ function pad(value: number): string {
   return value.toString().padStart(2, '0');
 }
 
+function stamp(at: Date): string {
+  return `${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}${pad(at.getSeconds())}`;
+}
+
 export function rawSessionName(startedAt: Date): string {
-  const date = `${startedAt.getFullYear()}${pad(startedAt.getMonth() + 1)}${pad(startedAt.getDate())}`;
-  const time = `${pad(startedAt.getHours())}${pad(startedAt.getMinutes())}${pad(startedAt.getSeconds())}`;
-  return `raw-session-${date}-${time}.csv`;
+  return `raw-session-${stamp(startedAt)}.csv`;
+}
+
+export function rawStreamName(kind: RawStreamFile, startedAt: Date): string {
+  return `raw-${kind}-${stamp(startedAt)}.csv`;
 }
 
 function csvCell(text: string): string {
@@ -39,6 +47,14 @@ export async function saveRawSession(startedAt: Date, entries: readonly PacketEn
   if (!dir.exists) dir.create({ intermediates: true });
   const file = new File(dir, rawSessionName(startedAt));
   const text = rawSessionCsv(entries);
+  await file.write(text);
+  return { name: file.name, bytes: file.size ?? text.length };
+}
+
+export async function saveRawStream(kind: RawStreamFile, startedAt: Date, text: string): Promise<RawSessionFile> {
+  const dir = folder();
+  if (!dir.exists) dir.create({ intermediates: true });
+  const file = new File(dir, rawStreamName(kind, startedAt));
   await file.write(text);
   return { name: file.name, bytes: file.size ?? text.length };
 }
