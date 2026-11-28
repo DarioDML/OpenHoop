@@ -7,7 +7,7 @@ import { Pressable, View } from 'react-native';
 
 import { RECORDING_LIMIT, packetClock, packetLog, type PacketEntry } from '@/ble/packetLog';
 import { useAppData, useLive, useRawLive } from '@/data/context';
-import { channelRole, type ChannelRole } from '@/data/opticalChannels';
+import type { ChannelRole } from '@/data/opticalChannels';
 import type { ImuTail, OpticalChannelTail } from '@/data/rawLive';
 import { deleteRawSession, listRawSessions, saveRawSession, saveRawStream, type RawSessionFile } from '@/data/rawSessions';
 import { imuCsv, opticalCsv } from '@/data/signalCsv';
@@ -210,27 +210,25 @@ function ChannelTrace({ channel }: { channel: OpticalChannelTail }) {
   const { t } = useT();
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
-  const role = channelRole({ sourceA: channel.source, driveA: channel.drive, sourceB: channel.source, driveB: channel.drive }, 'A');
-  const color = colors[CHANNEL_COLOR[role]];
-  const name = t(`dev.channel.${role}`);
+  const color = colors[CHANNEL_COLOR[channel.role]];
+  const name = t(`dev.channel.${channel.role}`);
   return (
     <View style={{ gap: 6, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }} testID={`channel-${channel.block}${channel.slot}`}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color }} />
         <Pressable accessibilityRole="button" accessibilityLabel={t('explain.whatIs', { name })} onPress={() => setOpen((v) => !v)} style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <AppText variant="label" style={{ fontWeight: '500' }}>
+          <AppText variant="label" style={{ fontWeight: '500', flexShrink: 1 }}>
             {name}
           </AppText>
           <Icon name="info" color={colors.textFaint} size={14} />
         </Pressable>
-        <View style={{ flex: 1 }} />
-        <AppText variant="caption" color={colors.textMuted} style={{ fontFamily: fonts.mono }}>
-          {channel.drive === 0 ? t('dev.channel.detailOff', { detector: channel.detector }) : t('dev.channel.detail', { led: channel.source, detector: channel.detector, drive: channel.drive })}
-        </AppText>
       </View>
+      <AppText variant="caption" color={colors.textMuted} style={{ fontFamily: fonts.mono }}>
+        {channel.drive === 0 ? t('dev.channel.detailOff', { detector: channel.detector }) : t('dev.channel.detail', { led: channel.source, detector: channel.detector, drive: channel.drive })}
+      </AppText>
       {open ? (
         <AppText variant="caption" muted testID={`channel-why-${channel.block}${channel.slot}`}>
-          {t(`dev.channel.why.${role}`)}
+          {t(`dev.channel.why.${channel.role}`)}
         </AppText>
       ) : null}
       <SignalTrace series={[{ values: channel.samples, color }]} label={name} />

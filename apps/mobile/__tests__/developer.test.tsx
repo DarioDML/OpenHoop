@@ -186,9 +186,9 @@ describe('Developer screen (M6)', () => {
         rateHz: 25,
         seconds: 42,
         channels: [
-          { block: 0, slot: 'A' as const, source: 1, detector: 3, drive: 2750, samples: fill(200_000) },
-          { block: 3, slot: 'A' as const, source: 2, detector: 3, drive: 0, samples: fill(190) },
-          { block: 4, slot: 'A' as const, source: 2, detector: 3, drive: 200, samples: fill(100_000) },
+          { block: 0, slot: 'A' as const, source: 1, detector: 3, drive: 2750, role: 'pulse' as const, samples: fill(200_000) },
+          { block: 3, slot: 'A' as const, source: 2, detector: 3, drive: 0, role: 'dark' as const, samples: fill(190) },
+          { block: 4, slot: 'A' as const, source: 2, detector: 3, drive: 200, role: 'wear' as const, samples: fill(100_000) },
         ],
       },
     };

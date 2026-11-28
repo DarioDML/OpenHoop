@@ -1,6 +1,8 @@
 import type { LiveImuSecond, LiveOpticalSecond, StreamKind } from '@openhoop/core';
 import { GYRO_INVALID } from '@openhoop/protocol';
 
+import { channelRole, type ChannelRole } from './opticalChannels';
+
 export const TAIL_SECONDS = 5;
 export const ACCEL_LSB_PER_G = 4096;
 export const GYRO_LSB_PER_DPS = 16.384;
@@ -22,6 +24,7 @@ export interface OpticalChannelTail {
   source: number;
   detector: number;
   drive: number;
+  role: ChannelRole;
   samples: number[];
 }
 
@@ -65,6 +68,7 @@ export function opticalChannels(previous: readonly OpticalChannelTail[], second:
         source: slot === 'A' ? b.sourceA : b.sourceB,
         detector: slot === 'A' ? b.detectorA : b.detectorB,
         drive: slot === 'A' ? b.driveA : b.driveB,
+        role: channelRole(b, slot),
         samples: keep(before?.samples ?? [], slot === 'A' ? b.slotA : b.slotB, limit),
       });
     }
