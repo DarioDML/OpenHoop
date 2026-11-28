@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Text, useWindowDimensions, type TextProps, type TextStyle } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, type TextProps, type TextStyle } from 'react-native';
 
-import { breaksMidWord } from './layout';
+import { breaksMidWord, fitFontSize } from './layout';
 import { fontForWeight, maxFontScale, typeScale, useTheme, type TypeVariant } from './theme';
 
 interface Props extends TextProps {
@@ -27,29 +27,40 @@ export function AppText({ variant = 'body', muted = false, soft = false, color, 
 interface WordFitProps extends Omit<Props, 'children'> {
   children: string;
   fontSize?: number;
-  minScale?: number;
+}
+
+interface Fit {
+  key: string;
+  shrink: number;
+  wrap: boolean;
 }
 
 const SHRINK_STEP = 0.9;
 
-export function WordFitText({ children, variant = 'body', fontSize, minScale = 0.7, maxFontSizeMultiplier, style, onTextLayout, ...rest }: WordFitProps) {
-  const { fontScale } = useWindowDimensions();
-  const [fit, setFit] = useState({ text: children, shrink: 1 });
-  const shrink = fit.text === children ? fit.shrink : 1;
+export function WordFitText({ children, variant = 'body', fontSize, maxFontSizeMultiplier, numberOfLines, style, onTextLayout, ...rest }: WordFitProps) {
+  const { fontScale, width } = useWindowDimensions();
+  const key = `${children}|${fontScale}|${width}`;
+  const [fit, setFit] = useState<Fit>({ key, shrink: 1, wrap: false });
+  const current: Fit = fit.key === key ? fit : { key, shrink: 1, wrap: false };
   const scale = typeScale[variant];
-  const size = fontSize ?? scale.fontSize;
-  const wanted = Math.min(Number.isFinite(fontScale) && fontScale > 0 ? fontScale : 1, maxFontSizeMultiplier ?? maxFontScale[variant]);
-  const multiplier = Math.max(minScale, wanted * shrink);
-  const sized: TextStyle = { fontSize: size * multiplier, lineHeight: Math.round((scale.lineHeight / scale.fontSize) * size * multiplier) };
+  const styled = StyleSheet.flatten(style)?.fontSize;
+  const base = fontSize ?? (typeof styled === 'number' ? styled : scale.fontSize);
+  const cap = maxFontSizeMultiplier ?? maxFontScale[variant];
+  const size = fitFontSize(base, fontScale, cap, current.shrink);
+  const atFloor = size <= fitFontSize(base, fontScale, cap, 0);
+  const sized: TextStyle = { fontSize: size, lineHeight: Math.round((scale.lineHeight / scale.fontSize) * size) };
   return (
     <AppText
       variant={variant}
       allowFontScaling={false}
+      numberOfLines={current.wrap ? undefined : numberOfLines}
+      android_hyphenationFrequency={current.wrap ? 'normal' : 'none'}
       {...rest}
       style={[style, sized]}
       onTextLayout={(event) => {
         onTextLayout?.(event);
-        if (multiplier > minScale && breaksMidWord(event.nativeEvent.lines.map((line) => line.text))) setFit({ text: children, shrink: shrink * SHRINK_STEP });
+        if (current.wrap || !breaksMidWord(children, event.nativeEvent.lines.map((line) => line.text))) return;
+        setFit(atFloor ? { key, shrink: current.shrink, wrap: true } : { key, shrink: current.shrink * SHRINK_STEP, wrap: false });
       }}>
       {children}
     </AppText>

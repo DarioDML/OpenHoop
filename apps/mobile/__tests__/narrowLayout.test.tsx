@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
 import { Chip } from '@/ui/Chip';
 import { ListRow } from '@/ui/ListGroup';
 import { SHEET_MAX_HEIGHT } from '@/ui/SheetScreen';
-import { ACTION_LABEL_MAX_SCALE } from '@/ui/Tiles';
 
 import { withAppData } from './support/appData';
 
@@ -114,7 +113,7 @@ describe('bottom sheets at S24 size', () => {
     const label = screen.getByTestId('action-symptoms-label');
     expect(label.props.numberOfLines).toBe(2);
     expect(label.props.allowFontScaling).toBe(false);
-    expect(label).toHaveStyle({ fontSize: 13 * ACTION_LABEL_MAX_SCALE });
+    expect(label).toHaveStyle({ fontSize: 13 * 1.3 });
   });
 
   it('draws the safety lock as a sheet with its buttons before the notes', async () => {

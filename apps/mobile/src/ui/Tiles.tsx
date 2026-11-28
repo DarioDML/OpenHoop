@@ -23,8 +23,6 @@ function TileBadge({ label, color, background }: BadgeProps): ReactElement {
   );
 }
 
-export const ACTION_LABEL_MAX_SCALE = 1.2;
-
 interface ActionTileProps {
   icon: IconName;
   iconColor: string;
@@ -65,7 +63,7 @@ export function ActionTile({ icon, iconColor, label, href, onPress, background, 
         opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
       })}>
       <Icon name={icon} color={iconColor} size={large ? 24 : 22} />
-      <WordFitText variant={large ? 'bodyStrong' : 'label'} numberOfLines={2} maxFontSizeMultiplier={ACTION_LABEL_MAX_SCALE} style={{ fontWeight: '600' }} testID={testID === undefined ? undefined : `${testID}-label`}>
+      <WordFitText variant={large ? 'bodyStrong' : 'label'} numberOfLines={2} style={{ fontWeight: '600' }} testID={testID === undefined ? undefined : `${testID}-label`}>
         {label}
       </WordFitText>
       {badge === undefined ? null : <TileBadge {...badge} />}

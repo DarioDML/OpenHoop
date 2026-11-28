@@ -33,8 +33,29 @@ export function heroRingSize(layout: Layout, columns = 3, gap = 8, max = 104): n
   return Math.max(72, Math.min(max, Math.floor(available / columns) - 4));
 }
 
-export function breaksMidWord(lines: readonly string[]): boolean {
-  return lines.slice(0, -1).some((line, i) => /[\p{L}\p{N}]$/u.test(line) && /^[\p{L}\p{N}]/u.test(lines[i + 1] ?? ''));
+const WORD_CHAR = /[\p{L}\p{N}]/u;
+
+export function breaksMidWord(text: string, lines: readonly string[]): boolean {
+  const source = text.toLowerCase();
+  let cursor = 0;
+  for (const line of lines.slice(0, -1)) {
+    while (cursor < source.length && /\s/u.test(source[cursor] ?? '')) cursor += 1;
+    const content = line.trim().toLowerCase();
+    if (content === '') continue;
+    if (!source.startsWith(content, cursor)) return false;
+    cursor += content.length;
+    if (WORD_CHAR.test(source[cursor - 1] ?? '') && WORD_CHAR.test(source[cursor] ?? '')) return true;
+  }
+  return false;
+}
+
+export const MIN_FIT_TEXT_DP = 11;
+
+export function fitFontSize(base: number, fontScale: number, cap: number, shrink: number): number {
+  const scale = Number.isFinite(fontScale) && fontScale > 0 ? fontScale : 1;
+  const wanted = base * (cap > 0 ? Math.min(scale, cap) : scale);
+  const floor = Math.min(wanted, Math.max(base, MIN_FIT_TEXT_DP));
+  return Math.max(floor, wanted * shrink);
 }
 
 export function fitArt(available: number | null, fallback: number, min: number, max: number): number {
