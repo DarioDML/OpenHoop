@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { AccessibilityInfo, Animated } from 'react-native';
 import type { ReactNode } from 'react';
 
 import type { JournalAnswer } from '@/data/userData';
@@ -27,6 +28,7 @@ import MetricsScreen from '@/app/health/metrics';
 import BodyAgeScreen from '@/app/health/body-age';
 import VitalsScreen from '@/app/health/vitals';
 import BreathingScreen from '@/app/health/breathing';
+import { blobPath } from '@/ui/health/BreathBlob';
 import HealthTab from '@/app/(tabs)/health';
 import JournalScreen from '@/app/journal/index';
 import JournalInsightsScreen from '@/app/journal/insights';
@@ -169,6 +171,34 @@ describe('health screens', () => {
     expect(screen.getByTestId('needs-mg')).toBeTruthy();
     expect(screen.getByTestId('ecg-start').props.accessibilityState.disabled).toBe(true);
     expect(screen.getByTestId('mg-disclaimer')).toBeTruthy();
+  });
+
+  it('spells out the breathing pattern under the blob', async () => {
+    await render(withAppData(<BreathingScreen />));
+    expect(screen.getByTestId('breath-blob')).toBeTruthy();
+    expect(screen.getByTestId('breath-steps')).toHaveTextContent('4 seconds in · 6 seconds out');
+    expect(blobPath(100, 0.1)).toMatch(/^M.*Z$/);
+  });
+
+  it('animates the blob towards the breath', async () => {
+    const timing = jest.spyOn(Animated, 'timing');
+    await render(withAppData(<BreathingScreen />));
+    await fireEvent.press(screen.getByTestId('breath-start'));
+    expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ toValue: 1 }));
+    await fireEvent.press(screen.getByTestId('breath-stop'));
+    timing.mockRestore();
+  });
+
+  it('holds the blob still when reduce motion is on', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValueOnce(true);
+    const timing = jest.spyOn(Animated, 'timing');
+    await render(withAppData(<BreathingScreen />));
+    await act(async () => undefined);
+    timing.mockClear();
+    await fireEvent.press(screen.getByTestId('breath-start'));
+    expect(timing).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('breath-stop'));
+    timing.mockRestore();
   });
 
   it('renders the breathing timer and starts a session', async () => {

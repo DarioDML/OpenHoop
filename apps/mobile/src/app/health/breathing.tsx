@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useLive } from '@/data/context';
-import { BREATH_PATTERNS, breathPositionAt, type BreathPatternId, type BreathPhase } from '@/data/healthDerived';
+import { BREATH_PATTERNS, breathPositionAt, type BreathPattern, type BreathPatternId, type BreathPhase } from '@/data/healthDerived';
 import type { TranslationKey } from '@/i18n';
+import type { TFunction } from '@/i18n/useT';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Button, Segmented } from '@/ui/controls';
-import { Card } from '@/ui/Card';
+import { BLOB_MIN, BreathBlob } from '@/ui/health/BreathBlob';
 import { HealthPage } from '@/ui/health/HealthPage';
+import { useLayout } from '@/ui/layout';
 import { Num } from '@/ui/Num';
 import { spacing, useTheme } from '@/ui/theme';
 
@@ -19,6 +21,13 @@ const PHASE_LABEL: Record<BreathPhase, TranslationKey> = {
   holdOut: 'health.breathing.hold',
 };
 
+const STEP_LABEL: Record<BreathPhase, TranslationKey> = {
+  inhale: 'health.breathing.step.in',
+  holdIn: 'health.breathing.step.hold',
+  exhale: 'health.breathing.step.out',
+  holdOut: 'health.breathing.step.hold',
+};
+
 const PATTERN_LABEL: Record<BreathPatternId, TranslationKey> = {
   calm: 'health.breathing.pattern.calm',
   box: 'health.breathing.pattern.box',
@@ -26,17 +35,18 @@ const PATTERN_LABEL: Record<BreathPatternId, TranslationKey> = {
 };
 
 const TICK_MS = 200;
-const MIN_SCALE = 0.55;
 
-function targetScale(phase: BreathPhase): number | null {
-  if (phase === 'inhale') return 1;
-  if (phase === 'exhale') return MIN_SCALE;
-  return null;
+function targetScale(phase: BreathPhase | null): number {
+  return phase === 'inhale' || phase === 'holdIn' ? 1 : BLOB_MIN;
 }
 
 function clock(totalSeconds: number): string {
   const s = Math.max(0, Math.ceil(totalSeconds));
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+}
+
+function patternLine(pattern: BreathPattern, t: TFunction): string {
+  return pattern.steps.map((step) => t(STEP_LABEL[step.phase], { n: step.seconds })).join(' · ');
 }
 
 const DURATIONS = ['1', '3', '5'] as const;
@@ -45,6 +55,7 @@ type DurationKey = (typeof DURATIONS)[number];
 export default function BreathingScreen() {
   const { t } = useT();
   const { colors } = useTheme();
+  const { width, gutter } = useLayout();
   const live = useLive();
   const [patternId, setPatternId] = useState<BreathPatternId>('calm');
   const [minutes, setMinutes] = useState<DurationKey>('3');
@@ -52,24 +63,19 @@ export default function BreathingScreen() {
   const [finished, setFinished] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const startedAt = useRef(0);
-  const scale = useRef(new Animated.Value(MIN_SCALE)).current;
 
   const pattern = BREATH_PATTERNS.find((p) => p.id === patternId) ?? BREATH_PATTERNS[0];
   const totalS = Number(minutes) * 60;
   const position = pattern ? breathPositionAt(pattern, elapsed) : null;
   const phase = running && position ? position.phase : null;
-  const phaseSeconds = position?.phaseSeconds ?? 0;
+  const target = targetScale(phase);
+  const blobSize = Math.min(300, width - gutter * 2 - 48);
 
-  const stop = useCallback(
-    (done: boolean) => {
-      setRunning(false);
-      setFinished(done);
-      setElapsed(0);
-      scale.stopAnimation();
-      Animated.timing(scale, { toValue: MIN_SCALE, duration: 400, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-    },
-    [scale],
-  );
+  const stop = useCallback((done: boolean) => {
+    setRunning(false);
+    setFinished(done);
+    setElapsed(0);
+  }, []);
 
   useEffect(() => {
     if (!running) return;
@@ -85,14 +91,6 @@ export default function BreathingScreen() {
     return () => clearInterval(id);
   }, [running, totalS, stop]);
 
-  useEffect(() => {
-    if (phase === null) return;
-    const to = targetScale(phase);
-    if (to === null) return;
-    scale.stopAnimation();
-    Animated.timing(scale, { toValue: to, duration: phaseSeconds * 1000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }).start();
-  }, [phase, phaseSeconds, scale]);
-
   const start = (): void => {
     startedAt.current = Date.now();
     setElapsed(0);
@@ -100,63 +98,50 @@ export default function BreathingScreen() {
     setRunning(true);
   };
 
-  const patternText = pattern
-    ? pattern.steps.map((step) => `${t(PHASE_LABEL[step.phase])} ${step.seconds}`).join(' · ')
-    : '';
-
   return (
-    <HealthPage title={t('health.breathing.title')} testID="health-breathing" tint="recovery">
-      <Card style={{ alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.xxl }}>
-        <View style={{ width: 240, height: 240, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View
-            style={{
-              position: 'absolute',
-              width: 240,
-              height: 240,
-              borderRadius: 120,
-              backgroundColor: colors.accentSoft,
-              borderWidth: 2,
-              borderColor: colors.accent,
-              transform: [{ scale }],
-            }}
-          />
-          <AppText variant="h2" testID="breath-phase" accessibilityLiveRegion="polite">
+    <HealthPage
+      title={t('health.breathing.title')}
+      testID="health-breathing"
+      tint="load"
+      footer={running ? <Button label={t('health.breathing.end')} variant="secondary" onPress={() => stop(false)} testID="breath-stop" /> : undefined}>
+      <View style={{ alignItems: 'center', gap: spacing.lg, paddingTop: spacing.md }}>
+        <BreathBlob size={blobSize} target={target} durationMs={phase === null ? 600 : (position?.phaseSeconds ?? 0) * 1000} testID="breath-blob" />
+        <View style={{ alignItems: 'center', gap: spacing.xs }}>
+          <AppText variant="h2" testID="breath-phase" accessibilityLiveRegion="polite" style={{ textTransform: 'uppercase', letterSpacing: 2, fontSize: 22 }}>
             {running && position ? t(PHASE_LABEL[position.phase]) : finished ? t('health.breathing.done') : t('health.breathing.ready')}
           </AppText>
+          <AppText variant="body" muted style={{ textAlign: 'center' }} testID="breath-steps">
+            {pattern ? patternLine(pattern, t) : ''}
+          </AppText>
           {running && position ? (
-            <Num size={32} testID="breath-count">
+            <Num size={28} color={colors.textSoft} testID="breath-count">
               {Math.ceil(position.secondsLeft)}
             </Num>
           ) : null}
         </View>
-        <AppText variant="label" muted style={{ textAlign: 'center' }}>
-          {patternText}
-        </AppText>
-        <View style={{ flexDirection: 'row', gap: spacing.xl }}>
-          <View style={{ alignItems: 'center', gap: 2 }}>
-            <AppText variant="capSmall" muted>
-              {t('health.breathing.timeLeft')}
-            </AppText>
-            <Num size={32} testID="breath-left">
-              {clock(running ? totalS - elapsed : totalS)}
-            </Num>
-          </View>
-          {live.heartRate !== null ? (
+        <View style={{ flexDirection: 'row', gap: spacing.xxl, justifyContent: 'center' }}>
+          {live.active && live.heartRate !== null ? (
             <View style={{ alignItems: 'center', gap: 2 }}>
               <AppText variant="capSmall" muted>
                 {t('metric.heartRate')}
               </AppText>
-              <Num size={32} unit={t('unit.bpm')} testID="breath-hr">
+              <Num size={40} unit={t('unit.bpm')} unitSize={16} unitColor={colors.textMuted} testID="breath-hr">
                 {live.heartRate}
               </Num>
             </View>
           ) : null}
+          <View style={{ alignItems: 'center', gap: 2 }}>
+            <AppText variant="capSmall" muted>
+              {t('health.breathing.timeLeft')}
+            </AppText>
+            <Num size={40} testID="breath-left">
+              {clock(running ? totalS - elapsed : totalS)}
+            </Num>
+          </View>
         </View>
-      </Card>
+      </View>
 
-      {running ? (
-        <Button label={t('health.breathing.end')} variant="secondary" onPress={() => stop(false)} testID="breath-stop" />
-      ) : (
+      {running ? null : (
         <>
           <AppText variant="capLarge" muted>
             {t('health.breathing.pattern')}
