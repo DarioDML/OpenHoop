@@ -1,7 +1,7 @@
 import type { BodyMeasurement, DayRecord, LabResult } from '@openhoop/core';
 
 import { createFixtureDays } from '@/data/fixtureSource';
-import { REPORT_SECTIONS, buildReport, parseReportPeriod, periodDates, trendOf, type ReportInput, type ReportModel, type ReportRow } from '@/data/healthReport';
+import { DEFAULT_REPORT_SECTIONS, REPORT_SECTIONS, buildReport, checkCustomRange, localDay, parseReportPeriod, periodDates, reportStats, trendOf, type ReportInput, type ReportModel, type ReportRow } from '@/data/healthReport';
 import { escapeHtml, renderReportHtml, sparklineSvg } from '@/data/healthReportHtml';
 import type { Language } from '@/data/types';
 import { defaultUserData } from '@/data/userData';
@@ -294,5 +294,63 @@ describe('renderReportHtml', () => {
     expect(out).toContain('Outside your report&#39;s range');
     expect(out).toContain('Your note: after holiday');
     expect(out).toContain('ships no reference ranges');
+  });
+});
+
+describe('custom period, ECG and cycle sections', () => {
+  it('checks a custom range against today and the maximum length', () => {
+    expect(checkCustomRange('2026-11-01', '2026-11-10', '2026-11-25')).toEqual({ ok: true, range: { from: '2026-11-01', to: '2026-11-10' }, days: 10 });
+    expect(checkCustomRange('2026-11-10', '2026-11-01', '2026-11-25')).toEqual({ ok: false, invalid: ['from'] });
+    expect(checkCustomRange('2026-11-01', '2026-12-01', '2026-11-25')).toEqual({ ok: false, invalid: ['to'] });
+    expect(checkCustomRange('2026-02-30', 'soon', '2026-11-25')).toEqual({ ok: false, invalid: ['from', 'to'] });
+    expect(checkCustomRange('2024-01-01', '2026-11-25', '2026-11-25')).toEqual({ ok: false, invalid: ['from'] });
+  });
+
+  it('builds the report over the custom days', () => {
+    const model = buildReport(input({ custom: { from: '2026-11-11', to: '2026-11-20' } }));
+    expect(model.from).toBe('2026-11-11');
+    expect(model.to).toBe('2026-11-20');
+    expect(model.period).toBe(10);
+    expect(row(model, 'hrv').totalDays).toBe(10);
+  });
+
+  it('lists ECG recordings in the period and never gives a verdict', () => {
+    const t = Date.UTC(2026, 10, 20, 9, 30) / 1000;
+    const recordings = [
+      { id: 1, deviceId: 1, t, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: 'right' as const },
+      { id: 2, deviceId: 1, t: Date.UTC(2025, 0, 1) / 1000, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: null },
+    ];
+    const model = buildReport(input({ sections: ['ecg'], ecgRecordings: recordings }));
+    expect(model.sections[0]?.ecg.map((e) => e.id)).toEqual([1]);
+    const out = html(model);
+    expect(out).toContain('band on right wrist');
+    expect(out).toContain('no rhythm verdict');
+    expect(reportStats(model)).toEqual([{ id: 'ecg', row: null, count: 1 }]);
+  });
+
+  it('summarises logged cycles only when chosen', () => {
+    const periods = [
+      { id: 1, startDay: '2026-09-15', endDay: '2026-09-19', flow: 2 as const, createdAt: 1 },
+      { id: 2, startDay: '2026-10-13', endDay: '2026-10-17', flow: 2 as const, createdAt: 2 },
+      { id: 3, startDay: '2026-11-10', endDay: '2026-11-14', flow: 2 as const, createdAt: 3 },
+    ];
+    const model = buildReport(input({ sections: ['cycle'], periods }));
+    expect(model.sections[0]?.cycle).toMatchObject({ startsInPeriod: ['2026-11-10'], averageCycleDays: 28, cyclesUsed: 2, lastStartDay: '2026-11-10' });
+    expect(html(model)).toContain('Average cycle: 28.0 days (from 2 cycles)');
+    expect(DEFAULT_REPORT_SECTIONS).not.toContain('cycle');
+    expect(DEFAULT_REPORT_SECTIONS).not.toContain('ecg');
+  });
+
+  it('puts a recording at 00:30 local time on that local day', () => {
+    const t = new Date(2026, 10, 11, 0, 30).getTime() / 1000;
+    const recording = { id: 9, deviceId: 1, t, durationMs: 30_000, sampleCount: 3840, rateHz: 128, wrist: null };
+    const model = buildReport(input({ sections: ['ecg'], ecgRecordings: [recording], custom: { from: '2026-11-11', to: '2026-11-11' } }));
+    expect(model.sections[0]?.ecg.map((e) => e.id)).toEqual([9]);
+    expect(localDay(t)).toBe('2026-11-11');
+  });
+
+  it('adds steps and zone minutes under activity', () => {
+    const model = buildReport(input({ sections: ['activity'] }));
+    expect(model.sections[0]?.rows.map((r) => r.id)).toEqual(['steps', 'zoneMinutes']);
   });
 });

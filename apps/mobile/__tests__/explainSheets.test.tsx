@@ -99,3 +99,25 @@ describe('explain sheets', () => {
     expect(screen.queryByTestId('why-sheet')).toBeNull();
   });
 });
+
+describe('sheet layout from N3 and N4', () => {
+  it('puts the value beside its label, the level beside the method and closes from the round button', async () => {
+    await render(wrap(<Open mode="about" target={hrv} />));
+    await fireEvent.press(screen.getByTestId('open'));
+    const shown = within(screen.getByTestId('about-shown'));
+    expect(shown.getByText('Your night')).toBeTruthy();
+    expect(shown.getByText('46')).toBeTruthy();
+    expect(within(screen.getByTestId('about-level')).getByText('Level B')).toBeTruthy();
+    expect(screen.getByTestId('about-coach')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('about-sheet-close'));
+    expect(screen.queryByTestId('about-sheet')).toBeNull();
+  });
+
+  it('closes the why sheet from its round button too', async () => {
+    await render(wrap(<Open mode="why" target={{ term: 'skinTempChange', index: 0, shown: { value: null, unit: null, reason: 'needs-history' } }} />));
+    await fireEvent.press(screen.getByTestId('open'));
+    expect(screen.getByTestId('why-sheet')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('why-sheet-close'));
+    expect(screen.queryByTestId('why-sheet')).toBeNull();
+  });
+});

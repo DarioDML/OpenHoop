@@ -5,7 +5,7 @@ import { stressLevel } from '@openhoop/analytics';
 import type { DayRecord } from '@openhoop/core';
 
 import { createFixtureDays } from '@/data/fixtureSource';
-import { latestStressDayIndex, latestStressScore, stressForDay, stressTimeline } from '@/data/stressDerived';
+import { STRESS_HOURS, latestStressDayIndex, latestStressScore, stressForDay, stressHours, stressTimeline } from '@/data/stressDerived';
 import { defaultUserData } from '@/data/userData';
 import { formatClock, formatNumber, formatShortDay } from '@/lib/format';
 
@@ -165,5 +165,36 @@ describe('metric list', () => {
   it('lists the latest stress score with level C', async () => {
     await render(withAppData(<MetricsScreen />));
     expect(screen.getByTestId('metric-stress')).toHaveTextContent(`StressHow far your heart rate and HRV drift from your calm level while you are awake and still.${formatNumber(latestStressScore(days) ?? 0, 1, 'en')}C`);
+  });
+});
+
+describe('stress hours and gauge', () => {
+  it('averages the windows of each of the last 12 local hours', () => {
+    const tz = 3600;
+    const end = Date.UTC(2026, 10, 25, 8, 52) / 1000;
+    const windows = [
+      { t: end - 600, score: 0.5, hr: 70, rmssd: 40 },
+      { t: end - 300, score: 1.5, hr: 70, rmssd: 40 },
+      { t: end - 3 * 3600, score: 2.5, hr: 70, rmssd: 40 },
+      { t: end - 30 * 3600, score: 2.9, hr: 70, rmssd: 40 },
+    ];
+    const hours = stressHours(windows, end, tz);
+    expect(hours).toHaveLength(STRESS_HOURS);
+    const lastHour = hours[hours.length - 1];
+    expect(lastHour?.score).toBeCloseTo(1, 9);
+    expect(lastHour?.level).toBe('medium');
+    expect(hours.filter((h) => h.score !== null)).toHaveLength(2);
+    expect(((lastHour?.start ?? 0) + tz) % 3600).toBe(0);
+  });
+
+  it('draws the gauge, the hour bars and a breathing link', async () => {
+    await render(withAppData(<StressScreen />));
+    expect(screen.getByTestId('stress-gauge')).toBeTruthy();
+    expect(screen.getByTestId('stress-score')).toHaveTextContent(formatNumber(stressForDay(last).latest?.score ?? 0, 1, 'en'));
+    expect(screen.getByTestId('stress-hours')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('stress-breathing'));
+    expect(mockPush).toHaveBeenCalledWith('/health/breathing');
+    await fireEvent.press(screen.getByTestId('stress-about'));
+    expect(screen.getByTestId('about-sheet')).toBeTruthy();
   });
 });

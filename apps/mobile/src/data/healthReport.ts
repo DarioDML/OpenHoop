@@ -1,8 +1,11 @@
-import type { BodyMeasurement, DayRecord, LabResult } from '@openhoop/core';
+import type { BodyMeasurement, DayRecord, EcgSummary, LabResult, PeriodEntry } from '@openhoop/core';
+import type { Wrist } from '@openhoop/protocol';
 
 import type { TranslationKey } from '@/i18n';
+import { todayIso } from '@/lib/format';
 
 import { sortMeasurements } from './bodyComposition';
+import { computeCycleStats, daysBetween } from './cycle';
 import { addDays, mean, stdev, visibleReadiness } from './derived';
 import { caloriesForDay } from './energyDerived';
 import { buildHistory, groupKey, parseBiomarkerKey, rangeStatus, resultsFor, sortResults, type BiomarkerRef, type RangeStatus } from './labs';
@@ -16,8 +19,38 @@ export function parseReportPeriod(value: string): ReportPeriod {
   return REPORT_PERIODS.find((period) => `${period}` === value) ?? 30;
 }
 
-export const REPORT_SECTIONS = ['scores', 'sleep', 'vitals', 'energy', 'body', 'labs'] as const;
+export const REPORT_SECTIONS = ['scores', 'sleep', 'vitals', 'energy', 'body', 'labs', 'activity', 'ecg', 'cycle'] as const;
 export type ReportSectionId = (typeof REPORT_SECTIONS)[number];
+export const DEFAULT_REPORT_SECTIONS: readonly ReportSectionId[] = REPORT_SECTIONS.filter((id) => id !== 'cycle' && id !== 'ecg');
+export const CHIP_ORDER: readonly ReportSectionId[] = ['vitals', 'sleep', 'activity', 'ecg', 'cycle', 'scores', 'energy', 'body', 'labs'];
+
+export const CUSTOM_MAX_DAYS = 366;
+
+export interface ReportRange {
+  from: string;
+  to: string;
+}
+
+export type RangeField = 'from' | 'to';
+export type RangeCheck = { ok: true; range: ReportRange; days: number } | { ok: false; invalid: RangeField[] };
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function isIsoDay(text: string): boolean {
+  if (!ISO_DAY.test(text)) return false;
+  const date = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text;
+}
+
+export function checkCustomRange(from: string, to: string, today: string): RangeCheck {
+  const invalid: RangeField[] = [];
+  if (!isIsoDay(from)) invalid.push('from');
+  if (!isIsoDay(to) || to > today) invalid.push('to');
+  if (invalid.length > 0) return { ok: false, invalid };
+  const days = daysBetween(from, to) + 1;
+  if (days < 1 || days > CUSTOM_MAX_DAYS) return { ok: false, invalid: ['from'] };
+  return { ok: true, range: { from, to }, days };
+}
 
 export type ReportValueKind = 'number' | 'duration';
 export type TrendDirection = 'up' | 'down' | 'flat';
@@ -69,14 +102,31 @@ export interface ReportLab {
   latest: ReportLabLatest;
 }
 
+export interface ReportEcg {
+  id: number;
+  t: number;
+  durationS: number;
+  wrist: Wrist | null;
+}
+
+export interface ReportCycle {
+  startsInPeriod: string[];
+  averageCycleDays: number | null;
+  averagePeriodDays: number | null;
+  cyclesUsed: number;
+  lastStartDay: string | null;
+}
+
 export interface ReportSection {
   id: ReportSectionId;
   rows: ReportRow[];
   labs: ReportLab[];
+  ecg: ReportEcg[];
+  cycle: ReportCycle | null;
 }
 
 export interface ReportModel {
-  period: ReportPeriod;
+  period: number;
   from: string;
   to: string;
   generatedOn: string;
@@ -94,6 +144,9 @@ export interface ReportInput {
   sections: readonly ReportSectionId[];
   includeName: boolean;
   today: string;
+  custom?: ReportRange | null;
+  ecgRecordings?: readonly EcgSummary[];
+  periods?: readonly PeriodEntry[];
 }
 
 interface Reading {
@@ -103,7 +156,7 @@ interface Reading {
 
 interface MetricSpec {
   id: string;
-  section: Exclude<ReportSectionId, 'body' | 'labs'>;
+  section: Exclude<ReportSectionId, 'body' | 'labs' | 'ecg' | 'cycle'>;
   labelKey: TranslationKey;
   level: ParityLevel;
   kind: ReportValueKind;
@@ -151,6 +204,17 @@ const METRICS: readonly MetricSpec[] = [
     signed: true,
     read: (d) => d.skinTempDeviationC,
   },
+  { id: 'steps', section: 'activity', labelKey: 'metric.steps', level: 'A', kind: 'number', decimals: 0, unitKey: null, read: (d) => ({ value: d.steps, reason: d.steps === null ? 'no-data' : null }) },
+  {
+    id: 'zoneMinutes',
+    section: 'activity',
+    labelKey: 'health.report.metric.zoneMinutes',
+    level: 'B',
+    kind: 'number',
+    decimals: 0,
+    unitKey: 'health.pillar.unitMin',
+    read: (d) => (d.heartRate.avg === null ? { value: null, reason: 'no-data' } : { value: d.zoneSeconds.slice(1).reduce((sum, sec) => sum + sec, 0) / 60, reason: null }),
+  },
   {
     id: 'calories',
     section: 'energy',
@@ -166,8 +230,36 @@ const METRICS: readonly MetricSpec[] = [
   },
 ];
 
-export function periodDates(to: string, period: ReportPeriod): string[] {
+export function periodDates(to: string, period: number): string[] {
   return Array.from({ length: period }, (_, i) => addDays(to, i - period + 1));
+}
+
+export function localDay(t: number): string {
+  return todayIso(new Date(t * 1000));
+}
+
+function ecgFor(recordings: readonly EcgSummary[], from: string, to: string, dayOf: (t: number) => string): ReportEcg[] {
+  return recordings
+    .filter((rec) => {
+      const day = dayOf(rec.t);
+      return day >= from && day <= to;
+    })
+    .sort((a, b) => a.t - b.t)
+    .map((rec) => ({ id: rec.id, t: rec.t, durationS: Math.round(rec.durationMs / 1000), wrist: rec.wrist }));
+}
+
+function cycleFor(periods: readonly PeriodEntry[], from: string, to: string): ReportCycle {
+  const stats = computeCycleStats(periods.filter((p) => p.startDay <= to));
+  return {
+    startsInPeriod: periods
+      .filter((p) => p.startDay >= from && p.startDay <= to)
+      .map((p) => p.startDay)
+      .sort(),
+    averageCycleDays: stats.averageCycleDays,
+    averagePeriodDays: stats.averagePeriodDays,
+    cyclesUsed: stats.cycleCount,
+    lastStartDay: stats.lastStartDay,
+  };
 }
 
 export function trendOf(values: ReadonlyArray<number | null>): TrendDirection | null {
@@ -292,27 +384,61 @@ function labsFor(results: readonly LabResult[], from: string, to: string): Repor
   return labs;
 }
 
-export function buildReport(input: ReportInput): ReportModel {
-  const dates = periodDates(input.today, input.period);
-  const from = dates[0] ?? input.today;
+export function buildReport(input: ReportInput, ecgDay: (t: number) => string = localDay): ReportModel {
+  const to = input.custom?.to ?? input.today;
+  const length = input.custom ? daysBetween(input.custom.from, input.custom.to) + 1 : input.period;
+  const dates = periodDates(to, length);
+  const from = dates[0] ?? to;
   const byDay = new Map(input.days.map((day) => [day.day, day]));
   const sections: ReportSection[] = [];
   for (const id of REPORT_SECTIONS) {
     if (!input.sections.includes(id)) continue;
+    const base: ReportSection = { id, rows: [], labs: [], ecg: [], cycle: null };
     if (id === 'labs') {
-      sections.push({ id, rows: [], labs: labsFor(input.labResults, from, input.today) });
+      sections.push({ ...base, labs: labsFor(input.labResults, from, to) });
     } else if (id === 'body') {
-      sections.push({ id, rows: bodyRows(dates, input.bodyMeasurements), labs: [] });
+      sections.push({ ...base, rows: bodyRows(dates, input.bodyMeasurements) });
+    } else if (id === 'ecg') {
+      sections.push({ ...base, ecg: ecgFor(input.ecgRecordings ?? [], from, to, ecgDay) });
+    } else if (id === 'cycle') {
+      sections.push({ ...base, cycle: cycleFor(input.periods ?? [], from, to) });
     } else {
-      sections.push({ id, rows: METRICS.filter((spec) => spec.section === id).map((spec) => metricRow(spec, dates, byDay, input)), labs: [] });
+      sections.push({ ...base, rows: METRICS.filter((spec) => spec.section === id).map((spec) => metricRow(spec, dates, byDay, input)) });
     }
   }
   return {
-    period: input.period,
+    period: dates.length,
     from,
-    to: input.today,
+    to,
     generatedOn: input.today,
     name: input.includeName ? input.userData.name : null,
     sections,
   };
+}
+
+export type ReportStatId = 'rhr' | 'hrv' | 'resp' | 'spo2' | 'asleep' | 'ecg';
+
+export interface ReportStat {
+  id: ReportStatId;
+  row: ReportRow | null;
+  count: number | null;
+}
+
+const STAT_ROWS: ReadonlyArray<{ id: Exclude<ReportStatId, 'ecg'>; section: ReportSectionId }> = [
+  { id: 'rhr', section: 'vitals' },
+  { id: 'hrv', section: 'vitals' },
+  { id: 'resp', section: 'vitals' },
+  { id: 'spo2', section: 'vitals' },
+  { id: 'asleep', section: 'sleep' },
+];
+
+export function reportStats(model: ReportModel): ReportStat[] {
+  const stats: ReportStat[] = [];
+  for (const { id, section } of STAT_ROWS) {
+    const row = model.sections.find((s) => s.id === section)?.rows.find((r) => r.id === id);
+    if (row !== undefined) stats.push({ id, row, count: null });
+  }
+  const ecg = model.sections.find((s) => s.id === 'ecg');
+  if (ecg !== undefined) stats.push({ id: 'ecg', row: null, count: ecg.ecg.length });
+  return stats;
 }

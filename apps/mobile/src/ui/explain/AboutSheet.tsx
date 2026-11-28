@@ -10,6 +10,7 @@ import { TERMS, termFull, type TermId } from '@/data/terms';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
+import { useLayout } from '@/ui/layout';
 import { Num } from '@/ui/Num';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { Sheet } from '@/ui/Sheet';
@@ -29,6 +30,7 @@ const RANGE_TERMS: readonly TermId[] = ['hrv', 'restingHr', 'respiratoryRate', '
 
 export function AboutSheet({ target, missing, onClose }: Props): ReactElement {
   const { t, language } = useT();
+  const { narrow } = useLayout();
   const { days } = useAppData();
   const spec = TERMS[target.term];
   const { shown } = target;
@@ -47,25 +49,26 @@ export function AboutSheet({ target, missing, onClose }: Props): ReactElement {
         {t(spec.body)}
       </AppText>
       {shown === null ? null : (
-        <Card style={{ gap: spacing.sm }}>
-          <AppText variant="capSmall" muted>
-            {label}
-          </AppText>
-          {shown.value !== null ? (
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs }}>
-              <Num size={30}>{shown.value}</Num>
-              {shown.unit === null ? null : (
-                <AppText variant="body" muted>
-                  {shown.unit}
-                </AppText>
-              )}
-            </View>
-          ) : missing === null ? null : (
-            <AppText variant="bodyStrong">{missingStatus(t, language, missing, 'sheet')}</AppText>
-          )}
+        <Card style={{ gap: spacing.sm }} testID="about-shown">
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, flexWrap: 'wrap' }}>
+            <AppText variant="capSmall" muted>
+              {label}
+            </AppText>
+            {shown.value !== null ? (
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs, flexShrink: 1 }}>
+                <Num size={34}>{shown.value}</Num>
+                {shown.unit === null ? null : (
+                  <AppText variant="body" muted>
+                    {shown.unit}
+                  </AppText>
+                )}
+              </View>
+            ) : null}
+          </View>
+          {shown.value === null && missing !== null ? <AppText variant="bodyStrong">{missingStatus(t, language, missing, 'sheet')}</AppText> : null}
           {rangeProgress === null ? null : (
-            <View style={{ gap: spacing.sm }}>
-              <AppText variant="label" muted>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, flexWrap: 'wrap' }}>
+              <AppText variant="label" muted style={{ flexShrink: 1 }}>
                 {t('explain.rangeAfter', { count: MIN_BASELINE_NIGHTS })}
               </AppText>
               <ProgressDots progress={rangeProgress} />
@@ -87,9 +90,9 @@ export function AboutSheet({ target, missing, onClose }: Props): ReactElement {
           ))}
         </View>
       )}
-      <Card tone="outline" style={{ gap: spacing.sm }}>
+      <Card tone="outline" style={{ flexDirection: narrow ? 'column' : 'row', alignItems: 'flex-start', gap: spacing.md }} testID="about-level">
         {spec.level === null ? null : <ParityBadge level={spec.level} long />}
-        <AppText variant="label" muted>
+        <AppText variant="label" muted style={{ flex: narrow ? undefined : 1 }}>
           {t(spec.method)}
         </AppText>
       </Card>

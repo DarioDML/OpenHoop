@@ -140,3 +140,37 @@ export function healthspanPillars(days: readonly DayRecord[], profile: Profile, 
     fitness,
   };
 }
+
+export const FITNESS_LEVELS = ['poor', 'fair', 'good', 'excellent', 'superior'] as const;
+export type FitnessLevel = (typeof FITNESS_LEVELS)[number];
+
+export const QUINTILE_Z = [-0.8416212, -0.2533471, 0.2533471, 0.8416212] as const;
+
+export interface FitnessLevelView {
+  level: FitnessLevel;
+  cuts: [number, number, number, number];
+  norm: NormComparison['norm'];
+}
+
+export function fitnessLevel(vo2max: number, norm: NormComparison['norm']): FitnessLevelView {
+  const at = (z: number): number => norm.mean + z * norm.sd;
+  const [z1, z2, z3, z4] = QUINTILE_Z;
+  const cuts: FitnessLevelView['cuts'] = [at(z1), at(z2), at(z3), at(z4)];
+  const index = cuts.filter((cut) => vo2max >= cut).length;
+  return { level: FITNESS_LEVELS[index] ?? 'superior', cuts, norm };
+}
+
+export function scalePosition(vo2max: number, view: FitnessLevelView): number {
+  const [c1, c2, c3, c4] = view.cuts;
+  const edges = [c1 - (c2 - c1), c1, c2, c3, c4, c4 + (c4 - c3)];
+  const segments = edges.length - 1;
+  for (let i = 0; i < segments; i++) {
+    const lo = edges[i] ?? 0;
+    const hi = edges[i + 1] ?? lo;
+    if (vo2max < hi || i === segments - 1) {
+      const within = hi > lo ? Math.min(1, Math.max(0, (vo2max - lo) / (hi - lo))) : 0;
+      return (i + within) / segments;
+    }
+  }
+  return 1;
+}

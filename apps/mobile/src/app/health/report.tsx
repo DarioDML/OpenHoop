@@ -1,10 +1,27 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactElement } from 'react';
 import { View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { REPORT_PERIODS, REPORT_SECTIONS, buildReport, parseReportPeriod, type ReportLab, type ReportRow, type ReportSection, type ReportSectionId } from '@/data/healthReport';
+import { addDays } from '@/data/derived';
+import {
+  CHIP_ORDER,
+  CUSTOM_MAX_DAYS,
+  DEFAULT_REPORT_SECTIONS,
+  buildReport,
+  checkCustomRange,
+  parseReportPeriod,
+  localDay,
+  reportStats,
+  type ReportLab,
+  type ReportRow,
+  type ReportSection,
+  type ReportSectionId,
+  type ReportStat,
+} from '@/data/healthReport';
 import {
   coverageText,
+  cycleLines,
+  ecgLine,
   labName,
   labRange,
   labStatus,
@@ -17,27 +34,36 @@ import {
   trendText,
   type ReportText,
 } from '@/data/healthReportHtml';
-import { shareReportPdf } from '@/data/reportShare';
+import { exportReportPdf, reportFileName, shareReportPdf } from '@/data/reportShare';
+import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { todayIso } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Button, Segmented, Toggle } from '@/ui/controls';
+import { CheckChip } from '@/ui/Chip';
+import { Button, Field, Segmented } from '@/ui/controls';
 import { HealthPage } from '@/ui/health/HealthPage';
+import { ToggleRow } from '@/ui/manage/rows';
+import { useLayout } from '@/ui/layout';
 import { ParityBadge } from '@/ui/ParityBadge';
 import { Section } from '@/ui/Section';
+import { Sparkline } from '@/ui/Sparkline';
 import { spacing, useTheme } from '@/ui/theme';
 
-function ToggleRow({ label, value, onChange, disabled = false, testID }: { label: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean; testID: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48, gap: spacing.md }}>
-      <Toggle value={value} onChange={onChange} label={label} disabled={disabled} testID={testID} />
-      <AppText variant="body" muted={disabled} style={{ flex: 1 }}>
-        {label}
-      </AppText>
-    </View>
-  );
-}
+type PeriodChoice = '30' | '90' | 'custom';
+type Busy = 'export' | 'share' | null;
+
+const PERIOD_OPTIONS: readonly PeriodChoice[] = ['30', '90', 'custom'];
+const PERIOD_LABEL: Readonly<Record<PeriodChoice, TranslationKey>> = { '30': 'health.report.period.30', '90': 'health.report.period.90', custom: 'health.report.period.custom' };
+
+const STAT_LABEL: Readonly<Record<ReportStat['id'], TranslationKey>> = {
+  rhr: 'health.report.stat.rhr',
+  hrv: 'health.report.stat.hrv',
+  resp: 'health.report.stat.resp',
+  spo2: 'health.report.stat.spo2',
+  asleep: 'health.report.stat.asleep',
+  ecg: 'health.report.stat.ecg',
+};
 
 function PreviewRow({ row, text }: { row: ReportRow; text: ReportText }) {
   const { t } = text;
@@ -108,47 +134,107 @@ function PreviewLab({ lab, text }: { lab: ReportLab; text: ReportText }) {
   );
 }
 
+interface Line {
+  key: string;
+  text: string;
+}
+
+function PreviewLines({ lines, empty, note, testID }: { lines: readonly Line[]; empty: string; note: string; testID: string }) {
+  return (
+    <>
+      {lines.length === 0 ? (
+        <AppText variant="label" muted testID={`${testID}-empty`}>
+          {empty}
+        </AppText>
+      ) : (
+        lines.map((line) => (
+          <AppText key={line.key} variant="label" numeric>
+            {line.text}
+          </AppText>
+        ))
+      )}
+      <AppText variant="caption" muted>
+        {note}
+      </AppText>
+    </>
+  );
+}
+
 function PreviewSection({ section, text }: { section: ReportSection; text: ReportText }) {
   const { t } = text;
+  let body: ReactElement | ReactElement[];
+  if (section.id === 'labs') {
+    body =
+      section.labs.length === 0 ? (
+        <AppText variant="label" muted testID="report-labs-empty">
+          {t('health.report.labs.empty')}
+        </AppText>
+      ) : (
+        <>
+          {section.labs.map((lab) => (
+            <PreviewLab key={lab.group} lab={lab} text={text} />
+          ))}
+          <AppText variant="caption" muted>
+            {t('health.report.labs.enteredNote')}
+          </AppText>
+        </>
+      );
+  } else if (section.id === 'ecg') {
+    body = <PreviewLines lines={section.ecg.map((entry) => ({ key: `ecg-${entry.id}`, text: ecgLine(entry, text) }))} empty={t('health.report.ecg.empty')} note={t('health.report.ecg.note')} testID="report-ecg" />;
+  } else if (section.id === 'cycle') {
+    body = <PreviewLines lines={section.cycle === null ? [] : cycleLines(section.cycle, text).map((line, i) => ({ key: `cycle-${i}`, text: line }))} empty={t('health.report.cycle.empty')} note={t('health.report.cycle.note')} testID="report-cycle" />;
+  } else {
+    body = section.rows.map((row) => <PreviewRow key={row.id} row={row} text={text} />);
+  }
   return (
     <Card testID={`report-section-${section.id}`}>
       <AppText variant="capLarge" muted>
         {sectionTitle(section.id, t)}
       </AppText>
-      {section.id === 'labs' ? (
-        section.labs.length === 0 ? (
-          <AppText variant="label" muted testID="report-labs-empty">
-            {t('health.report.labs.empty')}
-          </AppText>
-        ) : (
-          <>
-            {section.labs.map((lab) => (
-              <PreviewLab key={lab.group} lab={lab} text={text} />
-            ))}
-            <AppText variant="caption" muted>
-              {t('health.report.labs.enteredNote')}
-            </AppText>
-          </>
-        )
-      ) : (
-        section.rows.map((row) => <PreviewRow key={row.id} row={row} text={text} />)
-      )}
+      {body}
     </Card>
+  );
+}
+
+function StatRow({ stat, text, last }: { stat: ReportStat; text: ReportText; last: boolean }) {
+  const { t } = text;
+  const { colors } = useTheme();
+  const { row } = stat;
+  const value = row === null ? `${stat.count ?? 0}` : row.average === null ? missingText(row.reason ?? 'no-data', text) : rowValue(row, row.average, text);
+  return (
+    <View
+      testID={`report-stat-${stat.id}`}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 44, paddingVertical: 6, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.border }}>
+      <AppText variant="body" style={{ flex: 1 }}>
+        {t(STAT_LABEL[stat.id])}
+      </AppText>
+      {row !== null && row.average !== null ? <Sparkline data={row.series} width={64} height={22} color={colors.metric.sleep} accessibilityLabel={trendText(row.trend, t)} /> : null}
+      <AppText variant="bodyStrong" numeric muted={row !== null && row.average === null} style={{ flexShrink: 1, textAlign: 'right' }} testID={`report-stat-${stat.id}-value`}>
+        {value}
+      </AppText>
+    </View>
   );
 }
 
 export default function ReportScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
-  const { days, bodyMeasurements, labResults, userData, profile } = useAppData();
-  const [period, setPeriod] = useState<string>('30');
-  const [selected, setSelected] = useState<readonly ReportSectionId[]>(REPORT_SECTIONS);
+  const { narrow } = useLayout();
+  const { days, bodyMeasurements, labResults, userData, profile, ecgRecordings, cycle } = useAppData();
+  const today = todayIso(new Date(Date.now()));
+  const [period, setPeriod] = useState<PeriodChoice>('30');
+  const [customFrom, setCustomFrom] = useState(() => addDays(today, -29));
+  const [customTo, setCustomTo] = useState(today);
+  const [selected, setSelected] = useState<readonly ReportSectionId[]>(DEFAULT_REPORT_SECTIONS);
   const [includeName, setIncludeName] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<Busy>(null);
   const [failed, setFailed] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
 
   const hasName = userData.name !== null;
   const text: ReportText = useMemo(() => ({ t, language }), [t, language]);
+  const range = useMemo(() => (period === 'custom' ? checkCustomRange(customFrom.trim(), customTo.trim(), today) : null), [period, customFrom, customTo, today]);
+  const custom = range !== null && range.ok ? range.range : null;
   const model = useMemo(
     () =>
       buildReport({
@@ -158,65 +244,143 @@ export default function ReportScreen() {
         userData,
         profile,
         period: parseReportPeriod(period),
+        custom,
         sections: selected,
         includeName: includeName && hasName,
-        today: todayIso(new Date(Date.now())),
-      }),
-    [days, bodyMeasurements, labResults, userData, profile, period, selected, includeName, hasName],
+        today,
+        ecgRecordings,
+        periods: cycle.periods,
+      }, localDay),
+    [days, bodyMeasurements, labResults, userData, profile, period, custom, selected, includeName, hasName, today, ecgRecordings, cycle.periods],
   );
+  const stats = reportStats(model);
+  const rangeInvalid = range !== null && !range.ok;
+  const blocked = busy !== null || model.sections.length === 0 || rangeInvalid;
 
   const toggleSection = (id: ReportSectionId, on: boolean): void => {
     setSelected((current) => (on ? [...current, id] : current.filter((item) => item !== id)));
   };
 
-  const share = async (): Promise<void> => {
-    setBusy(true);
+  const run = async (kind: Exclude<Busy, null>): Promise<void> => {
+    setBusy(kind);
     setFailed(false);
+    setSaved(null);
     try {
-      await shareReportPdf(renderReportHtml(model, text));
+      const html = renderReportHtml(model, text);
+      if (kind === 'share') {
+        await shareReportPdf(html);
+      } else {
+        const name = reportFileName(model.from, model.to, new Date(Date.now()));
+        const outcome = await exportReportPdf(html, name);
+        setSaved(outcome === 'saved' ? name : null);
+      }
     } catch {
       setFailed(true);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
+
+  const fromInvalid = range !== null && !range.ok && range.invalid.includes('from');
+  const toInvalid = range !== null && !range.ok && range.invalid.includes('to');
 
   return (
     <HealthPage
       title={t('health.report.title')}
       testID="health-report"
       hero={
-        <View style={{ gap: spacing.md }}>
-          <AppText variant="h2" accessibilityRole="header">
-            {t('health.report.heading')}
-          </AppText>
-          <AppText variant="lead" muted>
-            {t('health.report.body')}
-          </AppText>
-        </View>
-      }>
-      <Section title={t('health.report.period.title')}>
         <Segmented
           testID="report-period"
           value={period}
           onChange={setPeriod}
-          options={REPORT_PERIODS.map((value) => ({ value: `${value}`, label: t(`health.report.period.${value}`) }))}
+          options={PERIOD_OPTIONS.map((value) => ({ value, label: t(PERIOD_LABEL[value]), testID: `report-period-${value}` }))}
         />
-      </Section>
-
-      <Section title={t('health.report.include.title')}>
-        <Card>
-          {REPORT_SECTIONS.map((id) => (
-            <ToggleRow key={id} label={sectionTitle(id, t)} value={selected.includes(id)} onChange={(on) => toggleSection(id, on)} testID={`report-toggle-${id}`} />
-          ))}
-          <ToggleRow label={t('health.report.include.name')} value={includeName && hasName} onChange={setIncludeName} disabled={!hasName} testID="report-toggle-name" />
-          {hasName ? null : (
-            <AppText variant="caption" muted testID="report-name-missing">
-              {t('health.report.include.nameMissing')}
-            </AppText>
-          )}
+      }>
+      {period === 'custom' ? (
+        <Card testID="report-custom">
+          <View style={{ flexDirection: narrow ? 'column' : 'row', gap: spacing.md }}>
+            <View style={{ flex: narrow ? undefined : 1 }}>
+              <Field label={t('health.report.custom.from')} value={customFrom} onChangeText={setCustomFrom} placeholder="2026-01-31" error={fromInvalid} autoCorrect={false} testID="report-custom-from" />
+            </View>
+            <View style={{ flex: narrow ? undefined : 1 }}>
+              <Field label={t('health.report.custom.to')} value={customTo} onChangeText={setCustomTo} placeholder="2026-01-31" error={toInvalid} autoCorrect={false} testID="report-custom-to" />
+            </View>
+          </View>
+          <AppText variant="caption" color={rangeInvalid ? colors.negative : colors.textMuted} testID="report-custom-hint">
+            {rangeInvalid ? t('health.report.custom.invalid', { max: CUSTOM_MAX_DAYS }) : t('health.report.custom.hint', { max: CUSTOM_MAX_DAYS })}
+          </AppText>
         </Card>
-      </Section>
+      ) : null}
+
+      <Card testID="report-summary">
+        <AppText variant="cardTitle" accessibilityRole="header">
+          {t('health.report.summary.title', { from: model.from, to: model.to })}
+        </AppText>
+        <AppText variant="label" muted>
+          {[model.name, t('health.report.summary.byline')].filter((part): part is string => part !== null).join(' · ')}
+        </AppText>
+        {stats.length === 0 ? (
+          <AppText variant="body" muted testID="report-summary-empty">
+            {t('health.report.summary.empty')}
+          </AppText>
+        ) : (
+          <View>
+            {stats.map((stat, i) => (
+              <StatRow key={stat.id} stat={stat} text={text} last={i === stats.length - 1} />
+            ))}
+          </View>
+        )}
+      </Card>
+
+      <View style={{ gap: spacing.sm }}>
+        <AppText variant="capLarge" muted>
+          {t('health.report.include.title')}
+        </AppText>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }} testID="report-chips">
+          {CHIP_ORDER.map((id) => (
+            <CheckChip key={id} label={sectionTitle(id, t)} checked={selected.includes(id)} onToggle={(on) => toggleSection(id, on)} testID={`report-toggle-${id}`} />
+          ))}
+        </View>
+        <ToggleRow title={t('health.report.include.name')} value={includeName && hasName} onChange={setIncludeName} disabled={!hasName} testID="report-toggle-name" />
+        {hasName ? null : (
+          <AppText variant="caption" muted testID="report-name-missing">
+            {t('health.report.include.nameMissing')}
+          </AppText>
+        )}
+      </View>
+
+      {failed ? (
+        <AppText variant="label" color={colors.negative} accessibilityRole="alert" testID="report-error">
+          {t('health.report.error')}
+        </AppText>
+      ) : null}
+      {saved !== null ? (
+        <AppText variant="label" color={colors.positive} accessibilityRole="alert" testID="report-saved">
+          {t('health.report.saved', { name: saved })}
+        </AppText>
+      ) : null}
+      <View style={{ flexDirection: narrow ? 'column' : 'row', gap: spacing.md }}>
+        <Button
+          label={busy === 'export' ? t('health.report.action.preparing') : t('health.report.action.export')}
+          icon="download"
+          variant="soft"
+          onPress={() => void run('export')}
+          disabled={blocked}
+          style={{ flex: narrow ? undefined : 1 }}
+          testID="report-export"
+        />
+        <Button
+          label={busy === 'share' ? t('health.report.action.preparing') : t('health.report.action.shareShort')}
+          icon="share"
+          onPress={() => void run('share')}
+          disabled={blocked}
+          style={{ flex: narrow ? undefined : 1 }}
+          testID="report-share"
+        />
+      </View>
+      <AppText variant="caption" muted>
+        {t('health.report.body')}
+      </AppText>
 
       <Section title={t('health.report.preview.title')}>
         <AppText variant="caption" muted>
@@ -233,19 +397,6 @@ export default function ReportScreen() {
           {t('health.report.footer', { date: model.generatedOn })}
         </AppText>
       </Section>
-
-      {failed ? (
-        <AppText variant="label" color={colors.negative} accessibilityRole="alert" testID="report-error">
-          {t('health.report.error')}
-        </AppText>
-      ) : null}
-      <Button
-        label={busy ? t('health.report.action.preparing') : t('health.report.action.share')}
-        icon="share"
-        onPress={() => void share()}
-        disabled={busy || model.sections.length === 0}
-        testID="report-share"
-      />
     </HealthPage>
   );
 }

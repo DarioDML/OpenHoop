@@ -33,6 +33,8 @@ export const TERM_IDS = [
   'steps',
   'wearTime',
   'level',
+  'bodyAge',
+  'vo2max',
 ] as const;
 export type TermId = (typeof TERM_IDS)[number];
 export type TermCategory = 'recovery' | 'sleep' | 'effort';
@@ -104,6 +106,8 @@ export const TERMS: Readonly<Record<TermId, TermSpec>> = {
   calories: { id: 'calories', category: 'effort', window: 'day', name: 'daily.tile.calories', short: null, body: 'term.calories.body', method: 'explain.method.own', level: PARITY.calories, lists: null },
   steps: { id: 'steps', category: 'effort', window: 'day', name: 'metric.steps', short: null, body: 'term.steps.body', method: 'explain.method.band', level: PARITY.steps, lists: null },
   wearTime: { id: 'wearTime', category: 'effort', window: 'day', name: 'metric.wearTime', short: null, body: 'term.wearTime.body', method: 'explain.method.band', level: PARITY.wearTime, lists: null },
+  bodyAge: { id: 'bodyAge', category: 'effort', window: 'day', name: 'health.bodyAge.title', short: null, body: 'term.bodyAge.body', method: 'term.bodyAge.method', level: PARITY.bodyAge, lists: null },
+  vo2max: { id: 'vo2max', category: 'effort', window: 'day', name: 'health.vo2max.title', short: null, body: 'term.vo2max.body', method: 'term.vo2max.method', level: PARITY.vo2max, lists: null },
   level: { id: 'level', category: 'effort', window: 'day', name: 'profile.level.title', short: null, body: 'term.level.body', method: 'explain.method.own', level: null, lists: null },
 };
 

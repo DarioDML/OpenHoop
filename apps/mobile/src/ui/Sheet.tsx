@@ -58,6 +58,7 @@ export function Sheet({ visible, onClose, title, subtitle, children, footer, tes
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}
               onPress={onClose}
+              testID={testID === undefined ? undefined : `${testID}-close`}
               style={{ width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="close" size={20} color={colors.text} />
             </Pressable>

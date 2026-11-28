@@ -6,6 +6,8 @@ import { formatConverted, formatEntered, type BiomarkerRef } from './labs';
 import {
   REASON_NO_BODY_FAT,
   REASON_NO_ENTRIES,
+  type ReportCycle,
+  type ReportEcg,
   type ReportLab,
   type ReportModel,
   type ReportRow,
@@ -72,6 +74,9 @@ const SECTION_TITLE: Readonly<Record<ReportSection['id'], TranslationKey>> = {
   energy: 'health.report.section.energy',
   body: 'health.report.section.body',
   labs: 'health.report.section.labs',
+  activity: 'health.report.section.activity',
+  ecg: 'health.report.section.ecg',
+  cycle: 'health.report.section.cycle',
 };
 
 const TREND_TEXT: Readonly<Record<TrendDirection, TranslationKey>> = {
@@ -204,8 +209,39 @@ function labHtml(lab: ReportLab, text: ReportText): string {
   )}${cell(escapeHtml(t('health.report.labs.count', { count: lab.count })), 'num')}${levelCell('D', t)}</tr>`;
 }
 
+export function ecgWhen(entry: ReportEcg, t: TFunction): string {
+  const date = new Date(entry.t * 1000);
+  const day = `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
+  const time = `${`${date.getHours()}`.padStart(2, '0')}:${`${date.getMinutes()}`.padStart(2, '0')}`;
+  return t('health.report.ecg.when', { day, time });
+}
+
+export function ecgLine(entry: ReportEcg, { t }: ReportText): string {
+  const wrist = entry.wrist === null ? null : t(entry.wrist === 'left' ? 'health.report.ecg.left' : 'health.report.ecg.right');
+  const parts = [ecgWhen(entry, t), formatDuration(t, entry.durationS), ...(wrist === null ? [] : [wrist])];
+  return parts.join(' · ');
+}
+
+export function cycleLines(cycle: ReportCycle, { t, language }: ReportText): string[] {
+  const none = t('health.report.cycle.none');
+  return [
+    t('health.report.cycle.starts', { count: cycle.startsInPeriod.length, days: cycle.startsInPeriod.length === 0 ? none : cycle.startsInPeriod.join(', ') }),
+    t('health.report.cycle.average', { value: cycle.averageCycleDays === null ? none : formatNumber(cycle.averageCycleDays, 1, language), count: cycle.cyclesUsed }),
+    t('health.report.cycle.periodLength', { value: cycle.averagePeriodDays === null ? none : formatNumber(cycle.averagePeriodDays, 1, language) }),
+    t('health.report.cycle.last', { day: cycle.lastStartDay ?? none }),
+  ];
+}
+
+function listSection(section: ReportSection, text: ReportText, lines: readonly string[], empty: string, note: string): string {
+  const { t } = text;
+  const body = lines.length === 0 ? `<p class="missing">${escapeHtml(empty)}</p>` : `<ul>${lines.map((line) => `<li class="num">${escapeHtml(line)}</li>`).join('')}</ul>`;
+  return `<section><h2>${escapeHtml(sectionTitle(section.id, t))} <span class="level">D</span></h2>${body}<p class="note">${escapeHtml(note)}</p></section>`;
+}
+
 function sectionHtml(section: ReportSection, text: ReportText): string {
   const { t } = text;
+  if (section.id === 'ecg') return listSection(section, text, section.ecg.map((entry) => ecgLine(entry, text)), t('health.report.ecg.empty'), t('health.report.ecg.note'));
+  if (section.id === 'cycle') return listSection(section, text, section.cycle === null ? [] : cycleLines(section.cycle, text), t('health.report.cycle.empty'), t('health.report.cycle.note'));
   const head = (['health.report.col.measure', 'health.report.col.average', 'health.report.col.range', 'health.report.col.trend', 'health.report.col.coverage', 'health.report.col.level'] as const)
     .map((key) => `<th>${escapeHtml(t(key))}</th>`)
     .join('');
@@ -223,7 +259,7 @@ function usedLevels(model: ReportModel): ParityLevel[] {
   const levels = new Set<ParityLevel>();
   for (const section of model.sections) {
     for (const row of section.rows) levels.add(row.level);
-    if (section.labs.length > 0) levels.add('D');
+    if (section.labs.length > 0 || section.id === 'ecg' || section.id === 'cycle') levels.add('D');
   }
   return (['A', 'B', 'C', 'D'] as const).filter((level) => levels.has(level));
 }

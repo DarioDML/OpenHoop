@@ -135,6 +135,7 @@ import {
   type DonationDay,
   type DonationProgress,
 } from '@openhoop/core';
+import { spo2Windows } from '@openhoop/analytics';
 import type { Profile as AnalyticsProfile } from '@openhoop/analytics';
 import { commandName, formatFirmware, type Wrist } from '@openhoop/protocol';
 import { SimBand } from '@openhoop/sim';
@@ -242,6 +243,7 @@ import type {
   DiscoveredBand,
   HealthConnectView,
   HeartRatePoint,
+  Spo2Point,
   LiveState,
   LockState,
   Notice,
@@ -274,6 +276,8 @@ const STOP_NOTICES: Readonly<Partial<Record<SyncStop, TranslationKey>>> = {
   corrupt: 'sync.stop.corrupt',
   pending: 'sync.stop.pending',
 };
+
+const SPO2_CACHE_NIGHTS = 14;
 
 export interface Snapshot {
   ready: boolean;
@@ -394,6 +398,7 @@ export class AppController {
   private readonly listeners = new Set<() => void>();
   private app: AppStore | null = null;
   private deviceRow: DeviceRow | null = null;
+  private spo2Cache: { days: DayRecord[]; nights: Map<string, Spo2Point[]> } | null = null;
   private conn: Connection | null = null;
   private demoBand: SimBand | null = null;
   private bleTransport: BleManagerTransport | null = null;
@@ -1770,6 +1775,24 @@ export class AppController {
     return this.app.store.heartRateBuckets(row.id, fromS, toS, bucketS);
   };
 
+  spo2Between = async (fromS: number, toS: number): Promise<Spo2Point[]> => {
+    const row = this.deviceRow;
+    if (this.app === null || row === null || toS <= fromS) return [];
+    if (this.spo2Cache === null || this.spo2Cache.days !== this.snapshot.days) this.spo2Cache = { days: this.snapshot.days, nights: new Map() };
+    const cache = this.spo2Cache;
+    const key = `${row.id}:${fromS}:${toS}`;
+    const hit = cache.nights.get(key);
+    if (hit !== undefined) return hit;
+    const samples = await this.app.store.samplesBetween(row.id, fromS, toS);
+    const points = spo2Windows(samples).map((w) => ({ t: w.start, pct: w.percent }));
+    if (cache.nights.size >= SPO2_CACHE_NIGHTS) {
+      const oldest = cache.nights.keys().next();
+      if (oldest.done !== true) cache.nights.delete(oldest.value);
+    }
+    cache.nights.set(key, points);
+    return points;
+  };
+
   sleepStagesBetween = async (fromS: number, toS: number): Promise<StageEpochRow[]> => {
     const row = this.deviceRow;
     if (this.app === null || row === null || toS <= fromS) return [];
@@ -2408,6 +2431,7 @@ export class AppController {
       removeAllCycleData: this.removeAllCycleData,
       strengthActions: this.strengthActionSet,
       heartRateBetween: this.heartRateBetween,
+      spo2Between: this.spo2Between,
       sleepStagesBetween: this.sleepStagesBetween,
       routeFor: this.routeFor,
       saveSleepEdit: this.saveSleepEdit,

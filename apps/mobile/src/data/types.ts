@@ -106,6 +106,11 @@ export interface HeartRatePoint {
   hr: number;
 }
 
+export interface Spo2Point {
+  t: number;
+  pct: number;
+}
+
 export interface ActivityDraft {
   source: ActivitySource;
   detectedStart: number | null;
@@ -271,6 +276,7 @@ export interface AppData {
   importVendorFiles(files: SourceFile[], rejected: FileReport[], options?: { fromDay?: string | null }): Promise<VendorImportResult | null>;
   removeVendorData(): Promise<boolean>;
   heartRateBetween(fromS: number, toS: number, bucketS?: number): Promise<HeartRatePoint[]>;
+  spo2Between(fromS: number, toS: number): Promise<Spo2Point[]>;
   sleepStagesBetween(fromS: number, toS: number): Promise<StageEpochRow[]>;
   routeFor(activityId: number): Promise<RoutePoint[]>;
   saveSleepEdit(request: SleepEditRequest): Promise<SleepEditOutcome>;

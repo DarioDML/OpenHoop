@@ -1,15 +1,16 @@
-import type { DayRecord, Derived } from '@openhoop/core';
+import type { DayRecord, Derived, LabResult } from '@openhoop/core';
 import type { Href } from 'expo-router';
 
 import type { TranslationKey } from '@/i18n';
 
 import type { TermId } from './terms';
 
+import { bodyAgeHeadline, latestFitnessAge, latestPhenoAge } from './bodyAgeDerived';
 import { addDays, baselineAt, mean, metricValue, rangeStatus, type Baseline, type MetricKey, type RangeStatus } from './derived';
 import { latestStressScore } from './stressDerived';
 import type { ParityLevel, Profile } from './types';
 import { latestVo2 } from './healthspanDerived';
-import type { JournalAnswer } from './userData';
+import type { JournalAnswer, UserData } from './userData';
 
 export type VitalId = 'hrv' | 'rhr' | 'resp' | 'spo2' | 'temp';
 
@@ -115,9 +116,10 @@ export type MetricCategory = 'readiness' | 'sleep' | 'load' | 'health' | 'raw';
 export const METRIC_CATEGORIES: readonly MetricCategory[] = ['readiness', 'sleep', 'load', 'health', 'raw'];
 
 export type MetricReading =
-  | { kind: 'number'; value: number; decimals: number; unitKey: TranslationKey | null }
+  | { kind: 'number'; value: number; decimals: number; unitKey: TranslationKey | null; noteKey?: TranslationKey }
   | { kind: 'duration'; seconds: number }
-  | { kind: 'none' };
+  | { kind: 'text'; key: TranslationKey; params: Record<string, number>; noteKey?: TranslationKey }
+  | { kind: 'none'; reasonKey?: TranslationKey };
 
 export interface CatalogueItem {
   id: string;
@@ -126,7 +128,12 @@ export interface CatalogueItem {
   category: MetricCategory;
   level: ParityLevel | null;
   href: Href;
-  read: (days: readonly DayRecord[], weightKg: number | null, profile: Profile) => MetricReading;
+  read: (days: readonly DayRecord[], weightKg: number | null, profile: Profile, extra?: CatalogueExtra) => MetricReading;
+}
+
+export interface CatalogueExtra {
+  sex: UserData['sex'];
+  labResults: readonly LabResult[];
 }
 
 function numeric(key: MetricKey, decimals: number, unitKey: TranslationKey | null): CatalogueItem['read'] {
@@ -173,10 +180,27 @@ export const CATALOGUE: readonly CatalogueItem[] = [
       return avg === null ? { kind: 'none' } : { kind: 'number', value: avg, decimals: 0, unitKey: 'unit.bpm' };
     },
   },
-  { id: 'bodyAge', term: null, labelKey: 'health.metrics.bodyAge', category: 'health', level: 'C', href: '/health/body-age', read: none },
+  {
+    id: 'bodyAge',
+    term: 'bodyAge',
+    labelKey: 'health.metrics.bodyAge',
+    category: 'health',
+    level: 'C',
+    href: '/health/body-age',
+    read: (days, _weightKg, profile, extra) => {
+      if (extra === undefined) return { kind: 'none' };
+      const headline = bodyAgeHeadline(latestFitnessAge(days, profile, extra.sex), latestPhenoAge(extra.labResults, profile));
+      if (headline.kind === 'age') return { kind: 'number', value: headline.age, decimals: 1, unitKey: 'health.bodyAge.years', noteKey: `health.bodyAge.sourceShort.${headline.source}` };
+      if (headline.kind === 'bound') {
+        const key = headline.direction === 'younger-than' ? 'health.bodyAge.fitness.below' : 'health.bodyAge.fitness.above';
+        return { kind: 'text', key, params: { age: Math.round(headline.age) }, noteKey: 'health.bodyAge.sourceShort.fitness' };
+      }
+      return { kind: 'none', reasonKey: `health.bodyAge.none.${headline.reason}` };
+    },
+  },
   {
     id: 'vo2max',
-    term: null,
+    term: 'vo2max',
     labelKey: 'health.metrics.vo2max',
     category: 'health',
     level: 'C',

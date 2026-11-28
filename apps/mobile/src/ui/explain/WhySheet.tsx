@@ -50,7 +50,7 @@ export function WhySheet({ target, missing, onClose, onAbout }: Props): ReactEle
               <Icon name={row.icon} size={20} color={tone.fg} />
             </View>
             <View style={{ flex: 1, gap: spacing.xs }}>
-              <AppText variant="bodyStrong">{row.title}</AppText>
+              <AppText variant="cardTitle">{row.title}</AppText>
               {row.body === null ? null : (
                 <AppText variant="body" muted>
                   {row.body}
