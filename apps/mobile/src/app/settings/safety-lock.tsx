@@ -27,7 +27,21 @@ export default function SafetyLockScreen() {
   };
 
   return (
-    <SheetScreen title={t('device.safety.title')} testID="safety-lock">
+    <SheetScreen
+      title={t('device.safety.title')}
+      testID="safety-lock"
+      footer={
+        <View style={{ gap: spacing.sm }}>
+          <Button label={t('device.safety.confirmNothing')} variant="outlineDanger" disabled={!matches} onPress={confirm} testID="danger-confirm" />
+          <Button label={t('common.cancel')} onPress={goBack} testID="safety-cancel" />
+        </View>
+      }>
+      <View testID="safety-nothing-sent" style={{ flexDirection: 'row', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.warningSoft }}>
+        <Icon name="info" color={colors.warning} size={18} />
+        <AppText variant="label" style={{ flex: 1 }}>
+          {t('device.safety.nothingSent')}
+        </AppText>
+      </View>
       <View style={{ alignItems: 'center', gap: spacing.sm }}>
         <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.negativeSoft, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="lock" color={colors.negative} size={24} />
@@ -56,16 +70,6 @@ export default function SafetyLockScreen() {
         hint={fromSerial === null ? t('device.safety.noSerialHint') : t('device.safety.serialHint')}
         testID="danger-input"
       />
-      <View style={{ gap: spacing.sm }}>
-        <Button label={t('device.safety.confirmNothing')} variant="outlineDanger" disabled={!matches} onPress={confirm} testID="danger-confirm" />
-        <Button label={t('common.cancel')} onPress={goBack} testID="safety-cancel" />
-      </View>
-      <View testID="safety-nothing-sent" style={{ flexDirection: 'row', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.warningSoft }}>
-        <Icon name="info" color={colors.warning} size={18} />
-        <AppText variant="caption" style={{ flex: 1 }}>
-          {t('device.safety.nothingSent')}
-        </AppText>
-      </View>
       <AppText variant="caption" muted>
         {t('device.safety.howBody')}
       </AppText>

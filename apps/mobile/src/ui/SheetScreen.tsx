@@ -21,6 +21,7 @@ interface Props {
 }
 
 export const SHEET_MAX_HEIGHT = '85%';
+export const SHEET_TALL_HEIGHT = '90%';
 
 export function SheetScreen({ title, children, onClose = goBack, surface = 'surface', maxHeight = SHEET_MAX_HEIGHT, footer, testID }: Props): ReactElement {
   const { t } = useT();

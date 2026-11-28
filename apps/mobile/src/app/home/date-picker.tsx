@@ -10,7 +10,7 @@ import { formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
-import { SheetScreen } from '@/ui/SheetScreen';
+import { SHEET_TALL_HEIGHT, SheetScreen } from '@/ui/SheetScreen';
 import { StateCard } from '@/ui/StateCard';
 import { radius, readinessBand, readinessColor, spacing, useTheme } from '@/ui/theme';
 
@@ -76,7 +76,7 @@ export default function DatePickerScreen() {
   };
 
   return (
-    <SheetScreen title={t('home.pickDay')} testID="date-picker" maxHeight="90%" footer={<Button label={t('common.today')} onPress={() => router.replace('/')} testID="picker-today" />}>
+    <SheetScreen title={t('home.pickDay')} testID="date-picker" maxHeight={SHEET_TALL_HEIGHT} footer={<Button label={t('common.today')} onPress={() => router.replace('/')} testID="picker-today" />}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <MonthButton direction="prev" enabled={canPrev} label={t('home.previousMonth')} onPress={() => setShown(shiftMonth(shown.year, shown.month, -1))} />
         <AppText variant="cardTitle" testID="month-title" style={{ textTransform: 'capitalize' }}>

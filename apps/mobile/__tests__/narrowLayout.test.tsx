@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { Chip } from '@/ui/Chip';
 import { ListRow } from '@/ui/ListGroup';
-import { SHEET_MAX_HEIGHT } from '@/ui/SheetScreen';
+import { SHEET_MAX_HEIGHT, SHEET_TALL_HEIGHT } from '@/ui/SheetScreen';
 
 import { withAppData } from './support/appData';
 
@@ -103,7 +103,7 @@ describe('bottom sheets at S24 size', () => {
     s24();
     await render(withAppData(<DatePickerScreen />));
     expect(within(screen.getByTestId('date-picker-footer')).getByTestId('picker-today')).toBeTruthy();
-    expect(screen.getByTestId('date-picker-sheet')).toHaveStyle({ maxHeight: '90%' });
+    expect(screen.getByTestId('date-picker-sheet')).toHaveStyle({ maxHeight: SHEET_TALL_HEIGHT });
   });
 
   it('draws the action center as a sheet with two-line tile labels', async () => {
@@ -116,13 +116,15 @@ describe('bottom sheets at S24 size', () => {
     expect(label).toHaveStyle({ fontSize: 13 * 1.3 });
   });
 
-  it('draws the safety lock as a sheet with its buttons before the notes', async () => {
+  it('draws the safety lock as a sheet with the caveat above its pinned buttons', async () => {
     s24();
     await render(withAppData(<SafetyLockScreen />));
     expect(screen.getByTestId('safety-lock-sheet')).toBeTruthy();
     const ids = testIdsInOrder(screen.toJSON());
-    expect(ids.indexOf('danger-confirm')).toBeGreaterThan(-1);
-    expect(ids.indexOf('danger-confirm')).toBeLessThan(ids.indexOf('safety-nothing-sent'));
+    expect(ids.indexOf('safety-nothing-sent')).toBeGreaterThan(-1);
+    expect(ids.indexOf('safety-nothing-sent')).toBeLessThan(ids.indexOf('danger-confirm'));
+    expect(within(screen.getByTestId('safety-lock-footer')).getByTestId('danger-confirm')).toBeTruthy();
+    expect(within(screen.getByTestId('safety-lock-footer')).getByTestId('safety-cancel')).toBeTruthy();
   });
 });
 
