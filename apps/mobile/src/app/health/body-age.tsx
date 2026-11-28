@@ -35,7 +35,7 @@ import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
 import { useExplain } from '@/ui/explain/ExplainProvider';
 import { CONTRIBUTOR_NAME, contributorReason, contributorTone, contributorValue } from '@/ui/health/contributorText';
-import { DotCloud } from '@/ui/health/DotCloud';
+import { cloudClearWidth, DotCloud } from '@/ui/health/DotCloud';
 import { HealthPage } from '@/ui/health/HealthPage';
 import { bodyAgeMissing } from '@/ui/health/hubTiles';
 import { markerName } from '@/ui/health/labsText';
@@ -301,7 +301,7 @@ function Hero({ headline }: { headline: BodyAgeHeadline }) {
             {formatNumber(headline.age, 1, language)}
           </Num>
         ) : (
-          <AppText variant="title" style={{ textAlign: 'center', maxWidth: size - 80 }} testID="body-age-missing">
+          <AppText variant="label" style={{ textAlign: 'center', maxWidth: cloudClearWidth(size) }} testID="body-age-missing">
             {missing}
           </AppText>
         )}

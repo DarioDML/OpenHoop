@@ -11,6 +11,12 @@ export interface CloudDot {
   opacity: number;
 }
 
+export const CLOUD_CLEAR = 0.6;
+
+export function cloudClearWidth(size: number): number {
+  return Math.round(size * CLOUD_CLEAR * 0.75);
+}
+
 export function cloudDots(count: number, seed = 7): CloudDot[] {
   let state = seed >>> 0;
   const next = (): number => {
@@ -19,7 +25,7 @@ export function cloudDots(count: number, seed = 7): CloudDot[] {
   };
   return Array.from({ length: count }, () => {
     const angle = next() * Math.PI * 2;
-    const radius = 0.3 + 0.7 * Math.sqrt(next());
+    const radius = CLOUD_CLEAR + (1 - CLOUD_CLEAR) * Math.sqrt(next());
     return { x: 0.5 + 0.5 * radius * Math.cos(angle), y: 0.5 + 0.5 * radius * Math.sin(angle), r: 1 + next() * 2.2, opacity: 0.25 + next() * 0.65 };
   });
 }
