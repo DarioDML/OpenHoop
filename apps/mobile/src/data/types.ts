@@ -149,6 +149,7 @@ export type BandBuzz = 'test' | 'find' | 'target' | 'top';
 
 export interface BandActions {
   buzz(kind: BandBuzz): Promise<boolean>;
+  buzzIfConnected?(kind: BandBuzz): Promise<boolean>;
   stopBuzz(): Promise<boolean>;
   setHeartRateBroadcast(on: boolean): Promise<boolean>;
   writeConfig(kind: ConfigKind, key: string, value: WritableValue): Promise<boolean>;

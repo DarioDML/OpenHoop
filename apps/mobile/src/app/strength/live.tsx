@@ -1,8 +1,11 @@
+import type { LoadReference } from '@openhoop/analytics';
+import type { SessionExercise, StrengthSession } from '@openhoop/core';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData, useLive } from '@/data/context';
+import { REST_IDLE, REST_STEP_S, restBuzzDue, restReducer, restView, type RestEvent, type RestTimer } from '@/data/restTimer';
 import {
   REST_OPTIONS_S,
   STRENGTH_LIMITS,
@@ -10,26 +13,42 @@ import {
   durationS,
   formatClockTimer,
   planned,
-  restRemainingS,
+  sessionLoad,
+  sessionTotals,
+  type SessionLoad,
   setsDone,
+  stepDraftValue,
   suggestSet,
+  suggestedWeightKg,
   validateSetDraft,
   type ExerciseRef,
   type RestSeconds,
   type SetDraft,
   type SetField,
 } from '@/data/strength';
+import type { HeartRatePoint } from '@/data/types';
+import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
-import { StatRow, StatTile } from '@/ui/activity/parts';
+import { weightIn } from '@/lib/units';
+import { ProgressBar } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
-import { Pill } from '@/ui/Chip';
+import { Chip, Pill } from '@/ui/Chip';
 import { Button, Field } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
+import { useLayout } from '@/ui/layout';
+import { ToggleRow } from '@/ui/manage/rows';
+import { Num } from '@/ui/Num';
 import { Section } from '@/ui/Section';
+import { StatGrid, GridTile } from '@/ui/StatGrid';
+import { NumberStepper } from '@/ui/strength/NumberStepper';
 import { ExercisePicker, StrengthPage, useStrengthLabels } from '@/ui/strength/parts';
+import { useSessionHeartRate } from '@/ui/strength/useSessionHeartRate';
+import { referenceKey, useLoadReference } from '@/ui/strength/useSessionLoads';
 import { goBack } from '@/ui/TopBar';
-import { spacing, useTheme } from '@/ui/theme';
+import { radius, spacing, useTheme } from '@/ui/theme';
+
+const STACK_BELOW_DP = 380;
 
 function useNowMs(): number {
   const [now, setNow] = useState(() => Date.now());
@@ -40,22 +59,82 @@ function useNowMs(): number {
   return now;
 }
 
+function useRestTimer(onEnd: () => void): { timer: RestTimer; dispatch: (event: RestEvent) => void } {
+  const [timer, setTimer] = useState<RestTimer>(REST_IDLE);
+  const latest = useRef(timer);
+  const ended = useRef(onEnd);
+  ended.current = onEnd;
+  useEffect(() => {
+    const id = setInterval(() => {
+      const atMs = Date.now();
+      const before = latest.current;
+      const after = restReducer(before, { kind: 'tick', atMs });
+      if (after === before) return;
+      latest.current = after;
+      setTimer(after);
+      if (restBuzzDue(before, after, atMs)) ended.current();
+    }, 500);
+    return () => clearInterval(id);
+  }, []);
+  const dispatch = (event: RestEvent): void => {
+    const next = restReducer(latest.current, event);
+    latest.current = next;
+    setTimer(next);
+  };
+  return { timer, dispatch };
+}
+
+const LOAD_STEP_S = 15;
+const NO_LOAD: SessionLoad = { value: null, reason: 'no-data' };
+
+function useLiveLoad(session: StrengthSession | null, heartRate: readonly HeartRatePoint[], nowMs: number, referenceAt: (atS: number) => LoadReference): SessionLoad {
+  const startedAt = session?.startedAt ?? 0;
+  const reference = referenceAt(startedAt);
+  const refKey = referenceKey(reference);
+  const endS = Math.max(startedAt + 1, Math.floor(nowMs / 1000 / LOAD_STEP_S) * LOAD_STEP_S);
+  const cache = useRef<{ points: readonly HeartRatePoint[]; startedAt: number; endS: number; referenceKey: string; value: SessionLoad } | null>(null);
+  if (session === null) return NO_LOAD;
+  const cached = cache.current;
+  if (cached !== null && cached.points === heartRate && cached.startedAt === startedAt && cached.endS === endS && cached.referenceKey === refKey) return cached.value;
+  const value = sessionLoad(heartRate, { start: startedAt, end: endS }, reference);
+  cache.current = { points: heartRate, startedAt, endS, referenceKey: refKey, value };
+  return value;
+}
+
+function liveLoadMissing(reason: string | null): TranslationKey {
+  if (reason === 'low-coverage') return 'strength.live.loadLow';
+  if (reason === 'missing-signal') return 'strength.load.missing';
+  return 'strength.live.loadNone';
+}
+
 export default function StrengthLiveScreen() {
   const { t } = useT();
   const { colors } = useTheme();
-  const { strength, strengthActions, startLive, stopLive } = useAppData();
+  const { narrow, width } = useLayout();
+  const stackSteppers = narrow || width < STACK_BELOW_DP;
+  const { strength, strengthActions, startLive, stopLive, device, bandActions } = useAppData();
   const live = useLive();
   const labels = useStrengthLabels();
   const nowMs = useNowMs();
   const session = activeSession(strength.sessions);
+  const referenceAt = useLoadReference();
+  const connected = device.connection === 'connected';
 
   const [drafts, setDrafts] = useState<Record<string, SetDraft>>({});
   const [invalid, setInvalid] = useState<Record<string, SetField[]>>({});
   const [picking, setPicking] = useState(false);
   const [restS, setRestS] = useState<RestSeconds>(90);
-  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
+  const [buzzOnRest, setBuzzOnRest] = useState(false);
+  const [current, setCurrent] = useState(0);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [busy, setBusy] = useState(false);
+  const buzzWanted = useRef(false);
+  buzzWanted.current = buzzOnRest && connected;
+  const { timer, dispatch } = useRestTimer(() => {
+    if (buzzWanted.current) void bandActions.buzzIfConnected?.('target');
+  });
+  const heartRate = useSessionHeartRate(session, live.active ? live.heartRate : null, live.active ? live.updatedAt : null);
+  const load = useLiveLoad(session, heartRate, nowMs, referenceAt);
   const startedLiveHere = useRef(false);
   const stopLiveRef = useRef(stopLive);
   stopLiveRef.current = stopLive;
@@ -83,31 +162,34 @@ export default function StrengthLiveScreen() {
   }
 
   const nowS = Math.floor(nowMs / 1000);
-  const remaining = restStartedAt === null ? null : restRemainingS(restStartedAt, restS, nowMs);
+  const rest = restView(timer, nowMs);
   const total = session.sets.length;
-
-  const draftFor = (key: string, fallback: SetDraft): SetDraft => drafts[key] ?? fallback;
+  const exercises = session.exercises;
+  const index = Math.min(current, Math.max(0, exercises.length - 1));
+  const exercise: SessionExercise | undefined = exercises[index];
+  const volume = labels.volume(sessionTotals(session.sets).volumeKg);
+  const weightStep = labels.units === 'imperial' ? 5 : 2.5;
+  const weightLimits = { min: 0, max: Math.floor(weightIn(STRENGTH_LIMITS.weightKg.max, labels.units)) };
+  const hrShown = live.active && live.heartRate !== null ? live.heartRate : null;
 
   const patchDraft = (key: string, base: SetDraft, change: Partial<SetDraft>): void => {
-    setDrafts((current) => ({ ...current, [key]: { ...(current[key] ?? base), ...change } }));
-    setInvalid((current) => ({ ...current, [key]: [] }));
+    setDrafts((existing) => ({ ...existing, [key]: { ...(existing[key] ?? base), ...change } }));
+    setInvalid((existing) => ({ ...existing, [key]: [] }));
   };
 
-  const log = async (key: string, name: string, muscle: ExerciseRef['muscle'], draft: SetDraft): Promise<void> => {
-    const result = validateSetDraft(draft);
+  const log = async (key: string, name: string, muscle: ExerciseRef['muscle'], draft: SetDraft, storedKg: number): Promise<void> => {
+    const result = validateSetDraft(draft, labels.units, storedKg);
     if (!result.ok) {
-      setInvalid((current) => ({ ...current, [key]: result.invalid }));
+      setInvalid((existing) => ({ ...existing, [key]: result.invalid }));
       return;
     }
     setBusy(true);
     const saved = await strengthActions.logSet(session.id, { exerciseKey: key, exerciseName: name, muscle, ...result.value });
     setBusy(false);
     if (!saved) return;
-    setDrafts((current) => {
-      return Object.fromEntries(Object.entries(current).filter(([other]) => other !== key));
-    });
-    setInvalid((current) => ({ ...current, [key]: [] }));
-    setRestStartedAt(Date.now());
+    setDrafts((existing) => Object.fromEntries(Object.entries(existing).filter(([other]) => other !== key)));
+    setInvalid((existing) => ({ ...existing, [key]: [] }));
+    dispatch({ kind: 'start', atMs: Date.now(), seconds: restS });
   };
 
   const stopLiveIfStartedHere = async (): Promise<void> => {
@@ -136,20 +218,207 @@ export default function StrengthLiveScreen() {
 
   const add = async (ref: ExerciseRef): Promise<void> => {
     setPicking(false);
-    await strengthActions.addSessionExercise(session.id, planned(ref));
+    if (await strengthActions.addSessionExercise(session.id, planned(ref))) setCurrent(exercises.length);
+  };
+
+  const hero = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+      <View style={{ flex: 1, gap: 6, minWidth: 0 }}>
+        {exercise !== undefined ? (
+          <>
+            <AppText variant="cap" color={colors.info} testID="live-position">
+              {t('strength.live.exerciseOf', { n: index + 1, total: exercises.length })}
+            </AppText>
+            <AppText variant="title" style={{ fontSize: 26, lineHeight: 32 }} testID="live-exercise-name">
+              {labels.nameOf(exercise.exerciseKey, exercise.exerciseName)}
+            </AppText>
+          </>
+        ) : (
+          <AppText variant="cap" color={colors.info}>
+            {t('strength.live.noExercise')}
+          </AppText>
+        )}
+      </View>
+      <View
+        testID="live-hr"
+        accessible
+        accessibilityLabel={`${t('strength.live.hr')}: ${hrShown === null ? t('strength.live.hrNone') : `${hrShown} bpm`}`}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Icon name="heart" color={colors.negative} size={22} fill={colors.negative} />
+        <Num size={36} unit={hrShown === null ? undefined : 'bpm'} unitSize={13} unitColor={colors.textMuted}>
+          {hrShown === null ? '–' : `${hrShown}`}
+        </Num>
+      </View>
+    </View>
+  );
+
+  const setTable = (item: SessionExercise): ReactElement => {
+    const key = item.exerciseKey;
+    const name = labels.nameOf(key, item.exerciseName);
+    const logged = session.sets.filter((set) => set.exerciseKey === key);
+    const base = suggestSet(item, session.sets, labels.units);
+    const draft = drafts[key] ?? base;
+    const bad = invalid[key] ?? [];
+    const upcoming = Math.max(0, item.sets - logged.length - 1);
+    const steppers = (value: SetDraft, active: boolean, row: number): ReactElement => (
+      <View style={{ flexDirection: stackSteppers ? 'column' : 'row', gap: spacing.sm, alignItems: stackSteppers ? 'flex-start' : 'center' }}>
+        <NumberStepper
+          value={value.reps}
+          onChangeText={(reps) => patchDraft(key, draft, { reps })}
+          onStep={(direction) => patchDraft(key, draft, { reps: stepDraftValue(draft.reps, direction, STRENGTH_LIMITS.reps, 0) })}
+          label={`${t('strength.live.reps')}, ${t('strength.live.setNumber', { n: row })}`}
+          lessLabel={t('strength.live.lessReps')}
+          moreLabel={t('strength.live.moreReps')}
+          error={active && bad.includes('reps')}
+          disabled={!active}
+          testID={active ? `live-reps-${key}` : `live-plan-reps-${key}-${row}`}
+        />
+        <NumberStepper
+          value={value.weight}
+          onChangeText={(weight) => patchDraft(key, draft, { weight })}
+          onStep={(direction) => patchDraft(key, draft, { weight: stepDraftValue(draft.weight, direction * weightStep, weightLimits, 2) })}
+          label={`${t('strength.live.weight')} (${labels.unit}), ${t('strength.live.setNumber', { n: row })}`}
+          lessLabel={t('strength.live.lessWeight')}
+          moreLabel={t('strength.live.moreWeight')}
+          decimal
+          error={active && bad.includes('weight')}
+          disabled={!active}
+          testID={active ? `live-weight-${key}` : `live-plan-weight-${key}-${row}`}
+        />
+      </View>
+    );
+    return (
+      <Card testID={`live-exercise-${key}`} style={{ gap: spacing.xs }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <AppText variant="capSmall" muted style={{ width: 28 }}>
+            {t('strength.live.setHead')}
+          </AppText>
+          <AppText variant="capSmall" muted style={{ flex: 1 }} numberOfLines={2}>
+            {`${t('strength.live.reps')} · ${labels.unit}`}
+          </AppText>
+          {logged.length === 0 ? (
+            <Pressable
+              testID={`live-remove-${key}`}
+              accessibilityRole="button"
+              accessibilityLabel={t('strength.live.removeExercise', { name })}
+              onPress={() => void strengthActions.removeSessionExercise(item.id)}
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="trash" color={colors.textMuted} size={18} />
+            </Pressable>
+          ) : null}
+        </View>
+        {logged.map((set, at) => {
+          const line = `${t('strength.live.setLine', { n: at + 1, reps: set.reps, weight: labels.weightText(set.weightKg) })}${set.rpe === null ? '' : ` · ${t('strength.live.setRpe', { rpe: labels.num(set.rpe, Number.isInteger(set.rpe) ? 0 : 1) })}`}`;
+          return (
+            <View
+              key={set.id}
+              testID={`live-set-${set.id}`}
+              accessible
+              accessibilityLabel={line}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 52, borderTopWidth: 1, borderTopColor: colors.border, opacity: 0.7 }}>
+              <Num size={18} color={colors.textMuted} style={{ width: 28 }}>
+                {`${at + 1}`}
+              </Num>
+              <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm }}>
+                <Num size={20}>{`${set.reps} ×`}</Num>
+                <Num size={20} unit={labels.unit} unitSize={12} unitColor={colors.textMuted}>
+                  {labels.weight(set.weightKg)}
+                </Num>
+                {set.rpe === null ? null : <Chip label={t('strength.live.setRpe', { rpe: labels.num(set.rpe, Number.isInteger(set.rpe) ? 0 : 1) })} small />}
+              </View>
+              <Icon name="check" color={colors.positive} size={22} strokeWidth={2.5} />
+              <Pressable
+                testID={`live-delete-set-${set.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={t('strength.live.removeSet', { n: at + 1, name })}
+                onPress={() => void strengthActions.removeSet(set.id)}
+                style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="close" color={colors.textMuted} size={16} />
+              </Pressable>
+            </View>
+          );
+        })}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 56, borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: spacing.xs }}>
+          <Num size={18} color={colors.textMuted} style={{ width: 28 }}>
+            {`${logged.length + 1}`}
+          </Num>
+          <View style={{ flex: 1 }}>{steppers(draft, true, logged.length + 1)}</View>
+          <Pressable
+            testID={`live-log-${key}`}
+            accessibilityRole="button"
+            accessibilityLabel={t('strength.live.markDone', { n: logged.length + 1, name })}
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={() => void log(key, item.exerciseName, item.muscle, draft, suggestedWeightKg(item, session.sets))}
+            style={({ pressed }) => ({
+              width: 44,
+              height: 44,
+              borderRadius: radius.pill,
+              borderWidth: 2,
+              borderColor: colors.borderStrong,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: busy ? 0.4 : pressed ? 0.7 : 1,
+            })}>
+            <Icon name="check" color={colors.textMuted} size={18} />
+          </Pressable>
+        </View>
+        {Array.from({ length: upcoming }, (_, at) => {
+          const row = logged.length + 2 + at;
+          return (
+            <View key={`plan-${row}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 56, borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: spacing.xs }}>
+              <Num size={18} color={colors.textMuted} style={{ width: 28 }}>
+                {`${row}`}
+              </Num>
+              <View style={{ flex: 1 }}>{steppers(base, false, row)}</View>
+              <View style={{ width: 44, height: 44, borderRadius: radius.pill, borderWidth: 2, borderColor: colors.border }} />
+            </View>
+          );
+        })}
+        <AppText variant="caption" muted numeric>
+          {t('strength.live.progress', { done: setsDone(item, session.sets), target: item.sets })}
+        </AppText>
+        <Field
+          label={t('strength.live.rpe')}
+          error={bad.includes('rpe')}
+          value={draft.rpe}
+          onChangeText={(rpe) => patchDraft(key, draft, { rpe })}
+          keyboardType="decimal-pad"
+          testID={`live-rpe-${key}`}
+        />
+        <AppText variant="caption" color={bad.length > 0 ? colors.negative : colors.textMuted}>
+          {bad.length > 0
+            ? t('strength.live.errorSet')
+            : `${t('strength.live.limits', {
+                repsMin: STRENGTH_LIMITS.reps.min,
+                repsMax: STRENGTH_LIMITS.reps.max,
+                weightMin: labels.num(weightLimits.min),
+                weightMax: labels.num(weightLimits.max),
+                unit: labels.unit,
+              })} ${t('strength.live.rpeHint')}`}
+        </AppText>
+      </Card>
+    );
   };
 
   return (
-    <StrengthPage title={session.name} testID="strength-live" close>
-      <StatRow>
-        <StatTile label={t('strength.live.elapsed')} value={formatClockTimer(durationS(session, nowS))} testID="live-elapsed" />
-        <StatTile
-          label={t('strength.live.hr')}
-          value={live.active && live.heartRate !== null ? `${live.heartRate}` : '–'}
-          unit={live.active && live.heartRate !== null ? 'bpm' : undefined}
-          testID="live-hr"
-        />
-      </StatRow>
+    <StrengthPage
+      title={session.name}
+      testID="strength-live"
+      close
+      center={
+        <View testID="live-elapsed" accessible accessibilityRole="header" accessibilityLabel={`${session.name}, ${t('strength.live.elapsed')} ${formatClockTimer(durationS(session, nowS))}`}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+            <AppText variant="screenTitle" numberOfLines={1} ellipsizeMode="tail" style={{ flexShrink: 1 }}>
+              {session.name}
+            </AppText>
+            <AppText variant="screenTitle" numberOfLines={1} style={{ flexShrink: 0 }}>
+              {` · ${formatClockTimer(durationS(session, nowS))}`}
+            </AppText>
+          </View>
+        </View>
+      }
+      hero={hero}>
       {live.active && live.heartRate === null ? (
         <AppText variant="caption" muted testID="live-hr-waiting">
           {t('strength.live.hrWaiting')}
@@ -173,146 +442,122 @@ export default function StrengthLiveScreen() {
         </View>
       ) : null}
 
+      {exercise === undefined ? (
+        <AppText variant="body" muted testID="live-empty">
+          {t('strength.live.empty')}
+        </AppText>
+      ) : (
+        setTable(exercise)
+      )}
+
       <Card testID="live-rest">
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <AppText variant="cardTitle">{t('strength.live.rest')}</AppText>
-          <AppText variant="value" numeric testID="live-rest-value">
-            {remaining === null ? '–' : formatClockTimer(remaining)}
-          </AppText>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, flexWrap: 'wrap' }}>
+          <View style={{ gap: 4 }}>
+            <AppText variant="capSmall" muted>
+              {t('strength.live.rest')}
+            </AppText>
+            <Num size={48} testID="live-rest-value">
+              {rest.remainingS === null ? '–' : formatClockTimer(rest.remainingS)}
+            </Num>
+          </View>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {([-1, 1] as const).map((direction) => (
+              <Pressable
+                key={direction}
+                testID={direction < 0 ? 'live-rest-minus' : 'live-rest-plus'}
+                accessibilityRole="button"
+                accessibilityLabel={t(direction < 0 ? 'strength.live.restLessLabel' : 'strength.live.restMoreLabel', { seconds: REST_STEP_S })}
+                accessibilityState={{ disabled: rest.status !== 'running' }}
+                disabled={rest.status !== 'running'}
+                onPress={() => dispatch({ kind: 'adjust', atMs: Date.now(), deltaS: direction * REST_STEP_S })}
+                style={({ pressed }) => ({
+                  minHeight: 44,
+                  minWidth: 64,
+                  paddingHorizontal: spacing.md,
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.surfaceAlt,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: rest.status !== 'running' ? 0.4 : pressed ? 0.7 : 1,
+                })}>
+                <AppText variant="cap">{t(direction < 0 ? 'strength.live.restLess' : 'strength.live.restMore', { seconds: REST_STEP_S })}</AppText>
+              </Pressable>
+            ))}
+          </View>
         </View>
+        <ProgressBar fraction={rest.fraction} color={colors.metric.loadBright} label={t('strength.live.rest')} />
         <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
           {REST_OPTIONS_S.map((seconds) => (
             <Pill key={seconds} label={t('strength.live.restOption', { seconds })} selected={restS === seconds} onPress={() => setRestS(seconds)} testID={`live-rest-${seconds}`} />
           ))}
         </View>
-        <AppText variant="caption" muted testID="live-rest-state">
-          {remaining === null ? t('strength.live.restIdle') : remaining > 0 ? t('strength.live.restRunning') : t('strength.live.restDone')}
+        <AppText variant="caption" muted testID="live-rest-state" accessibilityLiveRegion="polite">
+          {rest.status === 'idle' ? t('strength.live.restIdle') : rest.status === 'running' ? t('strength.live.restRunning') : t('strength.live.restDone')}
         </AppText>
-        {remaining !== null ? <Button label={t('strength.live.restSkip')} variant="tertiary" onPress={() => setRestStartedAt(null)} testID="live-rest-skip" /> : null}
+        {rest.status !== 'idle' ? <Button label={t('strength.live.restSkip')} variant="tertiary" onPress={() => dispatch({ kind: 'skip' })} testID="live-rest-skip" /> : null}
+        <ToggleRow
+          title={t('strength.live.buzz')}
+          subtitle={connected ? t('strength.live.buzzOn') : t('strength.live.buzzOff')}
+          value={buzzOnRest}
+          onChange={setBuzzOnRest}
+          testID="live-rest-buzz"
+        />
       </Card>
 
-      {session.exercises.length === 0 ? (
-        <AppText variant="body" muted testID="live-empty">
-          {t('strength.live.empty')}
-        </AppText>
-      ) : null}
+      <StatGrid testID="live-tiles">
+        <GridTile
+          label={t('strength.live.load')}
+          value={load.value === null ? null : labels.num(load.value, 1)}
+          missing={t(liveLoadMissing(load.reason))}
+          caption={t('strength.live.loadNote')}
+          testID="live-load"
+        />
+        <GridTile label={t('strength.live.volume')} value={volume.value} unit={volume.unit} testID="live-volume" />
+      </StatGrid>
 
-      {session.exercises.map((exercise) => {
-        const key = exercise.exerciseKey;
-        const name = labels.nameOf(key, exercise.exerciseName);
-        const logged = session.sets.filter((set) => set.exerciseKey === key);
-        const draft = draftFor(key, suggestSet(exercise, session.sets));
-        const bad = invalid[key] ?? [];
-        return (
-          <Card key={exercise.id} testID={`live-exercise-${key}`}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <AppText variant="cardTitle">{name}</AppText>
-                <AppText variant="caption" muted numeric>
-                  {labels.muscleName(exercise.muscle)} · {t('strength.live.progress', { done: setsDone(exercise, session.sets), target: exercise.sets })}
-                </AppText>
-              </View>
-              {logged.length === 0 ? (
-                <Pressable
-                  testID={`live-remove-${key}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('strength.live.removeExercise', { name })}
-                  onPress={() => void strengthActions.removeSessionExercise(exercise.id)}
-                  style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="trash" color={colors.textMuted} size={18} />
-                </Pressable>
-              ) : null}
-            </View>
-            {logged.map((set, index) => (
-              <View key={set.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }} testID={`live-set-${set.id}`}>
-                <AppText variant="body" numeric style={{ flex: 1 }}>
-                  {t('strength.live.setLine', { n: index + 1, reps: set.reps, weight: labels.weight(set.weightKg) })}
-                  {set.rpe === null ? '' : ` · ${t('strength.live.setRpe', { rpe: labels.weight(set.rpe) })}`}
-                </AppText>
-                <Pressable
-                  testID={`live-delete-set-${set.id}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('strength.live.removeSet', { n: index + 1, name })}
-                  onPress={() => void strengthActions.removeSet(set.id)}
-                  style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="close" color={colors.textMuted} size={16} />
-                </Pressable>
-              </View>
-            ))}
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <Field
-                  label={t('strength.live.reps')}
-                  error={bad.includes('reps')}
-                  value={draft.reps}
-                  onChangeText={(reps) => patchDraft(key, draft, { reps })}
-                  keyboardType="number-pad"
-                  testID={`live-reps-${key}`}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Field
-                  label={t('strength.live.weight')}
-                  error={bad.includes('weight')}
-                  suffix="kg"
-                  value={draft.weight}
-                  onChangeText={(weight) => patchDraft(key, draft, { weight })}
-                  keyboardType="decimal-pad"
-                  testID={`live-weight-${key}`}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Field
-                  label={t('strength.live.rpe')}
-                  error={bad.includes('rpe')}
-                  value={draft.rpe}
-                  onChangeText={(rpe) => patchDraft(key, draft, { rpe })}
-                  keyboardType="decimal-pad"
-                  testID={`live-rpe-${key}`}
-                />
-              </View>
-            </View>
-            <AppText variant="caption" color={bad.length > 0 ? colors.negative : colors.textMuted}>
-              {bad.length > 0
-                ? t('strength.live.errorSet')
-                : t('strength.builder.targetHint', {
-                    setsMin: STRENGTH_LIMITS.sets.min,
-                    setsMax: STRENGTH_LIMITS.sets.max,
-                    repsMin: STRENGTH_LIMITS.reps.min,
-                    repsMax: STRENGTH_LIMITS.reps.max,
-                    weightMin: STRENGTH_LIMITS.weightKg.min,
-                    weightMax: STRENGTH_LIMITS.weightKg.max,
-                  }) +
-                  ' ' +
-                  t('strength.live.rpeHint')}
-            </AppText>
-            <Button
-              label={t('strength.live.logSet')}
-              icon="check"
-              disabled={busy}
-              onPress={() => void log(key, exercise.exerciseName, exercise.muscle, draft)}
-              testID={`live-log-${key}`}
-            />
-          </Card>
-        );
-      })}
-
-      <Section title={t('strength.live.addExercise')}>
-        {picking ? (
-          <ExercisePicker exclude={session.exercises.map((exercise) => exercise.exerciseKey)} onPick={(ref) => void add(ref)} onClose={() => setPicking(false)} />
-        ) : (
-          <Button label={t('strength.live.addExercise')} variant="secondary" icon="plus" onPress={() => setPicking(true)} testID="live-add" />
-        )}
-      </Section>
-
-      <Button label={t('strength.live.finish')} onPress={() => void finish()} disabled={busy || total === 0} testID="live-finish" />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
+        <Button
+          label={t('strength.live.next')}
+          variant="soft"
+          disabled={index >= exercises.length - 1}
+          onPress={() => setCurrent(index + 1)}
+          style={{ flexGrow: 1, flexBasis: 140 }}
+          testID="live-next"
+        />
+        <Button label={t('strength.live.finish')} onPress={() => void finish()} disabled={busy || total === 0} style={{ flexGrow: 1, flexBasis: 120 }} testID="live-finish" />
+      </View>
       {total === 0 ? (
         <AppText variant="caption" muted testID="live-finish-hint">
           {t('strength.live.finishNeedsSet')}
         </AppText>
       ) : null}
+
+      {exercises.length > 1 ? (
+        <Section title={t('strength.live.exercises')}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            {exercises.map((item, at) => (
+              <Pill
+                key={item.id}
+                label={t('strength.live.jump', { name: labels.nameOf(item.exerciseKey, item.exerciseName), done: setsDone(item, session.sets), target: item.sets })}
+                selected={at === index}
+                onPress={() => setCurrent(at)}
+                testID={`live-jump-${item.exerciseKey}`}
+              />
+            ))}
+          </View>
+        </Section>
+      ) : null}
+
+      <Section title={t('strength.live.addExercise')}>
+        {picking ? (
+          <ExercisePicker exclude={exercises.map((item) => item.exerciseKey)} onPick={(ref) => void add(ref)} onClose={() => setPicking(false)} />
+        ) : (
+          <Button label={t('strength.live.addExercise')} variant="secondary" icon="plus" onPress={() => setPicking(true)} testID="live-add" />
+        )}
+      </Section>
+
       {confirmDiscard ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm, justifyContent: 'center' }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' }}>
           <Button label={t('strength.live.confirmDiscard')} variant="danger" onPress={() => void discard()} testID="live-confirm-discard" />
           <Button label={t('strength.live.keepGoing')} variant="tertiary" onPress={() => setConfirmDiscard(false)} testID="live-keep" />
         </View>

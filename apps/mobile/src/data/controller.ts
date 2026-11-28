@@ -218,6 +218,7 @@ import type { FileReport } from './vendorExport/parse';
 import type { SourceFile } from './vendorExport/sources';
 import { summariseImport, type VendorImportResult } from './vendorExport/summary';
 import { USER_DATA_KEY, defaultUserData, parseUserData, serializeUserData, type UserData } from './userData';
+import { buzzIfConnected } from './bandBuzz';
 import { LoadBuzzRunner } from './loadBuzzRunner';
 import { changesAppData } from './liveData';
 import { SETTING_KEYS, parseDataSource, parseLanguage, parseProfile, parseProfileDetails, parseUnits, storeProfile } from './settingsCodec';
@@ -1344,6 +1345,17 @@ export class AppController {
 
   private readonly bandActionSet: BandActions = {
     buzz: (kind: BandBuzz) => this.onBand((conn) => buzz(conn.session, BUZZ_LOOPS[kind]), false),
+    buzzIfConnected: (kind: BandBuzz) => {
+      const conn = this.conn;
+      return buzzIfConnected({
+        connected: () => conn !== null && this.conn === conn && conn.session.isConnected,
+        syncing: () => this.syncRun !== null,
+        exclusive: (task) => this.exclusive(task),
+        buzz: async () => {
+          if (conn !== null) await buzz(conn.session, BUZZ_LOOPS[kind]);
+        },
+      });
+    },
     stopBuzz: () => this.onBand((conn) => stopBuzz(conn.session), false),
     setHeartRateBroadcast: (on: boolean) =>
       this.onBand(async (conn) => {

@@ -32,6 +32,7 @@ export function fixtureStrengthActions(): StrengthActions {
 export function fixtureBandActions(): BandActions {
   return {
     buzz: async () => true,
+    buzzIfConnected: async () => true,
     stopBuzz: async () => true,
     setHeartRateBroadcast: async () => true,
     writeConfig: async () => true,

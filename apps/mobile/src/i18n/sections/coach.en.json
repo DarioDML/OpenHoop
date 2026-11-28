@@ -96,6 +96,6 @@
   "network.globalBody": "Off by default. While off, OpenHoop makes no network requests at all.",
   "network.featureOff": "Switch on Network features first.",
   "network.coach.title": "Coach",
-  "network.coach.sends": "Sends: your question, the current conversation, the last 7 days of readiness, sleep score, load, HRV and resting heart rate, and your memory notes.",
-  "network.coach.to": "To: Anthropic (api.anthropic.com), with your own API key. Nothing is sent until you ask a question."
+  "network.coach.sends": "Sends: your question, the current conversation, the last 7 days of readiness, sleep score, load, HRV and resting heart rate, and your memory notes. When you build a strength workout with the coach: your description, your exercise list (including the names of your own exercises) and up to 30 recent working weights with their dates.",
+  "network.coach.to": "To: Anthropic (api.anthropic.com), with your own API key. Nothing is sent until you ask a question or describe a workout."
 }

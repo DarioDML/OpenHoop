@@ -64,7 +64,7 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
 }
 
 interface SegmentedProps<T extends string> {
-  options: ReadonlyArray<{ value: T; label: string; testID?: string }>;
+  options: ReadonlyArray<{ value: T; label: string; accessibilityLabel?: string; testID?: string }>;
   value: T;
   onChange: (value: T) => void;
   wrap?: boolean;
@@ -85,6 +85,7 @@ export function Segmented<T extends string>({ options, value, onChange, wrap = f
             key={option.value}
             testID={option.testID}
             accessibilityRole="tab"
+            accessibilityLabel={option.accessibilityLabel}
             accessibilityState={{ selected }}
             onPress={() => onChange(option.value)}
             style={{

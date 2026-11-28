@@ -58,19 +58,22 @@ interface IconButtonProps {
   onPress: () => void;
   color?: string;
   size?: number;
+  disabled?: boolean;
   testID?: string;
 }
 
-export function IconButton({ icon, label, onPress, color, size = 22, testID }: IconButtonProps) {
+export function IconButton({ icon, label, onPress, color, size = 22, disabled = false, testID }: IconButtonProps) {
   const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={disabled ? { disabled } : undefined}
+      disabled={disabled}
       hitSlop={6}
       onPress={onPress}
       testID={testID}
-      style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+      style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 }}>
       <Icon name={icon} color={color ?? colors.textMuted} size={size} />
     </Pressable>
   );
