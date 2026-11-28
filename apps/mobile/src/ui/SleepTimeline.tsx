@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { G, Rect } from 'react-native-svg';
 
@@ -19,6 +19,10 @@ const ROW_H = 26;
 const HOUR = 3600;
 
 const TICK_W = 28;
+const BED_OPACITY = 0.28;
+
+const bedStart = (p: SleepPeriodRecord): number => Math.min(p.onset, p.bedOnset ?? p.onset);
+const bedEnd = (p: SleepPeriodRecord): number => Math.max(p.offset, p.bedOffset ?? p.offset);
 
 export function SleepTimeline({ periods, tzOffsetS }: Props) {
   const { colors } = useTheme();
@@ -28,8 +32,8 @@ export function SleepTimeline({ periods, tzOffsetS }: Props) {
 
   if (periods.length === 0) return null;
 
-  const first = Math.min(...periods.map((p) => p.onset));
-  const last = Math.max(...periods.map((p) => p.offset));
+  const first = Math.min(...periods.map(bedStart));
+  const last = Math.max(...periods.map(bedEnd));
   const from = Math.floor((first + tzOffsetS) / HOUR) * HOUR - tzOffsetS;
   const to = Math.ceil((last + tzOffsetS) / HOUR) * HOUR - tzOffsetS;
   const span = to - from;
@@ -49,6 +53,8 @@ export function SleepTimeline({ periods, tzOffsetS }: Props) {
           <Svg width={width} height={height}>
             {periods.map((p, i) => {
               const y = i * (ROW_H + 6);
+              const bedX = px(bedStart(p));
+              const bedW = Math.max(4, px(bedEnd(p)) - bedX);
               const x = px(p.onset);
               const w = Math.max(4, px(p.offset) - x);
               const drawnS = p.offset - p.onset + 1;
@@ -57,7 +63,7 @@ export function SleepTimeline({ periods, tzOffsetS }: Props) {
               const base = p.nap ? colors.zones[1] : colors.accent;
               return (
                 <G key={p.onset}>
-                  <Rect testID={`sleep-timeline-bed-${i}`} x={x} y={y} width={w} height={ROW_H} rx={radius.sm} fill={base} opacity={0.28} />
+                  <Rect testID={`sleep-timeline-bed-${i}`} x={bedX} y={y} width={bedW} height={ROW_H} rx={radius.sm} fill={base} opacity={BED_OPACITY} />
                   <Rect testID={`sleep-timeline-asleep-${i}`} x={x + (w - innerW) / 2} y={y + 5} width={innerW} height={ROW_H - 10} rx={radius.sm - 3} fill={base} />
                 </G>
               );
@@ -86,20 +92,40 @@ export function SleepTimeline({ periods, tzOffsetS }: Props) {
         </View>
       </View>
       <View style={{ gap: spacing.sm }}>
-        {periods.map((p) => (
-          <View key={p.onset} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.sm, rowGap: 2 }}>
-            <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: p.nap ? colors.zones[1] : colors.accent }} />
-            <AppText variant="body" style={{ flexGrow: 1, flexShrink: 1, minWidth: 96 }}>
-              {p.nap ? t('sleep.nap') : t('sleep.main')}
-            </AppText>
-            <AppText variant="bodyStrong" numeric>
-              {formatClock(p.onset, tzOffsetS)}–{formatClock(p.offset, tzOffsetS)}
-            </AppText>
-            <AppText variant="label" muted numeric>
-              {formatDuration(t, p.asleepS)}
-            </AppText>
-          </View>
-        ))}
+        {periods.map((p, i) => {
+          const base = p.nap ? colors.zones[1] : colors.accent;
+          const inBedLonger = bedStart(p) < p.onset || bedEnd(p) > p.offset;
+          return (
+            <Fragment key={p.onset}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.sm, rowGap: 2 }}>
+                <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: base }} />
+                <AppText variant="body" style={{ flexGrow: 1, flexShrink: 1, minWidth: 96 }}>
+                  {p.nap ? t('sleep.nap') : t('sleep.main')}
+                </AppText>
+                <AppText variant="bodyStrong" numeric>
+                  {formatClock(p.onset, tzOffsetS)}–{formatClock(p.offset, tzOffsetS)}
+                </AppText>
+                <AppText variant="label" muted numeric>
+                  {formatDuration(t, p.asleepS)}
+                </AppText>
+              </View>
+              {inBedLonger ? (
+                <View testID={`sleep-timeline-in-bed-${i}`} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.sm, rowGap: 2 }}>
+                  <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: base, opacity: BED_OPACITY }} />
+                  <AppText variant="body" style={{ flexGrow: 1, flexShrink: 1, minWidth: 96 }}>
+                    {t('metric.inBed')}
+                  </AppText>
+                  <AppText variant="bodyStrong" numeric>
+                    {formatClock(bedStart(p), tzOffsetS)}–{formatClock(bedEnd(p), tzOffsetS)}
+                  </AppText>
+                  <AppText variant="label" muted numeric>
+                    {formatDuration(t, p.inBedS)}
+                  </AppText>
+                </View>
+              ) : null}
+            </Fragment>
+          );
+        })}
       </View>
     </View>
   );

@@ -342,6 +342,34 @@ describe('pipeline', () => {
       expect(afterSecond).toBe(afterFirst);
     });
 
+    it('keeps the time in bed before and after the sleep on the night', async () => {
+      const walkAt = localMidnight(3) + HOUR_S - 40 * 60;
+      const stillAt = localMidnight(3) + HOUR_S - 12 * 60;
+      const sleepAt = localMidnight(3) + HOUR_S;
+      const wokeAt = sleepAt + 8 * HOUR_S;
+      const upAt = wokeAt + 30 * 60;
+      const walk = awakeSamples(deviceId, walkAt, 10 * 60);
+      const lastSteps = walk.at(-1)?.steps ?? null;
+      const phone = awakeSamples(deviceId, walkAt + 10 * 60, stillAt - walkAt - 10 * 60).map((s) => ({ ...s, steps: lastSteps }));
+      const rows = [
+        ...walk,
+        ...phone,
+        ...stillSamples(deviceId, stillAt, sleepAt - stillAt),
+        ...nightSamples(deviceId, sleepAt, wokeAt - sleepAt, { seed: 6 }),
+        ...lyingAwakeSamples(deviceId, wokeAt, upAt - wokeAt),
+        ...awakeSamples(deviceId, upAt, 4 * HOUR_S),
+      ];
+      await store.insertSamples(rows);
+      await recompute(rows);
+      const record = (await storedDays()).find((d) => d.day === dayKey(sleepAt, TZ_S));
+      const main = record?.sleep.periods.find((p) => !p.nap);
+      expect(main?.bedOnset).toBe((walk.at(-1)?.t ?? 0) + 1);
+      expect(Math.abs((main?.bedOffset ?? 0) - upAt)).toBeLessThanOrEqual(150);
+      expect(main?.onset).toBe(stillAt);
+      expect(Math.abs((main?.offset ?? 0) - wokeAt)).toBeLessThanOrEqual(60);
+      expect(record?.sleep.inBedS).toBe((main?.bedOffset ?? 0) - (main?.bedOnset ?? 0) + 1);
+    });
+
     it('starts the night when the wearer lay still, before the band flagged sleep', async () => {
       const stillAt = localMidnight(3) + HOUR_S - 12 * 60;
       const sleepAt = localMidnight(3) + HOUR_S;

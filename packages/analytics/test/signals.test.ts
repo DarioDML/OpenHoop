@@ -11,6 +11,7 @@ import {
   rmssd,
   sleepPeriods,
   spo2Windows,
+  withBedTime,
   withStillLeadIn,
   withoutAwakeTails,
 } from '../src';
@@ -232,6 +233,55 @@ describe('lying still before the band flags sleep', () => {
     expect(withStillLeadIn(sleepPeriods(long), long)[0]?.onset).toBe(T0 + 1800 + 3600);
     const offWrist = night((i) => (i < 600 ? { skinTempC: null } : {}));
     expect(withStillLeadIn(sleepPeriods(offWrist), offWrist)[0]?.onset).toBe(T0 + 1800 + 600);
+  });
+});
+
+describe('time in bed before and after the sleep', () => {
+  const WALK_S = 600;
+  const PHONE_S = 20 * 60;
+  const STILL_S = 10 * 60;
+  const SLEEP_S = 6 * 3600;
+
+  function evening(phoneS = PHONE_S, steps = true): Sample[] {
+    const out: Sample[] = [];
+    let t = T0;
+    for (let i = 0; i < WALK_S; i++) out.push(sample(t++, { state: 'WAKE', hr: 85, motionG: 0.3, steps: steps ? 1000 + i : null, skinTempC: 32 }));
+    for (let i = 0; i < phoneS; i++) out.push(sample(t++, { state: 'WAKE', hr: 67, motionG: 0.05, steps: steps ? 1000 + WALK_S - 1 : null, skinTempC: 33 }));
+    for (let i = 0; i < STILL_S; i++) out.push(sample(t++, { state: 'STILL', hr: 56, motionG: 0.006, steps: null, skinTempC: 33.2 }));
+    for (let i = 0; i < SLEEP_S; i++) out.push(sample(t++, { state: 'SLEEP', hr: 54 + (Math.floor(i / 40) % 3), motionG: 0.006, steps: null, skinTempC: 33.4 }));
+    return out;
+  }
+
+  function detect(samples: Sample[]): SleepPeriod[] {
+    return withBedTime(withStillLeadIn(withoutAwakeTails(sleepPeriods(samples), samples), samples), samples);
+  }
+
+  it('puts the wearer in bed from the last steps before lying still, without adding sleep', () => {
+    const samples = evening();
+    const withoutBed = withStillLeadIn(withoutAwakeTails(sleepPeriods(samples), samples), samples)[0];
+    const period = detect(samples)[0];
+    expect(period?.onset).toBe(withoutBed?.onset);
+    expect(period?.asleepS).toBe(withoutBed?.asleepS);
+    expect(period?.bedOnset).toBe(T0 + WALK_S);
+    expect(period?.bedOffset).toBe(period?.offset);
+    expect(period?.inBedS).toBe((period?.offset ?? 0) - T0 - WALK_S + 1);
+  });
+
+  it('reaches back at most an hour before lying still, and not at all without step counts', () => {
+    const long = detect(evening(2 * 3600))[0];
+    expect(long?.bedOnset).toBe((long?.onset ?? 0) - 3600);
+    const noSteps = detect(evening(PHONE_S, false))[0];
+    expect(noSteps?.bedOnset).toBe(noSteps?.onset);
+  });
+
+  it('keeps the band-flagged end as the time in bed after waking', () => {
+    const samples = evening();
+    for (let i = 0; i < 40 * 60; i++) samples.push(sample(T0 + WALK_S + PHONE_S + STILL_S + SLEEP_S + i, { state: 'SLEEP', hr: 70, motionG: i % 60 < 10 ? 0.1 : 0.006, skinTempC: 33.6 }));
+    const band = sleepPeriods(samples)[0];
+    const period = detect(samples)[0];
+    expect(period?.offset ?? Infinity).toBeLessThan(band?.offset ?? 0);
+    expect(period?.bedOffset).toBe(band?.offset);
+    expect(period?.inBedS).toBe((band?.offset ?? 0) - (period?.bedOnset ?? 0) + 1);
   });
 });
 
