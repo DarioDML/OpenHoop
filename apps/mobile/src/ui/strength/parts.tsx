@@ -3,10 +3,14 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { MUSCLE_GROUPS, STRENGTH_LIMITS, cleanName, exerciseLabel, exerciseRefs, type ExerciseRef, type LibraryId, type MuscleLoad } from '@/data/strength';
-import { useT } from '@/i18n/useT';
+import { MUSCLE_GROUPS, STRENGTH_LIMITS, cleanName, exerciseLabel, exerciseRefs, formatVolume, type ExerciseRef, type LibraryId, type MuscleLoad } from '@/data/strength';
+import type { SessionLoad } from '@/data/strength';
+import type { Units } from '@/data/types';
+import type { TranslationKey } from '@/i18n';
+import { useT, type TFunction } from '@/i18n/useT';
 import { deviceTzOffsetS, unixToIsoDate } from '@/lib/dates';
 import { formatNumber } from '@/lib/format';
+import { useUnits, weightIn, weightUnit } from '@/lib/units';
 import { ProgressBar } from '@/ui/activity/parts';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
@@ -22,23 +26,67 @@ export function todayIso(): string {
   return unixToIsoDate(Math.floor(now.getTime() / 1000), deviceTzOffsetS(now));
 }
 
+export function loadReasonKey(reason: string | null): TranslationKey {
+  if (reason === 'low-coverage') return 'strength.load.lowCoverage';
+  if (reason === 'missing-signal') return 'strength.load.missing';
+  return 'strength.load.noData';
+}
+
+export function loadText(t: TFunction, load: SessionLoad, num: (value: number, decimals?: number) => string): string {
+  return load.value === null ? t(loadReasonKey(load.reason)) : t('strength.load.value', { value: num(load.value, 1) });
+}
+
+export function formatSessionDay(day: string, language: 'en' | 'nl'): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const date = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+  return date.toLocaleDateString(language === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+function tidy(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export interface StrengthLabels {
+  units: Units;
+  unit: string;
   libraryName: (id: LibraryId) => string;
   muscleName: (muscle: MuscleGroup) => string;
   nameOf: (key: string, stored: string) => string;
   kg: (value: number, decimals?: number) => string;
-  weight: (value: number) => string;
+  num: (value: number, decimals?: number) => string;
+  weight: (kg: number) => string;
+  weightText: (kg: number) => string;
+  volumeText: (kg: number) => string;
+  setSummary: (sets: number, reps: number, kg: number) => string;
+  day: (day: string) => string;
 }
 
 export function useStrengthLabels(): StrengthLabels {
   const { t, language } = useT();
+  const units = useUnits();
+  const unit = weightUnit(units);
   const libraryName = (id: LibraryId): string => t(`strength.ex.${id}`);
+  const weight = (kg: number): string => {
+    const value = tidy(weightIn(kg, units));
+    return formatNumber(value, Number.isInteger(value) ? 0 : Number.isInteger(value * 10) ? 1 : 2, language);
+  };
+  const weightText = (kg: number): string => `${weight(kg)} ${unit}`;
   return {
+    units,
+    unit,
     libraryName,
     muscleName: (muscle) => t(`strength.muscle.${muscle}`),
     nameOf: (key, stored) => exerciseLabel(key, stored, libraryName),
-    kg: (value, decimals = 0) => formatNumber(value, decimals, language),
-    weight: (value) => formatNumber(value, Number.isInteger(value) ? 0 : Number.isInteger(value * 10) ? 1 : 2, language),
+    kg: (value, decimals = 0) => formatNumber(weightIn(value, units), decimals, language),
+    num: (value, decimals = 0) => formatNumber(value, decimals, language),
+    weight,
+    weightText,
+    volumeText: (kg) => {
+      const measure = formatVolume(kg, units, language);
+      return `${measure.value} ${measure.unit}`;
+    },
+    setSummary: (sets, reps, kg) => (kg > 0 ? t('strength.common.setSummary', { sets, reps, weight: weightText(kg) }) : t('strength.common.setSummaryBody', { sets, reps })),
+    day: (day) => formatSessionDay(day, language),
   };
 }
 
@@ -47,17 +95,23 @@ interface PageProps {
   intro?: string;
   testID: string;
   close?: boolean;
+  right?: ReactNode;
+  center?: ReactNode;
+  hero?: ReactNode;
+  scrollEnabled?: boolean;
   children: ReactNode;
 }
 
-export function StrengthPage({ title, intro, testID, close = false, children }: PageProps) {
+export function StrengthPage({ title, intro, testID, close = false, right, center, hero, scrollEnabled = true, children }: PageProps) {
   return (
     <Screen
       tint="load"
       testID={testID}
+      scrollEnabled={scrollEnabled}
       header={
         <>
-          <TopBar title={title} back={!close} close={close} />
+          <TopBar title={title} back={!close} close={close} right={right} center={center} />
+          {hero}
           {intro ? (
             <AppText variant="lead" soft>
               {intro}

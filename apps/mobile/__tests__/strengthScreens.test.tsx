@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { createFixtureDays } from '@/data/fixtureSource';
 import { defaultUserData } from '@/data/userData';
 import { defaultPlan } from '@/data/weeklyPlan';
-import type { StrengthActions } from '@/data/types';
+import type { HeartRatePoint, StrengthActions } from '@/data/types';
 import { WeekCard } from '@/ui/daily/cards';
 
 import { FIXTURE_NOW, fixtureStrengthActions, withAppData, type AppDataOverrides } from './support/appData';
@@ -74,6 +74,10 @@ function app(strength: StrengthData, strengthActions: StrengthActions, extra: Ap
   return { strength, strengthActions, ...extra };
 }
 
+function steadyHeartRate(fromS: number, toS: number, hr = 150): HeartRatePoint[] {
+  return Array.from({ length: Math.max(0, toS - fromS) }, (_, i) => ({ t: fromS + i, hr }));
+}
+
 beforeEach(() => {
   mockParams = {};
   mockPush.mockClear();
@@ -137,6 +141,55 @@ describe('strength home', () => {
   it('is available in Dutch', async () => {
     await render(withAppData(<StrengthHomeScreen />, 'nl', app(data(), actions())));
     expect(screen.getByText('Sessies deze week')).toBeTruthy();
+  });
+
+  it('opens a saved workout for editing and shows its usual length', async () => {
+    const done: StrengthSession = { ...DAY_1, templateId: 7 };
+    await render(withAppData(<StrengthHomeScreen />, 'en', app(data({ templates: [TEMPLATE], sessions: [done] }), actions())));
+    expect(within(screen.getByTestId('template-edit-7')).getByText(/~50 min/)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('template-edit-7'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/strength/builder', params: { id: '7' } });
+  });
+
+  it('opens the builder with the coach from the Build with coach card', async () => {
+    await render(withAppData(<StrengthHomeScreen />, 'en', app(data(), actions())));
+    await fireEvent.press(screen.getByTestId('strength-coach-card'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/strength/builder', params: { coach: '1' } });
+  });
+
+  it('adds a preset as the person’s own templates', async () => {
+    const saveTemplate = jest.fn(async () => 1);
+    await render(withAppData(<StrengthHomeScreen />, 'en', app(data({ templates: [{ ...TEMPLATE, name: 'Upper body' }] }), actions({ saveTemplate }))));
+    await fireEvent.press(screen.getByTestId('preset-upperLower'));
+    await waitFor(() => expect(screen.getByTestId('strength-preset-notice')).toHaveTextContent(/^Added: Upper body 2, Lower body\./));
+    expect(saveTemplate).toHaveBeenCalledTimes(2);
+    expect(saveTemplate).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({ name: 'Upper body 2', items: expect.arrayContaining([expect.objectContaining({ exerciseKey: 'lib:bench_press', exerciseName: 'Bench press', weightKg: 0 })]) }),
+    );
+  });
+
+  it('says so when a preset could not be saved', async () => {
+    const saveTemplate = jest.fn(async () => null);
+    await render(withAppData(<StrengthHomeScreen />, 'en', app(data(), actions({ saveTemplate }))));
+    await fireEvent.press(screen.getByTestId('preset-kettlebell'));
+    await waitFor(() => expect(screen.getByTestId('strength-preset-notice')).toHaveTextContent(/could not be added/));
+  });
+
+  it('shows the Load of a recent session from its heart rate, or why there is none', async () => {
+    const heartRateBetween = jest.fn(async (fromS: number, toS: number) => (fromS === DAY_2.startedAt ? steadyHeartRate(fromS, toS) : []));
+    await render(withAppData(<StrengthHomeScreen />, 'en', app(data({ sessions: [DAY_1, DAY_2] }), actions(), { heartRateBetween })));
+    await waitFor(() => expect(within(screen.getByTestId('session-2')).getByText(/Load \d+\.\d/)).toBeTruthy());
+    expect(within(screen.getByTestId('session-1')).getByText(/no Load: no heart rate recorded/)).toBeTruthy();
+    expect(heartRateBetween).toHaveBeenCalledWith(DAY_2.startedAt, DAY_2.endedAt, 1);
+  });
+
+  it('lists every session after See all', async () => {
+    const many = Array.from({ length: 7 }, (_, i) => finished(20 + i, '2026-11-20', NOW_S - (i + 2) * 86_400, [set(20 + i, 'lib:crunch', 'Crunch', 'core', 10, 0)]));
+    await render(withAppData(<StrengthHomeScreen />, 'en', app(data({ sessions: many }), actions())));
+    expect(screen.queryByTestId('session-20')).toBeNull();
+    await fireEvent.press(screen.getByTestId('strength-show-all'));
+    expect(screen.getByTestId('session-20')).toBeTruthy();
   });
 });
 
