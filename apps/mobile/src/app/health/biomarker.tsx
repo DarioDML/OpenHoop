@@ -22,6 +22,8 @@ import { ParityBadge } from '@/ui/ParityBadge';
 import { Section } from '@/ui/Section';
 import { spacing, useTheme } from '@/ui/theme';
 
+const RESULT_VALUE_MIN_WIDTH = 140;
+
 function hoursText(hours: number): string {
   const minutes = Math.round(hours * 60);
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
@@ -225,10 +227,11 @@ export default function BiomarkerScreen() {
                 testID={`biomarker-entry-row-${entry.id}`}
                 style={{
                   flexDirection: layout.compact ? 'column' : 'row',
+                  flexWrap: layout.compact ? 'nowrap' : 'wrap',
                   alignItems: layout.compact ? 'flex-start' : 'center',
                   gap: layout.compact ? spacing.sm : spacing.md,
                 }}>
-                <View style={{ flex: layout.compact ? undefined : 1, alignSelf: layout.compact ? 'stretch' : 'auto', gap: 2 }}>
+                <View style={layout.compact ? { alignSelf: 'stretch', gap: 2 } : { flexGrow: 1, flexShrink: 1, minWidth: RESULT_VALUE_MIN_WIDTH, gap: 2 }}>
                   <AppText variant="bodyStrong" numeric testID={`biomarker-value-${entry.id}`}>
                     {`${formatEntered(entry.value, language)}\u00a0${entry.unit}`}
                   </AppText>
