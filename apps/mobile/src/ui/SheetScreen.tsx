@@ -16,10 +16,14 @@ interface Props {
   onClose?: () => void;
   surface?: 'surface' | 'sheet';
   maxHeight?: `${number}%`;
+  footer?: ReactNode;
   testID?: string;
 }
 
-export function SheetScreen({ title, children, onClose = goBack, surface = 'surface', maxHeight = '92%', testID }: Props): ReactElement {
+export const SHEET_MAX_HEIGHT = '85%';
+export const SHEET_TALL_HEIGHT = '90%';
+
+export function SheetScreen({ title, children, onClose = goBack, surface = 'surface', maxHeight = SHEET_MAX_HEIGHT, footer, testID }: Props): ReactElement {
   const { t } = useT();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -31,10 +35,11 @@ export function SheetScreen({ title, children, onClose = goBack, surface = 'surf
         accessibilityLabel={t('common.close')}
         onPress={onClose}
         testID={testID === undefined ? undefined : `${testID}-backdrop`}
-        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.background, opacity: 0.72 }}
+        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.background, opacity: 0.6 }}
       />
       <View
         accessibilityViewIsModal
+        testID={testID === undefined ? undefined : `${testID}-sheet`}
         style={{
           maxHeight,
           backgroundColor: surface === 'surface' ? colors.surface : colors.sheet,
@@ -42,8 +47,8 @@ export function SheetScreen({ title, children, onClose = goBack, surface = 'surf
           borderTopRightRadius: radius.lg,
           paddingTop: 10,
           paddingHorizontal: gutter,
-          paddingBottom: insets.bottom + spacing.xl,
-          gap: spacing.xl,
+          paddingBottom: insets.bottom + spacing.lg,
+          gap: spacing.md,
         }}>
         <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.surface3 }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -59,9 +64,10 @@ export function SheetScreen({ title, children, onClose = goBack, surface = 'surf
             <Icon name="close" size={18} color={colors.text} strokeWidth={2} />
           </Pressable>
         </View>
-        <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: spacing.lg }} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: spacing.lg, paddingBottom: footer === undefined ? 0 : spacing.xs }} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
+        {footer === undefined ? null : <View testID={testID === undefined ? undefined : `${testID}-footer`}>{footer}</View>}
       </View>
     </KeyboardAvoidingView>
   );

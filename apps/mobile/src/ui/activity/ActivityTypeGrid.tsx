@@ -3,7 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import type { ActivityType } from '@/data/activityDerived';
 import { useT } from '@/i18n/useT';
 
-import { AppText } from '../AppText';
+import { WordFitText } from '../AppText';
 import { Icon } from '../Icon';
 import { radius, spacing, useTheme } from '../theme';
 import { activityIcon, ActivityGlyph } from './ActivityGlyph';
@@ -42,13 +42,14 @@ export function ActivityTypeGrid({ types, onChoose, testIDPrefix }: GridProps) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: spacing.sm,
-                  paddingHorizontal: spacing.xs,
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: spacing.md,
                   opacity: pressed ? 0.8 : 1,
                 })}>
                 <Icon name={activityIcon(type)} color={colors.text} size={24} strokeWidth={2} />
-                <AppText variant="label" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontWeight: '500' }}>
+                <WordFitText variant="label" numberOfLines={2} style={{ fontWeight: '500', textAlign: 'center' }} testID={`${testIDPrefix}-${type}-label`}>
                   {label}
-                </AppText>
+                </WordFitText>
               </Pressable>
             );
           })}
@@ -82,9 +83,9 @@ export function RecentActivityRow({ types, onChoose }: RecentProps) {
             onPress={() => onChoose(type)}
             style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: spacing.sm, opacity: pressed ? 0.8 : 1 })}>
             <ActivityGlyph type={type} size={64} />
-            <AppText variant="caption" color={colors.textSoft} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+            <WordFitText variant="caption" color={colors.textSoft} numberOfLines={2} style={{ textAlign: 'center' }}>
               {label}
-            </AppText>
+            </WordFitText>
           </Pressable>
         );
       })}

@@ -10,7 +10,7 @@ import type { HeartRatePoint, Spo2Point } from '@/data/types';
 import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatNumber, formatShortDay } from '@/lib/format';
-import { AppText } from '@/ui/AppText';
+import { AppText, WordFitText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Pill } from '@/ui/Chip';
 import { HealthPage } from '@/ui/health/HealthPage';
@@ -42,9 +42,9 @@ function Stat({ label, value, testID }: StatProps) {
   const { colors } = useTheme();
   return (
     <Card style={{ flex: 1, gap: 4, paddingHorizontal: spacing.md }}>
-      <AppText variant="capSmall" muted numberOfLines={1}>
+      <WordFitText variant="capSmall" muted numberOfLines={2}>
         {label}
-      </AppText>
+      </WordFitText>
       {value === null ? (
         <AppText variant="bodyStrong" muted>
           {t('reason.no-data')}

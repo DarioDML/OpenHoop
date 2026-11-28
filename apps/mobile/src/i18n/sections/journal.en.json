@@ -164,7 +164,7 @@
   "journal.noQuestions": "No questions are switched on. Add behaviours under Customize questions.",
   "journal.customize.search": "Search {count} behaviours",
   "journal.customize.searchLabel": "Search behaviours",
-  "journal.customize.count": "{count} of {max} behaviours in your journal",
+  "journal.customize.count": "{count} in your journal · up to {max}",
   "journal.customize.full": "Your journal holds {max} behaviours, the most at one time. Remove one to add another.",
   "journal.customize.noResults": "No behaviour matches your search.",
   "journal.customize.add": "Add {name}",
@@ -210,5 +210,7 @@
   "journal.insights.needsTitle": "Needs more data",
   "journal.insights.needsWith": "{have} of {need} days logged",
   "journal.insights.needsWithout": "{have} of {need} days without it logged",
-  "journal.insights.rowA11y": "{name}: {value} {metric}, {count} logged days, {confidence}"
+  "journal.insights.rowA11y": "{name}: {value} {metric}, {count} logged days, {confidence}",
+  "journal.customize.showAll": "Show all {count}",
+  "journal.customize.showFewer": "Show fewer"
 }

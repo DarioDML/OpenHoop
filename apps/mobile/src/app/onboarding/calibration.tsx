@@ -87,7 +87,7 @@ export default function CalibrationScreen() {
             icon={tile(colors, milestone.icon, milestone.tone)}
             title={t('onboarding.calibration.night', { n: milestone.night })}
             subtitle={t(milestone.key)}
-            right={done >= milestone.night ? <Chip label={t('onboarding.calibration.reached')} tone="positive" small /> : null}
+            chip={done >= milestone.night ? <Chip label={t('onboarding.calibration.reached')} tone="positive" small /> : null}
             chevron={false}
             testID={`milestone-${milestone.night}`}
           />

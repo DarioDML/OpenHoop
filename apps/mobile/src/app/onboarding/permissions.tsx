@@ -88,7 +88,7 @@ export default function PermissionsScreen() {
           icon={tile(colors, 'bluetooth', 'info')}
           title={t('onboarding.permissions.bluetooth')}
           subtitle={t('onboarding.permissions.bluetoothBody')}
-          right={<Chip label={t('onboarding.permissions.required')} tone="info" />}
+          chip={<Chip label={t('onboarding.permissions.required')} tone="info" />}
           chevron={false}
           testID="permission-bluetooth"
         />

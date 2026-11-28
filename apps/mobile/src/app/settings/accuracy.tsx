@@ -14,6 +14,7 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Button } from '@/ui/controls';
+import { useLayout } from '@/ui/layout';
 import { CapHeader, ListGroup, ListRow } from '@/ui/ListGroup';
 import { tile } from '@/ui/manage/tiles';
 import { Num } from '@/ui/Num';
@@ -107,28 +108,34 @@ interface ResultRowProps {
 
 function ResultRow({ title, subtitle, value, pass, target, testID }: ResultRowProps) {
   const { t } = useT();
+  const { compact } = useLayout();
+  const chip =
+    value === null ? (
+      <Chip label={t('aboutx.accuracy.notMeasured')} small testID={`${testID}-status`} />
+    ) : target === null ? (
+      <Chip label={t('aboutx.accuracy.noTarget')} small testID={`${testID}-status`} />
+    ) : (
+      <Chip label={`${pass === true ? '✓' : '!'} ${t('aboutx.accuracy.target', { target })}`} tone={pass === true ? 'positive' : 'warning'} testID={`${testID}-target`} />
+    );
   return (
     <View testID={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 72, paddingVertical: spacing.md }}>
-      <View style={{ flex: 1, gap: 3 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 3 }} testID={`${testID}-text`}>
         <AppText variant="body" style={{ fontWeight: '500', fontSize: 17 }}>
           {title}
         </AppText>
         <AppText variant="label" muted>
           {subtitle}
         </AppText>
+        {compact ? <View style={{ flexDirection: 'row', marginTop: 3 }}>{chip}</View> : null}
       </View>
       {value === null ? (
-        <Chip label={t('aboutx.accuracy.notMeasured')} small />
+        compact ? null : chip
       ) : (
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <Num size={24} testID={`${testID}-value`}>
             {value}
           </Num>
-          {target === null ? (
-            <Chip label={t('aboutx.accuracy.noTarget')} small />
-          ) : (
-            <Chip label={`${pass === true ? '✓' : '!'} ${t('aboutx.accuracy.target', { target })}`} tone={pass === true ? 'positive' : 'warning'} testID={`${testID}-target`} />
-          )}
+          {compact ? null : chip}
         </View>
       )}
     </View>
@@ -138,6 +145,7 @@ function ResultRow({ title, subtitle, value, pass, target, testID }: ResultRowPr
 export default function AccuracyScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
+  const { compact } = useLayout();
   const units = useUnits();
   const { days, vendorData, userData } = useAppData();
   const useImport = userData.vendorUse.accuracy;
@@ -227,19 +235,19 @@ export default function AccuracyScreen() {
         <AppText variant="label" muted>
           {t('aboutx.accuracy.body')}
         </AppText>
-        {KEYS.map((key) => (
-          <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 36 }} testID={`accuracy-${key}`}>
-            <ParityBadge level={PARITY[key]} />
-            <AppText variant="body" style={{ flex: 1 }}>
-              {t(LABELS[key])}
-            </AppText>
-            {measured.has(key) ? (
-              <Chip label={t('aboutx.accuracy.measured')} tone="positive" small />
-            ) : (
-              <Chip label={t('aboutx.accuracy.notMeasured')} small />
-            )}
-          </View>
-        ))}
+        {KEYS.map((key) => {
+          const chip = measured.has(key) ? <Chip label={t('aboutx.accuracy.measured')} tone="positive" small /> : <Chip label={t('aboutx.accuracy.notMeasured')} small />;
+          return (
+            <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 36 }} testID={`accuracy-${key}`}>
+              <ParityBadge level={PARITY[key]} />
+              <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                <AppText variant="body">{t(LABELS[key])}</AppText>
+                {compact ? chip : null}
+              </View>
+              {compact ? null : chip}
+            </View>
+          );
+        })}
       </Card>
 
       <ListGroup>

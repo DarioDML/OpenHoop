@@ -2,7 +2,7 @@ import { useState, type ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { STRESS_HOURS, latestStressDayIndex, stressForDay, stressHours, stressTimeline, type StressHour } from '@/data/stressDerived';
+import { STRESS_HOURS, hourTicks, latestStressDayIndex, recentStress, stressForDay, stressHours, stressTimeline, type StressHour } from '@/data/stressDerived';
 import { useT } from '@/i18n/useT';
 import { formatClock, formatNumber, formatShortDay } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -25,13 +25,14 @@ import { IconButton } from '@/ui/TopBar';
 
 const SCALE_MAX = 3;
 const BAR_AREA = 150;
+const TICK_WIDTH = 64;
 
-function HourBars({ hours, tzOffsetS }: { hours: readonly StressHour[]; tzOffsetS: number }): ReactElement {
+function HourBars({ hours }: { hours: readonly StressHour[] }): ReactElement {
   const { t, language } = useT();
   const { colors } = useTheme();
   const label = hours
     .filter((h) => h.score !== null)
-    .map((h) => `${formatClock(h.start, tzOffsetS)} ${formatNumber(h.score ?? 0, 1, language)}`)
+    .map((h) => `${formatClock(h.start, h.tzOffsetS)} ${formatNumber(h.score ?? 0, 1, language)}`)
     .join(', ');
   return (
     <View accessible accessibilityLabel={label === '' ? t('stress.noWindows') : label} testID="stress-hours" style={{ gap: 6 }}>
@@ -43,18 +44,34 @@ function HourBars({ hours, tzOffsetS }: { hours: readonly StressHour[]; tzOffset
             ) : (
               <View
                 testID={`stress-hour-${hour.level}`}
-                style={{ height: Math.max(14, (Math.min(hour.score, SCALE_MAX) / SCALE_MAX) * BAR_AREA), borderRadius: 7, backgroundColor: stressColor(colors, hour.level) }}
+                style={{ height: Math.max(8, (Math.min(hour.score, SCALE_MAX) / SCALE_MAX) * BAR_AREA), borderRadius: 4, backgroundColor: stressColor(colors, hour.level) }}
               />
             )}
           </View>
         ))}
       </View>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {hours.map((hour, i) => (
-          <AppText key={hour.start} variant="caption" muted numeric style={{ flex: 1, textAlign: 'center' }} numberOfLines={1}>
-            {i % 2 === 0 || i === hours.length - 1 ? formatClock(hour.start, tzOffsetS).slice(0, 2) : ''}
-          </AppText>
-        ))}
+      <View style={{ height: 22 }} testID="stress-hour-ticks">
+        {hourTicks(hours.length).map((i) => {
+          const hour = hours[i];
+          if (hour === undefined) return null;
+          const first = i === 0;
+          const last = i === hours.length - 1;
+          const center = ((i + 0.5) / hours.length) * 100;
+          return (
+            <View
+              key={hour.start}
+              style={{
+                position: 'absolute',
+                top: 0,
+                width: TICK_WIDTH,
+                ...(first ? { left: 0 } : last ? { right: 0 } : { left: `${center}%`, marginLeft: -TICK_WIDTH / 2 }),
+              }}>
+              <AppText variant="caption" muted numeric numberOfLines={1} style={{ textAlign: first ? 'left' : last ? 'right' : 'center' }} testID={`stress-tick-${i}`}>
+                {formatClock(hour.start, hour.tzOffsetS)}
+              </AppText>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
@@ -70,7 +87,8 @@ export default function StressScreen() {
   const day = days[index];
   const view = stressForDay(day);
   const timeline = day ? stressTimeline(view.windows, day.start, day.end) : [];
-  const hours = day && view.latest ? stressHours(view.windows, view.latest.t, day.tzOffsetS) : [];
+  const recent = recentStress(days, index);
+  const hours = day && view.latest ? stressHours(recent.windows, view.latest.t, day.tzOffsetS, STRESS_HOURS, recent.spans) : [];
   const hasPrev = index > 0;
   const hasNext = index < days.length - 1;
   const gaugeSize = Math.min(300, width - gutter * 2 - 40);
@@ -154,7 +172,7 @@ export default function StressScreen() {
                 {t('health.stress.scale')}
               </AppText>
             </View>
-            <HourBars hours={hours} tzOffsetS={day.tzOffsetS} />
+            <HourBars hours={hours} />
           </Card>
           <Card testID="stress-levels">
             <AppText variant="capLarge" muted>

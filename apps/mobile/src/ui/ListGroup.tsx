@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { AppText } from './AppText';
 import { Icon, type IconName } from './Icon';
+import { useLayout } from './layout';
 import { radius, spacing, useTheme } from './theme';
 
 interface GroupProps {
@@ -44,6 +45,7 @@ interface RowProps {
   icon?: IconTileStyle;
   leading?: ReactNode;
   right?: ReactNode;
+  chip?: ReactNode;
   value?: string;
   href?: Href;
   onPress?: () => void;
@@ -53,8 +55,21 @@ interface RowProps {
   testID?: string;
 }
 
-export function ListRow({ title, subtitle, icon, leading, right, value, href, onPress, chevron, destructive = false, disabled = false, testID }: RowProps) {
+export function ListRow({ title, subtitle, icon, leading, right, chip, value, href, onPress, chevron, destructive = false, disabled = false, testID }: RowProps) {
   const { colors } = useTheme();
+  const { compact } = useLayout();
+  const chipBelow = chip !== undefined && chip !== null && compact;
+  const valueInline = value !== undefined && value !== '' && compact && subtitle !== undefined && subtitle !== '';
+  const valueText = value ? (
+    <AppText variant="label" muted numeric style={{ flexShrink: 1, maxWidth: valueInline ? '50%' : '45%', textAlign: 'right' }} testID={testID === undefined ? undefined : `${testID}-value`}>
+      {value}
+    </AppText>
+  ) : null;
+  const titleText = (
+    <AppText variant="body" color={destructive ? colors.negative : undefined} style={{ fontWeight: '500', flexShrink: 1 }}>
+      {title}
+    </AppText>
+  );
   const press = onPress ?? (href ? () => router.push(href) : undefined);
   const showChevron = chevron ?? press !== undefined;
   const content = (
@@ -65,21 +80,24 @@ export function ListRow({ title, subtitle, icon, leading, right, value, href, on
           <Icon name={icon.icon} color={icon.color} size={18} />
         </View>
       ) : null}
-      <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-        <AppText variant="body" color={destructive ? colors.negative : undefined} style={{ fontWeight: '500' }}>
-          {title}
-        </AppText>
+      <View style={{ flex: 1, gap: 3, minWidth: 0 }} testID={testID === undefined ? undefined : `${testID}-text`}>
+        {valueInline ? (
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.sm }}>
+            {titleText}
+            {valueText}
+          </View>
+        ) : (
+          titleText
+        )}
         {subtitle ? (
           <AppText variant="label" muted>
             {subtitle}
           </AppText>
         ) : null}
+        {chipBelow ? <View style={{ flexDirection: 'row', marginTop: 3 }}>{chip}</View> : null}
       </View>
-      {value ? (
-        <AppText variant="label" muted numeric style={{ flexShrink: 1, maxWidth: '45%', textAlign: 'right' }}>
-          {value}
-        </AppText>
-      ) : null}
+      {valueInline ? null : valueText}
+      {chipBelow ? null : chip}
       {right}
       {showChevron ? <Icon name="chevronRight" color={colors.textMuted} size={18} /> : null}
     </View>
@@ -106,12 +124,12 @@ interface CapHeaderProps {
 
 export function CapHeader({ title, action, onAction }: CapHeaderProps) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.sm }}>
-      <AppText variant="capLarge" muted>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm }}>
+      <AppText variant="capLarge" muted style={{ flex: 1, minWidth: 0 }}>
         {title}
       </AppText>
       {action && onAction ? (
-        <Pressable accessibilityRole="button" onPress={onAction} hitSlop={10} style={{ minHeight: 44, justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" onPress={onAction} hitSlop={10} style={{ minHeight: 44, justifyContent: 'center', flexShrink: 0 }}>
           <AppText variant="cap" muted>
             {action}
           </AppText>

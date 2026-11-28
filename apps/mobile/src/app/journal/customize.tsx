@@ -4,11 +4,12 @@ import { Pressable } from 'react-native';
 import { useAppData } from '@/data/context';
 import {
   DEFAULT_JOURNAL_QUESTIONS,
-  JOURNAL_CATEGORIES,
   JOURNAL_QUESTIONS,
+  CATALOGUE_PREVIEW,
   MAX_ACTIVE_QUESTIONS,
-  searchQuestions,
+  catalogueGroups,
   withQuestion,
+  type JournalCategory,
   type JournalQuestion,
 } from '@/data/journalQuestions';
 import { useT } from '@/i18n/useT';
@@ -60,15 +61,22 @@ function AddRemoveButton({ label, on, disabled, onPress, testID }: ToggleButtonP
 
 export default function JournalCustomizeScreen() {
   const { t } = useT();
+  const { colors } = useTheme();
   const { userData, updateUserData } = useAppData();
   const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState<ReadonlySet<JournalCategory>>(() => new Set());
   const selected = userData.journalQuestions ?? [...DEFAULT_JOURNAL_QUESTIONS];
   const full = selected.length >= MAX_ACTIVE_QUESTIONS;
   const entries = useMemo<Entry[]>(() => JOURNAL_QUESTIONS.map((question) => ({ question, label: t(question.nameKey) })), [t]);
-  const shown = searchQuestions(entries, query);
-  const groups = JOURNAL_CATEGORIES.map((category) => ({ category, items: shown.filter((entry) => entry.question.category === category) })).filter(
-    (group) => group.items.length > 0,
-  );
+  const groups = catalogueGroups(entries, query, selected, expanded);
+  const setOpen = (category: JournalCategory, open: boolean): void => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (open) next.add(category);
+      else next.delete(category);
+      return next;
+    });
+  };
 
   const toggle = (id: string, on: boolean): void => {
     void updateUserData({ journalQuestions: withQuestion(userData.journalQuestions, id, on) });
@@ -124,6 +132,24 @@ export default function JournalCustomizeScreen() {
                 />
               );
             })}
+            {group.hidden > 0 ? (
+              <ListRow
+                key="more"
+                testID={`customize-more-${group.category}`}
+                title={t('journal.customize.showAll', { count: group.total })}
+                chevron={false}
+                onPress={() => setOpen(group.category, true)}
+                right={<Icon name="chevronDown" color={colors.textMuted} size={18} />}
+              />
+            ) : expanded.has(group.category) && query.trim() === '' && group.total > CATALOGUE_PREVIEW ? (
+              <ListRow
+                key="less"
+                testID={`customize-less-${group.category}`}
+                title={t('journal.customize.showFewer')}
+                chevron={false}
+                onPress={() => setOpen(group.category, false)}
+              />
+            ) : null}
           </ListGroup>
         ))
       )}

@@ -126,8 +126,8 @@ export function HealthConnectPanel() {
   const anyOn = allTypes.some(enabled);
   const results = state.lastSync?.results ?? {};
 
-  const row = (type: HcDataType, disabled = false) => (
-    <View key={type}>
+  const row = (type: HcDataType, last: boolean, disabled = false) => (
+    <View key={type} testID={`hc-row-${type}`} style={last ? { paddingVertical: spacing.xs } : { paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.border }}>
       <ToggleRow
         title={t(TITLES[type])}
         subtitle={t(SUBTITLES[type])}
@@ -137,7 +137,7 @@ export function HealthConnectPanel() {
         testID={`hc-toggle-${type}`}
       />
       {enabled(type) && !isGranted(granted, type) ? (
-        <AppText variant="caption" color={colors.warning} testID={`hc-denied-${type}`}>
+        <AppText variant="caption" color={colors.warning} testID={`hc-denied-${type}`} style={{ paddingBottom: spacing.sm }}>
           {t('hc.denied')}
         </AppText>
       ) : null}
@@ -150,7 +150,7 @@ export function HealthConnectPanel() {
         {t('hc.intro')}
       </AppText>
       <CapHeader title={t('hc.writeSection')} />
-      <Card style={{ gap: 0 }}>{HC_EXPORT_TYPES.map((type) => row(type))}</Card>
+      <Card style={{ gap: 0, paddingVertical: spacing.xs }}>{HC_EXPORT_TYPES.map((type, i) => row(type, i === HC_EXPORT_TYPES.length - 1))}</Card>
       <AppText variant="caption" muted>
         {t('hc.window', { days: EXPORT_WINDOW_DAYS })}
       </AppText>
@@ -160,7 +160,7 @@ export function HealthConnectPanel() {
         </AppText>
       ) : null}
       <CapHeader title={t('hc.readSection')} />
-      <Card style={{ gap: 0 }}>{HC_IMPORT_TYPES.map((type) => row(type, type === 'bodyFat' && !state.import.weight))}</Card>
+      <Card style={{ gap: 0, paddingVertical: spacing.xs }}>{HC_IMPORT_TYPES.map((type, i) => row(type, i === HC_IMPORT_TYPES.length - 1, type === 'bodyFat' && !state.import.weight))}</Card>
 
       <Card style={{ gap: spacing.sm }}>
         <ToggleRow

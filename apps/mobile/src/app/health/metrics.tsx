@@ -2,7 +2,6 @@ import { useState, type ReactElement } from 'react';
 import { TextInput, View } from 'react-native';
 
 import { useAppData } from '@/data/context';
-import { termLine } from '@/data/terms';
 import { CATALOGUE, METRIC_CATEGORIES, type CatalogueExtra, type CatalogueItem, type MetricCategory, type MetricReading } from '@/data/healthDerived';
 import type { TranslationKey } from '@/i18n';
 import { useT, type TFunction } from '@/i18n/useT';
@@ -65,31 +64,20 @@ export default function MetricsScreen() {
     const reading = item.read(days, userData.weightKg, profile, extra);
     const term = item.term;
     const text = readingText(reading, t, language);
-    const right =
-      term === null ? (
-        item.level ? <ParityBadge level={item.level} /> : undefined
-      ) : (
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {item.level ? <ParityBadge level={item.level} /> : null}
+    const right = (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {item.level ? <ParityBadge level={item.level} /> : null}
+        {term === null ? null : (
           <IconButton
             icon="info"
             label={t('explain.whatIs', { name: t(item.labelKey) })}
             onPress={() => explain.about({ term, index: days.length - 1, shown: { value: reading.kind === 'none' ? null : text, unit: null, reason: null } })}
             testID={`metric-${item.id}-about`}
           />
-        </View>
-      );
-    return (
-      <ListRow
-        key={item.id}
-        testID={`metric-${item.id}`}
-        title={t(item.labelKey)}
-        subtitle={term === null ? undefined : t(termLine(term))}
-        value={text}
-        right={right}
-        href={item.href}
-      />
+        )}
+      </View>
     );
+    return <ListRow key={item.id} testID={`metric-${item.id}`} title={t(item.labelKey)} subtitle={text} right={right} href={item.href} />;
   };
 
   return (

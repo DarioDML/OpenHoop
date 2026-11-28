@@ -8,7 +8,9 @@ import {
   cycleWheel,
   dayFlow,
   fertileWindow,
+  deviationGap,
   latestDeviation,
+  tempDirection,
   tempFitsPhase,
   dayOfCycle,
   daysBetween,
@@ -22,6 +24,7 @@ import {
   validateSymptomDraft,
 } from '@/data/cycle';
 import { createFixtureDays } from '@/data/fixtureSource';
+import { formatTemperatureDelta } from '@/lib/units';
 
 import { FIXTURE_NOW } from './support/appData';
 
@@ -291,6 +294,37 @@ describe('cycle phases (estimates)', () => {
     expect(tempFitsPhase('follicular', -0.1)).toBe('typical');
     expect(tempFitsPhase('menstrual', 0.4)).toBe('different');
     expect(tempFitsPhase('ovulation', 0.4)).toBeNull();
+  });
+});
+
+describe('skin temperature tile', () => {
+  const days = createFixtureDays(FIXTURE_NOW);
+  const last = days[days.length - 1];
+
+  it('names the direction from the value as shown, so 0.0 reads as "same as usual"', () => {
+    expect(tempDirection(0, 'metric')).toBe('same');
+    expect(tempDirection(-0.04, 'metric')).toBe('same');
+    expect(tempDirection(0.3, 'metric')).toBe('above');
+    expect(tempDirection(-0.2, 'metric')).toBe('below');
+  });
+
+  it('agrees with the shown Fahrenheit value', () => {
+    expect(formatTemperatureDelta(0.04, 'imperial', 'en').value).toBe('+0.1');
+    expect(tempDirection(0.04, 'imperial')).toBe('above');
+    expect(formatTemperatureDelta(0.02, 'imperial', 'en').value).toBe('0.0');
+    expect(tempDirection(0.02, 'imperial')).toBe('same');
+    expect(tempDirection(-0.04, 'imperial')).toBe('below');
+  });
+
+  it('says the range is still being learned when a night exists without a deviation', () => {
+    if (last === undefined) throw new Error('no fixture day');
+    const learning = { ...last, skinTempC: { ...last.skinTempC, value: 33.4 }, skinTempDeviationC: { ...last.skinTempDeviationC, value: null, reason: 'needs-history' as const } };
+    expect(deviationGap([...days.slice(0, -1), learning], last.day, 3)).toBe('learning');
+  });
+
+  it('says there is no recent night when the nights are too old', () => {
+    expect(deviationGap(days, '2030-01-01', 3)).toBe('no-night');
+    expect(deviationGap([], '2030-01-01', 3)).toBe('no-night');
   });
 });
 

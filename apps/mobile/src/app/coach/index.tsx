@@ -170,7 +170,9 @@ export default function CoachScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           testID="screen-scroll"
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => {
+            if (state.messages.length > 0 || state.sending) scrollRef.current?.scrollToEnd({ animated: true });
+          }}
           contentContainerStyle={{ paddingTop: insets.top + spacing.lg, paddingHorizontal: gutter, paddingBottom: spacing.xl, gap: spacing.lg }}>
           <TopBar
             title={t('coach.title')}

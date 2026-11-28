@@ -55,14 +55,16 @@ interface Props {
   secondary?: Action;
   tertiary?: Action;
   hideBack?: boolean;
+  onOverflow?: (overflow: number) => void;
   testID?: string;
 }
 
-export function OnboardingPage({ screen, title, subtitle, children, primary, secondary, tertiary, hideBack = false, testID }: Props) {
+export function OnboardingPage({ screen, title, subtitle, children, primary, secondary, tertiary, hideBack = false, onOverflow, testID }: Props) {
   return (
     <Screen
       tint="home"
       gap={spacing.lg}
+      onOverflow={onOverflow}
       testID={testID}
       footer={
         <>

@@ -2,7 +2,8 @@ import type { Language } from '@/data/types';
 import type { TFunction } from '@/i18n/useT';
 
 export function formatNumber(value: number, decimals: number, language: Language): string {
-  const fixed = value.toFixed(decimals);
+  const rounded = value.toFixed(decimals);
+  const fixed = Number(rounded) === 0 ? (0).toFixed(decimals) : rounded;
   return language === 'nl' ? fixed.replace('.', ',') : fixed;
 }
 

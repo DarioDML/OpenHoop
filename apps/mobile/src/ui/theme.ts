@@ -41,6 +41,7 @@ export interface ColorTokens {
   grid: string;
   ecg: string;
   ecgPaper: string;
+  paper: { surface: string; ink: string; inkMuted: string; rule: string; line: string };
   cyclePhase: { menstrual: string; follicular: string; ovulation: string; luteal: string };
   metric: {
     sleep: string;
@@ -98,6 +99,7 @@ export const darkColors: ColorTokens = {
   grid: '#FFFFFF14',
   ecg: '#FF6B8B',
   ecgPaper: '#1A1418',
+  paper: { surface: '#F5F3EE', ink: '#14181B', inkMuted: '#5A636A', rule: '#14181B1A', line: '#3C6FB6' },
   cyclePhase: { menstrual: '#FF6B8B', follicular: '#FFB3C7', ovulation: '#C77DFF', luteal: '#8C6BD6' },
   metric: {
     sleep: '#7FA6C2',
@@ -166,6 +168,7 @@ export const lightColors: ColorTokens = {
   grid: '#0D11141A',
   ecg: '#C8325A',
   ecgPaper: '#FBF0F3',
+  paper: { surface: '#FFFFFF', ink: '#0D1114', inkMuted: '#525D66', rule: '#0D11141F', line: '#2F62A8' },
   cyclePhase: { menstrual: '#C8325A', follicular: '#B8577A', ovulation: '#8E3FC7', luteal: '#5B45D6' },
   metric: {
     sleep: '#3E6E91',

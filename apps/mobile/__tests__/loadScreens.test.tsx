@@ -307,10 +307,12 @@ describe('Weekly overview', () => {
     expect(screen.getByTestId('week-chart')).toBeTruthy();
     week.forEach((d, i) => {
       const load = d?.load.value ?? null;
-      expect(screen.getByTestId(`week-load-${i}`)).toHaveTextContent(load === null ? '' : load.toFixed(1));
+      expect(screen.getByTestId(`week-load-${i}`)).toHaveTextContent(load === null ? '·' : load.toFixed(1));
       const readiness = d === null ? null : visibleReadiness(d).value;
-      expect(screen.getByTestId(`week-readiness-${i}`)).toHaveTextContent(readiness === null ? '' : String(Math.round(readiness)));
+      expect(screen.getByTestId(`week-readiness-${i}`)).toHaveTextContent(readiness === null ? '·' : String(Math.round(readiness)));
     });
+    expect(week).toHaveLength(7);
+    for (let i = 0; i < 7; i++) expect(screen.getByTestId(`week-day-${i}`)).toBeTruthy();
     expect(screen.getByTestId('week-legend')).toHaveTextContent('Readiness %Load');
     week.forEach((d, i) => {
       const date = addDays(start, i);

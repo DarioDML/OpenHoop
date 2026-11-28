@@ -5,7 +5,7 @@ import { stressLevel } from '@openhoop/analytics';
 import type { DayRecord } from '@openhoop/core';
 
 import { createFixtureDays } from '@/data/fixtureSource';
-import { STRESS_HOURS, latestStressDayIndex, latestStressScore, stressForDay, stressHours, stressTimeline } from '@/data/stressDerived';
+import { STRESS_HOURS, hourTicks, latestStressDayIndex, latestStressScore, mergeStressWindows, recentStress, stressForDay, stressHours, stressTimeline } from '@/data/stressDerived';
 import { defaultUserData } from '@/data/userData';
 import { formatClock, formatNumber, formatShortDay } from '@/lib/format';
 
@@ -164,7 +164,7 @@ describe('Stress screen', () => {
 describe('metric list', () => {
   it('lists the latest stress score with level C', async () => {
     await render(withAppData(<MetricsScreen />));
-    expect(screen.getByTestId('metric-stress')).toHaveTextContent(`StressHow far your heart rate and HRV drift from your calm level while you are awake and still.${formatNumber(latestStressScore(days) ?? 0, 1, 'en')}C`);
+    expect(screen.getByTestId('metric-stress')).toHaveTextContent(`Stress${formatNumber(latestStressScore(days) ?? 0, 1, 'en')}C`);
   });
 });
 
@@ -196,5 +196,61 @@ describe('stress hours and gauge', () => {
     expect(mockPush).toHaveBeenCalledWith('/health/breathing');
     await fireEvent.press(screen.getByTestId('stress-about'));
     expect(screen.getByTestId('about-sheet')).toBeTruthy();
+  });
+});
+
+describe('stress hour chart', () => {
+  it('labels a few full times instead of every other hour', () => {
+    expect(hourTicks(12)).toEqual([0, 4, 8, 11]);
+    expect(hourTicks(8)).toEqual([0, 4, 7]);
+    expect(hourTicks(9)).toEqual([0, 4, 8]);
+    expect(hourTicks(0)).toEqual([]);
+  });
+
+  it('fills the evening hours from the day before, each with its own offset', () => {
+    const index = latestStressDayIndex(days);
+    const previous = days[index - 1];
+    const current = days[index];
+    if (previous === undefined || current === undefined) throw new Error('fixture needs two days');
+    const recent = recentStress(days, index);
+    expect(recent.windows.length).toBe(mergeStressWindows(stressForDay(previous).windows, stressForDay(current).windows).length);
+    expect(recent.spans).toEqual([
+      { start: previous.start, tzOffsetS: previous.tzOffsetS },
+      { start: current.start, tzOffsetS: current.tzOffsetS },
+    ]);
+    expect(recentStress(days, 0).windows).toEqual(stressForDay(days[0]).windows);
+  });
+
+  it('counts a window that both days carry only once', () => {
+    const shared = { t: 1000, score: 3, hr: 70, rmssd: 40 };
+    const merged = mergeStressWindows([shared, { t: 400, score: 1, hr: 70, rmssd: 40 }], [shared]);
+    expect(merged.map((w) => w.t)).toEqual([400, 1000]);
+    const hour = stressHours(mergeStressWindows([shared], [shared, { t: 1300, score: 1, hr: 70, rmssd: 40 }]), 1300, 0, 1);
+    expect(hour[0]?.score).toBe(2);
+  });
+
+  it('labels hours across midnight in local time', () => {
+    const tz = 3600;
+    const end = Date.UTC(2026, 10, 25, 7, 52) / 1000;
+    const hours = stressHours([], end, tz);
+    expect(hours.map((h) => formatClock(h.start, h.tzOffsetS))).toEqual(['21:00', '22:00', '23:00', '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00']);
+  });
+
+  it('labels hours from before a daylight saving switch with the offset of that day', () => {
+    const dayBefore = { start: Date.UTC(2026, 2, 28, 6, 0) / 1000, tzOffsetS: 3600 };
+    const switchDay = { start: Date.UTC(2026, 2, 29, 1, 0) / 1000, tzOffsetS: 7200 };
+    const end = Date.UTC(2026, 2, 29, 6, 30) / 1000;
+    const hours = stressHours([], end, switchDay.tzOffsetS, STRESS_HOURS, [dayBefore, switchDay]);
+    const labels = hours.map((h) => formatClock(h.start, h.tzOffsetS));
+    expect(labels.slice(0, 7)).toEqual(['20:00', '21:00', '22:00', '23:00', '00:00', '01:00', '03:00']);
+    expect(labels[labels.length - 1]).toBe('08:00');
+    expect(new Set(labels).size).toBe(STRESS_HOURS);
+  });
+
+  it('shows full clock times under the bars', async () => {
+    await render(withAppData(<StressScreen />));
+    expect(screen.getByTestId('stress-tick-0').props.children).toMatch(/^\d{2}:\d{2}$/);
+    expect(screen.getByTestId('stress-tick-11').props.children).toMatch(/^\d{2}:\d{2}$/);
+    expect(screen.queryByTestId('stress-tick-1')).toBeNull();
   });
 });

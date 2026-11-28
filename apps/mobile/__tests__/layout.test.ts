@@ -1,4 +1,4 @@
-import { COMPACT_GUTTER, GUTTER, heroRingSize, layoutFor } from '@/ui/layout';
+import { COMPACT_GUTTER, GUTTER, breaksMidWord, fitArt, fitFontSize, heroRingSize, layoutFor } from '@/ui/layout';
 
 describe('layoutFor', () => {
   it('keeps the roomy layout on a wide phone at normal text size', () => {
@@ -38,5 +38,65 @@ describe('heroRingSize', () => {
     const size = heroRingSize(layout);
     expect(size * 3 + 8 * 2).toBeLessThanOrEqual(width - layout.gutter * 2);
     expect(size).toBeLessThanOrEqual(104);
+  });
+});
+
+describe('breaksMidWord', () => {
+  it('accepts lines that break at spaces, with or without the trailing space', () => {
+    expect(breaksMidWord('Log symptoms', ['Log ', 'symptoms'])).toBe(false);
+    expect(breaksMidWord('Log symptoms', ['Log', 'symptoms'])).toBe(false);
+    expect(breaksMidWord('Sleep planner & alarm', ['Sleep planner', '& alarm'])).toBe(false);
+  });
+
+  it('accepts a break after a hyphen or slash', () => {
+    expect(breaksMidWord('Heart-rate', ['Heart-', 'rate'])).toBe(false);
+    expect(breaksMidWord('in/out', ['in/', 'out'])).toBe(false);
+  });
+
+  it('spots a word split across two lines', () => {
+    expect(breaksMidWord('Log symptoms', ['Log sym', 'ptoms'])).toBe(true);
+    expect(breaksMidWord('Resting HR', ['RESTI', 'NG HR'])).toBe(true);
+    expect(breaksMidWord('Sleep planner & alarm', ['Sleep ', 'plan', 'ner & alarm'])).toBe(true);
+  });
+
+  it('does not judge lines it cannot match to the text', () => {
+    expect(breaksMidWord('Log symptoms', ['Log sy…'])).toBe(false);
+    expect(breaksMidWord('Log symptoms', ['Other text', 'here'])).toBe(false);
+  });
+
+  it('treats one line as fine', () => {
+    expect(breaksMidWord('Breathing', ['Breathing'])).toBe(false);
+    expect(breaksMidWord('', [])).toBe(false);
+  });
+});
+
+describe('fitFontSize', () => {
+  it('follows the system text size while nothing breaks', () => {
+    expect(fitFontSize(13, 1.3, 2, 1)).toBeCloseTo(16.9, 5);
+    expect(fitFontSize(13, 2.5, 2, 1)).toBe(26);
+    expect(fitFontSize(13, 2.5, 0, 1)).toBeCloseTo(32.5, 5);
+  });
+
+  it('never shrinks below the base size or below 11 dp', () => {
+    expect(fitFontSize(13, 1.3, 2, 0.1)).toBe(13);
+    expect(fitFontSize(10, 1.3, 2, 0.1)).toBe(11);
+    expect(fitFontSize(11, 1.3, 1.4, 0.5)).toBe(11);
+  });
+
+  it('never grows a small system text size', () => {
+    expect(fitFontSize(13, 0.85, 2, 1)).toBeCloseTo(11.05, 5);
+    expect(fitFontSize(13, 0.85, 2, 0.5)).toBeCloseTo(11.05, 5);
+  });
+});
+
+describe('fitArt', () => {
+  it('fills the space that is left, between the limits', () => {
+    expect(fitArt(150, 200, 96, 220)).toBe(150);
+    expect(fitArt(400, 200, 96, 220)).toBe(220);
+    expect(fitArt(40, 200, 96, 220)).toBe(96);
+  });
+
+  it('uses the fallback before the first layout', () => {
+    expect(fitArt(null, 780 * 0.22, 96, 220)).toBe(172);
   });
 });

@@ -10,9 +10,11 @@ import { formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/controls';
 import { Icon } from '@/ui/Icon';
-import { SheetScreen } from '@/ui/SheetScreen';
+import { SHEET_TALL_HEIGHT, SheetScreen } from '@/ui/SheetScreen';
 import { StateCard } from '@/ui/StateCard';
 import { radius, readinessBand, readinessColor, spacing, useTheme } from '@/ui/theme';
+
+const CELL_HEIGHT = 42;
 
 function monthOf(day: string): { year: number; month: number } {
   const [y, m] = day.split('-').map(Number);
@@ -74,7 +76,7 @@ export default function DatePickerScreen() {
   };
 
   return (
-    <SheetScreen title={t('home.pickDay')} testID="date-picker">
+    <SheetScreen title={t('home.pickDay')} testID="date-picker" maxHeight={SHEET_TALL_HEIGHT} footer={<Button label={t('common.today')} onPress={() => router.replace('/')} testID="picker-today" />}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <MonthButton direction="prev" enabled={canPrev} label={t('home.previousMonth')} onPress={() => setShown(shiftMonth(shown.year, shown.month, -1))} />
         <AppText variant="cardTitle" testID="month-title" style={{ textTransform: 'capitalize' }}>
@@ -93,7 +95,7 @@ export default function DatePickerScreen() {
         {weeks.map((week, w) => (
           <View key={w} style={{ flexDirection: 'row', gap: 4 }}>
             {week.map((cell, c) => {
-              if (cell.day === null) return <View key={c} style={{ flex: 1, height: 48 }} />;
+              if (cell.day === null) return <View key={c} style={{ flex: 1, height: CELL_HEIGHT }} />;
               const record = byDay.get(cell.day);
               const dayNumber = Number(cell.day.slice(8));
               if (!record) {
@@ -102,7 +104,7 @@ export default function DatePickerScreen() {
                     key={c}
                     accessible
                     accessibilityLabel={`${formatLongDay(cell.day, language)}, ${t('home.pickNoData')}`}
-                    style={{ flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                    style={{ flex: 1, height: CELL_HEIGHT, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                     <AppText variant="body" numeric color={colors.textFaint} style={{ fontSize: 14, fontWeight: '500' }}>
                       {dayNumber}
                     </AppText>
@@ -128,7 +130,7 @@ export default function DatePickerScreen() {
                   onPress={() => pick(record.day)}
                   style={{
                     flex: 1,
-                    height: 48,
+                    height: CELL_HEIGHT,
                     borderRadius: 12,
                     backgroundColor: isSelected ? colors.primary : 'transparent',
                     alignItems: 'center',
@@ -158,7 +160,6 @@ export default function DatePickerScreen() {
       <AppText variant="caption" muted>
         {t('home.pickerHint')}
       </AppText>
-      <Button label={t('common.today')} onPress={() => router.replace('/')} testID="picker-today" />
     </SheetScreen>
   );
 }

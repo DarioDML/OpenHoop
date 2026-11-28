@@ -236,3 +236,33 @@ export function searchQuestions<T extends { question: JournalQuestion; label: st
     return terms.every((term) => haystack.includes(term));
   });
 }
+
+export const CATALOGUE_PREVIEW = 4;
+
+export interface CatalogueGroup<T> {
+  category: JournalCategory;
+  items: T[];
+  total: number;
+  hidden: number;
+}
+
+export function catalogueGroups<T extends { question: JournalQuestion; label: string }>(
+  entries: readonly T[],
+  query: string,
+  selected: readonly string[],
+  expanded: ReadonlySet<JournalCategory>,
+  preview = CATALOGUE_PREVIEW,
+): CatalogueGroup<T>[] {
+  const searching = foldForSearch(query) !== '';
+  const shown = searchQuestions(entries, query);
+  return JOURNAL_CATEGORIES.flatMap((category) => {
+    const all = shown.filter((entry) => entry.question.category === category);
+    if (all.length === 0) return [];
+    if (searching || expanded.has(category)) return [{ category, items: all, total: all.length, hidden: 0 }];
+    const active = all.filter((entry) => selected.includes(entry.question.id));
+    const fill = all.filter((entry) => !selected.includes(entry.question.id)).slice(0, Math.max(0, preview - active.length));
+    const visible = new Set([...active, ...fill].map((entry) => entry.question.id));
+    const items = all.filter((entry) => visible.has(entry.question.id));
+    return [{ category, items, total: all.length, hidden: all.length - items.length }];
+  });
+}

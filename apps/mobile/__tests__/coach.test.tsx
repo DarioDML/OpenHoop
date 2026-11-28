@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert, ScrollView, type AlertButton } from 'react-native';
 
 import { defaultCoachPrefs } from '@/coach/prefs';
 import { createFixtureDays } from '@/data/fixtureSource';
@@ -85,6 +85,23 @@ describe('coach chat', () => {
     await fireEvent.press(screen.getByText('Open privacy settings'));
     expect(router.push).toHaveBeenCalledWith('/settings/privacy');
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it('keeps the header in view while there is no conversation yet', async () => {
+    const scrollToEnd = jest.fn();
+    const proto = ScrollView.prototype as unknown as { scrollToEnd?: () => void };
+    const before = proto.scrollToEnd;
+    proto.scrollToEnd = scrollToEnd;
+    try {
+      const { controller } = makeController();
+      await controller.load();
+      await render(withCoach(<CoachScreen />, controller));
+      await fireEvent(screen.getByTestId('screen-scroll'), 'contentSizeChange', 360, 1400);
+      expect(scrollToEnd).not.toHaveBeenCalled();
+      expect(screen.getByTestId('coach-settings-link')).toBeTruthy();
+    } finally {
+      proto.scrollToEnd = before;
+    }
   });
 
   it('asks for a key when the network is on but no key is saved', async () => {

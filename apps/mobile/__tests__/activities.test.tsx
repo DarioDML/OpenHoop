@@ -1,5 +1,5 @@
 import type { ActivityRow, DayRecord } from '@openhoop/core';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import {
@@ -461,6 +461,7 @@ describe('live activity screen', () => {
     }
     expect(screen.getByTestId('live-avg')).toHaveTextContent(/150/);
     expect(screen.getByTestId('live-target')).toBeTruthy();
+    expect(within(screen.getByTestId('live-target-header')).getByText('B')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('live-pause'));
     nowMs += 20_000;
     await fireEvent.press(screen.getByTestId('live-resume'));

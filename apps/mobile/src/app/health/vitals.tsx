@@ -8,6 +8,7 @@ import { latestVitalsIndex, vitalReadings, vitalsSummary, type VitalId, type Vit
 import { buildingProgress, remaining } from '@/data/progress';
 import { TERMS, type TermId } from '@/data/terms';
 import type { Language, Units } from '@/data/types';
+import type { TranslationKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { formatAgo, formatNumber, formatShortDay } from '@/lib/format';
 import { formatTemperature, formatTemperatureDelta, temperatureIn, temperatureUnit, useUnits } from '@/lib/units';
@@ -29,6 +30,14 @@ import { radius, spacing, useTheme } from '@/ui/theme';
 import { IconButton } from '@/ui/TopBar';
 
 const GRID: ReadonlyArray<readonly VitalId[]> = [['hrv', 'rhr'], ['resp', 'spo2'], ['temp']];
+
+const SHORT_LABEL: Readonly<Record<VitalId, TranslationKey>> = {
+  hrv: 'health.vitals.short.hrv',
+  rhr: 'health.vitals.short.rhr',
+  resp: 'health.vitals.short.resp',
+  spo2: 'health.vitals.short.spo2',
+  temp: 'health.vitals.short.temp',
+};
 
 interface Shown {
   value: (v: number) => string;
@@ -162,7 +171,7 @@ export default function VitalsScreen() {
       <MetricTile
         key={reading.spec.id}
         testID={`vital-${reading.spec.id}`}
-        label={t(reading.spec.labelKey)}
+        label={t(SHORT_LABEL[reading.spec.id])}
         value={reading.value}
         reason={reading.reason}
         level={reading.spec.level}

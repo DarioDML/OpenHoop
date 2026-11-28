@@ -86,7 +86,7 @@ export default function IntegrationsScreen() {
           icon={tile(colors, 'load', 'warning')}
           title={t('appSettings.integrations.strava')}
           subtitle={autoShareRow}
-          right={stravaChip}
+          chip={stravaChip}
           href="/settings/strava"
           testID="strava-row"
         />

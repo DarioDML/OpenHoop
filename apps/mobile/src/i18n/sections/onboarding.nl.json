@@ -35,7 +35,7 @@
   "onboarding.body.male": "Man",
   "onboarding.body.female": "Vrouw",
   "onboarding.body.other": "Anders",
-  "onboarding.body.none": "Zeg ik liever niet",
+  "onboarding.body.none": "Liever niet",
   "onboarding.body.sexNote": "Geslacht bij geboorte stemt alleen fysiologische referentiewaarden af, zoals VO₂max-normen en de calorieschatting.",
   "onboarding.body.invalid": "Controleer je invoer: lengte {heightMin} tot {heightMax} {heightUnit}, gewicht {weightMin} tot {weightMax} {weightUnit}, een echte geboortedatum die niet in de toekomst ligt, maximale hartslag 120 tot 230.",
   "onboarding.goals.title": "Wat wil je verbeteren?",

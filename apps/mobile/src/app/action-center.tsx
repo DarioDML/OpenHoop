@@ -117,7 +117,7 @@ export default function ActionCenterScreen() {
           backgroundColor: colors.surfaceAlt,
         }}>
         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: connected ? colors.positive : colors.textFaint }} />
-        <AppText variant="label" muted style={{ flex: 1 }}>
+        <AppText variant="caption" muted style={{ flex: 1 }}>
           {parts.join(' · ')}
         </AppText>
       </View>

@@ -40,7 +40,7 @@ export default function ProfileScreen() {
         <ListRow
           title={t('onboarding.profile.accountTitle')}
           subtitle={t('onboarding.profile.accountBody')}
-          right={<Chip label={t('notBuilt.title')} tone="pink" small testID="account-not-built" />}
+          chip={<Chip label={t('notBuilt.title')} tone="pink" small testID="account-not-built" />}
           chevron={false}
           onPress={() => void Linking.openURL(issueUrl('backup'))}
           testID="account-row"

@@ -190,11 +190,11 @@ interface CapRowProps {
 
 export function CapRow({ title, links = [] }: CapRowProps) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.sm }}>
-      <AppText variant="capLarge" muted accessibilityRole="header">
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm }}>
+      <AppText variant="capLarge" muted accessibilityRole="header" style={{ flex: 1, minWidth: 0 }}>
         {title}
       </AppText>
-      <View style={{ flexDirection: 'row', gap: spacing.md }}>
+      <View style={{ flexDirection: 'row', flexShrink: 0, gap: spacing.md }}>
         {links.map((link) => (
           <Pressable key={link.label} testID={link.testID} accessibilityRole="link" onPress={link.onPress} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
             <AppText variant="cap" muted>

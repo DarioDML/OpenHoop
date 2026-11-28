@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
 
-import { AppText } from './AppText';
+import { AppText, WordFitText } from './AppText';
 import { Chip, type ChipTone } from './Chip';
 import { Num } from './Num';
 import { radius, spacing, useTheme } from './theme';
@@ -24,9 +24,9 @@ export function BigStatTile({ label, value, unit, missing, chip = null, caption,
       accessible
       accessibilityLabel={[label, value === null ? missing : `${value}${unit === undefined ? '' : ` ${unit}`}`, chip?.label, caption].filter((part): part is string => typeof part === 'string' && part.length > 0).join(', ')}
       style={{ flex: 1, minWidth: 0, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.lg, paddingTop: 18, gap: 10 }}>
-      <AppText variant="capSmall" muted numberOfLines={1}>
+      <WordFitText variant="capSmall" muted numberOfLines={2}>
         {label}
-      </AppText>
+      </WordFitText>
       {value === null ? (
         <AppText variant="bodyStrong" muted testID={testID === undefined ? undefined : `${testID}-missing`} style={{ minHeight: 48, textAlignVertical: 'center' }}>
           {missing ?? '–'}

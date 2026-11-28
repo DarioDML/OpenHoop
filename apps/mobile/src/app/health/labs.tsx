@@ -83,7 +83,7 @@ export default function LabsScreen() {
                   testID={`labs-row-${summary.group}`}
                   title={markerName(summary.ref, t)}
                   subtitle={`${formatEntered(result.value, language)} ${result.unit} · ${rangeShort(result, t, language)}\n${formatShortDay(result.day, language)} · ${count}`}
-                  right={<Chip label={chip.label} tone={chip.tone} testID={`labs-status-${summary.group}`} />}
+                  chip={<Chip label={chip.label} tone={chip.tone} testID={`labs-status-${summary.group}`} />}
                   onPress={() => router.push({ pathname: '/health/biomarker', params: { id: summary.key } })}
                 />
               );
