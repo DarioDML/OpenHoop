@@ -63,23 +63,30 @@ describe('labs summary screen', () => {
     expect(screen.queryByTestId('not-built-labs')).toBeNull();
   });
 
-  it('lists the latest value per biomarker with a neutral range status', async () => {
+  it('lists the latest value per biomarker, out of range first, with a coloured status', async () => {
     const labResults = [
       ...glucoseHistory,
       lab(3, { biomarker: 'ldl', value: 3.2, day: '2026-10-01' }),
       lab(4, { biomarker: 'custom:Zinc', unit: 'umol/L', value: 12, day: '2026-09-01' }),
     ];
     await render(withAppData(<LabsScreen />, 'en', { labResults }));
-    expect(screen.getByTestId('labs-value-glucose')).toHaveTextContent('6.2 mmol/L');
-    expect(within(screen.getByTestId('labs-status-glucose')).getByText("Outside your report's range")).toBeTruthy();
-    expect(within(screen.getByTestId('labs-status-ldl')).getByText('No range entered')).toBeTruthy();
+    expect(screen.getByText(/^6.2 mmol\/L · range 3.9–5.6/)).toBeTruthy();
+    expect(within(screen.getByTestId('labs-status-glucose')).getByText('! high')).toBeTruthy();
+    expect(within(screen.getByTestId('labs-status-ldl')).getByText('no range')).toBeTruthy();
+    expect(screen.getByTestId('labs-gauge-out')).toHaveTextContent('1 out of range');
+    expect(screen.getByTestId('labs-source')).toHaveTextContent(/latest .* · 3 markers/);
+    const rows = screen.getAllByTestId(/^labs-row-/).map((row) => row.props.testID);
+    expect(rows[0]).toBe('labs-row-glucose');
     expect(screen.getByText('Zinc')).toBeTruthy();
     expect(screen.getByText(/2 results/)).toBeTruthy();
   });
 
-  it('says inside the range when the value is within the range from the report', async () => {
+  it('says in range or near a limit going by the range from the report', async () => {
     await render(withAppData(<LabsScreen />, 'en', { labResults: [glucoseHistory[0] as LabResult] }));
-    expect(within(screen.getByTestId('labs-status-glucose')).getByText("Inside your report's range")).toBeTruthy();
+    expect(within(screen.getByTestId('labs-status-glucose')).getByText('✓ in range')).toBeTruthy();
+    await render(withAppData(<LabsScreen />, 'en', { labResults: [lab(9, { value: 5.5, refLow: 3.9, refHigh: 5.6 })] }));
+    expect(within(screen.getByTestId('labs-status-glucose')).getByText('near a limit')).toBeTruthy();
+    expect(screen.getByTestId('labs-band-note')).toHaveTextContent(/not a medical judgement/);
   });
 
   it('opens the detail and the entry form', async () => {
@@ -92,8 +99,8 @@ describe('labs summary screen', () => {
 
   it('renders in Dutch', async () => {
     await render(withAppData(<LabsScreen />, 'nl', { labResults: glucoseHistory }));
-    expect(screen.getByTestId('labs-value-glucose')).toHaveTextContent('6,2 mmol/L');
-    expect(screen.getByText('Buiten het bereik op je rapport')).toBeTruthy();
+    expect(screen.getByText(/^6,2 mmol\/L · bereik 3,9–5,6/)).toBeTruthy();
+    expect(screen.getByText('! hoog')).toBeTruthy();
     expect(screen.getByText(/Geen medisch hulpmiddel/)).toBeTruthy();
   });
 });

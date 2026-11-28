@@ -1,7 +1,9 @@
-import type { LabResult, LabResultInput } from '@openhoop/core';
+import type { DayRecord, LabResult, LabResultInput } from '@openhoop/core';
 
 import { parseIsoDate } from '@/lib/dates';
 
+import { shiftIsoDay } from './bodyComposition';
+import { metricValue } from './derived';
 import type { Language } from './types';
 
 export interface LabUnit {
@@ -310,4 +312,94 @@ export function formatEntered(value: number, language: Language): string {
 export function formatConverted(value: number, language: Language): string {
   const text = Number(value.toPrecision(4)).toString();
   return language === 'nl' ? text.replace('.', ',') : text;
+}
+
+export type LabBand = 'mid' | 'edge' | 'low' | 'high' | 'none';
+
+export const LAB_EDGE_SHARE = 0.1;
+
+export function labBand(result: Pick<LabResult, 'value' | 'refLow' | 'refHigh'>): LabBand {
+  const { value, refLow, refHigh } = result;
+  if (refLow === null && refHigh === null) return 'none';
+  if (refLow !== null && value < refLow) return 'low';
+  if (refHigh !== null && value > refHigh) return 'high';
+  if (refLow !== null && refHigh !== null) {
+    const edge = (refHigh - refLow) * LAB_EDGE_SHARE;
+    return value < refLow + edge || value > refHigh - edge ? 'edge' : 'mid';
+  }
+  if (refHigh !== null) return value > refHigh * (1 - LAB_EDGE_SHARE) ? 'edge' : 'mid';
+  return refLow !== null && value < refLow * (1 + LAB_EDGE_SHARE) ? 'edge' : 'mid';
+}
+
+export interface LabTally {
+  mid: number;
+  edge: number;
+  out: number;
+  none: number;
+}
+
+export function tallyLabs(summaries: readonly BiomarkerSummary[]): LabTally {
+  const tally: LabTally = { mid: 0, edge: 0, out: 0, none: 0 };
+  for (const summary of summaries) {
+    const band = labBand(summary.latest);
+    if (band === 'low' || band === 'high') tally.out += 1;
+    else tally[band] += 1;
+  }
+  return tally;
+}
+
+const BAND_ORDER: Readonly<Record<LabBand, number>> = { low: 0, high: 0, edge: 1, mid: 2, none: 3 };
+
+export function outOfRangeFirst(summaries: readonly BiomarkerSummary[]): BiomarkerSummary[] {
+  return summaries
+    .map((summary, index) => ({ summary, index }))
+    .sort((a, b) => BAND_ORDER[labBand(a.summary.latest)] - BAND_ORDER[labBand(b.summary.latest)] || a.index - b.index)
+    .map(({ summary }) => summary);
+}
+
+export function latestLabDay(results: readonly LabResult[]): string | null {
+  let latest: string | null = null;
+  for (const result of results) if (latest === null || result.day > latest) latest = result.day;
+  return latest;
+}
+
+export const LINK_WINDOW_DAYS = 30;
+export const LINK_MIN_DAYS = 7;
+export const LINK_METRICS = ['asleepH', 'load', 'steps', 'restingHr'] as const;
+export type LinkMetric = (typeof LINK_METRICS)[number];
+
+export interface LinkedRow {
+  metric: LinkMetric;
+  before: number;
+  latest: number;
+}
+
+export interface LinkedBehaviours {
+  previousDay: string;
+  latestDay: string;
+  rows: LinkedRow[];
+}
+
+function windowAverage(days: readonly DayRecord[], endDay: string, metric: LinkMetric): number | null {
+  const from = shiftIsoDay(endDay, -LINK_WINDOW_DAYS);
+  const values = days
+    .filter((day) => day.day > from && day.day <= endDay)
+    .map((day) => metricValue(day, metric))
+    .filter((value): value is number => value !== null);
+  return values.length < LINK_MIN_DAYS ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+export function linkedBehaviours(days: readonly DayRecord[], entries: readonly LabResult[]): LinkedBehaviours | null {
+  const sorted = sortResults(entries);
+  const latest = sorted[sorted.length - 1];
+  if (latest === undefined) return null;
+  const previous = [...sorted].reverse().find((entry) => entry.day < latest.day);
+  if (previous === undefined) return null;
+  const rows: LinkedRow[] = [];
+  for (const metric of LINK_METRICS) {
+    const before = windowAverage(days, previous.day, metric);
+    const now = windowAverage(days, latest.day, metric);
+    if (before !== null && now !== null) rows.push({ metric, before, latest: now });
+  }
+  return rows.length === 0 ? null : { previousDay: previous.day, latestDay: latest.day, rows };
 }
