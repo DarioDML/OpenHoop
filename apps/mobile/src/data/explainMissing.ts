@@ -73,7 +73,7 @@ export function explainMissing(input: MissingInput): MissingExplanation {
     band: { state: bandState(day, window, nowS, lastSyncAt), lastSyncAt, tzOffsetS, nowS },
     progress: needsNightsProgress,
     expectedDay:
-      needsNightsProgress !== null && current && day !== undefined ? expectedDay(day.day, nowS, tzOffsetS, remaining(needsNightsProgress)) : null,
+      needsNightsProgress !== null && current && day !== undefined ? expectedDay(day.day, day.end, nowS, tzOffsetS, remaining(needsNightsProgress)) : null,
     wornMinutes: kind === 'day-running' ? (day?.loadValidMinutes ?? null) : null,
     profileGaps,
   };

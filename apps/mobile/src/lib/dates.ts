@@ -1,4 +1,4 @@
-const DAY_S = 86_400;
+export const DAY_S = 86_400;
 
 function pad(n: number): string {
   return n.toString().padStart(2, '0');

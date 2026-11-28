@@ -12,7 +12,7 @@ import type { DayRecord } from '@openhoop/core';
 import type { TermId } from './terms';
 import { MIN_BASELINE_NIGHTS, addDays, metricValue } from './derived';
 import { VITAL_KEYS, mainNightSpan } from './dailyDerived';
-import { unixToIsoDate } from '@/lib/dates';
+import { DAY_S, unixToIsoDate } from '@/lib/dates';
 
 export interface Progress {
   have: number;
@@ -113,7 +113,8 @@ export function readinessNightsLeft(days: readonly DayRecord[], index: number): 
   return progress === null ? null : remaining(progress);
 }
 
-export function expectedDay(day: string, nowS: number, tzOffsetS: number, more: number): string {
+export function expectedDay(day: string, dayEndS: number, nowS: number, tzOffsetS: number, more: number): string {
   const today = unixToIsoDate(nowS, tzOffsetS);
-  return addDays(day > today ? day : today, more);
+  const stillOpen = nowS - dayEndS < DAY_S;
+  return addDays(stillOpen || day > today ? day : today, more);
 }
