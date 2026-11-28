@@ -4,7 +4,7 @@ import type { Profile } from '@openhoop/analytics';
 import { bindStore, dayKey, deleteDataBefore, exportCsv, newestFrameTime, openStore, rebuildFromRaw, recomputeDays, stepsPerHour } from '../src/index';
 import type { DayRecord, DeviceRow, SampleRow, Store, SyncStateRow } from '../src/index';
 import { openStrictDriver } from './strictDriver';
-import { TZ_S, awakeSamples, decodeRow, localMidnight, nightSamples, simulateDays, toFrame } from './sampleFactory';
+import { TZ_S, awakeSamples, decodeRow, localMidnight, lyingAwakeSamples, nightSamples, simulateDays, toFrame } from './sampleFactory';
 
 const HOUR_S = 3_600;
 const PROFILE: Profile = { maxHr: 190, birthYear: null, restingHr: null };
@@ -319,6 +319,27 @@ describe('pipeline', () => {
       expect(dayKey(period?.onset ?? 0, TZ_S)).toBe(dayKey(localMidnight(2), TZ_S));
       expect(dayKey(period?.offset ?? 0, TZ_S)).toBe(record?.day);
       expect(record?.start).toBe(period?.onset);
+    });
+
+    it('ends the night at the wake-up while the band still flags the wearer lying awake in bed as SLEEP, sync after sync', async () => {
+      const wokeAt = localMidnight(3) + 10 * HOUR_S + 15 * 60;
+      const firstSyncEnd = localMidnight(3) + 10 * HOUR_S + 59 * 60;
+      const secondSyncEnd = localMidnight(3) + 11 * HOUR_S + 11 * 60;
+      const night = nightSamples(deviceId, localMidnight(3) + HOUR_S, wokeAt - localMidnight(3) - HOUR_S, { seed: 4 });
+      const firstSync = [...night, ...lyingAwakeSamples(deviceId, wokeAt, firstSyncEnd - wokeAt)];
+      const secondSync = lyingAwakeSamples(deviceId, firstSyncEnd, secondSyncEnd - firstSyncEnd);
+      const wakeOf = (records: DayRecord[]): number | undefined =>
+        records.find((d) => d.day === dayKey(wokeAt, TZ_S))?.sleep.periods.filter((p) => !p.nap).at(-1)?.offset;
+
+      await store.insertSamples(firstSync);
+      const afterFirst = wakeOf(await recompute(firstSync));
+      await store.insertSamples(secondSync);
+      const afterSecond = wakeOf(
+        await recomputeDays(store, { deviceId, from: firstSyncEnd - 2 * 86_400, to: secondSyncEnd, profile: PROFILE, tzOffsetS: TZ_S }),
+      );
+
+      expect(Math.abs((afterFirst ?? 0) - wokeAt)).toBeLessThanOrEqual(60);
+      expect(afterSecond).toBe(afterFirst);
     });
 
     it.each([

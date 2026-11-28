@@ -66,6 +66,16 @@ export function nightSamples(deviceId: number, start: number, seconds: number, o
   }));
 }
 
+export function lyingAwakeSamples(deviceId: number, start: number, seconds: number): SampleRow[] {
+  return Array.from({ length: seconds }, (_, i) => ({
+    ...base(deviceId, start + i),
+    hr: 68 + (Math.floor(i / 20) % 5) - 2,
+    skinTempC: 33.6,
+    state: 'SLEEP',
+    motionG: i % 60 < 6 ? 0.08 : 0.01,
+  }));
+}
+
 export interface AwakeOptions {
   workout?: { offsetS: number; durationS: number; hr: number };
   nap?: { offsetS: number; durationS: number };

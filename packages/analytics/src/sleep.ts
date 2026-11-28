@@ -1,4 +1,4 @@
-import { isValidHr, sortedUnique } from './series';
+import { isValidHr, lowerBound, median, sortedUnique } from './series';
 import type { Night, Sample, SleepPeriod } from './types';
 
 export const SLEEP_SMOOTH_S = 300;
@@ -7,6 +7,13 @@ export const SLEEP_MIN_DURATION_S = 1200;
 export const NIGHT_MERGE_GAP_S = 7200;
 export const SLEEP_MAX_HR = 100;
 export const SLEEP_MIN_SKIN_TEMP_SHARE = 0.5;
+export const WAKE_CALM_MINUTES = 5;
+export const RESTLESS_MOTION_RATIO = 3;
+export const RESTLESS_MOTION_FLOOR_G = 0.015;
+export const RESTLESS_MIN_S = 3;
+export const AWAKE_HR_RISE = 10;
+const MINUTE_S = 60;
+const MINUTE_MIN_HR_S = 10;
 
 // An MG band (50.43.2.0) worn before it was set up flagged a whole afternoon, a 178 bpm run included, as SLEEP.
 export function isAsleepSample(sample: Sample | undefined): boolean {
@@ -43,35 +50,101 @@ export function sleepPeriods(samples: Sample[]): SleepPeriod[] {
   for (const [start, end] of spans) {
     if (end - start + 1 < SLEEP_MIN_DURATION_S) continue;
     while (k < n && (rows[k]?.t ?? Infinity) < start) k++;
-    let asleepS = 0;
-    let hrMin: number | null = null;
-    let hrSum = 0;
-    let hrCount = 0;
-    let seconds = 0;
-    let warmSeconds = 0;
-    let j = k;
-    for (; j < n; j++) {
-      const r = rows[j];
-      if (r === undefined || r.t > end) break;
-      seconds++;
-      if (r.skinTempC !== null) warmSeconds++;
-      if (isAsleepSample(r)) asleepS++;
-      if (isValidHr(r.hr)) {
-        hrMin = hrMin === null ? r.hr : Math.min(hrMin, r.hr);
-        hrSum += r.hr;
-        hrCount++;
-      }
+    const span = summarize(rows, k, start, end);
+    k = span.next;
+    if (reportsSkinTemp && span.warmSeconds < SLEEP_MIN_SKIN_TEMP_SHARE * span.seconds) continue;
+    out.push(span.period);
+  }
+  return out;
+}
+
+interface Summary {
+  period: SleepPeriod;
+  seconds: number;
+  warmSeconds: number;
+  next: number;
+}
+
+function summarize(rows: readonly Sample[], from: number, start: number, end: number): Summary {
+  let asleepS = 0;
+  let hrMin: number | null = null;
+  let hrSum = 0;
+  let hrCount = 0;
+  let seconds = 0;
+  let warmSeconds = 0;
+  let j = from;
+  for (; j < rows.length; j++) {
+    const r = rows[j];
+    if (r === undefined || r.t > end) break;
+    seconds++;
+    if (r.skinTempC !== null) warmSeconds++;
+    if (isAsleepSample(r)) asleepS++;
+    if (isValidHr(r.hr)) {
+      hrMin = hrMin === null ? r.hr : Math.min(hrMin, r.hr);
+      hrSum += r.hr;
+      hrCount++;
     }
-    k = j;
-    if (reportsSkinTemp && warmSeconds < SLEEP_MIN_SKIN_TEMP_SHARE * seconds) continue;
-    out.push({
-      onset: start,
-      offset: end,
-      asleepS,
-      inBedS: end - start + 1,
-      hrMin,
-      hrMean: hrCount > 0 ? hrSum / hrCount : null,
-    });
+  }
+  const period = { onset: start, offset: end, asleepS, inBedS: end - start + 1, hrMin, hrMean: hrCount > 0 ? hrSum / hrCount : null };
+  return { period, seconds, warmSeconds, next: j };
+}
+
+function wakeAt(rows: readonly Sample[], period: SleepPeriod): number {
+  const from = lowerBound(rows, period.onset);
+  const to = lowerBound(rows, period.offset + 1);
+  const motion: number[] = [];
+  for (let i = from; i < to; i++) {
+    const m = rows[i]?.motionG;
+    if (m !== null && m !== undefined && Number.isFinite(m) && m >= 0) motion.push(m);
+  }
+  const motionMedian = median(motion);
+  const restlessG = motionMedian === null ? Infinity : Math.max(RESTLESS_MOTION_RATIO * motionMedian, RESTLESS_MOTION_FLOOR_G);
+  const minutes = Math.floor((period.offset - period.onset) / MINUTE_S) + 1;
+  const restless = new Int32Array(minutes);
+  const hrSum = new Float64Array(minutes);
+  const hrCount = new Int32Array(minutes);
+  for (let i = from; i < to; i++) {
+    const r = rows[i];
+    if (r === undefined) continue;
+    const k = Math.floor((period.offset - r.t) / MINUTE_S);
+    if (r.motionG !== null && r.motionG > restlessG) restless[k] = (restless[k] ?? 0) + 1;
+    if (isValidHr(r.hr)) {
+      hrSum[k] = (hrSum[k] ?? 0) + r.hr;
+      hrCount[k] = (hrCount[k] ?? 0) + 1;
+    }
+  }
+  const minuteHr = Array.from(hrSum, (sum, k) => ((hrCount[k] ?? 0) >= MINUTE_MIN_HR_S ? sum / (hrCount[k] ?? 1) : Number.NaN));
+  const sleepingHr = median(minuteHr.filter((v) => !Number.isNaN(v)));
+  let wake = period.offset + 1;
+  let calm = 0;
+  for (let k = 0; k < minutes && calm < WAKE_CALM_MINUTES; k++) {
+    const hr = minuteHr[k] ?? Number.NaN;
+    const awake = (restless[k] ?? 0) >= RESTLESS_MIN_S || (sleepingHr !== null && hr >= sleepingHr + AWAKE_HR_RISE);
+    if (awake) {
+      calm = 0;
+      wake = Math.max(period.onset, period.offset - (k + 1) * MINUTE_S + 1);
+    } else {
+      calm++;
+    }
+  }
+  return wake;
+}
+
+// The MG band (50.43.2.0) keeps flagging SLEEP while its wearer lies awake in bed and only switches once they get up,
+// so a night synced before that ended at the newest sample. Walking back from the end of each period, a minute with
+// restless seconds or a heart rate well above the period's sleeping rate is awake, and five calm minutes are sleep.
+export function withoutAwakeTails(periods: readonly SleepPeriod[], samples: readonly Sample[]): SleepPeriod[] {
+  if (periods.length === 0) return [];
+  const rows = sortedUnique(samples);
+  const out: SleepPeriod[] = [];
+  for (const period of periods) {
+    const wake = wakeAt(rows, period);
+    if (wake > period.offset) {
+      out.push(period);
+      continue;
+    }
+    if (wake - period.onset < SLEEP_MIN_DURATION_S) continue;
+    out.push(summarize(rows, lowerBound(rows, period.onset), period.onset, wake - 1).period);
   }
   return out;
 }

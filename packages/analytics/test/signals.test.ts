@@ -11,6 +11,7 @@ import {
   rmssd,
   sleepPeriods,
   spo2Windows,
+  withoutAwakeTails,
 } from '../src';
 import type { Sample, SleepPeriod } from '../src';
 import { beatSamples, lcg, nightOf, sample } from './helpers';
@@ -123,6 +124,64 @@ describe('sleep periods and nights', () => {
   it('returns no periods for no samples', () => {
     expect(sleepPeriods([])).toEqual([]);
     expect(groupNights([])).toEqual([]);
+    expect(withoutAwakeTails([], [])).toEqual([]);
+  });
+});
+
+describe('awake time at the end of a band-flagged sleep', () => {
+  const ASLEEP_S = 6 * 3600;
+
+  function asleep(i: number): Sample {
+    return sample(T0 + i, { state: 'SLEEP', hr: 54 + (Math.floor(i / 40) % 3), motionG: 0.006, skinTempC: 33.4 });
+  }
+
+  function nightThen(tailS: number, tail: (i: number) => Partial<Sample>): Sample[] {
+    const out: Sample[] = [];
+    for (let i = 0; i < ASLEEP_S; i++) out.push(asleep(i));
+    for (let i = 0; i < tailS; i++) out.push(sample(T0 + ASLEEP_S + i, { state: 'SLEEP', skinTempC: 33.6, ...tail(i) }));
+    return out;
+  }
+
+  function detect(samples: Sample[]): SleepPeriod[] {
+    return withoutAwakeTails(sleepPeriods(samples), samples);
+  }
+
+  it('ends the sleep where the wearer woke when the band keeps flagging restless minutes in bed as SLEEP', () => {
+    const samples = nightThen(45 * 60, (i) => ({ hr: 66, motionG: i % 60 < 6 ? 0.08 : 0.006 }));
+    expect(sleepPeriods(samples)[0]?.offset).toBe(T0 + ASLEEP_S + 45 * 60 - 1);
+    const [period, ...rest] = detect(samples);
+    expect(rest).toEqual([]);
+    expect(Math.abs((period?.offset ?? 0) - (T0 + ASLEEP_S - 1))).toBeLessThanOrEqual(60);
+    expect(period?.inBedS).toBe((period?.offset ?? 0) - T0 + 1);
+    expect(period?.asleepS).toBe(period?.inBedS);
+    expect(period?.hrMean ?? 99).toBeLessThan(57);
+  });
+
+  it('counts lying still with a heart rate well above the sleeping rate as awake', () => {
+    const samples = nightThen(30 * 60, () => ({ hr: 70, motionG: 0.006 }));
+    expect(Math.abs((detect(samples)[0]?.offset ?? 0) - (T0 + ASLEEP_S - 1))).toBeLessThanOrEqual(60);
+  });
+
+  it('keeps sleep with an occasional turn and a short heart rate rise', () => {
+    const turned = (i: number): Sample => {
+      const turning = i % 900 >= 300 && i % 900 < 315;
+      return turning ? { ...asleep(i), hr: 66, motionG: 0.4 } : asleep(i);
+    };
+    const samples = Array.from({ length: ASLEEP_S }, (_, i) => turned(i));
+    expect(detect(samples)).toEqual(sleepPeriods(samples));
+  });
+
+  it('cuts no more than the restless minutes when the data stops right after a turn', () => {
+    const samples = nightThen(90, () => ({ hr: 66, motionG: 0.3 }));
+    const offset = detect(samples)[0]?.offset ?? 0;
+    expect(offset).toBeGreaterThanOrEqual(T0 + ASLEEP_S - 120);
+  });
+
+  it('drops a band-flagged sleep that was awake all along', () => {
+    const samples: Sample[] = [];
+    for (let i = 0; i < 3600; i++) samples.push(sample(T0 + i, { state: 'SLEEP', hr: 70, motionG: i % 60 < 10 ? 0.1 : 0.006, skinTempC: 33 }));
+    expect(sleepPeriods(samples)).toHaveLength(1);
+    expect(detect(samples)).toEqual([]);
   });
 });
 
