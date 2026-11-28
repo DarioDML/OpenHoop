@@ -150,7 +150,7 @@ describe('load screens', () => {
   it('renders the weekly overview', async () => {
     await render(withAppData(<LoadWeekScreen />));
     expect(screen.getByTestId('week-range')).toBeTruthy();
-    expect(screen.getByTestId('week-load-0')).toBeTruthy();
+    expect(screen.getByTestId('week-load-0', { includeHiddenElements: true })).toBeTruthy();
   });
 });
 

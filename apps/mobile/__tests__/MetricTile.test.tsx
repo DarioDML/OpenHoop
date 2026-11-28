@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { createFixtureDays } from '@/data/fixtureSource';
 import type { Language } from '@/data/types';
-import { MetricTile } from '@/ui/MetricTile';
+import { MetricTile, labelBlockHeight } from '@/ui/MetricTile';
 
 import { withAppData } from './support/appData';
 
@@ -36,6 +36,20 @@ describe('MetricTile', () => {
     expect(screen.getByText('52,4')).toBeTruthy();
     expect(screen.getByText('ms')).toBeTruthy();
     expect(screen.getByText('B')).toBeTruthy();
+  });
+
+  it('puts the level badge above the name so the name gets the whole tile width', async () => {
+    await render(wrap('en', <MetricTile testID="t" label="Respiratory rate" value={14} level="B" href="/recovery/metric/respiratory" />));
+    expect(screen.getByTestId('t-icons')).toHaveTextContent('B');
+    expect(screen.getByTestId('t-label')).toHaveTextContent('Respiratory rate');
+    expect(screen.getByTestId('t-label')).not.toHaveTextContent('›');
+  });
+
+  it('reserves two lines for the name so tiles in a row line up', () => {
+    expect(labelBlockHeight(1)).toBe(28);
+    expect(labelBlockHeight(1.3)).toBe(38);
+    expect(labelBlockHeight(3)).toBe(labelBlockHeight(1.4));
+    expect(labelBlockHeight(Number.NaN)).toBe(28);
   });
 
   it('treats a real zero as a value', async () => {

@@ -38,6 +38,8 @@ export default function LoadTrendsScreen() {
   const onTarget = daysOnTarget(days, days.length - shown.length, days.length);
   const loadDays = shown.filter((d) => isLoadDay(d)).length;
   const labels = shown.map((d) => (range === '7' ? weekdayShort(d.day, language) : formatShortDay(d.day, language)));
+  const loadSeries = series(shown, 'load');
+  const readinessSeries = series(shown, 'readiness');
   const share = onTarget.measured === 0 ? null : Math.round((onTarget.on / onTarget.measured) * 100);
 
   return (
@@ -75,16 +77,17 @@ export default function LoadTrendsScreen() {
         <DualLineChart
           testID="trend-chart"
           accessibilityLabel={t('loadTrends.chartA11y', { count: shown.length })}
-          primary={{ data: series(shown, 'load'), max: LOAD_SCALE_MAX, color: colors.metric.loadBright, dots: true }}
-          secondary={{ data: series(shown, 'readiness'), max: 100, color: colors.metric.readinessMid }}
+          primary={{ data: loadSeries, max: LOAD_SCALE_MAX, color: colors.metric.loadBright, dots: true }}
+          secondary={{ data: readinessSeries, max: 100, color: colors.metric.readinessMid }}
           labels={labels}
         />
       </Card>
       <ChartLegend
         testID="trend-legend"
         items={[
-          { label: t('loadTrends.legendLoad'), color: colors.metric.loadBright },
+          { label: t('loadTrends.legendLoad'), color: colors.metric.loadBright, series: loadSeries },
           {
+            series: readinessSeries,
             label: stats.readiness === null ? t('loadTrends.legendReadiness') : t('loadTrends.legendReadinessAvg', { value: fmt(stats.readiness, 0) }),
             color: colors.metric.readinessMid,
           },

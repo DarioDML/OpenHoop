@@ -7,6 +7,7 @@ import { MIN_BASELINE_NIGHTS } from '@/data/derived';
 import type { MissingExplanation } from '@/data/explainMissing';
 import { buildingProgress } from '@/data/progress';
 import { TERMS, termFull, type TermId } from '@/data/terms';
+import { countKey } from '@/i18n';
 import { useT } from '@/i18n/useT';
 import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
@@ -69,7 +70,7 @@ export function AboutSheet({ target, missing, onClose }: Props): ReactElement {
           {rangeProgress === null ? null : (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, flexWrap: 'wrap' }}>
               <AppText variant="label" muted style={{ flexShrink: 1 }}>
-                {t('explain.rangeAfter', { count: MIN_BASELINE_NIGHTS })}
+                {t(countKey(MIN_BASELINE_NIGHTS, 'explain.rangeAfterOne', 'explain.rangeAfter'), { count: MIN_BASELINE_NIGHTS })}
               </AppText>
               <ProgressDots progress={rangeProgress} />
             </View>

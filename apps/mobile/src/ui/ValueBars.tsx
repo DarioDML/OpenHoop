@@ -12,6 +12,7 @@ export interface ValueBar {
   display?: string;
   color?: string;
   a11yLabel?: string;
+  blank?: boolean;
 }
 
 interface Props {
@@ -22,18 +23,19 @@ interface Props {
   barWidth?: number;
   showValues?: boolean;
   fill?: boolean;
+  gap?: number;
   testID?: string;
 }
 
 const MIN_BAR = 4;
 const ZERO_BAR = 2;
 
-export function ValueBars({ bars, highlight, height = 80, max, barWidth = 22, showValues = true, fill = false, testID }: Props): ReactElement {
+export function ValueBars({ bars, highlight, height = 80, max, barWidth = 22, showValues = true, fill = false, gap = 4, testID }: Props): ReactElement {
   const { colors } = useTheme();
   const present = bars.map((b) => b.value).filter((v): v is number => v !== null);
   const top = Math.max(max ?? 0, ...present, 1);
   return (
-    <View testID={testID} style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: fill ? 4 : 0 }}>
+    <View testID={testID} style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: fill ? gap : 0 }}>
       {bars.map((bar, index) => {
         const current = index === highlight;
         const color = bar.color ?? colors.accent;
@@ -43,10 +45,11 @@ export function ValueBars({ bars, highlight, height = 80, max, barWidth = 22, sh
           <View
             key={bar.key}
             testID={testID === undefined ? undefined : `${testID}-${bar.key}`}
-            accessible
-            accessibilityLabel={`${bar.a11yLabel ?? bar.label}: ${bar.value === null ? '–' : (bar.display ?? String(bar.value))}`}
+            accessible={bar.blank !== true}
+            importantForAccessibility={bar.blank === true ? 'no-hide-descendants' : 'auto'}
+            accessibilityLabel={bar.blank === true ? undefined : `${bar.a11yLabel ?? bar.label}: ${bar.value === null ? '–' : (bar.display ?? String(bar.value))}`}
             style={fill ? { alignItems: 'center', gap: 6, flex: 1, minWidth: 0 } : { alignItems: 'center', gap: 6, minWidth: barWidth + 12 }}>
-            {showValues ? (
+            {showValues && bar.blank !== true ? (
               bar.value === null ? (
                 <AppText variant="caption" muted>
                   –
@@ -58,7 +61,7 @@ export function ValueBars({ bars, highlight, height = 80, max, barWidth = 22, sh
               )
             ) : null}
             <View style={{ height, width: '100%', alignItems: 'center', justifyContent: 'flex-end' }}>
-              {bar.value === null ? (
+              {bar.blank === true ? null : bar.value === null ? (
                 showValues ? null : (
                   <AppText variant="caption" muted testID={testID === undefined ? undefined : `${testID}.missing.${bar.key}`}>
                     –

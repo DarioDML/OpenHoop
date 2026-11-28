@@ -4,6 +4,7 @@ import { useAppData } from '@/data/context';
 import { formatHm } from '@/data/dailyDerived';
 import { mean, metricValue } from '@/data/derived';
 import { needBreakdown, type NeedBreakdown } from '@/data/sleepDerived';
+import { countKey } from '@/i18n';
 import { useT, type TFunction } from '@/i18n/useT';
 import { formatDuration, formatNumber } from '@/lib/format';
 import { AppText } from '@/ui/AppText';
@@ -14,6 +15,7 @@ import { LevelNote } from '@/ui/LevelNote';
 import { Num } from '@/ui/Num';
 import { PARITY } from '@/ui/parity';
 import { NeedBar, needColor, signedHm } from '@/ui/sleep/NeedBar';
+import { needReasonKey } from '@/ui/sleep/needReason';
 import { IconButton } from '@/ui/TopBar';
 import { spacing, useTheme } from '@/ui/theme';
 
@@ -82,7 +84,7 @@ export default function SleepNeedScreen() {
           </AppText>
           {need === null ? (
             <AppText variant="title" muted testID="need-reason">
-              {reason(day.sleep.need.reason)}
+              {t(needReasonKey(day.sleep.need.reason))}
             </AppText>
           ) : (
             <>
@@ -141,7 +143,7 @@ export default function SleepNeedScreen() {
       ) : (
         <Card testID="need-no-breakdown">
           <AppText variant="body" muted>
-            {reason(day.sleep.need.reason)}
+            {t(needReasonKey(day.sleep.need.reason))}
           </AppText>
         </Card>
       )}
@@ -150,7 +152,7 @@ export default function SleepNeedScreen() {
         <CardHeader title={t('sleepNeed.recent')} />
         <StatRow
           label={t('sleepx.typicalNeed')}
-          caption={t('sleepx.typicalNeedHint', { count: present })}
+          caption={t(countKey(present, 'sleepx.typicalNeedHintOne', 'sleepx.typicalNeedHint'), { count: present })}
           value={typical === null ? reason('needs-history') : formatHm(typical * 3600)}
           testID="typical-need"
         />

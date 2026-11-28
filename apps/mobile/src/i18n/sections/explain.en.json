@@ -169,6 +169,7 @@
   "explain.askCoach": "Ask the coach about this ›",
   "explain.allTerms": "All terms ›",
   "explain.rangeAfter": "Your usual range shows after {count} nights",
+  "explain.rangeAfterOne": "Your usual range shows after 1 night",
   "explain.coachQuestion": "Explain this to me with my own numbers: {name}.",
   "explain.dots": "{have} of {need} nights",
   "explain.dotsDays": "{have} of {need} days",

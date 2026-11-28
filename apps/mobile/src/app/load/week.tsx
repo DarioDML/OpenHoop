@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { formatWeekday, isLoadDay } from '@/data/activityDerived';
@@ -19,6 +19,7 @@ import { Screen } from '@/ui/Screen';
 import { Sheet } from '@/ui/Sheet';
 import { radius, readinessColor, spacing, useTheme } from '@/ui/theme';
 import { IconButton, TopBar } from '@/ui/TopBar';
+import type { DayRecord } from '@openhoop/core';
 
 function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
@@ -36,6 +37,103 @@ function gapText(t: TFunction, reason: (value: string | null) => string, gap: We
 }
 
 const EMPTY_MARK = '·';
+const BLOCK_DP = 36;
+
+interface DailyBlocksProps {
+  week: ReadonlyArray<DayRecord | null>;
+  start: string;
+  loads: ReadonlyArray<number | null>;
+  readiness: ReadonlyArray<number | null>;
+  fmt: (v: number, d?: number) => string;
+}
+
+function DailyBlocks({ week, start, loads, readiness, fmt }: DailyBlocksProps) {
+  const { t, language } = useT();
+  const { colors } = useTheme();
+  const dayLabel = (i: number): string => {
+    const date = addDays(start, i);
+    const base = `${formatWeekday(date, language, 'long')} ${formatShortDay(date, language)}`;
+    if (week[i] === null) return `${base}: ${t('loadx.week.noData')}`;
+    const loadValue = loads[i] ?? null;
+    const readinessValue = readiness[i] ?? null;
+    return t('loadWeek.dayA11y', {
+      day: base,
+      readiness: readinessValue === null ? t('loadWeek.noValue') : fmt(readinessValue, 0),
+      load: loadValue === null ? t('loadWeek.noValue') : fmt(loadValue),
+    });
+  };
+  const open = (i: number): void => router.push({ pathname: '/day/[day]', params: { day: addDays(start, i) } });
+  const block = (value: number | null, fill: string, text: string | undefined, testID: string, textTestID: string, shown: string) => (
+    <View
+      testID={testID}
+      style={{
+        height: BLOCK_DP,
+        borderRadius: radius.sm - 2,
+        backgroundColor: value === null ? colors.surfaceAlt : fill,
+        borderWidth: value === null ? 1 : 0,
+        borderColor: colors.borderStrong,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+      <AppText variant="label" color={value === null ? colors.textFaint : text} style={{ fontWeight: '700' }} maxFontSizeMultiplier={1.2} testID={textTestID}>
+        {value === null ? EMPTY_MARK : shown}
+      </AppText>
+    </View>
+  );
+  const cell = (i: number, primary: boolean, children: ReactNode) => {
+    const style = { flex: 1, minWidth: 0 } as const;
+    const testID = primary ? `week-day-${i}` : `week-day-load-${i}`;
+    const a11y = primary ? { accessible: true, accessibilityLabel: dayLabel(i) } : { accessible: false, importantForAccessibility: 'no-hide-descendants' as const };
+    if (week[i] === null) {
+      return (
+        <View key={i} testID={testID} {...a11y} style={[style, { opacity: 0.8 }]}>
+          {children}
+        </View>
+      );
+    }
+    return (
+      <Pressable
+        key={i}
+        testID={testID}
+        {...a11y}
+        accessibilityRole={primary ? 'button' : undefined}
+        onPress={() => open(i)}
+        style={({ pressed }) => [style, { opacity: pressed ? 0.7 : 1 }]}>
+        {children}
+      </Pressable>
+    );
+  };
+  const rowLabel = (text: string, testID: string) => (
+    <AppText variant="caption" muted testID={testID}>
+      {text}
+    </AppText>
+  );
+  return (
+    <View style={{ gap: 4 }}>
+      {rowLabel(t('loadWeek.legendReadiness'), 'week-row-readiness')}
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {week.map((_, i) => {
+          const value = readiness[i] ?? null;
+          return cell(i, true, block(value, value === null ? colors.surfaceAlt : readinessColor(colors, value), colors.primaryOn, `week-readiness-${i}`, `week-readiness-text-${i}`, value === null ? '' : fmt(value, 0)));
+        })}
+      </View>
+      {rowLabel(t('score.load'), 'week-row-load')}
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {week.map((_, i) => {
+          const value = loads[i] ?? null;
+          return cell(i, false, block(value, colors.tint.load, undefined, `week-load-block-${i}`, `week-load-${i}`, value === null ? '' : fmt(value)));
+        })}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 6 }} accessible={false} importantForAccessibility="no-hide-descendants" testID="week-day-letters">
+        {week.map((_, i) => (
+          <AppText key={i} variant="caption" muted style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+            {weekdayShort(addDays(start, i), language)}
+          </AppText>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export default function LoadWeekScreen() {
   const { days } = useAppData();
@@ -128,69 +226,7 @@ export default function LoadWeekScreen() {
         <AppText variant="cap" muted>
           {t('loadWeek.blocks')}
         </AppText>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {week.map((d, i) => {
-            const date = addDays(start, i);
-            const loadValue = loads[i] ?? null;
-            const readinessValue = readiness[i] ?? null;
-            const label = t('loadWeek.dayA11y', {
-              day: `${formatWeekday(date, language, 'long')} ${formatShortDay(date, language)}`,
-              readiness: readinessValue === null ? t('loadWeek.noValue') : fmt(readinessValue, 0),
-              load: loadValue === null ? t('loadWeek.noValue') : fmt(loadValue),
-            });
-            const blocks = (
-              <>
-                <View
-                  testID={`week-readiness-${i}`}
-                  style={{
-                    height: 36,
-                    borderRadius: radius.sm - 2,
-                    backgroundColor: readinessValue === null ? colors.surfaceAlt : readinessColor(colors, readinessValue),
-                    borderWidth: readinessValue === null ? 1 : 0,
-                    borderColor: colors.borderStrong,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                  <AppText variant="label" color={readinessValue === null ? colors.textFaint : colors.primaryOn} style={{ fontWeight: '700' }} maxFontSizeMultiplier={1.2} testID={`week-readiness-text-${i}`}>
-                    {readinessValue === null ? EMPTY_MARK : fmt(readinessValue, 0)}
-                  </AppText>
-                </View>
-                <View
-                  style={{
-                    height: 36,
-                    borderRadius: radius.sm - 2,
-                    backgroundColor: loadValue === null ? colors.surfaceAlt : colors.tint.load,
-                    borderWidth: loadValue === null ? 1 : 0,
-                    borderColor: colors.borderStrong,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                  <AppText variant="label" color={loadValue === null ? colors.textFaint : undefined} style={{ fontWeight: '700' }} maxFontSizeMultiplier={1.2} testID={`week-load-${i}`}>
-                    {loadValue === null ? EMPTY_MARK : fmt(loadValue)}
-                  </AppText>
-                </View>
-                <AppText variant="caption" muted style={{ textAlign: 'center' }}>
-                  {weekdayShort(date, language)}
-                </AppText>
-              </>
-            );
-            return d ? (
-              <Pressable
-                key={date}
-                testID={`week-day-${i}`}
-                accessibilityRole="button"
-                accessibilityLabel={label}
-                onPress={() => router.push({ pathname: '/day/[day]', params: { day: date } })}
-                style={({ pressed }) => ({ flex: 1, minWidth: 0, gap: 4, opacity: pressed ? 0.7 : 1 })}>
-                {blocks}
-              </Pressable>
-            ) : (
-              <View key={date} testID={`week-day-${i}`} accessible accessibilityLabel={`${formatWeekday(date, language, 'long')} ${formatShortDay(date, language)}: ${t('loadx.week.noData')}`} style={{ flex: 1, minWidth: 0, gap: 4, opacity: 0.8 }}>
-                {blocks}
-              </View>
-            );
-          })}
-        </View>
+        <DailyBlocks week={week} start={start} loads={loads} readiness={readiness} fmt={fmt} />
         {gapLines.length > 0 ? (
           <View style={{ gap: 2 }} testID="week-gaps">
             {gapLines.map((entry) => (
@@ -205,8 +241,8 @@ export default function LoadWeekScreen() {
       <ChartLegend
         testID="week-legend"
         items={[
-          { label: t('loadWeek.legendReadiness'), color: colors.metric.readinessMid },
-          { label: t('score.load'), color: colors.metric.loadBright },
+          { label: t('loadWeek.legendReadiness'), color: colors.metric.readinessMid, series: readiness },
+          { label: t('score.load'), color: colors.metric.loadBright, series: loads },
         ]}
       />
 

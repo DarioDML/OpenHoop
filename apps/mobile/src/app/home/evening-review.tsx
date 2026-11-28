@@ -18,7 +18,7 @@ import {
   type LoadMark,
 } from '@/data/eveningReview';
 import { readinessNightsLeft } from '@/data/progress';
-import type { TranslationKey } from '@/i18n';
+import { countKey, type TranslationKey } from '@/i18n';
 import { useT, type TFunction } from '@/i18n/useT';
 import { formatNumber } from '@/lib/format';
 import { formatTemperature, useUnits } from '@/lib/units';
@@ -146,7 +146,7 @@ export default function EveningReviewScreen() {
       id: 'readiness',
       label: t('score.readiness'),
       value: shownReadiness === null ? null : formatNumber(shownReadiness, 0, language),
-      missing: nightsLeft === null ? undefined : nightsLeft === 1 ? t('why.status.nightsOne') : t('why.status.nights', { count: nightsLeft }),
+      missing: nightsLeft === null ? undefined : t(countKey(nightsLeft, 'why.status.nightsOne', 'why.status.nights'), { count: nightsLeft }),
       unit: '%',
       explain: { term: 'readiness', index, shown: { value: null, unit: null, reason: readinessReason } },
     },

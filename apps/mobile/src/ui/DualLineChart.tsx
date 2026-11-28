@@ -24,6 +24,10 @@ interface Props {
 const PAD = 5;
 const MAX_DOTS = 14;
 
+function isolated(data: ReadonlyArray<number | null>, i: number): boolean {
+  return (data[i - 1] ?? null) === null && (data[i + 1] ?? null) === null;
+}
+
 function paths(data: ReadonlyArray<number | null>, x: (i: number) => number, y: (v: number) => number): string[] {
   const out: string[] = [];
   let current = '';
@@ -76,8 +80,21 @@ export function DualLineChart({ primary, secondary, labels, height = 120, access
               ));
             })}
             {series.map((s, si) => {
-              if (s.dots !== true || count > MAX_DOTS) return null;
               const y = yFor(s.max);
+              if (s.dots !== true || count > MAX_DOTS) {
+                return s.data.map((v, i) =>
+                  v === null || !isolated(s.data, i) ? null : (
+                    <Circle
+                      key={`${si}-point-${i}`}
+                      testID={testID === undefined ? undefined : `${testID}.point.${si === 1 ? 'primary' : 'secondary'}.${i}`}
+                      cx={x(i)}
+                      cy={y(v)}
+                      r={3}
+                      fill={s.color}
+                    />
+                  ),
+                );
+              }
               return s.data.map((v, i) =>
                 v === null ? null : (
                   <Circle
@@ -121,12 +138,17 @@ export function DualLineChart({ primary, secondary, labels, height = 120, access
 interface LegendItem {
   label: string;
   color: string;
+  series?: ReadonlyArray<number | null>;
+}
+
+export function drawnLegend<T extends LegendItem>(items: readonly T[]): T[] {
+  return items.filter((item) => item.series === undefined || item.series.some((v) => v !== null));
 }
 
 export function ChartLegend({ items, testID }: { items: readonly LegendItem[]; testID?: string }): ReactElement {
   return (
     <View testID={testID} style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing.lg, rowGap: spacing.sm }}>
-      {items.map((item) => (
+      {drawnLegend(items).map((item) => (
         <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <View style={{ width: 10, height: 10, borderRadius: radius.sm / 3, backgroundColor: item.color }} />
           <AppText variant="caption" muted>

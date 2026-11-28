@@ -15,6 +15,7 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { Button, RadioRow, Segmented } from '@/ui/controls';
 import { Callout, Page } from '@/ui/daily/bits';
+import { fitsSideBySide, useLayout } from '@/ui/layout';
 import { ToggleRow } from '@/ui/manage/rows';
 import { Num } from '@/ui/Num';
 import { radius, spacing, useTheme } from '@/ui/theme';
@@ -23,6 +24,8 @@ const STEP_MIN = 5;
 const HOUR_MIN = 60;
 const RING_WINDOW_S = 120;
 const DAY_MIN = 1440;
+const DAY_DOT_DP = 44;
+const ACTION_MIN_DP = 184;
 
 type WindowChoice = 'off' | `${number}`;
 
@@ -67,6 +70,7 @@ function weekdayName(day: number, language: 'nl' | 'en', style: 'long' | 'narrow
 export default function HapticAlarmScreen() {
   const { t, language } = useT();
   const { colors } = useTheme();
+  const actionsStacked = !fitsSideBySide(useLayout(), 0, ACTION_MIN_DP, 2, spacing.md);
   const params = useLocalSearchParams<{ minutes?: string | string[] }>();
   const { alarm, alarmActions, device, days, userData } = useAppData();
   const fromPlanner = plannerMinutes(singleParam(params.minutes));
@@ -236,8 +240,9 @@ export default function HapticAlarmScreen() {
                 accessibilityState={{ checked: on, disabled: only }}
                 disabled={only}
                 onPress={() => setDraft((plan) => ({ ...plan, days: toggleDay(plan.days, day) }))}
-                style={{ width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.purple : colors.surfaceAlt }}>
-                <AppText variant="bodyStrong" color={on ? colors.primaryOn : colors.textMuted}>
+                hitSlop={{ top: 4, bottom: 4 }}
+                style={{ flex: 1, maxWidth: DAY_DOT_DP, aspectRatio: 1, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.purple : colors.surfaceAlt }}>
+                <AppText variant="bodyStrong" maxFontSizeMultiplier={1.2} color={on ? colors.primaryOn : colors.textMuted}>
                   {weekdayName(day, language, 'narrow').toUpperCase()}
                 </AppText>
               </Pressable>
@@ -258,7 +263,7 @@ export default function HapticAlarmScreen() {
         ) : null}
       </View>
 
-      <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
+      <View style={{ flexDirection: actionsStacked ? 'column' : 'row', gap: spacing.md, marginTop: spacing.sm }} testID="alarm-actions">
         <Button
           label={ringing ? t('alarm.ringing') : t('alarmx.testVibration')}
           variant="soft"
@@ -266,9 +271,9 @@ export default function HapticAlarmScreen() {
           onPress={() => void ring()}
           disabled={busy || ringing}
           testID="alarm-test"
-          style={{ flex: 1.6 }}
+          style={actionsStacked ? undefined : { flex: 1.6 }}
         />
-        <Button label={saving ? t('alarm.saving') : t('common.save')} onPress={() => void save()} disabled={busy || samePlan(draft, alarm.plan)} testID="alarm-save" style={{ flex: 1 }} />
+        <Button label={saving ? t('alarm.saving') : t('common.save')} onPress={() => void save()} disabled={busy || samePlan(draft, alarm.plan)} testID="alarm-save" style={actionsStacked ? undefined : { flex: 1 }} />
       </View>
 
       <Card testID="alarm-status" style={{ gap: 6 }}>

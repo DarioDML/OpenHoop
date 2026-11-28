@@ -1,4 +1,4 @@
-import { COMPACT_GUTTER, GUTTER, breaksMidWord, fitArt, fitFontSize, heroRingSize, layoutFor } from '@/ui/layout';
+import { COMPACT_GUTTER, GUTTER, breaksMidWord, fitArt, fitFontSize, fitsSideBySide, heroRingSize, layoutFor, trailFitsInline } from '@/ui/layout';
 
 describe('layoutFor', () => {
   it('keeps the roomy layout on a wide phone at normal text size', () => {
@@ -98,5 +98,36 @@ describe('fitArt', () => {
 
   it('uses the fallback before the first layout', () => {
     expect(fitArt(null, 780 * 0.22, 96, 220)).toBe(172);
+  });
+});
+
+describe('fitsSideBySide', () => {
+  it('stacks two wide actions on a 360dp phone at any text size', () => {
+    expect(fitsSideBySide(layoutFor(360, 780, 1), 16, 176)).toBe(false);
+    expect(fitsSideBySide(layoutFor(360, 780, 1.3), 16, 176)).toBe(false);
+  });
+
+  it('puts them side by side when each gets its minimum width', () => {
+    expect(fitsSideBySide(layoutFor(600, 960, 1), 16, 176)).toBe(true);
+  });
+
+  it('needs more room as the text grows', () => {
+    expect(fitsSideBySide(layoutFor(480, 900, 1), 16, 176)).toBe(true);
+    expect(fitsSideBySide(layoutFor(480, 900, 1.3), 16, 176)).toBe(false);
+  });
+});
+
+describe('trailFitsInline', () => {
+  it('keeps the trail inline until the row is measured', () => {
+    expect(trailFitsInline(null, 108, 90, 87)).toBe(true);
+    expect(trailFitsInline(300, 108, null, 87)).toBe(true);
+  });
+
+  it('keeps a short count beside the dots', () => {
+    expect(trailFitsInline(296, 108, 60, 87)).toBe(true);
+  });
+
+  it('drops a long count below once the dots would get less than their minimum', () => {
+    expect(trailFitsInline(296, 108, 120, 87)).toBe(false);
   });
 });
